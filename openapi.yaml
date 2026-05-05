@@ -1,0 +1,45 @@
+swagger: "2.0"
+info:
+  title: kinetic-api
+  description: API Gateway for Kinetic backend
+  version: 1.0.0
+
+host: YOUR_GATEWAY_HOST  # will be replaced later
+schemes:
+  - https
+
+paths:
+  /health:
+    get:
+      summary: Health check
+      operationId: health
+      x-google-backend:
+        address: https://kinetic-backend-service-179355588880.europe-west1.run.app
+        path_translation: APPEND_PATH_TO_ADDRESS
+      responses:
+        200:
+          description: OK
+
+  /upload:
+    post:
+      summary: Upload video
+      operationId: upload
+      x-google-backend:
+        address: https://kinetic-backend-service-179355588880.europe-west1.run.app
+        path_translation: APPEND_PATH_TO_ADDRESS
+
+      responses:
+        200:
+          description: Uploaded
+
+  /analyze:
+    post:
+      summary: Analyze video
+      operationId: analyze
+      x-google-backend:
+        address: https://kinetic-backend-service-179355588880.europe-west1.run.app
+        path_translation: APPEND_PATH_TO_ADDRESS
+
+      responses:
+        200:
+          description: Analysis complete
