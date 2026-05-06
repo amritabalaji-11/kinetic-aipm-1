@@ -1,0 +1,38 @@
+[
+    {
+        "rep_number": 1,
+        "tempo_data": {
+            "tempo_notation": "0-1-1",
+            "squat_type": "NORMAL",
+            "eccentric": 0.23,
+            "pause": 0.9,
+            "concentric": 1.03,
+            "total": 2.17
+        },
+        "back_data": {
+            "max_back_angle": 10.52,
+            "time_warning": 0.0,
+            "time_excessive": 0.0,
+            "status": "GOOD"
+        },
+        "camera_view": "angled"
+    },
+    {
+        "rep_number": 2,
+        "tempo_data": {
+            "tempo_notation": "0-1-0",
+            "squat_type": "DEEP",
+            "eccentric": 0.17,
+            "pause": 1.27,
+            "concentric": 0.47,
+            "total": 1.9
+        },
+        "back_data": {
+            "max_back_angle": 26.16,
+            "time_warning": 1.4,
+            "time_excessive": 0.0,
+            "status": "ACCEPTABLE"
+        },
+        "camera_view": "side_right"
+    }
+]

@@ -1,0 +1,182 @@
+[
+    {
+        "rep_number": 1,
+        "tempo_data": {
+            "tempo_notation": "0-1-1",
+            "squat_type": "DEEP",
+            "eccentric": 0.1,
+            "pause": 1.13,
+            "concentric": 0.5,
+            "total": 1.73
+        },
+        "back_data": {
+            "max_back_angle": 36.03,
+            "time_warning": 1.5,
+            "time_excessive": 0.0,
+            "status": "ACCEPTABLE"
+        },
+        "camera_view": "side_right"
+    },
+    {
+        "rep_number": 2,
+        "tempo_data": {
+            "tempo_notation": "0-1-1",
+            "squat_type": "DEEP",
+            "eccentric": 0.13,
+            "pause": 1.13,
+            "concentric": 0.6,
+            "total": 1.87
+        },
+        "back_data": {
+            "max_back_angle": 32.47,
+            "time_warning": 1.57,
+            "time_excessive": 0.0,
+            "status": "ACCEPTABLE"
+        },
+        "camera_view": "side_right"
+    },
+    {
+        "rep_number": 3,
+        "tempo_data": {
+            "tempo_notation": "0-1-1",
+            "squat_type": "DEEP",
+            "eccentric": 0.17,
+            "pause": 1.37,
+            "concentric": 0.57,
+            "total": 2.1
+        },
+        "back_data": {
+            "max_back_angle": 33.32,
+            "time_warning": 1.87,
+            "time_excessive": 0.0,
+            "status": "ACCEPTABLE"
+        },
+        "camera_view": "side_right"
+    },
+    {
+        "rep_number": 4,
+        "tempo_data": {
+            "tempo_notation": "0-1-1",
+            "squat_type": "DEEP",
+            "eccentric": 0.17,
+            "pause": 1.4,
+            "concentric": 0.57,
+            "total": 2.13
+        },
+        "back_data": {
+            "max_back_angle": 35.02,
+            "time_warning": 1.9,
+            "time_excessive": 0.0,
+            "status": "ACCEPTABLE"
+        },
+        "camera_view": "side_right"
+    },
+    {
+        "rep_number": 5,
+        "tempo_data": {
+            "tempo_notation": "0-1-1",
+            "squat_type": "DEEP",
+            "eccentric": 0.13,
+            "pause": 1.47,
+            "concentric": 0.57,
+            "total": 2.17
+        },
+        "back_data": {
+            "max_back_angle": 35.21,
+            "time_warning": 1.9,
+            "time_excessive": 0.0,
+            "status": "ACCEPTABLE"
+        },
+        "camera_view": "side_right"
+    },
+    {
+        "rep_number": 6,
+        "tempo_data": {
+            "tempo_notation": "0-2-1",
+            "squat_type": "DEEP",
+            "eccentric": 0.17,
+            "pause": 1.6,
+            "concentric": 0.6,
+            "total": 2.37
+        },
+        "back_data": {
+            "max_back_angle": 38.42,
+            "time_warning": 2.1,
+            "time_excessive": 0.0,
+            "status": "ACCEPTABLE"
+        },
+        "camera_view": "side_right"
+    },
+    {
+        "rep_number": 7,
+        "tempo_data": {
+            "tempo_notation": "0-2-1",
+            "squat_type": "DEEP",
+            "eccentric": 0.2,
+            "pause": 1.6,
+            "concentric": 0.6,
+            "total": 2.4
+        },
+        "back_data": {
+            "max_back_angle": 35.65,
+            "time_warning": 2.13,
+            "time_excessive": 0.0,
+            "status": "ACCEPTABLE"
+        },
+        "camera_view": "side_right"
+    },
+    {
+        "rep_number": 8,
+        "tempo_data": {
+            "tempo_notation": "0-2-1",
+            "squat_type": "DEEP",
+            "eccentric": 0.13,
+            "pause": 1.67,
+            "concentric": 0.57,
+            "total": 2.37
+        },
+        "back_data": {
+            "max_back_angle": 40.54,
+            "time_warning": 2.17,
+            "time_excessive": 1.7,
+            "status": "EXCESSIVE_LEAN"
+        },
+        "camera_view": "side_right"
+    },
+    {
+        "rep_number": 9,
+        "tempo_data": {
+            "tempo_notation": "0-2-1",
+            "squat_type": "DEEP",
+            "eccentric": 0.13,
+            "pause": 1.57,
+            "concentric": 0.6,
+            "total": 2.3
+        },
+        "back_data": {
+            "max_back_angle": 38.6,
+            "time_warning": 2.03,
+            "time_excessive": 0.0,
+            "status": "ACCEPTABLE"
+        },
+        "camera_view": "side_right"
+    },
+    {
+        "rep_number": 10,
+        "tempo_data": {
+            "tempo_notation": "0-2-1",
+            "squat_type": "DEEP",
+            "eccentric": 0.2,
+            "pause": 1.6,
+            "concentric": 0.6,
+            "total": 2.4
+        },
+        "back_data": {
+            "max_back_angle": 40.25,
+            "time_warning": 2.17,
+            "time_excessive": 1.57,
+            "status": "EXCESSIVE_LEAN"
+        },
+        "camera_view": "side_right"
+    }
+]
