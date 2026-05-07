@@ -26,7 +26,14 @@ backend/
 ```
 ---
 
-## ⚙️ How to Run Locally
+## ⚙️ How to Run Locally with Google Cloud Authentication 
+
+Each teammate must authenticate using their own Google account:
+
+```bash
+gcloud auth login
+gcloud auth application-default login
+```
 
 ### 1. Activate environment
 ```bash
@@ -65,6 +72,7 @@ Uses `.env` locally:
 ```bash
 FRONTEND_ORIGIN=http://localhost:3000
 ENV=development
+GCS_BUCKET_NAME=your-bucket-name
 ```
 Never commit `.env` to repo.
 
