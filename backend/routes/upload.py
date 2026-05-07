@@ -1,30 +1,60 @@
-import uuid
-from fastapi import APIRouter, File, UploadFile, BackgroundTasks
+from fastapi import APIRouter, UploadFile, File, Form
+from uuid import uuid4
+
 from utils.gcs import upload_file_to_gcs
-from utils.config import GCS_BUCKET_NAME
-from services.analysis_pipeline import run_analysis
+from db.database import db
 
 router = APIRouter()
 
+
 @router.post("/upload")
-async def upload_video(
+async def upload(
     file: UploadFile = File(...),
-    background_tasks: BackgroundTasks = BackgroundTasks()
+    exercise: str = Form(...),
+    weight: float = Form(...)
 ):
-    analysis_id = str(uuid.uuid4())
 
-    file_bytes = await file.read()
+    # Generate unique analysis ID
+    analysis_id = str(uuid4())
 
-    gcs_path = upload_file_to_gcs(
-        file_bytes=file_bytes,
-        filename=file.filename,
-        bucket_name=GCS_BUCKET_NAME
+    # GCS path required by spec
+    gcs_path = f"videos/{analysis_id}/{file.filename}"
+
+    # Upload to Google Cloud Storage
+    await upload_file_to_gcs(file, gcs_path)
+
+    # Insert session into database
+    await db.execute(
+        """
+        INSERT INTO form_sessions
+            (
+                session_id,
+                user_id,
+                exercise_name,
+                weight_used,
+                status,
+                video_gcs_path
+            )
+        VALUES
+            (
+                :id,
+                :uid,
+                :exercise,
+                :weight,
+                'processing',
+                :path
+            )
+        """,
+        {
+            "id": analysis_id,
+            "uid": "stub_user",
+            "exercise": exercise,
+            "weight": weight,
+            "path": gcs_path
+        }
     )
 
-    background_tasks.add_task(run_analysis, analysis_id, gcs_path)
-
+    # STRICT response contract
     return {
-        "status": "uploaded",
-        "analysis_id": analysis_id,
-        "file_path": gcs_path
+        "analysis_id": analysis_id
     }
