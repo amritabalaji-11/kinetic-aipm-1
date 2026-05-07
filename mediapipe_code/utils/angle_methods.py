@@ -1,3 +1,5 @@
+from typing import Optional
+import numpy as np
 import cv2
 
 # Lower Body (Squat Mechanics)
@@ -151,7 +153,6 @@ def calculate_knee_valgus(hip, knee, ankle):
         Positive = valgus (knee caving in)
         Negative = varus (knee bowing out)
     """
-    import numpy as np
     
     hip = np.array([hip.x, hip.y])  # Use only x, y (2D projection)
     knee = np.array([knee.x, knee.y])
@@ -173,6 +174,53 @@ def calculate_knee_valgus(hip, knee, ankle):
     
     # Return x-component (lateral displacement)
     return valgus_distance[0]
+
+def calculate_torso_pelvis_angle(
+        shoulder_mid, hip_mid, knee_mid
+    ) -> Optional[float]:
+    """
+    Computes torso-pelvis angle using world coordinates.
+    """
+    shoulder_vec = np.array([
+        shoulder_mid.x,
+        shoulder_mid.y,
+        shoulder_mid.z,
+    ])
+
+    hip_vec = np.array([
+        hip_mid.x,
+        hip_mid.y,
+        hip_mid.z,
+    ])
+
+    knee_vec = np.array([
+        knee_mid.x,
+        knee_mid.y,
+        knee_mid.z,
+    ])
+
+    torso_vec = hip_vec - shoulder_vec
+    pelvis_vec = knee_vec - hip_vec
+
+        # -----------------------------------
+        # Angle
+        # -----------------------------------
+
+    torso_norm = np.linalg.norm(torso_vec)
+    pelvis_norm = np.linalg.norm(pelvis_vec)
+
+    if torso_norm == 0 or pelvis_norm == 0:
+        return None
+
+    cosine_angle = np.dot(torso_vec, pelvis_vec) / (
+        torso_norm * pelvis_norm
+    )
+
+    cosine_angle = np.clip(cosine_angle, -1.0, 1.0)
+
+    angle_deg = np.degrees(np.arccos(cosine_angle))
+
+    return float(angle_deg)
 
 
 def detect_camera_view(landmarks, world_landmarks):

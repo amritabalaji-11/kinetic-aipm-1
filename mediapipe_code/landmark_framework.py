@@ -2,13 +2,17 @@ from dataclasses import asdict
 from typing import Any, Dict, List
 import mediapipe as mp
 import cv2
+from utils.rep_counter_landmark import RepCounterLandmark
 from utils.angle_methods import detect_camera_view
 from utils.landmark_quality_configuration import (
-    ACCEPTABLE_THRESHOLD, CRITICAL_HARD_FLOOR, GOOD_THRESHOLD, LANDMARKS, PRESENCE_THRESHOLD, 
+    LANDMARKS, PRESENCE_THRESHOLD, 
     VISIBILITY_THRESHOLD, FrameAssessment, FrameLandmarkData, 
     VideoAssessment)
 from utils.landmark_quality_methods import (
-    extract_frame_landmark_data, get_first_pose, safe_get_landmark)
+    annotate_points_of_max_error, apply_hard_floor, compute_composite_score, 
+    compute_frame_reliability, compute_reliability, extract_frame_landmark_data, 
+    find_rep, get_first_pose, get_rep_angles, safe_get_landmark, score_status, 
+    select_landmarks_by_view, tag_key_positions)
 
 
 CRITICAL_LANDMARKS = [
@@ -58,56 +62,6 @@ class LandmarkQualityFramework:
             min_tracking_confidence=0.50,
         )
         return self.PoseLandmarker.create_from_options(options)
-    
-
-    def _select_landmarks_by_view(self, camera_view: str):
-        """
-        Selects which landmarks should be evaluated
-        depending on camera orientation.
-        """
-
-        # Front or angled:
-        # evaluate everything
-        if camera_view in ["front", "angled"]:
-            return (
-                self.all_landmarks,
-                self.critical_landmarks
-            )
-
-        # Left side view:
-        # only LEFT landmarks
-        if camera_view == "side_left":
-
-            active_landmarks = [
-                name for name in self.all_landmarks
-                if name.startswith("LEFT") or name == "NOSE"
-            ]
-
-            active_critical = [
-                name for name in self.critical_landmarks
-                if name.startswith("LEFT")
-            ]
-
-            return active_landmarks, active_critical
-
-        # Right side view:
-        # only RIGHT landmarks
-        if camera_view == "side_right":
-
-            active_landmarks = [
-                name for name in self.all_landmarks
-                if name.startswith("RIGHT") or name == "NOSE"
-            ]
-
-            active_critical = [
-                name for name in self.critical_landmarks
-                if name.startswith("RIGHT")
-            ]
-
-            return active_landmarks, active_critical
-
-        # Fallback
-        return [], []
 
 
     def analyze_video(self, video_path: str) -> VideoAssessment:
@@ -123,6 +77,10 @@ class LandmarkQualityFramework:
 
         with self._create_landmarker() as landmarker:
             frame_index = 0
+
+            rep_counter = RepCounterLandmark()
+            rep_segments = []
+            current_rep_start = None
 
             # Start video loop
             while True:
@@ -153,6 +111,9 @@ class LandmarkQualityFramework:
                             passes_critical_gate=False,
                             critical_failures=[f"no_pose_detected_frame_{frame_index}"],
                             tracked_landmarks={},
+                            camera_view="unknown",
+                            expected_landmarks=[],
+                            expected_critical_landmarks=[],
                         )
                     )
                     frame_index += 1
@@ -167,7 +128,7 @@ class LandmarkQualityFramework:
 
                 # Apply the active landmarks by camera view
                 active_landmarks, active_critical_landmarks = (
-                    self._select_landmarks_by_view(camera_view)
+                    select_landmarks_by_view(self.all_landmarks, self.critical_landmarks, camera_view)
                 )
 
                 
@@ -214,6 +175,30 @@ class LandmarkQualityFramework:
                             f"{name}:visibility={lm.visibility:.2f},presence={lm.presence:.2f}"
                         )
 
+                # Rep counting only if frame is reliable
+                #if passes_critical_gate:
+                hip_angle, knee_angle = get_rep_angles(self.landmarks, world_pose, camera_view)
+
+                if hip_angle is not None:
+                    rep_started, rep_completed, rep_count, state = rep_counter.update(
+                            hip_angle,
+                            knee_angle if knee_angle is not None else hip_angle
+                        )
+
+                    if rep_started and current_rep_start is None:
+                            current_rep_start = frame_index
+
+                        # When a rep ends, the start and end frame are saved
+                    if rep_completed and current_rep_start is not None:
+                            rep_segments.append((current_rep_start, frame_index))
+                            current_rep_start = None
+
+
+                frame_reliability = compute_frame_reliability(
+                    tracked_landmarks,
+                    active_critical_landmarks
+                )
+
                 raw_frames.append(
                     FrameAssessment(
                         frame_index=frame_index,
@@ -223,31 +208,73 @@ class LandmarkQualityFramework:
                         tracked_landmarks=tracked_landmarks,
                         camera_view=camera_view,
                         expected_landmarks=active_landmarks,
-                        expected_critical_landmarks=active_critical_landmarks
+                        expected_critical_landmarks=active_critical_landmarks,
+                        frame_reliability=frame_reliability
                     )
                 )
 
                 frame_index += 1
 
+        # End of the loop
         cap.release()
 
         # Layer 1 — Per-Landmark Reliability Rate
-        reliability_by_landmark = self._compute_reliability(raw_frames)
+        reliability_by_landmark = compute_reliability(self.all_landmarks, self.critical_landmarks, raw_frames)
         
         # Layer 2 — Weighted Composite Video Score
-        composite_score = self._compute_composite_score(
+        composite_score = compute_composite_score(
+            self.weights,
             reliability_by_landmark,
             raw_frames
         )
         
         # Apply a status to the composite score
-        status = self._score_status(composite_score)
+        status = score_status(composite_score)
 
         # Layer 3 — Hard Floor Rule (Critical Landmarks)
-        critical_flags = self._apply_hard_floor(reliability_by_landmark, raw_frames)
+        critical_flags = apply_hard_floor(reliability_by_landmark, raw_frames)
         
+        # Visibility / quality payload
+        eligible_frames = self._build_visibility_payload(raw_frames)
         
-        eligible_frames = self._build_biomechanics_payload(raw_frames)
+        # Biomechanics payload only if status is not POOR
+        if status != "POOR":
+            # GATE 1: Reliability Gate — per-frame check on critical landmarks
+            # Filters frames with visibility and presence greater than 0.70
+            """reliability_frames = []
+            for frame in raw_frames:
+                if frame.passes_critical_gate:
+                    reliability_frames.append(frame)"""
+            
+            print("Rep segments: ",rep_segments)
+
+            # GATE 2: Rep Membership
+            # Filter frames that have repetition
+            for frame in raw_frames:
+                frame.rep_index = find_rep(frame.frame_index, rep_segments)
+
+            frames_with_rep_index = []
+            for frame in raw_frames:
+                if frame.rep_index:
+                    frames_with_rep_index.append(frame)
+
+
+            # GATE 3: Key Position Tagging — top and bottom position frames per rep
+            # Filter the top and bottom position frame of each repetition.
+            # Apply a higher threshold.
+            tag_key_positions(frames_with_rep_index)
+
+            """key_frames = []
+            for frame in frames_with_rep_index:
+                if frame.key_frame_reliable:
+                    key_frames.append(frame)"""
+
+            # Add Points of max error
+            annotate_points_of_max_error(frames_with_rep_index)
+
+            biomechanics_frames = self._build_biomechanics_payload(frames_with_rep_index)
+        else:
+            biomechanics_frames = []
 
         return VideoAssessment(
             reliability_by_landmark=reliability_by_landmark,
@@ -255,107 +282,12 @@ class LandmarkQualityFramework:
             status=status,
             critical_flags=critical_flags,
             eligible_frames=eligible_frames,
+            biomechanics_frames=biomechanics_frames,
             all_frames=raw_frames,
         )
 
-    def _compute_reliability(
-        self,
-        frames: List[FrameAssessment]
-    ) -> Dict[str, float]:
-        """
-        Returns reliability only for landmarks that were actually expected
-        according to camera_view / frame configuration.
-        """
 
-        counts: Dict[str, int] = {}
-        expected_counts: Dict[str, int] = {}
-
-        for frame in frames:
-            active_landmarks, _ = self._select_landmarks_by_view(frame.camera_view)
-
-            for name in active_landmarks:
-                if name not in counts:
-                    counts[name] = 0
-                    expected_counts[name] = 0
-
-                expected_counts[name] += 1
-
-                lm = frame.tracked_landmarks.get(name)
-                if (
-                    lm is not None
-                    and lm.visibility >= VISIBILITY_THRESHOLD
-                    and lm.presence >= PRESENCE_THRESHOLD
-                ):
-                    counts[name] += 1
-
-        return {
-            name: counts[name] / expected_counts[name]
-            for name in expected_counts
-            if expected_counts[name] > 0
-        }
-
-    def _compute_composite_score(self, 
-                                 reliability_by_landmark: Dict[str, float], 
-                                 frames: List[FrameAssessment]) -> float:
-        """
-        For each landmark returns reliability x biomechanical weight
-        Output: 0 - 1 (e.g 0.82 = acceptable)
-        """
-        expected_landmarks = set()
-
-        for frame in frames:
-            expected_landmarks.update(frame.expected_landmarks)
-
-        total_weight = 0.0
-        weighted_score = 0.0
-
-        for name in expected_landmarks:
-
-            weight = self.weights.get(name, 0.0)
-            reliability = reliability_by_landmark.get(name, 0.0)
-
-            weighted_score += weight * reliability
-            total_weight += weight
-
-        if total_weight == 0:
-            return 0.0
-
-        normalized_score = weighted_score / total_weight
-
-        return round(normalized_score, 4)
-
-    def _apply_hard_floor(
-        self,
-        reliability_by_landmark: Dict[str, float],
-        frames: List[FrameAssessment]
-    ) -> List[str]:
-        """
-        Returns a list of critical occlusions only for landmarks
-        that were actually expected by camera view.
-        """
-        flags = []
-
-        expected_critical = set()
-        for frame in frames:
-            expected_critical.update(frame.expected_critical_landmarks)
-
-        for name in expected_critical:
-            r = reliability_by_landmark.get(name, 0.0)
-            if r < CRITICAL_HARD_FLOOR:
-                flags.append(
-                    f"CRITICAL_OCCLUSION: {name} visible in only {r*100:.0f}% of frames"
-                )
-
-        return flags
-
-    def _score_status(self, composite_score: float) -> str:
-        if composite_score >= GOOD_THRESHOLD:
-            return "GOOD"
-        if composite_score >= ACCEPTABLE_THRESHOLD:
-            return "ACCEPTABLE"
-        return "POOR"
-
-    def _build_biomechanics_payload(self, frames: List[FrameAssessment]) -> List[Dict[str, Any]]:
+    def _build_visibility_payload(self, frames: List[FrameAssessment]) -> List[Dict[str, Any]]:
         payload = []
 
         for frame in frames:
@@ -375,12 +307,65 @@ class LandmarkQualityFramework:
             )
 
         return payload
-    
+
+
+    def _build_biomechanics_payload(self, frames: List[FrameAssessment]) -> List[Dict[str, Any]]:
+        payload = []
+
+        for frame in frames:
+            #if not frame.key_frame_reliable:
+               #continue
+            if not frame.rep_index or not frame.position_tag:
+                continue
+
+            included_names = []
+            included_names.extend(frame.expected_critical_landmarks)
+            included_names.extend(frame.expected_important_landmarks)
+
+            seen = set()
+            included_names = [n for n in included_names if not (n in seen or seen.add(n))]
+
+            world_landmarks = {}
+            screen_landmarks = {}
+
+            for name in included_names:
+                lm = frame.tracked_landmarks.get(name)
+                if lm is None:
+                    continue
+
+                world_landmarks[name.lower()] = {
+                    "x": lm.x,
+                    "y": lm.y,
+                    "z": lm.z,
+                    "visibility": lm.visibility,
+                    "presence": lm.presence,
+                }
+
+                screen_landmarks[name.lower()] = {
+                    "x": lm.screen_x,
+                    "y": lm.screen_y,
+                }
+
+            payload.append(
+                {
+                    "frame_index": frame.frame_index,
+                    "timestamp_ms": frame.timestamp_ms,
+                    "rep_index": frame.rep_index,
+                    "position_tag": frame.position_tag,
+                    "error_flags": frame.error_flags,
+                    "error_values": frame.error_values,
+                    "frame_reliability": frame.frame_reliability,
+                    "world_landmarks": world_landmarks,
+                    "screen_landmarks": screen_landmarks,
+                }
+            )
+
+        return payload
 
 
 
-model_path = "./mediapipe_code/model/pose_landmarker_heavy.task"
-video_path = "./mediapipe_code/videos/good_form/goblet_squats_2.mp4"
+model_path = "./mediapipe_code/model/pose_landmarker_lite.task"
+video_path = "./mediapipe_code/videos/good_form/goblet_squats_1.mp4"
 
 framework = LandmarkQualityFramework(model_path=model_path)
 result = framework.analyze_video(video_path)
@@ -389,3 +374,15 @@ print("Composite score:", result.composite_score)
 print("Status:", result.status)
 print("Critical flags:", result.critical_flags)
 print("Eligible frames:", len(result.eligible_frames))
+print("Biomechanics frames count:", len(result.biomechanics_frames))
+
+import os
+import json
+
+output_dir = "./mediapipe_code/results_landmark"
+os.makedirs(output_dir, exist_ok=True)
+video_name = os.path.splitext(os.path.basename(video_path))[0]
+json_filename = os.path.join(output_dir, f"{video_name}.json")
+
+with open(json_filename, "w", encoding="utf-8") as f:
+    json.dump(result.biomechanics_frames, f, indent=4, ensure_ascii=False)

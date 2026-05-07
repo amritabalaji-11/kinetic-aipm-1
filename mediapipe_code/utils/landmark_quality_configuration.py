@@ -1,5 +1,5 @@
 from dataclasses import dataclass, field
-from typing import Dict, List, Any
+from typing import Dict, List, Any, Optional
 from utils.pose_landmarks import (
     LEFT_SHOULDER, RIGHT_SHOULDER,
     LEFT_HIP, RIGHT_HIP,
@@ -133,9 +133,11 @@ ACCEPTABLE_THRESHOLD = 0.70
 
 @dataclass
 class FrameLandmarkData:
-    x: float
-    y: float
-    z: float
+    x: float          # world x
+    y: float          # world y
+    z: float          # world z
+    screen_x: float
+    screen_y: float
     visibility: float
     presence: float
 
@@ -143,12 +145,23 @@ class FrameLandmarkData:
 class FrameAssessment:
     frame_index: int
     timestamp_ms: int
+    camera_view: str
     passes_critical_gate: bool
-    critical_failures: List[str]
-    tracked_landmarks: Dict[str, FrameLandmarkData]
-    camera_view: str = "unknown"
+    rep_index: Optional[int] = None
+    position_tag: Optional[str] = None  # "top" | "bottom" | None
+
+    tracked_landmarks: Dict[str, FrameLandmarkData] = field(default_factory=dict)
     expected_landmarks: List[str] = field(default_factory=list)
     expected_critical_landmarks: List[str] = field(default_factory=list)
+    expected_important_landmarks: List[str] = field(default_factory=list)
+
+    frame_reliability: float = 0.0
+    critical_failures: List[str] = field(default_factory=list)
+
+    key_frame_reliable: bool = False
+
+    error_flags: List[str] = field(default_factory=list)
+    error_values: Dict[str, float] = field(default_factory=dict)
 
 @dataclass
 class VideoAssessment:
@@ -157,4 +170,5 @@ class VideoAssessment:
     status: str
     critical_flags: List[str]
     eligible_frames: List[Dict[str, Any]]
+    biomechanics_frames: List[Dict[str, Any]]
     all_frames: List[FrameAssessment]
