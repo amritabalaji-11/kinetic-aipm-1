@@ -13,8 +13,10 @@ import json
 import os
 
 
+model_path = "mediapipe_code/model/pose_landmarker_heavy.task"
+video_path = "./mediapipe_code/videos/good_form/goblet_squats_1.mp4"
 # Initialize MediaPipe
-base_options = python.BaseOptions(model_asset_path='mediapipe_code/model/pose_landmarker_heavy.task')
+base_options = python.BaseOptions(model_asset_path=model_path)
 options = vision.PoseLandmarkerOptions(
     base_options=base_options,
     running_mode=vision.RunningMode.VIDEO,
@@ -240,7 +242,6 @@ def process_frame(rgb_image, detection_result, frame_timestamp_ms, json_info, th
     return annotated_image, json_info
 
 
-video_path = "./mediapipe_code/videos/good_form/goblet_squats_1.mp4"
 video_name = os.path.splitext(os.path.basename(video_path))[0]
 
 # Output configuration for JSONs files
