@@ -67,3 +67,9 @@ FRONTEND_ORIGIN=http://localhost:3000
 ENV=development
 ```
 Never commit `.env` to repo.
+
+
+# Video Upload
+''' bash
+curl.exe POST http://127.0.0.1:8000/upload -F "file=@video_name.mp4" ---- Make sure to execute the command on the same folder than the video file.
+Once uploaded it will be shown in the uploads folder.
