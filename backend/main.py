@@ -1,5 +1,6 @@
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
+from db.database import db
 
 from utils.config import FRONTEND_ORIGIN
 from routes.health import router as health_router
@@ -20,3 +21,13 @@ app.add_middleware(
 app.include_router(health_router)
 app.include_router(upload.router)
 app.include_router(stream.router)
+
+#DB connection management
+@app.on_event("startup")
+async def startup():
+    await db.connect()
+
+
+@app.on_event("shutdown")
+async def shutdown():
+    await db.disconnect()
