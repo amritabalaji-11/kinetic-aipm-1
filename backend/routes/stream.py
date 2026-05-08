@@ -1,16 +1,18 @@
+# SSE HTTP endpoint
+
 from fastapi import APIRouter, Request, HTTPException
 from fastapi.responses import StreamingResponse
-from utils.sse_manager import sse_manager
+from services.pipeline_stream import pipeline_stream
 
 router = APIRouter()
 
-@router.get("/stream")
-async def stream_analysis_status(analysis_id: str, request: Request):
+@router.get("/analysis/{analysis_id}/stream")
+async def stream_analysis_status(analysis_id: str):
     if not analysis_id:
         raise HTTPException(status_code=400, detail="analysis_id required")
 
     return StreamingResponse(
-        sse_manager.subscribe(analysis_id, request),
+        pipeline_stream(analysis_id),
         media_type="text/event-stream",
         headers={
             "Cache-Control": "no-cache",
