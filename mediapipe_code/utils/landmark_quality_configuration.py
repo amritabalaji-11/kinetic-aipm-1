@@ -122,6 +122,52 @@ LANDMARKS = {
     },
 }
 
+LEG_LANDMARK_NAMES = [
+    "LEFT_SHOULDER", "RIGHT_SHOULDER",
+    "LEFT_HIP", "RIGHT_HIP",
+    "LEFT_KNEE", "RIGHT_KNEE",
+    "LEFT_ANKLE", "RIGHT_ANKLE"
+]
+
+LEG_TARGET_LANDMARKS = [LANDMARKS[name]["id"] for name in LEG_LANDMARK_NAMES]
+
+LEG_CONNECTIONS = frozenset([
+    (LANDMARKS["LEFT_SHOULDER"]["id"], LANDMARKS["RIGHT_SHOULDER"]["id"]),
+    (LANDMARKS["LEFT_SHOULDER"]["id"], LANDMARKS["LEFT_HIP"]["id"]),
+    (LANDMARKS["RIGHT_SHOULDER"]["id"], LANDMARKS["RIGHT_HIP"]["id"]),
+    (LANDMARKS["LEFT_HIP"]["id"], LANDMARKS["LEFT_KNEE"]["id"]),
+    (LANDMARKS["RIGHT_HIP"]["id"], LANDMARKS["RIGHT_KNEE"]["id"]),
+    (LANDMARKS["LEFT_KNEE"]["id"], LANDMARKS["LEFT_ANKLE"]["id"]),
+    (LANDMARKS["RIGHT_KNEE"]["id"], LANDMARKS["RIGHT_ANKLE"]["id"]),
+    (LANDMARKS["LEFT_HIP"]["id"], LANDMARKS["RIGHT_HIP"]["id"]),
+])
+
+RIGHT_SIDE = [
+    LANDMARKS["RIGHT_SHOULDER"]["id"],
+    LANDMARKS["RIGHT_HIP"]["id"],
+    LANDMARKS["RIGHT_KNEE"]["id"],
+    LANDMARKS["RIGHT_ANKLE"]["id"],
+]
+
+LEFT_SIDE = [
+    LANDMARKS["LEFT_SHOULDER"]["id"],
+    LANDMARKS["LEFT_HIP"]["id"],
+    LANDMARKS["LEFT_KNEE"]["id"],
+    LANDMARKS["LEFT_ANKLE"]["id"],
+]
+
+LEG_CONNECTIONS_LEFT_SIDE = [
+    (LANDMARKS["LEFT_SHOULDER"]["id"], LANDMARKS["LEFT_HIP"]["id"]),
+    (LANDMARKS["LEFT_HIP"]["id"], LANDMARKS["LEFT_KNEE"]["id"]),
+    (LANDMARKS["LEFT_KNEE"]["id"], LANDMARKS["LEFT_ANKLE"]["id"]),
+]
+
+LEG_CONNECTIONS_RIGHT_SIDE = [
+    (LANDMARKS["RIGHT_SHOULDER"]["id"], LANDMARKS["RIGHT_HIP"]["id"]),
+    (LANDMARKS["RIGHT_HIP"]["id"], LANDMARKS["RIGHT_KNEE"]["id"]),
+    (LANDMARKS["RIGHT_KNEE"]["id"], LANDMARKS["RIGHT_ANKLE"]["id"]),
+]
+
 VISIBILITY_THRESHOLD = 0.70
 PRESENCE_THRESHOLD = 0.70
 CRITICAL_HARD_FLOOR = 0.60
@@ -164,11 +210,12 @@ class FrameAssessment:
     error_values: Dict[str, float] = field(default_factory=dict)
 
 @dataclass
-class VideoAssessment:
-    reliability_by_landmark: Dict[str, float]
-    composite_score: float
-    status: str
-    critical_flags: List[str]
-    eligible_frames: List[Dict[str, Any]]
-    biomechanics_frames: List[Dict[str, Any]]
-    all_frames: List[FrameAssessment]
+class BackAngleRepMetrics:
+    back_angle_start: Optional[float] = None
+    back_angle_max: Optional[float] = None
+    back_angle_at_bottom: Optional[float] = None
+    time_warning: float = 0.0
+    time_excessive: float = 0.0
+    status: str = "UNKNOWN"
+    butt_wink_detected: bool = False
+    butt_wink_severity_deg: float = 0.0

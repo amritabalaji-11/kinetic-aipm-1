@@ -102,10 +102,12 @@ def compute_view_metrics(pose_world, camera_view):
         left_back_angle = calculate_back_angle(
             pose_world[LEFT_SHOULDER],
             pose_world[LEFT_HIP],
+            pose_world[LEFT_KNEE]
         )
         right_back_angle = calculate_back_angle(
             pose_world[RIGHT_SHOULDER],
             pose_world[RIGHT_HIP],
+            pose_world[RIGHT_KNEE],
         )
         metrics["back_angle"] = (left_back_angle + right_back_angle) / 2
 
@@ -153,3 +155,69 @@ def compute_view_metrics(pose_world, camera_view):
         )
 
     return metrics
+
+
+def draw_torso_vertical_reference(
+    image,
+    pose_landmarks,
+    width,
+    height,
+    line_length=200,
+):
+    """
+    Draw:
+    - torso line
+    - global vertical reference line
+    - torso angle text
+    """
+
+    left_shoulder = pose_landmarks[11]
+    right_shoulder = pose_landmarks[12]
+
+    left_hip = pose_landmarks[23]
+    right_hip = pose_landmarks[24]
+
+    # Midpoints in pixel coordinates
+    shoulder_x = int(((left_shoulder.x + right_shoulder.x) / 2) * width)
+    shoulder_y = int(((left_shoulder.y + right_shoulder.y) / 2) * height)
+
+    hip_x = int(((left_hip.x + right_hip.x) / 2) * width)
+    hip_y = int(((left_hip.y + right_hip.y) / 2) * height)
+
+    # -----------------------------
+    # Draw torso line
+    # -----------------------------
+    cv2.line(
+        image,
+        (hip_x, hip_y),
+        (shoulder_x, shoulder_y),
+        (0, 255, 0),
+        4,
+    )
+
+    # -----------------------------
+    # Draw vertical reference line
+    # -----------------------------
+    vertical_end = (
+        hip_x,
+        hip_y - line_length
+    )
+
+    cv2.line(
+        image,
+        (hip_x, hip_y),
+        vertical_end,
+        (255, 255, 0),
+        2,
+    )
+
+    # -----------------------------
+    # Draw hip point
+    # -----------------------------
+    cv2.circle(
+        image,
+        (hip_x, hip_y),
+        6,
+        (0, 0, 255),
+        -1,
+    )

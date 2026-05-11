@@ -1,0 +1,126 @@
+{
+    "session": {
+        "analysis_id": "d6773c9d-0115-453f-8c9c-2a0d476daf89",
+        "exercise": "Goblet Squat",
+        "weight_kg": 20,
+        "rep_count": 3,
+        "camera_view": "side_left"
+    },
+    "reps": [
+        {
+            "rep_number": 1,
+            "tempo_data": {
+                "tempo_notation": "1-1-1",
+                "eccentric": 0.83,
+                "pause": 1.13,
+                "concentric": 0.73,
+                "total": 2.7
+            },
+            "back_data": {
+                "back_angle_start": 27.42,
+                "back_angle_max": 31.35,
+                "back_angle_at_bottom": 30.97,
+                "time_warning": 2.6,
+                "time_excessive": 0.0,
+                "status": "ACCEPTABLE"
+            },
+            "depth_data": {
+                "knee_angle_start": 103.8,
+                "knee_angle_at_bottom": 94.03,
+                "knee_angle_min": 94.03,
+                "depth_classification": "deep",
+                "depth_insufficient_flag": false
+            },
+            "ankle_data": {
+                "dorsiflexion_at_bottom": "adecuate"
+            },
+            "camera_view": "side_left"
+        },
+        {
+            "rep_number": 2,
+            "tempo_data": {
+                "tempo_notation": "0-1-1",
+                "eccentric": 0.27,
+                "pause": 1.13,
+                "concentric": 0.7,
+                "total": 2.1
+            },
+            "back_data": {
+                "back_angle_start": 30.74,
+                "back_angle_max": 32.64,
+                "back_angle_at_bottom": 31.46,
+                "time_warning": 1.9,
+                "time_excessive": 0.0,
+                "status": "ACCEPTABLE"
+            },
+            "depth_data": {
+                "knee_angle_start": 104.19,
+                "knee_angle_at_bottom": 91.86,
+                "knee_angle_min": 91.86,
+                "depth_classification": "deep",
+                "depth_insufficient_flag": false
+            },
+            "ankle_data": {
+                "dorsiflexion_at_bottom": "restricted"
+            },
+            "camera_view": "side_left"
+        },
+        {
+            "rep_number": 3,
+            "tempo_data": {
+                "tempo_notation": "0-1-1",
+                "eccentric": 0.37,
+                "pause": 1.03,
+                "concentric": 0.6,
+                "total": 2.0
+            },
+            "back_data": {
+                "back_angle_start": 28.54,
+                "back_angle_max": 34.5,
+                "back_angle_at_bottom": 30.17,
+                "time_warning": 2.0,
+                "time_excessive": 0.0,
+                "status": "ACCEPTABLE"
+            },
+            "depth_data": {
+                "knee_angle_start": 103.94,
+                "knee_angle_at_bottom": 92.52,
+                "knee_angle_min": 92.52,
+                "depth_classification": "deep",
+                "depth_insufficient_flag": false
+            },
+            "ankle_data": {
+                "dorsiflexion_at_bottom": "restricted"
+            },
+            "camera_view": "side_left"
+        }
+    ],
+    "consolidated": {
+        "total_reps": 3,
+        "posture": {
+            "back_angle_max_mean": 32.83,
+            "back_angle_at_bottom_mean": 30.8667,
+            "back_angle_trend": 1.575,
+            "status_distribution": {
+                "ACCEPTABLE": 3
+            }
+        },
+        "movement_quality": {
+            "depth_distribution": {
+                "deep": 3
+            },
+            "knee_angle_min_mean": 92.8033,
+            "depth_trend": -0.755,
+            "depth_insufficient_reps": 0,
+            "ankle_dorsiflexion_trend": "restricted"
+        },
+        "tempo": {
+            "eccentric_mean": 0.49,
+            "pause_mean": 1.0967,
+            "concentric_mean": 0.6767,
+            "total_mean": 2.2667,
+            "total_trend": -0.35,
+            "tempo_notation_mode": "0-1-1"
+        }
+    }
+}

@@ -1,8 +1,13 @@
-from collections import defaultdict
+from collections import Counter, defaultdict
+from statistics import median
+import numpy as np
 from typing import Any, Dict, List, Optional
-from utils.angle_methods import calculate_hip_angle, calculate_knee_angle, calculate_torso_pelvis_angle
+from utils.angle_methods import calculate_hip_angle, calculate_knee_angle, calculate_torso_pelvis_angle, femur_vertical_angle
 from utils.landmark_quality_configuration import (
-    ACCEPTABLE_THRESHOLD, CRITICAL_HARD_FLOOR, GOOD_THRESHOLD, PRESENCE_THRESHOLD, VISIBILITY_THRESHOLD, FrameAssessment, FrameLandmarkData)
+    ACCEPTABLE_THRESHOLD, CRITICAL_HARD_FLOOR, GOOD_THRESHOLD, PRESENCE_THRESHOLD, VISIBILITY_THRESHOLD, BackAngleRepMetrics, FrameAssessment, FrameLandmarkData)
+
+
+CRITICAL_SIDE_JOINTS = ["HIP", "KNEE", "ANKLE", "FOOT", "SHOULDER", "ANKLE"]
 
 
 def landmark_name(name: str) -> str:
@@ -589,3 +594,564 @@ def tag_key_positions(frames: List[FrameAssessment]) -> None:
 
             top_frame.key_frame_reliable = passes_key_frame_gate(top_frame)
             bottom_frame.key_frame_reliable = passes_key_frame_gate(bottom_frame)
+
+
+def get_dominant_camera_view(frames: List[FrameAssessment]) -> str:
+    views = [
+        frame.camera_view
+        for frame in frames
+        if frame.camera_view not in (None, "unknown")
+    ]
+    if not views:
+        return "unknown"
+    return Counter(views).most_common(1)[0][0]
+
+
+def compute_landmark_medians(
+    frames: List[FrameAssessment],
+    landmark_names: List[str],
+) -> Dict[str, Dict[str, float]]:
+    values: Dict[str, Dict[str, List[float]]] = {
+        name: {"visibility": [], "presence": []}
+        for name in landmark_names
+    }
+
+    for frame in frames:
+        for name in landmark_names:
+            lm = frame.tracked_landmarks.get(name)
+            if lm is None:
+                continue
+            values[name]["visibility"].append(lm.visibility)
+            values[name]["presence"].append(lm.presence)
+
+    return {
+        name: {
+            "median_visibility": median(vals["visibility"]) if vals["visibility"] else 0.0,
+            "median_presence": median(vals["presence"]) if vals["presence"] else 0.0,
+        }
+        for name, vals in values.items()
+    }
+
+
+def evaluate_quality_gate(
+    frames: List[FrameAssessment],
+    video_score: float,
+    complete_reps: int
+) -> Dict[str, Any]:
+    dominant_view = get_dominant_camera_view(frames)
+
+    # Calculate the visibility and presence medians of each
+    # critical landmark
+    side_landmarks = []
+    if dominant_view == "front" or dominant_view == "angled":
+        for side in ["LEFT", "RIGHT"]:
+            for joint in CRITICAL_SIDE_JOINTS:
+                side_landmarks.append(f"{side}_{joint}")
+    else:
+        for joint in CRITICAL_SIDE_JOINTS:
+            side_landmarks.append(f"{dominant_view.split("_")[1].upper()}_{joint}")
+    
+    landmark_medians = compute_landmark_medians(frames, side_landmarks)
+
+    # ----------------------------
+    # Gate 1 — Critical Occlusion
+    # ----------------------------
+    def side_metrics(side: str):
+        vis = min(
+            landmark_medians.get(f"{side}_{joint}", {}).get("median_visibility", 0.0)
+            for joint in CRITICAL_SIDE_JOINTS
+        )
+        pres = min(
+            landmark_medians.get(f"{side}_{joint}", {}).get("median_presence", 0.0)
+            for joint in CRITICAL_SIDE_JOINTS
+        )
+        worst_joint = min(
+            CRITICAL_SIDE_JOINTS,
+            key=lambda j: landmark_medians.get(f"{side}_{j}", {}).get("median_visibility", 0.0)
+        )
+        return vis, pres, worst_joint.lower()
+
+    if dominant_view in ("front", "angled"):
+        left_vis, left_pres, left_joint = side_metrics("LEFT")
+        right_vis, right_pres, right_joint = side_metrics("RIGHT")
+
+        # Both sides visibility failure
+        if left_vis <= 0.60 and right_vis <= 0.60:
+            return {
+                "event": "error",
+                "error_stage": "quality_gate",
+                "retryable": False,
+                "error_code": "occlusion_both_sides",
+                "landmark_medians": landmark_medians,
+                "message": "We couldn't see your lower body clearly",
+            }
+
+        # One-side visibility failure
+        if left_vis <= 0.60 and right_vis >= 0.60:
+            return {
+                "event": "error",
+                "error_stage": "quality_gate",
+                "retryable": False,
+                "error_code": "occlusion_left_side",
+                "landmark_medians": landmark_medians,
+                "message": "Part of your left side was hidden from view",
+                "detail": f"Your left {left_joint} wasn't clearly visible.",
+            }
+
+        if right_vis <= 0.60 and left_vis >= 0.60:
+            return {
+                "event": "error",
+                "error_stage": "quality_gate",
+                "retryable": False,
+                "error_code": "occlusion_right_side",
+                "landmark_medians": landmark_medians,
+                "message": "Part of your right side was hidden from view",
+                "detail": f"Your right {right_joint} wasn't clearly visible.",
+            }
+
+        # M3 — one-side presence failure
+        if left_vis > 0.60 and left_pres <= 0.50:
+            return {
+                "event": "error",
+                "error_stage": "quality_gate",
+                "retryable": False,
+                "error_code": "out_of_frame_left",
+                "landmark_medians": landmark_medians,
+                "message": "Your left side kept moving out of frame",
+                "detail": f"Your left {left_joint} wasn't fully in frame throughout the video.",
+            }
+
+        if right_vis > 0.60 and right_pres <= 0.50:
+            return {
+                "event": "error",
+                "error_stage": "quality_gate",
+                "retryable": False,
+                "error_code": "out_of_frame_right",
+                "landmark_medians": landmark_medians,
+                "message": "Your right side kept moving out of frame",
+                "detail": f"Your right {right_joint} wasn't fully in frame throughout the video.",
+            }
+
+    elif dominant_view == "side_left":
+        left_vis, left_pres, left_joint = side_metrics("LEFT")
+
+        if left_vis <= 0.60:
+            return {
+                "event": "error",
+                "error_stage": "quality_gate",
+                "retryable": False,
+                "error_code": "occlusion_left_side",
+                "landmark_medians": landmark_medians,
+                "message": "Part of your left side was hidden from view",
+                "detail": f"Your left {left_joint} wasn't clearly visible.",
+            }
+
+        if left_vis > 0.60 and left_pres <= 0.50:
+            return {
+                "event": "error",
+                "error_stage": "quality_gate",
+                "retryable": False,
+                "error_code": "out_of_frame_left",
+                "landmark_medians": landmark_medians,
+                "message": "Your left side kept moving out of frame",
+                "detail": f"Your left {left_joint} wasn't fully in frame throughout the video.",
+            }
+
+    elif dominant_view == "side_right":
+        right_vis, right_pres, right_joint = side_metrics("RIGHT")
+
+        if right_vis <= 0.60:
+            return {
+                "event": "error",
+                "error_stage": "quality_gate",
+                "retryable": False,
+                "error_code": "occlusion_right_side",
+                "landmark_medians": landmark_medians,
+                "message": "Part of your right side was hidden from view",
+                "detail": f"Your right {right_joint} wasn't clearly visible.",
+            }
+
+        if right_vis > 0.60 and right_pres <= 0.50:
+            return {
+                "event": "error",
+                "error_stage": "quality_gate",
+                "retryable": False,
+                "error_code": "out_of_frame_right",
+                "landmark_medians": landmark_medians,
+                "message": "Your right side kept moving out of frame",
+                "detail": f"Your right {right_joint} wasn't fully in frame throughout the video.",
+            }
+
+    # ----------------------------
+    # Gate 2 — Poor Composite Score
+    # ----------------------------
+    if video_score < 0.70:
+        return {
+            "event": "error",
+            "error_stage": "quality_gate",
+            "retryable": False,
+            "error_code": "poor_video_quality",
+            "message": "We couldn't read your body position clearly",
+        }
+
+    # ----------------------------
+    # Gate 3 — Reps
+    # ----------------------------
+    if complete_reps == 0:
+        return {
+            "event": "error",
+            "error_stage": "quality_gate",
+            "retryable": False,
+            "error_code": "no_reps_detected",
+            "message": "We couldn't detect any squats in your video",
+        }
+
+    if complete_reps < 3:
+        return {
+            "event": "error",
+            "error_stage": "quality_gate",
+            "retryable": False,
+            "error_code": "insufficient_reps",
+            "message": "We need at least 3 complete reps to give you meaningful feedback",
+        }
+
+    quality_gate_status = "GOOD" if video_score >= 0.85 else "ACCEPTABLE"
+
+    return {
+        "event": "mediapipe_complete",
+        "quality_gate_status": quality_gate_status,
+        "video_score": round(video_score, 4),
+        "rep_count": complete_reps,
+    }
+
+
+def angle_between(a, b, c):
+    """Angle at point b in the triangle a-b-c."""
+    v1 = np.array([a.x - b.x, a.y - b.y, a.z - b.z])
+    v2 = np.array([c.x - b.x, c.y - b.y, c.z - b.z])
+
+    denom = np.linalg.norm(v1) * np.linalg.norm(v2)
+    if denom == 0:
+        return None
+
+    cos_a = np.dot(v1, v2) / denom
+    return np.degrees(np.arccos(np.clip(cos_a, -1.0, 1.0)))
+
+
+def back_angle(shoulder, hip):
+    """Torso lean from vertical."""
+    torso = np.array([shoulder.x - hip.x, shoulder.y - hip.y, shoulder.z - hip.z])
+    norm = np.linalg.norm(torso)
+    if norm == 0:
+        return None
+
+    vertical = np.array([0, -1, 0])
+    cos_a = np.dot(torso, vertical) / norm
+    return np.degrees(np.arccos(np.clip(cos_a, -1.0, 1.0)))
+
+
+def ankle_dorsiflexion(knee, ankle):
+    """
+    Tibia inclination from vertical.
+
+    Returns:
+        degrees of ankle dorsiflexion proxy
+    """
+
+    tibia = np.array([
+        knee.x - ankle.x,
+        knee.y - ankle.y,
+        knee.z - ankle.z,
+    ])
+
+    norm = np.linalg.norm(tibia)
+
+    if norm == 0:
+        return None
+
+    tibia = tibia / norm
+
+    vertical = np.array([0, -1, 0])
+
+    cos_theta = np.dot(tibia, vertical)
+
+    angle = np.degrees(
+        np.arccos(
+            np.clip(cos_theta, -1.0, 1.0)
+        )
+    )
+
+    return angle
+
+
+def compute_view_metrics(pose_world, camera_view):
+    """
+    Compute only the metrics needed for the current camera view.
+    Returns a dict with angles and dorsiflexion.
+    """
+    lm = pose_world
+
+    metrics = {
+        "hip_angle": None,
+        "knee_angle": None,
+        "back_angle": None,
+        "left_knee_valgus": None,
+        "right_knee_valgus": None,
+        "dorsiflexion": None,
+    }
+
+    if camera_view in ("front", "angled"):
+        left_hip_angle = angle_between(lm[11], lm[23], lm[25])
+        right_hip_angle = angle_between(lm[12], lm[24], lm[26])
+
+        left_knee_angle = femur_vertical_angle(lm[23], lm[25])
+        right_knee_angle = femur_vertical_angle(lm[24], lm[26])
+
+        left_back = back_angle(lm[11], lm[23])
+        right_back = back_angle(lm[12], lm[24])
+
+        left_dorsiflexion = ankle_dorsiflexion(
+            lm[25],  # knee
+            lm[27],  # ankle
+        )
+
+        right_dorsiflexion = ankle_dorsiflexion(
+            lm[26],
+            lm[28],
+        )
+
+        hip_vals = [v for v in [left_hip_angle, right_hip_angle] if v is not None]
+        knee_vals = [v for v in [left_knee_angle, right_knee_angle] if v is not None]
+        back_vals = [v for v in [left_back, right_back] if v is not None]
+        dorsiflexion_vals = [
+            v for v in [
+                left_dorsiflexion,
+                right_dorsiflexion
+            ]
+            if v is not None
+        ]
+
+        if hip_vals:
+            metrics["hip_angle"] = sum(hip_vals) / len(hip_vals)
+        if knee_vals:
+            metrics["knee_angle"] = sum(knee_vals) / len(knee_vals)
+        if back_vals:
+            metrics["back_angle"] = sum(back_vals) / len(back_vals)
+        if dorsiflexion_vals:
+            metrics["dorsiflexion"] = (
+                sum(dorsiflexion_vals) /
+                len(dorsiflexion_vals)
+            )
+
+    elif camera_view == "side_left":
+        metrics["hip_angle"] = angle_between(lm[11], lm[23], lm[25])
+        metrics["knee_angle"] = femur_vertical_angle(lm[23], lm[25])
+        metrics["back_angle"] = back_angle(lm[11], lm[23])
+        metrics["dorsiflexion"] = ankle_dorsiflexion(
+            lm[25],  # knee
+            lm[27],  # ankle
+        )
+
+    elif camera_view == "side_right":
+        metrics["hip_angle"] = angle_between(lm[12], lm[24], lm[26])
+        metrics["knee_angle"] = femur_vertical_angle(lm[24], lm[26])
+        metrics["back_angle"] = back_angle(lm[12], lm[24])
+        metrics["dorsiflexion"] = ankle_dorsiflexion(
+            lm[26],
+            lm[28],
+        )
+
+    return metrics
+
+
+def format_rep_data(
+          rep_count, tempo_data, back_data, depth_data, 
+          stability_data, ankle_data, camera_view):
+    
+    if camera_view in ("front", "angled"):
+        data = {
+            "rep_number": rep_count,
+            "tempo_data": {
+                "tempo_notation": tempo_data['tempo_notation'],
+                "eccentric": tempo_data['eccentric'],
+                "pause": tempo_data['pause'],
+                "concentric": tempo_data['concentric'],
+                "total": tempo_data['total_time']
+            },
+            "back_data": {
+                "back_angle_start": back_data["back_angle_start"],
+                "back_angle_max": back_data["back_angle_max"],
+                "back_angle_at_bottom": back_data["back_angle_at_bottom"],
+                "time_warning": back_data["time_warning"],
+                "time_excessive": back_data["time_excessive"],
+                "status": back_data["status"],
+            },
+            "depth_data": {
+                "hip_angle_start": depth_data["hip_angle_start"],
+                "hip_angle_at_bottom": depth_data["hip_angle_at_bottom"],
+                "hip_angle_min": depth_data["hip_angle_min"],
+                "knee_angle_start": depth_data["knee_angle_start"],
+                "knee_angle_at_bottom": depth_data["knee_angle_at_bottom"],
+                "knee_angle_min": depth_data["knee_angle_min"],
+                "depth_classification": depth_data["depth_classification"],
+                "depth_insufficient_flag": depth_data["depth_insufficient_flag"]
+            },
+            "stability_data": {
+                "knee_valgus_distance": stability_data["knee_valgus_distance"],
+                "valgus_phase": stability_data["valgus_phase"],
+                "valgus_flag": stability_data["valgus_flag"]
+            },
+            "ankle_data": {
+                "foot_turnout_left": ankle_data["foot_turnout_left"],
+                "foot_turnout_right": ankle_data["foot_turnout_right"]
+            }
+        }
+
+    else:
+         data = {
+            "rep_number": rep_count,
+            "tempo_data": {
+                "tempo_notation": tempo_data['tempo_notation'],
+                "eccentric": tempo_data['eccentric'],
+                "pause": tempo_data['pause'],
+                "concentric": tempo_data['concentric'],
+                "total": tempo_data['total_time']
+            },
+            "back_data": {
+                "back_angle_start": back_data["back_angle_start"],
+                "back_angle_max": back_data["back_angle_max"],
+                "back_angle_at_bottom": back_data["back_angle_at_bottom"],
+                "time_warning": back_data["time_warning"],
+                "time_excessive": back_data["time_excessive"],
+                "status": back_data["status"],
+            },
+            "depth_data": {
+                "knee_angle_start": depth_data["knee_angle_start"],
+                "knee_angle_at_bottom": depth_data["knee_angle_at_bottom"],
+                "knee_angle_min": depth_data["knee_angle_min"],
+                "depth_classification": depth_data["depth_classification"],
+                "depth_insufficient_flag": depth_data["depth_insufficient_flag"]
+            },
+            "ankle_data": {
+                "dorsiflexion_at_bottom": ankle_data["dorsiflexion_at_bottom"]
+            }
+        }
+
+    return data
+
+
+def torso_vertical_angle(pose_world):
+    """
+    Returns torso inclination relative to global vertical axis.
+    Smaller = more upright.
+    """
+
+    left_shoulder = pose_world[11]
+    right_shoulder = pose_world[12]
+
+    left_hip = pose_world[23]
+    right_hip = pose_world[24]
+
+    shoulder_mid = np.array([
+        (left_shoulder.x + right_shoulder.x) / 2,
+        (left_shoulder.y + right_shoulder.y) / 2,
+        (left_shoulder.z + right_shoulder.z) / 2,
+    ])
+
+    hip_mid = np.array([
+        (left_hip.x + right_hip.x) / 2,
+        (left_hip.y + right_hip.y) / 2,
+        (left_hip.z + right_hip.z) / 2,
+    ])
+
+    torso_vec = shoulder_mid - hip_mid
+
+    norm = np.linalg.norm(torso_vec)
+    if norm == 0:
+        return None
+
+    torso_vec = torso_vec / norm
+
+    # MediaPipe world coordinates
+    vertical = np.array([0, -1, 0])
+
+    cos_theta = np.dot(torso_vec, vertical)
+
+    angle = np.degrees(
+        np.arccos(np.clip(cos_theta, -1.0, 1.0))
+    )
+
+    return angle
+
+
+def foot_turnout_relative(
+    heel,
+    foot_index,
+    left_hip,
+    right_hip,
+):
+    """
+    Foot turnout relative to pelvis orientation.
+
+    Returns:
+        positive -> toe-out
+        negative -> toe-in
+    """
+
+    # =========================
+    # Pelvis axis (ground plane)
+    # =========================
+    pelvis = np.array([
+        right_hip.x - left_hip.x,
+        right_hip.z - left_hip.z,
+    ])
+
+    pelvis_norm = np.linalg.norm(pelvis)
+
+    if pelvis_norm == 0:
+        return None
+
+    pelvis = pelvis / pelvis_norm
+
+    # =========================
+    # Body forward vector
+    # perpendicular to pelvis
+    # =========================
+    body_forward = np.array([
+        -pelvis[1],
+        pelvis[0],
+    ])
+
+    # =========================
+    # Foot vector
+    # =========================
+    foot = np.array([
+        foot_index.x - heel.x,
+        foot_index.z - heel.z,
+    ])
+
+    foot_norm = np.linalg.norm(foot)
+
+    if foot_norm == 0:
+        return None
+
+    foot = foot / foot_norm
+
+    # =========================
+    # Signed angle
+    # =========================
+    angle = np.degrees(
+        np.arctan2(
+            body_forward[0] * foot[1] -
+            body_forward[1] * foot[0],
+
+            np.dot(body_forward, foot)
+        )
+    )
+
+    angle = abs(angle)
+
+    if angle > 90:
+        angle = 180 - angle
+
+    return angle

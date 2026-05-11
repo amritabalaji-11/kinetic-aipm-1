@@ -13,8 +13,8 @@ import json
 import os
 
 
-model_path = "mediapipe_code/model/pose_landmarker_heavy.task"
-video_path = "./mediapipe_code/videos/good_form/goblet_squats_1.mp4"
+model_path = "mediapipe_code/model/pose_landmarker_lite.task"
+video_path = "./mediapipe_code/videos/good_form/goblet_squats_5.mp4"
 # Initialize MediaPipe
 base_options = python.BaseOptions(model_asset_path=model_path)
 options = vision.PoseLandmarkerOptions(

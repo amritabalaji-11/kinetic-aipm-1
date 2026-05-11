@@ -40,7 +40,6 @@ def calculate_hip_angle(shoulder, hip, knee):
     Returns:
         angle: Hip angle in degrees (0-180)
     """
-    import numpy as np
     
     # Convert to numpy arrays
     shoulder = np.array([shoulder.x, shoulder.y, shoulder.z])
@@ -72,7 +71,6 @@ def calculate_knee_angle(hip, knee, ankle):
     Returns:
         angle: Knee angle in degrees (0-180)
     """
-    import numpy as np
     
     hip = np.array([hip.x, hip.y, hip.z])
     knee = np.array([knee.x, knee.y, knee.z])
@@ -91,6 +89,24 @@ def calculate_knee_angle(hip, knee, ankle):
     return angle
 
 
+def calculate_dorsiflexion_angle(knee, ankle, foot):
+    foot = np.array([foot.x, foot.y, foot.z])
+    knee = np.array([knee.x, knee.y, knee.z])
+    ankle = np.array([ankle.x, ankle.y, ankle.z])
+    
+    vector_knee_ankle = knee - ankle
+    vector_ankle_foot = ankle - foot
+    
+    cosine_angle = np.dot(vector_knee_ankle, vector_ankle_foot) / (
+        np.linalg.norm(vector_knee_ankle) * np.linalg.norm(vector_ankle_foot)
+    )
+    
+    cosine_angle = np.clip(cosine_angle, -1.0, 1.0)
+    angle = np.degrees(np.arccos(cosine_angle))
+    
+    return angle
+
+
 def calculate_back_angle(shoulder, hip):
     """
     Calculate torso lean angle relative to vertical
@@ -98,7 +114,6 @@ def calculate_back_angle(shoulder, hip):
     Returns:
         angle: Back angle in degrees from vertical (0-90)
     """
-    import numpy as np
     
     shoulder = np.array([shoulder.x, shoulder.y, shoulder.z])
     hip = np.array([hip.x, hip.y, hip.z])
@@ -125,7 +140,6 @@ def calculate_ankle_angle(knee, ankle, foot_index):
     """
     Calculate ankle dorsiflexion angle
     """
-    import numpy as np
     
     knee = np.array([knee.x, knee.y, knee.z])
     ankle = np.array([ankle.x, ankle.y, ankle.z])
@@ -303,3 +317,55 @@ def validate_camera_setup(landmarks):
         return False, "Move to 45° angle - currently too frontal"
     
     return True, "Camera setup looks good!"
+
+
+def calculate_back_angle(shoulder, hip, knee) -> Optional[float]:
+    torso_vec = np.array([hip.x - shoulder.x, hip.y - shoulder.y, hip.z - shoulder.z], dtype=float)
+    pelvis_vec = np.array([knee.x - hip.x, knee.y - hip.y, knee.z - hip.z], dtype=float)
+
+    torso_norm = np.linalg.norm(torso_vec)
+    pelvis_norm = np.linalg.norm(pelvis_vec)
+
+    if torso_norm == 0 or pelvis_norm == 0:
+        return None
+
+    cosine_angle = np.dot(torso_vec, pelvis_vec) / (torso_norm * pelvis_norm)
+    cosine_angle = np.clip(cosine_angle, -1.0, 1.0)
+
+    return float(np.degrees(np.arccos(cosine_angle)))
+
+
+def femur_vertical_angle(hip, knee):
+    """
+    Angle between femur (hip -> knee)
+    and global vertical axis.
+
+    Returns:
+        0°   -> femur vertical
+        90°  -> femur horizontal
+    """
+
+    femur_vec = np.array([
+        knee.x - hip.x,
+        knee.y - hip.y,
+        knee.z - hip.z,
+    ])
+
+    norm = np.linalg.norm(femur_vec)
+
+    if norm == 0:
+        return None
+
+    femur_vec = femur_vec / norm
+
+    vertical = np.array([0, -1, 0])
+
+    cos_theta = np.dot(femur_vec, vertical)
+
+    angle = np.degrees(
+        np.arccos(
+            np.clip(cos_theta, -1.0, 1.0)
+        )
+    )
+
+    return angle
