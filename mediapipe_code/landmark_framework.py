@@ -132,12 +132,6 @@ class LandmarkQualityFramework:
                     threshold=threshold,
                 )
 
-            draw_torso_vertical_reference(
-                annotated_image,
-                pose_landmarks,
-                w,
-                h,
-            )
 
             metrics = compute_view_metrics(pose_world, camera_view)
             hip_angle = metrics["hip_angle"]
@@ -393,33 +387,68 @@ class LandmarkQualityFramework:
 
 
     def get_biomechanics_output(self, video_path, exercise, weight_kg):
+
         video = cv2.VideoCapture(video_path)
 
         fps = video.get(cv2.CAP_PROP_FPS)
+        width = int(video.get(cv2.CAP_PROP_FRAME_WIDTH))
+        height = int(video.get(cv2.CAP_PROP_FRAME_HEIGHT))
 
         frame_index = 0
         reps_json_info = []
+
+        # =========================================
+        # Output video configuration
+        # =========================================
+        video_name = os.path.splitext(os.path.basename(video_path))[0]
+
+        output_video_dir = "./mediapipe_code/video_results"
+        os.makedirs(output_video_dir, exist_ok=True)
+
+        output_video_path = os.path.join(
+            output_video_dir,
+            f"{video_name}_processed.mp4"
+        )
+
+        fourcc = cv2.VideoWriter_fourcc(*"mp4v")
+
+        out = cv2.VideoWriter(
+            output_video_path,
+            fourcc,
+            fps,
+            (width, height)
+        )
+
         with self._create_landmarker() as detector:
+
             rep_counter = RepCounter()
             tempo_tracker = TempoTracker()
             back_tracker = BackAngleTracker()
             depth_tracker = DepthTracker()
             stability_tracker = StabilityTracker()
             ankle_tracker = AnkleTracker()
+
             while video.isOpened():
+
                 ret, frame = video.read()
+
                 if not ret:
                     break
 
                 # Frame to RGB
                 frame_rgb = cv2.cvtColor(frame, cv2.COLOR_BGR2RGB)
-                frame_rgb = mp.Image(image_format=mp.ImageFormat.SRGB, data=frame_rgb)
+
+                frame_rgb = mp.Image(
+                    image_format=mp.ImageFormat.SRGB,
+                    data=frame_rgb
+                )
 
                 # Timestamp by frame
                 frame_timestamp_ms = frame_index / fps
 
                 pose_detector_result = detector.detect_for_video(
-                    frame_rgb, int(frame_timestamp_ms * 1000)
+                    frame_rgb,
+                    int(frame_timestamp_ms * 1000)
                 )
 
                 annotated_image, rep_count = self._draw_and_process_video(
@@ -435,6 +464,16 @@ class LandmarkQualityFramework:
                     frame_timestamp_ms
                 )
 
+                # =========================================
+                # Convert RGB -> BGR before saving
+                # =========================================
+                annotated_bgr = cv2.cvtColor(
+                    annotated_image,
+                    cv2.COLOR_RGB2BGR
+                )
+
+                out.write(annotated_bgr)
+
                 cv2.imshow("Pose Detection", annotated_image)
 
                 if cv2.waitKey(1) & 0xFF == 27:
@@ -443,6 +482,8 @@ class LandmarkQualityFramework:
                 frame_index += 1
 
             video.release()
+            out.release()
+
         cv2.destroyAllWindows()
 
         trend_analyzer = TrendAnalyzer()
@@ -453,7 +494,10 @@ class LandmarkQualityFramework:
             if rep.get("camera_view") is not None
         ).most_common(1)[0][0]
 
-        trend_results = trend_analyzer.build_consolidated_summary(reps_json_info, camera_view)
+        trend_results = trend_analyzer.build_consolidated_summary(
+            reps_json_info,
+            camera_view
+        )
 
         json_final = {
             "session": {
@@ -467,23 +511,28 @@ class LandmarkQualityFramework:
             "consolidated": trend_results
         }
 
-        video_name = os.path.splitext(os.path.basename(video_path))[0]
-
-        # Output configuration for JSONs files
+        # =========================================
+        # Output JSON configuration
+        # =========================================
         output_dir = "./mediapipe_code/results"
+
         os.makedirs(output_dir, exist_ok=True)
-        json_filename = os.path.join(output_dir, f"{video_name}.json")
+
+        json_filename = os.path.join(
+            output_dir,
+            f"{video_name}.json"
+        )
 
         with open(json_filename, "w", encoding="utf-8") as f:
             json.dump(json_final, f, indent=4, ensure_ascii=False)
 
         return json_final
-            
 
 model_path = "./mediapipe_code/model/pose_landmarker_heavy.task"
 framework = LandmarkQualityFramework(model_path=model_path)
 
 input_dir = "./mediapipe_code/videos/good_form/"
+# You can use this for process videos individualy
 #framework.get_biomechanics_output(input_dir, "Goblet Squat", 20)
 for filename in os.listdir(input_dir):
     result = framework.get_quality_result(input_dir + filename)
