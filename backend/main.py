@@ -4,7 +4,7 @@ from db.database import db
 
 from utils.config import FRONTEND_ORIGIN
 from routes.health import router as health_router
-from routes import upload, stream
+from routes import upload, stream, analysis
 
 app = FastAPI()
 
@@ -21,6 +21,7 @@ app.add_middleware(
 app.include_router(health_router)
 app.include_router(upload.router)
 app.include_router(stream.router)
+app.include_router(analysis.router)
 
 #DB connection management
 @app.on_event("startup")

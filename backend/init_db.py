@@ -12,6 +12,9 @@ CREATE TABLE IF NOT EXISTS form_sessions (
     weight_used REAL,
     status TEXT,
     video_gcs_path TEXT
+               
+    overlay_video_url TEXT,
+    biomechanics_json TEXT
 )
 """)
 
