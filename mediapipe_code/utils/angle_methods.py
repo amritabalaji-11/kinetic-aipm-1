@@ -1,31 +1,8 @@
 from typing import Optional
 import numpy as np
-import cv2
-
-# Lower Body (Squat Mechanics)
-LEFT_HIP = 23
-RIGHT_HIP = 24
-LEFT_KNEE = 25
-RIGHT_KNEE = 26
-LEFT_ANKLE = 27
-RIGHT_ANKLE = 28
-LEFT_HEEL = 29
-RIGHT_HEEL = 30
-LEFT_FOOT_INDEX = 31
-RIGHT_FOOT_INDEX = 32
-
-# Upper Body (Back/Torso Analysis)
-LEFT_SHOULDER = 11
-RIGHT_SHOULDER = 12
-NOSE = 0
-LEFT_EAR = 7
-RIGHT_EAR = 8
-
-# Reference Points (Stability)
-LEFT_ELBOW = 13
-RIGHT_ELBOW = 14
-LEFT_WRIST = 15
-RIGHT_WRIST = 16
+from utils.pose_landmarks import (
+    LEFT_SHOULDER, RIGHT_SHOULDER
+)
 
 
 def calculate_hip_angle(shoulder, hip, knee):
@@ -81,75 +58,6 @@ def calculate_knee_angle(hip, knee, ankle):
     
     cosine_angle = np.dot(vector_hip_knee, vector_ankle_knee) / (
         np.linalg.norm(vector_hip_knee) * np.linalg.norm(vector_ankle_knee)
-    )
-    
-    cosine_angle = np.clip(cosine_angle, -1.0, 1.0)
-    angle = np.degrees(np.arccos(cosine_angle))
-    
-    return angle
-
-
-def calculate_dorsiflexion_angle(knee, ankle, foot):
-    foot = np.array([foot.x, foot.y, foot.z])
-    knee = np.array([knee.x, knee.y, knee.z])
-    ankle = np.array([ankle.x, ankle.y, ankle.z])
-    
-    vector_knee_ankle = knee - ankle
-    vector_ankle_foot = ankle - foot
-    
-    cosine_angle = np.dot(vector_knee_ankle, vector_ankle_foot) / (
-        np.linalg.norm(vector_knee_ankle) * np.linalg.norm(vector_ankle_foot)
-    )
-    
-    cosine_angle = np.clip(cosine_angle, -1.0, 1.0)
-    angle = np.degrees(np.arccos(cosine_angle))
-    
-    return angle
-
-
-def calculate_back_angle(shoulder, hip):
-    """
-    Calculate torso lean angle relative to vertical
-    
-    Returns:
-        angle: Back angle in degrees from vertical (0-90)
-    """
-    
-    shoulder = np.array([shoulder.x, shoulder.y, shoulder.z])
-    hip = np.array([hip.x, hip.y, hip.z])
-    
-    # Vector from hip to shoulder
-    torso_vector = shoulder - hip
-    
-    # Vertical reference vector (in image coordinates, y-axis is vertical)
-    # Negative because y increases downward in image coordinates
-    vertical_vector = np.array([0, -1, 0])
-    
-    # Calculate angle
-    cosine_angle = np.dot(torso_vector, vertical_vector) / (
-        np.linalg.norm(torso_vector) * np.linalg.norm(vertical_vector)
-    )
-    
-    cosine_angle = np.clip(cosine_angle, -1.0, 1.0)
-    angle = np.degrees(np.arccos(cosine_angle))
-    
-    return angle
-
-
-def calculate_ankle_angle(knee, ankle, foot_index):
-    """
-    Calculate ankle dorsiflexion angle
-    """
-    
-    knee = np.array([knee.x, knee.y, knee.z])
-    ankle = np.array([ankle.x, ankle.y, ankle.z])
-    foot = np.array([foot_index.x, foot_index.y, foot_index.z])
-    
-    vector_knee_ankle = knee - ankle
-    vector_foot_ankle = foot - ankle
-    
-    cosine_angle = np.dot(vector_knee_ankle, vector_foot_ankle) / (
-        np.linalg.norm(vector_knee_ankle) * np.linalg.norm(vector_foot_ankle)
     )
     
     cosine_angle = np.clip(cosine_angle, -1.0, 1.0)
@@ -268,73 +176,6 @@ def detect_camera_view(landmarks, world_landmarks):
     return "angled"
 
 
-def check_landmark_visibility(landmarks):
-    """
-    Check if all required landmarks are visible
-    """
-    required_landmarks = [
-        LEFT_HIP, RIGHT_HIP, 
-        LEFT_KNEE, RIGHT_KNEE,
-        LEFT_ANKLE, RIGHT_ANKLE
-    ]
-    
-    for idx in required_landmarks:
-        if landmarks.landmark[idx].visibility < 0.5:
-            return False, f"Landmark {idx} not visible"
-    
-    return True, "All landmarks visible"
-
-
-def validate_camera_setup(landmarks):
-    """
-    Check if user's camera is positioned correctly
-    
-    Returns:
-        valid: Boolean
-        feedback: String with instructions
-    """
-    # Check 1: Full body visible
-    nose_y = landmarks.landmark[NOSE].y
-    ankle_y = max(
-        landmarks.landmark[LEFT_ANKLE].y,
-        landmarks.landmark[RIGHT_ANKLE].y
-    )
-    
-    if ankle_y - nose_y < 0.6:
-        return False, "Move camera back - can't see full body"
-    
-    # Check 2: Not too far
-    shoulder_width = abs(
-        landmarks.landmark[LEFT_SHOULDER].x - 
-        landmarks.landmark[RIGHT_SHOULDER].x
-    )
-    
-    if shoulder_width < 0.1:
-        return False, "Move camera closer - too far away"
-    
-    # Check 3: Good angle (45° front-side preferred)
-    if shoulder_width > 0.3:
-        return False, "Move to 45° angle - currently too frontal"
-    
-    return True, "Camera setup looks good!"
-
-
-def calculate_back_angle(shoulder, hip, knee) -> Optional[float]:
-    torso_vec = np.array([hip.x - shoulder.x, hip.y - shoulder.y, hip.z - shoulder.z], dtype=float)
-    pelvis_vec = np.array([knee.x - hip.x, knee.y - hip.y, knee.z - hip.z], dtype=float)
-
-    torso_norm = np.linalg.norm(torso_vec)
-    pelvis_norm = np.linalg.norm(pelvis_vec)
-
-    if torso_norm == 0 or pelvis_norm == 0:
-        return None
-
-    cosine_angle = np.dot(torso_vec, pelvis_vec) / (torso_norm * pelvis_norm)
-    cosine_angle = np.clip(cosine_angle, -1.0, 1.0)
-
-    return float(np.degrees(np.arccos(cosine_angle)))
-
-
 def femur_vertical_angle(hip, knee):
     """
     Angle between femur (hip -> knee)
@@ -361,6 +202,65 @@ def femur_vertical_angle(hip, knee):
     vertical = np.array([0, -1, 0])
 
     cos_theta = np.dot(femur_vec, vertical)
+
+    angle = np.degrees(
+        np.arccos(
+            np.clip(cos_theta, -1.0, 1.0)
+        )
+    )
+
+    return angle
+
+
+def angle_between(a, b, c):
+    """Angle at point b in the triangle a-b-c."""
+    v1 = np.array([a.x - b.x, a.y - b.y, a.z - b.z])
+    v2 = np.array([c.x - b.x, c.y - b.y, c.z - b.z])
+
+    denom = np.linalg.norm(v1) * np.linalg.norm(v2)
+    if denom == 0:
+        return None
+
+    cos_a = np.dot(v1, v2) / denom
+    return np.degrees(np.arccos(np.clip(cos_a, -1.0, 1.0)))
+
+
+def back_angle(shoulder, hip):
+    """Torso lean from vertical."""
+    torso = np.array([shoulder.x - hip.x, shoulder.y - hip.y, shoulder.z - hip.z])
+    norm = np.linalg.norm(torso)
+    if norm == 0:
+        return None
+
+    vertical = np.array([0, -1, 0])
+    cos_a = np.dot(torso, vertical) / norm
+    return np.degrees(np.arccos(np.clip(cos_a, -1.0, 1.0)))
+
+
+def ankle_dorsiflexion(knee, ankle):
+    """
+    Tibia inclination from vertical.
+
+    Returns:
+        degrees of ankle dorsiflexion proxy
+    """
+
+    tibia = np.array([
+        knee.x - ankle.x,
+        knee.y - ankle.y,
+        knee.z - ankle.z,
+    ])
+
+    norm = np.linalg.norm(tibia)
+
+    if norm == 0:
+        return None
+
+    tibia = tibia / norm
+
+    vertical = np.array([0, -1, 0])
+
+    cos_theta = np.dot(tibia, vertical)
 
     angle = np.degrees(
         np.arccos(

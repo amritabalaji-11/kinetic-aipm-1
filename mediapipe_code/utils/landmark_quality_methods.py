@@ -2,19 +2,12 @@ from collections import Counter, defaultdict
 from statistics import median
 import numpy as np
 from typing import Any, Dict, List, Optional
-from utils.angle_methods import calculate_hip_angle, calculate_knee_angle, calculate_torso_pelvis_angle, femur_vertical_angle
+from utils.angle_methods import angle_between, ankle_dorsiflexion, back_angle, calculate_hip_angle, calculate_knee_angle, calculate_torso_pelvis_angle, femur_vertical_angle
 from utils.landmark_quality_configuration import (
-    ACCEPTABLE_THRESHOLD, CRITICAL_HARD_FLOOR, GOOD_THRESHOLD, PRESENCE_THRESHOLD, VISIBILITY_THRESHOLD, BackAngleRepMetrics, FrameAssessment, FrameLandmarkData)
+    PRESENCE_THRESHOLD, VISIBILITY_THRESHOLD, FrameAssessment, FrameLandmarkData)
 
 
 CRITICAL_SIDE_JOINTS = ["HIP", "KNEE", "ANKLE", "FOOT", "SHOULDER", "ANKLE"]
-
-
-def landmark_name(name: str) -> str:
-    """
-    Normalize the landmark name for use as a dictionary key.    
-    """
-    return name.lower()
 
 
 def get_first_pose(result: Any):
@@ -63,19 +56,6 @@ def extract_frame_landmark_data(world_lm: Any, norm_lm: Any) -> FrameLandmarkDat
         visibility=float(getattr(norm_lm, "visibility", 0.0) or 0.0),
         presence=float(getattr(norm_lm, "presence", 0.0) or 0.0)
     )
-
-
-def landmark_is_reliable(lm: Any) -> bool:
-    """
-    True if the landmark exceeds the visibility and presence gate.    
-    """
-    if lm is None:
-        return False
-
-    visibility = float(getattr(lm, "visibility", 0.0) or 0.0)
-    presence = float(getattr(lm, "presence", 0.0) or 0.0)
-
-    return visibility >= VISIBILITY_THRESHOLD and presence >= PRESENCE_THRESHOLD
 
 
 def get_rep_angles(landmarks, world_pose, camera_view):
@@ -228,38 +208,6 @@ def compute_composite_score(weights, reliability_by_landmark: Dict[str, float], 
         return round(normalized_score, 4)
 
 
-def apply_hard_floor(
-        reliability_by_landmark: Dict[str, float],
-        frames: List[FrameAssessment]
-    ) -> List[str]:
-        """
-        Returns a list of critical occlusions only for landmarks
-        that were actually expected by camera view.
-        """
-        flags = []
-
-        expected_critical = set()
-        for frame in frames:
-            expected_critical.update(frame.expected_critical_landmarks)
-
-        for name in expected_critical:
-            r = reliability_by_landmark.get(name, 0.0)
-            if r < CRITICAL_HARD_FLOOR:
-                flags.append(
-                    f"CRITICAL_OCCLUSION: {name} visible in only {r*100:.0f}% of frames"
-                )
-
-        return flags
-
-
-def score_status(composite_score: float) -> str:
-        if composite_score >= GOOD_THRESHOLD:
-            return "GOOD"
-        if composite_score >= ACCEPTABLE_THRESHOLD:
-            return "ACCEPTABLE"
-        return "POOR"
-
-
 def view_sides(camera_view: str) -> List[str]:
         if camera_view == "side_left":
             return ["LEFT"]
@@ -276,30 +224,14 @@ def get_landmark_for_side(
         return frame.tracked_landmarks.get(f"{side}_{base_name}")
 
 
-def get_midpoint_or_side(
-        frame: FrameAssessment,
-        base_name: str,
-        camera_view: str
-    ) -> Optional[FrameLandmarkData]:
-        sides = view_sides(camera_view)
-
-        if len(sides) == 1:
-            return get_landmark_for_side(frame, base_name, sides[0])
-
-        left = get_landmark_for_side(frame, base_name, "LEFT")
-        right = get_landmark_for_side(frame, base_name, "RIGHT")
-
-        return midpoint_landmark(left, right)
-
-
 def annotate_points_of_max_error(frames: List[FrameAssessment]) -> None:
         rep_groups = defaultdict(list)
 
         for frame in frames:
-            if frame.rep_index is not None:# and frame.passes_critical_gate:
+            if frame.rep_index is not None:
                 rep_groups[frame.rep_index].append(frame)
 
-        for rep_idx, rep_frames in rep_groups.items():
+        for _, rep_frames in rep_groups.items():
             if not rep_frames:
                 continue
 
@@ -320,11 +252,6 @@ def annotate_points_of_max_error(frames: List[FrameAssessment]) -> None:
             # 2) Max Knee Valgus -> first 10-20% of concentric phase
             # ---------------------------------------------------
             flag_max_knee_valgus(rep_frames, bottom_frame, top_frame)
-
-            # ---------------------------------------------------
-            # 3) Butt Wink -> around bottom, compared to top baseline
-            # ---------------------------------------------------
-            flag_butt_wink(rep_frames, top_frame, bottom_frame)
 
 
 def flag_depth_insufficient(bottom_frame: FrameAssessment) -> None:
@@ -411,40 +338,6 @@ def flag_max_knee_valgus(
         if best_frame is not None and best_distance is not None:
             best_frame.error_flags.append("max_knee_valgus")
             best_frame.error_values["knee_x_distance"] = round(best_distance, 4)
-
-
-def flag_butt_wink(
-        rep_frames: List[FrameAssessment],
-        top_frame: FrameAssessment,
-        bottom_frame: FrameAssessment,
-    ) -> None:
-        baseline_angle = torso_pelvis_angle_from_frame(top_frame)
-
-        if baseline_angle is None:
-            return
-
-        search_window = [
-            f for f in rep_frames
-            if abs(f.frame_index - bottom_frame.frame_index) <= 10
-        ]
-
-        best_frame = None
-        best_deviation = 0.0
-
-        for frame in search_window:
-            angle = torso_pelvis_angle_from_frame(frame)
-            if angle is None:
-                continue
-
-            deviation = angle - baseline_angle
-            if deviation > best_deviation:
-                best_deviation = deviation
-                best_frame = frame
-
-
-        if best_frame is not None and best_deviation > 15:
-            best_frame.error_flags.append("butt_wink")
-            best_frame.error_values["pelvic_deviation_deg"] = round(best_deviation, 2)
 
 
 def torso_pelvis_angle_from_frame(frame: FrameAssessment) -> Optional[float]:
@@ -534,66 +427,6 @@ def compute_frame_reliability(
         frame_reliability = min(scores) if scores else 0.0
 
         return frame_reliability
-
-    
-def find_rep(frame_index: int, rep_segments: List[tuple[int, int]]) -> Optional[int]:
-        """
-        Gate 2 — Rep membership
-        """
-        for rep_idx, (start_frame, end_frame) in enumerate(rep_segments):
-            if start_frame <= frame_index <= end_frame:
-                return rep_idx
-        return None
-    
-
-def hip_center_y(frame: FrameAssessment) -> float:
-        """
-        Gate 3 — Top / bottom tagging per rep
-        """
-        left = frame.tracked_landmarks.get("LEFT_HIP")
-        right = frame.tracked_landmarks.get("RIGHT_HIP")
-
-        if left and right:
-            return (left.y + right.y) / 2.0
-        if left:
-            return left.y
-        if right:
-            return right.y
-        return 0.0
-    
-
-def passes_key_frame_gate(frame: FrameAssessment) -> bool:
-        """
-        Check if the frame has a visibility and presence greater than 0.85
-        """
-        for name in frame.expected_critical_landmarks + frame.expected_important_landmarks:
-            lm = frame.tracked_landmarks.get(name)
-            if lm is None:
-                return False
-            if lm.visibility < 0.85 or lm.presence < 0.85:
-                return False
-        return True
-
-
-def tag_key_positions(frames: List[FrameAssessment]) -> None:
-        rep_groups = defaultdict(list)
-
-        for frame in frames:
-            if frame.rep_index is not None:# and frame.passes_critical_gate:
-                rep_groups[frame.rep_index].append(frame)
-
-        for rep_idx, rep_frames in rep_groups.items():
-            if not rep_frames:
-                continue
-
-            top_frame = min(rep_frames, key=hip_center_y)
-            bottom_frame = max(rep_frames, key=hip_center_y)
-
-            top_frame.position_tag = "top"
-            bottom_frame.position_tag = "bottom"
-
-            top_frame.key_frame_reliable = passes_key_frame_gate(top_frame)
-            bottom_frame.key_frame_reliable = passes_key_frame_gate(bottom_frame)
 
 
 def get_dominant_camera_view(frames: List[FrameAssessment]) -> str:
@@ -823,65 +656,6 @@ def evaluate_quality_gate(
         "video_score": round(video_score, 4),
         "rep_count": complete_reps,
     }
-
-
-def angle_between(a, b, c):
-    """Angle at point b in the triangle a-b-c."""
-    v1 = np.array([a.x - b.x, a.y - b.y, a.z - b.z])
-    v2 = np.array([c.x - b.x, c.y - b.y, c.z - b.z])
-
-    denom = np.linalg.norm(v1) * np.linalg.norm(v2)
-    if denom == 0:
-        return None
-
-    cos_a = np.dot(v1, v2) / denom
-    return np.degrees(np.arccos(np.clip(cos_a, -1.0, 1.0)))
-
-
-def back_angle(shoulder, hip):
-    """Torso lean from vertical."""
-    torso = np.array([shoulder.x - hip.x, shoulder.y - hip.y, shoulder.z - hip.z])
-    norm = np.linalg.norm(torso)
-    if norm == 0:
-        return None
-
-    vertical = np.array([0, -1, 0])
-    cos_a = np.dot(torso, vertical) / norm
-    return np.degrees(np.arccos(np.clip(cos_a, -1.0, 1.0)))
-
-
-def ankle_dorsiflexion(knee, ankle):
-    """
-    Tibia inclination from vertical.
-
-    Returns:
-        degrees of ankle dorsiflexion proxy
-    """
-
-    tibia = np.array([
-        knee.x - ankle.x,
-        knee.y - ankle.y,
-        knee.z - ankle.z,
-    ])
-
-    norm = np.linalg.norm(tibia)
-
-    if norm == 0:
-        return None
-
-    tibia = tibia / norm
-
-    vertical = np.array([0, -1, 0])
-
-    cos_theta = np.dot(tibia, vertical)
-
-    angle = np.degrees(
-        np.arccos(
-            np.clip(cos_theta, -1.0, 1.0)
-        )
-    )
-
-    return angle
 
 
 def compute_view_metrics(pose_world, camera_view):

@@ -1,16 +1,22 @@
 from collections import Counter
 import json
 import os
-from typing import Any, Dict, List
+from typing import Dict, List
 import uuid
 import mediapipe as mp
 import numpy as np
 import cv2
-from utils.draw_methods import add_text_lines, draw_points_and_lines, draw_torso_vertical_reference
-from utils.trackers import AnkleTracker, BackAngleTracker, DepthTracker, RepCounter, StabilityTracker, TempoTracker, TrendAnalyzer
+from utils.trackers.trend_analyzer import TrendAnalyzer
+from utils.trackers.ankle_tracker import AnkleTracker
+from utils.trackers.back_tracker import BackAngleTracker
+from utils.trackers.depth_tracker import DepthTracker
+from utils.trackers.rep_counter import RepCounter
+from utils.trackers.stability_tracker import StabilityTracker
+from utils.trackers.tempo_tracker import TempoTracker
+from utils.draw_methods import add_text_lines, draw_points_and_lines
 from utils.angle_methods import detect_camera_view
 from utils.landmark_quality_configuration import (
-    LANDMARKS, LEFT_SIDE, LEG_CONNECTIONS, LEG_CONNECTIONS_LEFT_SIDE, LEG_CONNECTIONS_RIGHT_SIDE, LEG_TARGET_LANDMARKS, PRESENCE_THRESHOLD, RIGHT_SIDE, 
+    LANDMARKS, LEFT_SIDE, LEG_CONNECTIONS, LEG_CONNECTIONS_LEFT_SIDE, LEG_CONNECTIONS_RIGHT_SIDE, LEG_TARGET_LANDMARKS, MEDIAPIPE_MODEL, PRESENCE_THRESHOLD, RIGHT_SIDE, 
     VISIBILITY_THRESHOLD, FrameAssessment, FrameLandmarkData, )
 from utils.landmark_quality_methods import (
     compute_composite_score, 
@@ -72,7 +78,7 @@ class LandmarkQualityFramework:
         return self.PoseLandmarker.create_from_options(options)
 
 
-    def _draw_and_process_video(
+    def _draw_and_get_biomechanics(
             self, rgb_image, detection_result, rep_counter: RepCounter, 
             tempo_tracker: TempoTracker, back_tracker: BackAngleTracker, 
             depth_tracker: DepthTracker, stability_tracker: StabilityTracker, 
@@ -451,7 +457,7 @@ class LandmarkQualityFramework:
                     int(frame_timestamp_ms * 1000)
                 )
 
-                annotated_image, rep_count = self._draw_and_process_video(
+                annotated_image, rep_count = self._draw_and_get_biomechanics(
                     frame_rgb.numpy_view(),
                     pose_detector_result,
                     rep_counter,
@@ -527,21 +533,18 @@ class LandmarkQualityFramework:
             json.dump(json_final, f, indent=4, ensure_ascii=False)
 
         return json_final
+    
 
-model_path = "./mediapipe_code/model/pose_landmarker_heavy.task"
-framework = LandmarkQualityFramework(model_path=model_path)
+    def process_video(self, video_path, exercise, weight_kg):
+        result = self.get_quality_result(video_path)
 
-input_dir = "./mediapipe_code/videos/good_form/"
-# You can use this for process videos individualy
-#framework.get_biomechanics_output(input_dir, "Goblet Squat", 20)
-for filename in os.listdir(input_dir):
-    result = framework.get_quality_result(input_dir + filename)
-    if result["event"] == "mediapipe_complete":
-        try:
-            framework.get_biomechanics_output(input_dir + filename, "Goblet Squat", 20)
-        except Exception as e:
-            print("==================================================")
-            print(f"problema en el archivo {filename}")
-            print(e)
-            print("==================================================")
-            continue
+        if result["event"] == "mediapipe_complete":
+            framework.get_biomechanics_output(video_path, exercise, weight_kg)
+
+        return result
+
+
+framework = LandmarkQualityFramework(model_path=MEDIAPIPE_MODEL)
+
+input_dir = "./mediapipe_code/videos/good_form/goblet_squats_2.mp4"
+framework.process_video(input_dir, "goblet squat", 20)

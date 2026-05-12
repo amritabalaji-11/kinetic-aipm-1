@@ -1,5 +1,5 @@
 from dataclasses import dataclass, field
-from typing import Dict, List, Any, Optional
+from typing import Dict, List, Optional
 from utils.pose_landmarks import (
     LEFT_SHOULDER, RIGHT_SHOULDER,
     LEFT_HIP, RIGHT_HIP,
@@ -12,6 +12,8 @@ from utils.pose_landmarks import (
     LEFT_EYE, RIGHT_EYE,
     NOSE
 )
+
+MEDIAPIPE_MODEL = "./mediapipe_code/model/pose_landmarker_heavy.task"
 
 LANDMARKS = {
     # -------------------------
@@ -208,14 +210,3 @@ class FrameAssessment:
 
     error_flags: List[str] = field(default_factory=list)
     error_values: Dict[str, float] = field(default_factory=dict)
-
-@dataclass
-class BackAngleRepMetrics:
-    back_angle_start: Optional[float] = None
-    back_angle_max: Optional[float] = None
-    back_angle_at_bottom: Optional[float] = None
-    time_warning: float = 0.0
-    time_excessive: float = 0.0
-    status: str = "UNKNOWN"
-    butt_wink_detected: bool = False
-    butt_wink_severity_deg: float = 0.0
