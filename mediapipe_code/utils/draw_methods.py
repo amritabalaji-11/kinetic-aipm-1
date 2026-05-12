@@ -13,34 +13,52 @@ def draw_points_and_lines(
     thickness=2,
 ):
     """Draw selected landmarks and connections."""
-    # points
+    circle = cv2.circle
+    line = cv2.line
+    pw = w
+    ph = h
+    threshold_val = threshold
+
+    # Points
     for idx in points:
         lm = pose_landmarks[idx]
-        if lm.visibility > threshold:
-            x = int(lm.x * w)
-            y = int(lm.y * h)
-            cv2.circle(image, (x, y), 5, color, -1)
+        if lm.visibility <= threshold_val:
+            continue
 
-    # connections
+        x = int(lm.x * pw)
+        y = int(lm.y * ph)
+        circle(image, (x, y), 5, color, -1)
+
+    # Connections
     for start_idx, end_idx in connections:
         lm_start = pose_landmarks[start_idx]
-        lm_end = pose_landmarks[end_idx]
+        if lm_start.visibility <= threshold_val:
+            continue
 
-        if lm_start.visibility > threshold and lm_end.visibility > threshold:
-            x1, y1 = int(lm_start.x * w), int(lm_start.y * h)
-            x2, y2 = int(lm_end.x * w), int(lm_end.y * h)
-            cv2.line(image, (x1, y1), (x2, y2), color, thickness)
+        lm_end = pose_landmarks[end_idx]
+        if lm_end.visibility <= threshold_val:
+            continue
+
+        x1 = int(lm_start.x * pw)
+        y1 = int(lm_start.y * ph)
+        x2 = int(lm_end.x * pw)
+        y2 = int(lm_end.y * ph)
+
+        line(image, (x1, y1), (x2, y2), color, thickness)
 
 
 def add_text_lines(image, lines, start_x=10, start_y=30, dy=40):
     """Draw a list of strings on the frame."""
+    put_text = cv2.putText
+    font = cv2.FONT_HERSHEY_SIMPLEX
+
     y = start_y
     for text, color, scale in lines:
-        cv2.putText(
+        put_text(
             image,
             text,
             (start_x, y),
-            cv2.FONT_HERSHEY_SIMPLEX,
+            font,
             scale,
             color,
             2,

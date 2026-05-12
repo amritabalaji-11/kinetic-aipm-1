@@ -1,6 +1,6 @@
 {
     "session": {
-        "analysis_id": "68844255-a9f4-4d17-a0a7-3e7bb2effa4f",
+        "analysis_id": "e61a7f0e-d7ca-43b3-a113-4c29b2d7cda7",
         "exercise": "goblet squat",
         "weight_kg": 20,
         "rep_count": 10,
@@ -10,24 +10,24 @@
         {
             "rep_number": 1,
             "tempo_data": {
-                "tempo_notation": "0-0-1",
-                "eccentric": 0.2,
-                "pause": 0.47,
-                "concentric": 0.8,
-                "total": 1.47
+                "tempo_notation": "0-1-1",
+                "eccentric": 0.07,
+                "pause": 0.6,
+                "concentric": 0.7,
+                "total": 1.37
             },
             "back_data": {
-                "back_angle_start": 33.12,
-                "back_angle_max": 36.03,
-                "back_angle_at_bottom": 32.64,
-                "time_warning": 1.27,
+                "back_angle_start": 34.61,
+                "back_angle_max": 34.75,
+                "back_angle_at_bottom": 32.48,
+                "time_warning": 1.23,
                 "time_excessive": 0.0,
                 "status": "ACCEPTABLE"
             },
             "depth_data": {
-                "knee_angle_start": 102.0,
-                "knee_angle_at_bottom": 88.47,
-                "knee_angle_min": 88.47,
+                "knee_angle_start": 101.39,
+                "knee_angle_at_bottom": 76.87,
+                "knee_angle_min": 76.87,
                 "depth_classification": "deep",
                 "depth_insufficient_flag": false
             },
@@ -40,23 +40,23 @@
             "rep_number": 2,
             "tempo_data": {
                 "tempo_notation": "0-1-1",
-                "eccentric": 0.2,
-                "pause": 0.57,
-                "concentric": 0.77,
-                "total": 1.53
+                "eccentric": 0.07,
+                "pause": 0.67,
+                "concentric": 0.7,
+                "total": 1.43
             },
             "back_data": {
-                "back_angle_start": 30.31,
-                "back_angle_max": 32.47,
-                "back_angle_at_bottom": 28.86,
-                "time_warning": 1.33,
+                "back_angle_start": 30.36,
+                "back_angle_max": 31.57,
+                "back_angle_at_bottom": 28.98,
+                "time_warning": 1.27,
                 "time_excessive": 0.0,
                 "status": "ACCEPTABLE"
             },
             "depth_data": {
-                "knee_angle_start": 104.81,
-                "knee_angle_at_bottom": 89.48,
-                "knee_angle_min": 89.48,
+                "knee_angle_start": 103.96,
+                "knee_angle_at_bottom": 79.78,
+                "knee_angle_min": 79.78,
                 "depth_classification": "deep",
                 "depth_insufficient_flag": false
             },
@@ -69,23 +69,23 @@
             "rep_number": 3,
             "tempo_data": {
                 "tempo_notation": "0-1-1",
-                "eccentric": 0.27,
-                "pause": 0.63,
-                "concentric": 0.8,
-                "total": 1.7
+                "eccentric": 0.13,
+                "pause": 0.8,
+                "concentric": 0.7,
+                "total": 1.63
             },
             "back_data": {
-                "back_angle_start": 32.99,
-                "back_angle_max": 33.32,
-                "back_angle_at_bottom": 26.66,
-                "time_warning": 1.53,
+                "back_angle_start": 33.11,
+                "back_angle_max": 33.18,
+                "back_angle_at_bottom": 26.22,
+                "time_warning": 1.57,
                 "time_excessive": 0.0,
                 "status": "ACCEPTABLE"
             },
             "depth_data": {
-                "knee_angle_start": 102.44,
-                "knee_angle_at_bottom": 90.09,
-                "knee_angle_min": 90.09,
+                "knee_angle_start": 104.61,
+                "knee_angle_at_bottom": 79.96,
+                "knee_angle_min": 79.96,
                 "depth_classification": "deep",
                 "depth_insufficient_flag": false
             },
@@ -98,23 +98,23 @@
             "rep_number": 4,
             "tempo_data": {
                 "tempo_notation": "0-1-1",
-                "eccentric": 0.2,
-                "pause": 0.67,
-                "concentric": 0.9,
-                "total": 1.77
+                "eccentric": 0.1,
+                "pause": 0.77,
+                "concentric": 0.87,
+                "total": 1.73
             },
             "back_data": {
-                "back_angle_start": 32.36,
-                "back_angle_max": 35.02,
-                "back_angle_at_bottom": 29.28,
+                "back_angle_start": 30.81,
+                "back_angle_max": 33.67,
+                "back_angle_at_bottom": 27.68,
                 "time_warning": 1.6,
                 "time_excessive": 0.0,
                 "status": "ACCEPTABLE"
             },
             "depth_data": {
-                "knee_angle_start": 102.67,
-                "knee_angle_at_bottom": 88.42,
-                "knee_angle_min": 88.42,
+                "knee_angle_start": 99.78,
+                "knee_angle_at_bottom": 79.43,
+                "knee_angle_min": 79.43,
                 "depth_classification": "deep",
                 "depth_insufficient_flag": false
             },
@@ -127,23 +127,23 @@
             "rep_number": 5,
             "tempo_data": {
                 "tempo_notation": "0-1-1",
-                "eccentric": 0.2,
-                "pause": 0.8,
-                "concentric": 0.8,
-                "total": 1.8
+                "eccentric": 0.1,
+                "pause": 0.87,
+                "concentric": 0.77,
+                "total": 1.73
             },
             "back_data": {
-                "back_angle_start": 31.51,
-                "back_angle_max": 35.21,
-                "back_angle_at_bottom": 28.21,
-                "time_warning": 1.63,
+                "back_angle_start": 31.09,
+                "back_angle_max": 34.8,
+                "back_angle_at_bottom": 28.47,
+                "time_warning": 1.6,
                 "time_excessive": 0.0,
                 "status": "ACCEPTABLE"
             },
             "depth_data": {
-                "knee_angle_start": 102.35,
-                "knee_angle_at_bottom": 89.26,
-                "knee_angle_min": 89.26,
+                "knee_angle_start": 102.82,
+                "knee_angle_at_bottom": 79.37,
+                "knee_angle_min": 79.37,
                 "depth_classification": "deep",
                 "depth_insufficient_flag": false
             },
@@ -156,23 +156,23 @@
             "rep_number": 6,
             "tempo_data": {
                 "tempo_notation": "0-1-1",
-                "eccentric": 0.33,
-                "pause": 0.6,
-                "concentric": 0.93,
-                "total": 1.87
+                "eccentric": 0.13,
+                "pause": 0.87,
+                "concentric": 0.8,
+                "total": 1.8
             },
             "back_data": {
-                "back_angle_start": 32.68,
-                "back_angle_max": 38.42,
-                "back_angle_at_bottom": 31.69,
-                "time_warning": 1.73,
+                "back_angle_start": 32.87,
+                "back_angle_max": 37.13,
+                "back_angle_at_bottom": 30.76,
+                "time_warning": 1.77,
                 "time_excessive": 0.0,
                 "status": "ACCEPTABLE"
             },
             "depth_data": {
-                "knee_angle_start": 104.18,
-                "knee_angle_at_bottom": 92.73,
-                "knee_angle_min": 92.73,
+                "knee_angle_start": 103.07,
+                "knee_angle_at_bottom": 80.99,
+                "knee_angle_min": 80.99,
                 "depth_classification": "deep",
                 "depth_insufficient_flag": false
             },
@@ -185,23 +185,23 @@
             "rep_number": 7,
             "tempo_data": {
                 "tempo_notation": "0-1-1",
-                "eccentric": 0.37,
-                "pause": 0.63,
-                "concentric": 0.9,
-                "total": 1.9
+                "eccentric": 0.13,
+                "pause": 0.83,
+                "concentric": 0.8,
+                "total": 1.77
             },
             "back_data": {
-                "back_angle_start": 32.93,
-                "back_angle_max": 35.65,
-                "back_angle_at_bottom": 28.3,
+                "back_angle_start": 32.41,
+                "back_angle_max": 34.67,
+                "back_angle_at_bottom": 28.66,
                 "time_warning": 1.73,
                 "time_excessive": 0.0,
                 "status": "ACCEPTABLE"
             },
             "depth_data": {
-                "knee_angle_start": 104.13,
-                "knee_angle_at_bottom": 90.54,
-                "knee_angle_min": 90.54,
+                "knee_angle_start": 103.06,
+                "knee_angle_at_bottom": 81.63,
+                "knee_angle_min": 81.63,
                 "depth_classification": "deep",
                 "depth_insufficient_flag": false
             },
@@ -214,23 +214,23 @@
             "rep_number": 8,
             "tempo_data": {
                 "tempo_notation": "0-1-1",
-                "eccentric": 0.33,
-                "pause": 0.73,
-                "concentric": 0.9,
-                "total": 1.97
+                "eccentric": 0.1,
+                "pause": 0.93,
+                "concentric": 0.83,
+                "total": 1.87
             },
             "back_data": {
-                "back_angle_start": 33.74,
-                "back_angle_max": 40.54,
-                "back_angle_at_bottom": 30.41,
-                "time_warning": 1.63,
-                "time_excessive": 0.23,
-                "status": "WARNING"
+                "back_angle_start": 34.63,
+                "back_angle_max": 39.8,
+                "back_angle_at_bottom": 29.55,
+                "time_warning": 1.87,
+                "time_excessive": 0.0,
+                "status": "ACCEPTABLE"
             },
             "depth_data": {
-                "knee_angle_start": 103.19,
-                "knee_angle_at_bottom": 91.55,
-                "knee_angle_min": 91.55,
+                "knee_angle_start": 104.31,
+                "knee_angle_at_bottom": 79.17,
+                "knee_angle_min": 79.17,
                 "depth_classification": "deep",
                 "depth_insufficient_flag": false
             },
@@ -243,23 +243,23 @@
             "rep_number": 9,
             "tempo_data": {
                 "tempo_notation": "0-1-1",
-                "eccentric": 0.2,
-                "pause": 0.77,
-                "concentric": 0.9,
-                "total": 1.87
+                "eccentric": 0.1,
+                "pause": 0.83,
+                "concentric": 0.77,
+                "total": 1.7
             },
             "back_data": {
-                "back_angle_start": 35.27,
-                "back_angle_max": 38.6,
-                "back_angle_at_bottom": 31.16,
+                "back_angle_start": 34.72,
+                "back_angle_max": 37.67,
+                "back_angle_at_bottom": 30.59,
                 "time_warning": 1.7,
                 "time_excessive": 0.0,
                 "status": "ACCEPTABLE"
             },
             "depth_data": {
-                "knee_angle_start": 103.64,
-                "knee_angle_at_bottom": 91.53,
-                "knee_angle_min": 91.53,
+                "knee_angle_start": 102.25,
+                "knee_angle_at_bottom": 81.94,
+                "knee_angle_min": 81.94,
                 "depth_classification": "deep",
                 "depth_insufficient_flag": false
             },
@@ -272,23 +272,23 @@
             "rep_number": 10,
             "tempo_data": {
                 "tempo_notation": "0-1-1",
-                "eccentric": 0.23,
-                "pause": 0.73,
-                "concentric": 0.97,
-                "total": 1.93
+                "eccentric": 0.1,
+                "pause": 0.87,
+                "concentric": 0.8,
+                "total": 1.77
             },
             "back_data": {
-                "back_angle_start": 35.38,
-                "back_angle_max": 40.25,
-                "back_angle_at_bottom": 34.32,
+                "back_angle_start": 34.7,
+                "back_angle_max": 40.65,
+                "back_angle_at_bottom": 32.88,
                 "time_warning": 1.67,
-                "time_excessive": 0.13,
+                "time_excessive": 0.07,
                 "status": "WARNING"
             },
             "depth_data": {
-                "knee_angle_start": 103.82,
-                "knee_angle_at_bottom": 93.38,
-                "knee_angle_min": 93.38,
+                "knee_angle_start": 103.38,
+                "knee_angle_at_bottom": 83.93,
+                "knee_angle_min": 83.93,
                 "depth_classification": "deep",
                 "depth_insufficient_flag": false
             },
@@ -301,29 +301,29 @@
     "consolidated": {
         "total_reps": 10,
         "posture": {
-            "back_angle_max_mean": 36.551,
-            "back_angle_at_bottom_mean": 30.153,
-            "back_angle_trend": 0.7399,
+            "back_angle_max_mean": 35.789,
+            "back_angle_at_bottom_mean": 29.627,
+            "back_angle_trend": 0.8135,
             "status_distribution": {
-                "ACCEPTABLE": 8,
-                "WARNING": 2
+                "ACCEPTABLE": 9,
+                "WARNING": 1
             }
         },
         "movement_quality": {
             "depth_distribution": {
                 "deep": 10
             },
-            "knee_angle_min_mean": 90.545,
-            "depth_trend": 0.4586,
+            "knee_angle_min_mean": 80.307,
+            "depth_trend": 0.5026,
             "depth_insufficient_reps": 0,
             "ankle_dorsiflexion_trend": "adecuate"
         },
         "tempo": {
-            "eccentric_mean": 0.253,
-            "pause_mean": 0.66,
-            "concentric_mean": 0.867,
-            "total_mean": 1.781,
-            "total_trend": 0.0505,
+            "eccentric_mean": 0.103,
+            "pause_mean": 0.804,
+            "concentric_mean": 0.774,
+            "total_mean": 1.68,
+            "total_trend": 0.0417,
             "tempo_notation_mode": "0-1-1"
         }
     }

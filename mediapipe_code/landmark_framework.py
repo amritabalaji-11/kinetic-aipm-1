@@ -1,10 +1,9 @@
 from collections import Counter
 import json
 import os
-from typing import Dict, List
+import time
 import uuid
 import mediapipe as mp
-import numpy as np
 import cv2
 from utils.trackers.trend_analyzer import TrendAnalyzer
 from utils.trackers.ankle_tracker import AnkleTracker
@@ -16,15 +15,17 @@ from utils.trackers.tempo_tracker import TempoTracker
 from utils.draw_methods import add_text_lines, draw_points_and_lines
 from utils.angle_methods import detect_camera_view
 from utils.landmark_quality_configuration import (
-    LANDMARKS, LEFT_SIDE, LEG_CONNECTIONS, LEG_CONNECTIONS_LEFT_SIDE, LEG_CONNECTIONS_RIGHT_SIDE, LEG_TARGET_LANDMARKS, MEDIAPIPE_MODEL, PRESENCE_THRESHOLD, RIGHT_SIDE, 
-    VISIBILITY_THRESHOLD, FrameAssessment, FrameLandmarkData, )
+    LANDMARKS, LEFT_SIDE, LEG_CONNECTIONS, LEG_CONNECTIONS_LEFT_SIDE, 
+    LEG_CONNECTIONS_RIGHT_SIDE, LEG_TARGET_LANDMARKS, MEDIAPIPE_MODEL, 
+    PRESENCE_THRESHOLD, RIGHT_SIDE, 
+    VISIBILITY_THRESHOLD, FrameAssessment )
 from utils.landmark_quality_methods import (
     compute_composite_score, 
     compute_frame_reliability, compute_reliability,
     compute_view_metrics, evaluate_quality_gate, extract_frame_landmark_data,
     format_rep_data,
     get_first_pose,
-    get_rep_angles, safe_get_landmark, 
+    safe_get_landmark, 
     select_landmarks_by_view,
     torso_vertical_angle)
 
@@ -65,6 +66,37 @@ class LandmarkQualityFramework:
         self.all_landmarks = ALL_TRACKED_LANDMARKS
         self.critical_landmarks = CRITICAL_LANDMARKS
 
+        self.view_config = {
+            "front": {
+                "active_landmarks": self.all_landmarks,
+                "critical_landmarks": self.critical_landmarks,
+            },
+            "angled": {
+                "active_landmarks": self.all_landmarks,
+                "critical_landmarks": self.critical_landmarks,
+            },
+            "side_left": {
+                "active_landmarks": [
+                    name for name in self.all_landmarks
+                    if name.startswith("LEFT") or name == "NOSE"
+                ],
+                "critical_landmarks": [
+                    name for name in self.critical_landmarks
+                    if name.startswith("LEFT")
+                ],
+            },
+            "side_right": {
+                "active_landmarks": [
+                    name for name in self.all_landmarks
+                    if name.startswith("RIGHT") or name == "NOSE"
+                ],
+                "critical_landmarks": [
+                    name for name in self.critical_landmarks
+                    if name.startswith("RIGHT")
+                ],
+            },
+        }
+
 
     def _create_landmarker(self):
         options = self.PoseLandmarkerOptions(
@@ -76,356 +108,91 @@ class LandmarkQualityFramework:
             min_tracking_confidence=0.50,
         )
         return self.PoseLandmarker.create_from_options(options)
+    
 
-
-    def _draw_and_get_biomechanics(
-            self, rgb_image, detection_result, rep_counter: RepCounter, 
-            tempo_tracker: TempoTracker, back_tracker: BackAngleTracker, 
-            depth_tracker: DepthTracker, stability_tracker: StabilityTracker, 
-            ankle_tracker: AnkleTracker, json_info, frame_timestamp_ms, threshold=0.0):
-        """
-        Processes each frame by drawing the points, writing the texts, and calculating the angles.
-
-        rgb_image: The numpy view of each RGB frame.
-        detection_results: The pose_landmarks and pose_world_landmarks of each frame.
-        frame_timestamp_ms: The real time of the video.
-        threshold: It modifies the visualization of points in the image based on their visibility and presence.
-        """
-        annotated_image = np.copy(rgb_image)
-
-        if not detection_result.pose_landmarks or not detection_result.pose_world_landmarks:
-            return annotated_image, rep_counter.rep_count
-
-        h, w, _ = annotated_image.shape
-
-        for pose_landmarks, pose_world in zip(
-            detection_result.pose_landmarks,
-            detection_result.pose_world_landmarks,
-        ):
-            camera_view = detect_camera_view(pose_landmarks, pose_world)
-
-            # --- draw only what we need ---
-            if camera_view == "side_left":
-                draw_points_and_lines(
-                    annotated_image,
-                    pose_landmarks,
-                    w,
-                    h,
-                    LEFT_SIDE,
-                    LEG_CONNECTIONS_LEFT_SIDE,
-                    threshold=threshold,
-                )
-
-            elif camera_view == "side_right":
-                draw_points_and_lines(
-                    annotated_image,
-                    pose_landmarks,
-                    w,
-                    h,
-                    RIGHT_SIDE,
-                    LEG_CONNECTIONS_RIGHT_SIDE,
-                    threshold=threshold,
-                )
-
-            else:
-                draw_points_and_lines(
-                    annotated_image,
-                    pose_landmarks,
-                    w,
-                    h,
-                    LEG_TARGET_LANDMARKS,
-                    LEG_CONNECTIONS,
-                    threshold=threshold,
-                )
-
-
-            metrics = compute_view_metrics(pose_world, camera_view)
-            hip_angle = metrics["hip_angle"]
-            knee_angle = metrics["knee_angle"]
-            back_angle_value = metrics["back_angle"]
-            left_knee_valgus = metrics["left_knee_valgus"]
-            right_knee_valgus = metrics["right_knee_valgus"]
-            dorsiflexion = metrics["dorsiflexion"]
-
-             # --- update trackers only if values exist ---
-            rep_completed = None
-            tempo_data = None
-            back_data = None
-            stability_data = None
-
-            torso_angle_from_vertical = torso_vertical_angle(pose_world)
-
-            if hip_angle is not None:
-                    rep_completed, rep_count = rep_counter.update(
-                            hip_angle,
-                            knee_angle,
-                            camera_view=camera_view
-                        )
-            tempo_data = tempo_tracker.update(hip_angle, knee_angle, camera_view, frame_timestamp_ms)
-            back_data = back_tracker.update(
-                back_angle_value,
-                hip_angle,
-                knee_angle,
-                camera_view,
-                frame_timestamp_ms,
-                torso_angle=torso_angle_from_vertical
-            )
-            depth_data = depth_tracker.update(
-                hip_angle=hip_angle,
-                knee_angle=knee_angle,
-                camera_view=camera_view,
-                timestamp=frame_timestamp_ms,
-            )
-            stability_data = stability_tracker.update(
-                hip_angle=hip_angle,
-                knee_angle=knee_angle,
-                camera_view=camera_view,
-                pose_landmarks=pose_landmarks,
-                timestamp=frame_timestamp_ms,
-            )
-            ankle_data = ankle_tracker.update(
-                hip_angle=hip_angle,
-                knee_angle=knee_angle,
-                camera_view=camera_view,
-                dorsiflexion=dorsiflexion,
-                pose_world=pose_world,
-                timestamp=frame_timestamp_ms,
-            )
-
-            if rep_completed:
-                rep_dict = format_rep_data(
-                    rep_count, tempo_data, 
-                    back_data, depth_data, stability_data, ankle_data, camera_view)
-
-                rep_dict["rep_number"] = rep_count
-                rep_dict["camera_view"] = camera_view
-
-                json_info.append(rep_dict)
-
-            # --- text overlay ---
-            lines = [
-                (f"Hip Angle: {hip_angle:.1f}" if hip_angle is not None else "Hip Angle: N/A", (0, 255, 0), 1),
-                (f"Knee Angle: {knee_angle:.1f}" if knee_angle is not None else "Knee Angle: N/A", (0, 255, 0), 1),
-                (f"Back Angle: {back_angle_value:.1f}" if back_angle_value is not None else "Back Angle: N/A", (0, 255, 0), 1),
-                (f"Reps: {rep_counter.rep_count}", (0, 0, 255), 1),
-                (f"State: {tempo_tracker.state}", (255, 0, 0), 1),
-                (f"Camera view: {camera_view}", (0, 255, 0), 1),
-            ]
-
-            if left_knee_valgus is not None:
-                lines.append((f"Left Valgus: {left_knee_valgus:.3f}", (0, 255, 0), 1))
-            if right_knee_valgus is not None:
-                lines.append((f"Right Valgus: {right_knee_valgus:.3f}", (0, 255, 0), 1))
-
-            add_text_lines(annotated_image, lines, start_x=10, start_y=30, dy=40)
-
-        
-        return annotated_image, rep_counter.rep_count
-
-
-    def _analyze_video(self, video_path: str):
-        # Capture video
+    def process_video_once(
+        self,
+        video_path,
+        exercise,
+        weight_kg,
+        save_video=True,
+    ):
         cap = cv2.VideoCapture(video_path)
+
         if not cap.isOpened():
             raise ValueError(f"The video could not be opened: {video_path}")
 
-        # Get FPS
-        fps = cap.get(cv2.CAP_PROP_FPS) or 30.0
-        total_frames = 0
-        raw_frames: List[FrameAssessment] = []
-        rep_count = 0
+        fps = 30.0
 
-        with self._create_landmarker() as landmarker:
-            frame_index = 0
+        width = int(cap.get(cv2.CAP_PROP_FRAME_WIDTH))
+        height = int(cap.get(cv2.CAP_PROP_FRAME_HEIGHT))
 
-            rep_counter = RepCounter()
+        video_name = os.path.splitext(
+            os.path.basename(video_path)
+        )[0]
 
-            # Start video loop
-            while True:
-                ok, frame_bgr = cap.read()
-                if not ok:
-                    break
-
-                # Configuration of image and timestamp
-                total_frames += 1
-                timestamp_ms = int((frame_index / fps) * 1000)
-
-                frame_rgb = cv2.cvtColor(frame_bgr, cv2.COLOR_BGR2RGB)
-                mp_image = mp.Image(
-                    image_format=mp.ImageFormat.SRGB,
-                    data=frame_rgb
-                )
-
-                # Process the video with MediaPipe
-                result = landmarker.detect_for_video(mp_image, timestamp_ms)
-                world_pose, norm_pose = get_first_pose(result)
-
-                # If there is no data, returns a failed frame
-                if world_pose is None or norm_pose is None:
-                    raw_frames.append(
-                        FrameAssessment(
-                            frame_index=frame_index,
-                            timestamp_ms=timestamp_ms,
-                            passes_critical_gate=False,
-                            critical_failures=[f"no_pose_detected_frame_{frame_index}"],
-                            tracked_landmarks={},
-                            camera_view="unknown",
-                            expected_landmarks=[],
-                            expected_critical_landmarks=[],
-                        )
-                    )
-                    frame_index += 1
-                    continue
-
-                # Detect the camera view
-                camera_view = detect_camera_view(
-                    norm_pose,
-                    world_pose
-                )
-                
-
-                # Apply the active landmarks by camera view
-                active_landmarks, active_critical_landmarks = (
-                    select_landmarks_by_view(self.all_landmarks, self.critical_landmarks, camera_view)
-                )
-
-                
-                tracked_landmarks: Dict[str, FrameLandmarkData] = {}
-                critical_failures: List[str] = []
-
-                # Extract the landmarks of the frame
-                for name in active_landmarks:
-
-                    idx = self.landmarks[name]["id"]
-
-                    world_lm = safe_get_landmark(world_pose, idx)
-                    norm_lm = safe_get_landmark(norm_pose, idx)
-
-                    if world_lm is None or norm_lm is None:
-                        continue
-
-                    tracked_landmarks[name] = extract_frame_landmark_data(
-                        world_lm,
-                        norm_lm
-                    )
-
-                passes_critical_gate = True
-                # If there are not a critical landmark or
-                # the visibility and presence are bad.
-                # Returns a critical failure
-                for name in active_critical_landmarks:
-
-                    lm = tracked_landmarks.get(name)
-
-                    if lm is None:
-                        passes_critical_gate = False
-                        critical_failures.append(f"{name}:missing")
-                        continue
-
-                    if (
-                        lm.visibility < VISIBILITY_THRESHOLD
-                        or lm.presence < PRESENCE_THRESHOLD
-                    ):
-
-                        passes_critical_gate = False
-
-                        critical_failures.append(
-                            f"{name}:visibility={lm.visibility:.2f},presence={lm.presence:.2f}"
-                        )
-
-                # Rep counting only if frame is reliable
-                #if passes_critical_gate:
-                hip_angle, knee_angle = get_rep_angles(self.landmarks, world_pose, camera_view)
-
-                if hip_angle is not None:
-                    _, rep_count = rep_counter.update(
-                            hip_angle,
-                            knee_angle,
-                            camera_view=camera_view
-                        )
-
-                frame_reliability = compute_frame_reliability(
-                    tracked_landmarks,
-                    active_critical_landmarks
-                )
-
-                raw_frames.append(
-                    FrameAssessment(
-                        frame_index=frame_index,
-                        timestamp_ms=timestamp_ms,
-                        passes_critical_gate=passes_critical_gate,
-                        critical_failures=critical_failures,
-                        tracked_landmarks=tracked_landmarks,
-                        camera_view=camera_view,
-                        expected_landmarks=active_landmarks,
-                        expected_critical_landmarks=active_critical_landmarks,
-                        frame_reliability=frame_reliability
-                    )
-                )
-
-                frame_index += 1
-        
-        # End of the loop
-        cap.release()
-
-        return raw_frames, rep_count
-    
-
-    def get_quality_result(self, video_path):
-        raw_frames, rep_count = self._analyze_video(video_path)
-
-        # Layer 1 — Per-Landmark Reliability Rate
-        reliability_by_landmark = compute_reliability(self.all_landmarks, self.critical_landmarks, raw_frames)
-            
-        # Layer 2 — Weighted Composite Video Score
-        composite_score = compute_composite_score(
-            self.weights,
-            reliability_by_landmark,
-            raw_frames
-        )
-    
-        quality_result = evaluate_quality_gate(raw_frames, composite_score, rep_count)
-        quality_result_id = uuid.uuid4()
-
-        quality_result["analysis_id"] = quality_result_id
-
-        return quality_result
-
-
-    def get_biomechanics_output(self, video_path, exercise, weight_kg):
-
-        video = cv2.VideoCapture(video_path)
-
-        fps = video.get(cv2.CAP_PROP_FPS)
-        width = int(video.get(cv2.CAP_PROP_FRAME_WIDTH))
-        height = int(video.get(cv2.CAP_PROP_FRAME_HEIGHT))
+        raw_frames = []
+        reps_json_info = []
+        frame_cache = []
 
         frame_index = 0
-        reps_json_info = []
+        rep_count = 0
 
-        # =========================================
-        # Output video configuration
-        # =========================================
-        video_name = os.path.splitext(os.path.basename(video_path))[0]
+        temp_raw_video_path = None
+        raw_writer = None
 
-        output_video_dir = "./mediapipe_code/video_results"
-        os.makedirs(output_video_dir, exist_ok=True)
+        # Local refs
+        append_raw = raw_frames.append
+        append_rep = reps_json_info.append
+        append_cache = frame_cache.append
 
-        output_video_path = os.path.join(
-            output_video_dir,
-            f"{video_name}_processed.mp4"
-        )
+        cvt_color = cv2.cvtColor
+        read = cap.read
 
-        fourcc = cv2.VideoWriter_fourcc(*"mp4v")
+        compute_metrics = compute_view_metrics
+        detect_view = detect_camera_view
 
-        out = cv2.VideoWriter(
-            output_video_path,
-            fourcc,
-            fps,
-            (width, height)
-        )
+        compute_rel = compute_frame_reliability
 
-        with self._create_landmarker() as detector:
+        select_landmarks = select_landmarks_by_view
+
+        safe_landmark = safe_get_landmark
+        extract_lm = extract_frame_landmark_data
+
+        mp_image_cls = mp.Image
+        mp_srgb = mp.ImageFormat.SRGB
+
+        visibility_threshold = VISIBILITY_THRESHOLD
+        presence_threshold = PRESENCE_THRESHOLD
+
+        landmarks_config = self.landmarks
+        view_config = self.view_config
+
+        if save_video:
+
+            output_video_dir = "./mediapipe_code/video_results"
+
+            os.makedirs(output_video_dir, exist_ok=True)
+
+            temp_raw_video_path = os.path.join(
+                output_video_dir,
+                f"{video_name}_raw_tmp.mp4",
+            )
+
+            raw_writer = cv2.VideoWriter(
+                temp_raw_video_path,
+                cv2.VideoWriter_fourcc(*"mp4v"),
+                fps,
+                (width, height),
+            )
+
+            write_raw = raw_writer.write
+        else:
+            write_raw = None
+
+        with self._create_landmarker() as landmarker:
+
+            detect_for_video = landmarker.detect_for_video
 
             rep_counter = RepCounter()
             tempo_tracker = TempoTracker()
@@ -434,75 +201,341 @@ class LandmarkQualityFramework:
             stability_tracker = StabilityTracker()
             ankle_tracker = AnkleTracker()
 
-            while video.isOpened():
+            rep_update = rep_counter.update
+            tempo_update = tempo_tracker.update
+            back_update = back_tracker.update
+            depth_update = depth_tracker.update
+            stability_update = stability_tracker.update
+            ankle_update = ankle_tracker.update
 
-                ret, frame = video.read()
+            while True:
 
-                if not ret:
+                ok, frame_bgr = read()
+
+                if not ok:
                     break
 
-                # Frame to RGB
-                frame_rgb = cv2.cvtColor(frame, cv2.COLOR_BGR2RGB)
+                timestamp_ms = frame_index / fps
 
-                frame_rgb = mp.Image(
-                    image_format=mp.ImageFormat.SRGB,
-                    data=frame_rgb
+                frame_rgb = cvt_color(
+                    frame_bgr,
+                    cv2.COLOR_BGR2RGB,
                 )
 
-                # Timestamp by frame
-                frame_timestamp_ms = frame_index / fps
+                frame_rgb.flags.writeable = False
 
-                pose_detector_result = detector.detect_for_video(
-                    frame_rgb,
-                    int(frame_timestamp_ms * 1000)
+                detection_result = detect_for_video(
+                    mp_image_cls(
+                        image_format=mp_srgb,
+                        data=frame_rgb,
+                    ),
+                    int(timestamp_ms * 1000),
                 )
 
-                annotated_image, rep_count = self._draw_and_get_biomechanics(
-                    frame_rgb.numpy_view(),
-                    pose_detector_result,
-                    rep_counter,
-                    tempo_tracker,
-                    back_tracker,
-                    depth_tracker,
-                    stability_tracker,
-                    ankle_tracker,
-                    reps_json_info,
-                    frame_timestamp_ms
+                world_pose, norm_pose = get_first_pose(
+                    detection_result
                 )
 
-                # =========================================
-                # Convert RGB -> BGR before saving
-                # =========================================
-                annotated_bgr = cv2.cvtColor(
-                    annotated_image,
-                    cv2.COLOR_RGB2BGR
+                if write_raw is not None:
+                    write_raw(frame_bgr)
+
+                if world_pose is None or norm_pose is None:
+
+                    append_raw(
+                        FrameAssessment(
+                            frame_index=frame_index,
+                            timestamp_ms=timestamp_ms,
+                            camera_view="unknown",
+                            passes_critical_gate=False,
+                            tracked_landmarks={},
+                            expected_landmarks=[],
+                            expected_critical_landmarks=[],
+                            critical_failures=[
+                                f"no_pose_detected_frame_{frame_index}"
+                            ]
+                        )
+                    )
+
+                    append_cache({
+                        "frame_index": frame_index,
+                        "timestamp_ms": timestamp_ms,
+                        "has_pose": False,
+                    })
+
+                    frame_index += 1
+                    continue
+
+                # -------------------------------------------------
+                # VIEW
+                # -------------------------------------------------
+                camera_view = detect_view(
+                    norm_pose,
+                    world_pose,
                 )
 
-                out.write(annotated_bgr)
+                (
+                    active_landmarks,
+                    active_critical_landmarks,
+                ) = select_landmarks(
+                    camera_view,
+                    view_config,
+                )
 
-                cv2.imshow("Pose Detection", annotated_image)
+                tracked_landmarks = {}
 
-                if cv2.waitKey(1) & 0xFF == 27:
-                    break
+                critical_failures = []
+                passes_critical_gate = True
+
+                # -------------------------------------------------
+                # LANDMARKS
+                # -------------------------------------------------
+                for name in active_landmarks:
+
+                    idx = landmarks_config[name]["id"]
+
+                    world_lm = safe_landmark(
+                        world_pose,
+                        idx,
+                    )
+
+                    if world_lm is None:
+                        continue
+
+                    norm_lm = safe_landmark(
+                        norm_pose,
+                        idx,
+                    )
+
+                    if norm_lm is None:
+                        continue
+
+                    tracked_landmarks[name] = extract_lm(
+                        world_lm,
+                        norm_lm,
+                    )
+
+                # -------------------------------------------------
+                # QUALITY
+                # -------------------------------------------------
+
+                for name in active_critical_landmarks:
+
+                    lm = tracked_landmarks.get(name)
+
+                    if lm is None:
+                        passes_critical_gate = False
+
+                        critical_failures.append(
+                            f"{name}:missing"
+                        )
+
+                        continue
+
+                    visibility = lm.visibility
+                    presence = lm.presence
+
+                    if (
+                        visibility < visibility_threshold
+                        or presence < presence_threshold
+                    ):
+                        passes_critical_gate = False
+
+                        critical_failures.append(
+                            f"{name}:visibility={visibility:.2f},presence={presence:.2f}"
+                        )
+
+                frame_reliability = compute_rel(
+                    tracked_landmarks,
+                    active_critical_landmarks,
+                )
+
+                append_raw(
+                    FrameAssessment(
+                        frame_index=frame_index,
+                        timestamp_ms=timestamp_ms,
+                        camera_view=camera_view,
+                        passes_critical_gate=passes_critical_gate,
+                        tracked_landmarks=tracked_landmarks,
+                        expected_landmarks=active_landmarks,
+                        expected_critical_landmarks=active_critical_landmarks,
+                        frame_reliability=frame_reliability,
+                        critical_failures=critical_failures
+                    )
+                )
+
+                # -------------------------------------------------
+                # BIOMECHANICS
+                # -------------------------------------------------
+
+                metrics = compute_metrics(
+                    world_pose,
+                    camera_view,
+                )
+
+                hip_angle = metrics["hip_angle"]
+                knee_angle = metrics["knee_angle"]
+
+                back_angle_value = metrics["back_angle"]
+
+                left_knee_valgus = metrics["left_knee_valgus"]
+                right_knee_valgus = metrics["right_knee_valgus"]
+
+                dorsiflexion = metrics["dorsiflexion"]
+
+                torso_angle = torso_vertical_angle(
+                    world_pose
+                )
+
+                rep_completed = None
+
+                if hip_angle is not None:
+                    rep_completed, rep_count = rep_update(
+                        hip_angle,
+                        knee_angle,
+                        camera_view=camera_view,
+                    )
+
+                tempo_data = tempo_update(
+                    hip_angle,
+                    knee_angle,
+                    camera_view,
+                    timestamp_ms,
+                )
+
+                back_data = back_update(
+                    back_angle_value,
+                    hip_angle,
+                    knee_angle,
+                    camera_view,
+                    timestamp_ms,
+                    torso_angle=torso_angle,
+                )
+                depth_data = depth_update(
+                    hip_angle,
+                    knee_angle,
+                    camera_view
+                )
+                stability_data = stability_update(
+                    hip_angle,
+                    knee_angle,
+                    camera_view,
+                    norm_pose,
+                    timestamp_ms,
+                )
+                ankle_data = ankle_update(
+                    hip_angle,
+                    knee_angle,
+                    camera_view,
+                    dorsiflexion,
+                    world_pose,
+                )
+
+                # -------------------------------------------------
+                # REP COMPLETED
+                # -------------------------------------------------
+                if rep_completed:
+
+                    rep_dict = format_rep_data(
+                        rep_count,
+                        tempo_data,
+                        back_data,
+                        depth_data,
+                        stability_data,
+                        ankle_data,
+                        camera_view,
+                    )
+
+                    rep_dict["rep_number"] = rep_count
+                    rep_dict["camera_view"] = camera_view
+
+                    append_rep(rep_dict)
+
+                # -------------------------------------------------
+                # CACHE
+                # -------------------------------------------------
+                append_cache({
+                    "frame_index": frame_index,
+                    "timestamp_ms": timestamp_ms,
+                    "has_pose": True,
+                    "camera_view": camera_view,
+                    "norm_pose": norm_pose,
+                    "hip_angle": hip_angle,
+                    "knee_angle": knee_angle,
+                    "back_angle_value": back_angle_value,
+                    "left_knee_valgus": left_knee_valgus,
+                    "right_knee_valgus": right_knee_valgus,
+                    "rep_count": rep_counter.rep_count,
+                    "tempo_state": tempo_tracker.state,
+                })
 
                 frame_index += 1
 
-            video.release()
-            out.release()
+        cap.release()
+
+        if raw_writer is not None:
+            raw_writer.release()
 
         cv2.destroyAllWindows()
 
+        # -------------------------------------------------
+        # QUALITY SCORE
+        # -------------------------------------------------
+        reliability_by_landmark = compute_reliability(
+            raw_frames
+        )
+
+        expected_landmarks = set()
+
+        for frame in raw_frames:
+            expected_landmarks.update(
+                frame.expected_landmarks
+            )
+
+        composite_score = compute_composite_score(
+            self.weights,
+            reliability_by_landmark,
+            expected_landmarks,
+        )
+
+        quality_result = evaluate_quality_gate(
+            raw_frames,
+            composite_score,
+            rep_count,
+        )
+
+        quality_result["analysis_id"] = str(uuid.uuid4())
+
+        if quality_result["event"] != "mediapipe_complete":
+
+            if (
+                temp_raw_video_path
+                and os.path.exists(temp_raw_video_path)
+            ):
+                os.remove(temp_raw_video_path)
+
+            return quality_result
+
+        # -------------------------------------------------
+        # FINAL JSON
+        # -------------------------------------------------
         trend_analyzer = TrendAnalyzer()
 
-        camera_view = Counter(
-            rep["camera_view"]
-            for rep in reps_json_info
-            if rep.get("camera_view") is not None
-        ).most_common(1)[0][0]
+        if reps_json_info:
 
-        trend_results = trend_analyzer.build_consolidated_summary(
-            reps_json_info,
-            camera_view
+            camera_view = Counter(
+                rep["camera_view"]
+                for rep in reps_json_info
+                if rep.get("camera_view") is not None
+            ).most_common(1)[0][0]
+
+        else:
+            camera_view = "unknown"
+
+        trend_results = (
+            trend_analyzer.build_consolidated_summary(
+                reps_json_info,
+                camera_view,
+            )
         )
 
         json_final = {
@@ -511,40 +544,225 @@ class LandmarkQualityFramework:
                 "exercise": exercise,
                 "weight_kg": weight_kg,
                 "rep_count": rep_count,
-                "camera_view": camera_view
+                "camera_view": camera_view,
             },
             "reps": reps_json_info,
-            "consolidated": trend_results
+            "consolidated": trend_results,
         }
 
-        # =========================================
-        # Output JSON configuration
-        # =========================================
         output_dir = "./mediapipe_code/results"
 
         os.makedirs(output_dir, exist_ok=True)
 
         json_filename = os.path.join(
             output_dir,
-            f"{video_name}.json"
+            f"{video_name}.json",
         )
 
-        with open(json_filename, "w", encoding="utf-8") as f:
-            json.dump(json_final, f, indent=4, ensure_ascii=False)
+        with open(
+            json_filename,
+            "w",
+            encoding="utf-8",
+        ) as f:
+            json.dump(
+                json_final,
+                f,
+                indent=4,
+                ensure_ascii=False,
+            )
+
+        # -------------------------------------------------
+        # RENDER
+        # -------------------------------------------------
+        if save_video and temp_raw_video_path:
+
+            final_video_path = os.path.join(
+                "./mediapipe_code/video_results",
+                f"{video_name}_processed.mp4",
+            )
+
+            self._render_video_from_cache(
+                temp_raw_video_path,
+                frame_cache,
+                final_video_path,
+            )
+
+            json_final["output_video_path"] = (
+                final_video_path
+            )
+
+            if os.path.exists(temp_raw_video_path):
+                os.remove(temp_raw_video_path)
 
         return json_final
     
 
-    def process_video(self, video_path, exercise, weight_kg):
-        result = self.get_quality_result(video_path)
+    def _render_video_from_cache(
+        self,
+        input_video_path,
+        frame_cache,
+        output_video_path,
+    ):
+        cap = cv2.VideoCapture(input_video_path)
 
-        if result["event"] == "mediapipe_complete":
-            framework.get_biomechanics_output(video_path, exercise, weight_kg)
+        if not cap.isOpened():
+            raise ValueError(
+                f"The video cannot be open: {input_video_path}"
+            )
 
-        return result
+        fps = cap.get(cv2.CAP_PROP_FPS) or 30.0
+
+        width = int(cap.get(cv2.CAP_PROP_FRAME_WIDTH))
+        height = int(cap.get(cv2.CAP_PROP_FRAME_HEIGHT))
+
+        out = cv2.VideoWriter(
+            output_video_path,
+            cv2.VideoWriter_fourcc(*"mp4v"),
+            fps,
+            (width, height),
+        )
+
+        # Local refs
+        read = cap.read
+        write = out.write
+
+        draw = draw_points_and_lines
+        add_text = add_text_lines
+
+        left_side = LEFT_SIDE
+        right_side = RIGHT_SIDE
+
+        left_connections = LEG_CONNECTIONS_LEFT_SIDE
+        right_connections = LEG_CONNECTIONS_RIGHT_SIDE
+
+        leg_landmarks = LEG_TARGET_LANDMARKS
+        leg_connections = LEG_CONNECTIONS
+
+        for data in frame_cache:
+
+            ok, frame = read()
+
+            if not ok:
+                break
+
+            if not data["has_pose"]:
+                write(frame)
+                continue
+
+            camera_view = data["camera_view"]
+
+            annotated = frame
+
+            norm_pose = data["norm_pose"]
+
+            if camera_view == "side_left":
+
+                draw(
+                    annotated,
+                    norm_pose,
+                    width,
+                    height,
+                    left_side,
+                    left_connections,
+                    threshold=0.0,
+                )
+
+            elif camera_view == "side_right":
+
+                draw(
+                    annotated,
+                    norm_pose,
+                    width,
+                    height,
+                    right_side,
+                    right_connections,
+                    threshold=0.0,
+                )
+
+            else:
+
+                draw(
+                    annotated,
+                    norm_pose,
+                    width,
+                    height,
+                    leg_landmarks,
+                    leg_connections,
+                    threshold=0.0,
+                )
+
+            hip_angle = data["hip_angle"]
+            knee_angle = data["knee_angle"]
+            back_angle = data["back_angle_value"]
+
+            lines = [
+                (
+                    f"Hip Angle: {hip_angle:.1f}"
+                    if hip_angle is not None
+                    else "Hip Angle: N/A",
+                    (0, 255, 0),
+                    1,
+                ),
+                (
+                    f"Knee Angle: {knee_angle:.1f}"
+                    if knee_angle is not None
+                    else "Knee Angle: N/A",
+                    (0, 255, 0),
+                    1,
+                ),
+                (
+                    f"Back Angle: {back_angle:.1f}"
+                    if back_angle is not None
+                    else "Back Angle: N/A",
+                    (0, 255, 0),
+                    1,
+                ),
+                (f"Reps: {data['rep_count']}", (0, 0, 255), 1),
+                (f"State: {data['tempo_state']}", (255, 0, 0), 1),
+                (f"Camera: {camera_view}", (0, 255, 0), 1),
+            ]
+
+            left_valgus = data["left_knee_valgus"]
+
+            if left_valgus is not None:
+                lines.append(
+                    (
+                        f"Left Valgus: {left_valgus:.3f}",
+                        (0, 255, 0),
+                        1,
+                    )
+                )
+
+            right_valgus = data["right_knee_valgus"]
+
+            if right_valgus is not None:
+                lines.append(
+                    (
+                        f"Right Valgus: {right_valgus:.3f}",
+                        (0, 255, 0),
+                        1,
+                    )
+                )
+
+            add_text(
+                annotated,
+                lines,
+                start_x=10,
+                start_y=30,
+                dy=40,
+            )
+
+            write(annotated)
+
+        cap.release()
+        out.release()
 
 
-framework = LandmarkQualityFramework(model_path=MEDIAPIPE_MODEL)
+# How to use it
+"""framework = LandmarkQualityFramework(model_path=MEDIAPIPE_MODEL)
 
 input_dir = "./mediapipe_code/videos/good_form/goblet_squats_2.mp4"
-framework.process_video(input_dir, "goblet squat", 20)
+start = time.time()
+framework.process_video_once(input_dir, "goblet squat", 20)
+end = time.time() - start
+print(end)"""

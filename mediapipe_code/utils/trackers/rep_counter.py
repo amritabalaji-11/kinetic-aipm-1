@@ -1,64 +1,67 @@
-from utils.trackers.traker_configuration import BOTTOM_HOLD_FRAMES, MIN_BOTTOM_HOLD, THRESHOLD_DEEP, THRESHOLD_DOWN, THRESHOLD_UP
+from utils.trackers.traker_configuration import MIN_BOTTOM_HOLD, THRESHOLD_DEEP, THRESHOLD_DOWN, THRESHOLD_UP
 
 
 class RepCounter:
     def __init__(self):
-        self.state = "STANDING"  # STANDING, DESCENDING, BOTTOM, ASCENDING
+        self.state = "STANDING"
         self.rep_count = 0
-        self.hip_angle_threshold_down = THRESHOLD_DOWN  # Below this = in squat
-        self.hip_angle_threshold_up = THRESHOLD_UP   # Above this = standing
-        self.bottom_hold_frames = BOTTOM_HOLD_FRAMES
-        self.min_bottom_hold = MIN_BOTTOM_HOLD  # Must hold bottom for 3 frames
+        self.hip_angle_threshold_down = THRESHOLD_DOWN
+        self.hip_angle_threshold_up = THRESHOLD_UP
+        self.min_bottom_hold = MIN_BOTTOM_HOLD
         self.bottom_angle = THRESHOLD_DEEP
-    
-    def update(self, hip_angle, knee_angle, camera_view, debug = False):
+        self.bottom_hold_frames = 0
+
+    def update(self, hip_angle, knee_angle, camera_view, debug=False):
         """
-        Update state machine with current angles
-        
+        Update state machine with current angles.
+
         Returns:
             rep_completed: Boolean (True if a rep just finished)
+            rep_count: Current rep count
         """
-        rep_completed = False
-        target_angle = hip_angle if "side" not in camera_view else knee_angle
-        
-        if self.state == "STANDING":
-            # Waiting for descent
-            if target_angle < self.hip_angle_threshold_down:
+        target_angle = knee_angle if camera_view.startswith("side") else hip_angle
+        if target_angle is None:
+            return False, self.rep_count
+
+        state = self.state
+        down_th = self.hip_angle_threshold_down
+        up_th = self.hip_angle_threshold_up
+        bottom_th = self.bottom_angle
+        min_bottom_hold = self.min_bottom_hold
+
+        if state == "STANDING":
+            if target_angle < down_th:
                 self.state = "DESCENDING"
                 if debug:
                     print("Descending...")
-        
-        elif self.state == "DESCENDING":
-            # Going down, check if reached bottom
-            # Bottom = hip angle reaches minimum
-            if target_angle < self.bottom_angle:  # Deep enough
+            return False, self.rep_count
+
+        if state == "DESCENDING":
+            if target_angle < bottom_th:
                 self.state = "BOTTOM"
                 self.bottom_hold_frames = 0
-        
-        elif self.state == "BOTTOM":
-            # At bottom, waiting to ascend
+            return False, self.rep_count
+
+        if state == "BOTTOM":
             self.bottom_hold_frames += 1
-            
-            if target_angle > self.hip_angle_threshold_down:
-                # Started ascending
-                if self.bottom_hold_frames >= self.min_bottom_hold:
+
+            if target_angle > down_th:
+                if self.bottom_hold_frames >= min_bottom_hold:
                     self.state = "ASCENDING"
                     if debug:
                         print("Ascending...")
                 else:
-                    # Didn't hold bottom long enough - partial rep
                     self.state = "STANDING"
                     if debug:
                         print("Partial rep - didn't reach full depth")
-        
-        elif self.state == "ASCENDING":
-            # Coming up, check if reached top
-            if target_angle > self.hip_angle_threshold_up:
-                # Rep completed!
+            return False, self.rep_count
+
+        if state == "ASCENDING":
+            if target_angle > up_th:
                 self.rep_count += 1
                 self.state = "STANDING"
-                rep_completed = True
                 if debug:
                     print(f"Rep {self.rep_count} completed!")
-        
-        return rep_completed, self.rep_count
+                return True, self.rep_count
+
+        return False, self.rep_count

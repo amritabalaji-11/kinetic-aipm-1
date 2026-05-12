@@ -1,5 +1,5 @@
 from dataclasses import dataclass, field
-from typing import Dict, List, Optional
+from typing import Dict, List
 from utils.pose_landmarks import (
     LEFT_SHOULDER, RIGHT_SHOULDER,
     LEFT_HIP, RIGHT_HIP,
@@ -195,18 +195,10 @@ class FrameAssessment:
     timestamp_ms: int
     camera_view: str
     passes_critical_gate: bool
-    rep_index: Optional[int] = None
-    position_tag: Optional[str] = None  # "top" | "bottom" | None
 
     tracked_landmarks: Dict[str, FrameLandmarkData] = field(default_factory=dict)
     expected_landmarks: List[str] = field(default_factory=list)
     expected_critical_landmarks: List[str] = field(default_factory=list)
-    expected_important_landmarks: List[str] = field(default_factory=list)
 
     frame_reliability: float = 0.0
     critical_failures: List[str] = field(default_factory=list)
-
-    key_frame_reliable: bool = False
-
-    error_flags: List[str] = field(default_factory=list)
-    error_values: Dict[str, float] = field(default_factory=dict)

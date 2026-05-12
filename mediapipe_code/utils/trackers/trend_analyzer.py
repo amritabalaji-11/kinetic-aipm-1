@@ -1,218 +1,273 @@
 from collections import Counter
-import numpy as np
+from typing import Any, Dict, Optional
 
-    
+
 class TrendAnalyzer:
-
-    def safe_values(self,values):
-        return [v for v in values if v is not None]
-
-
-    def safe_mean(self,values):
-        vals = self.safe_values(values)
-        return round(float(np.mean(vals)), 4) if vals else None
-
-
-    def safe_median(self,values):
-        vals = self.safe_values(values)
-        return round(float(np.median(vals)), 4) if vals else None
-
-
-    def trend_slope(self,values):
-        """
-        Linear slope across reps.
-        Positive = increasing over reps.
-        """
-        clean = [(i, v) for i, v in enumerate(values) if v is not None]
-        if len(clean) < 2:
+    @staticmethod
+    def _mean(sum_value: float, count: int) -> Optional[float]:
+        if count == 0:
             return None
+        return round(sum_value / count, 4)
 
-        x = np.array([i for i, _ in clean], dtype=np.float32)
-        y = np.array([v for _, v in clean], dtype=np.float32)
-
-        slope, _ = np.polyfit(x, y, 1)
+    @staticmethod
+    def _trend_slope_from_sums(
+        n: int,
+        sum_x: float,
+        sum_y: float,
+        sum_x2: float,
+        sum_xy: float,
+    ) -> Optional[float]:
+        """
+        Linear regression slope computed from running sums.
+        """
+        denom = n * sum_x2 - (sum_x * sum_x)
+        if n < 2 or denom == 0:
+            return None
+        slope = (n * sum_xy - sum_x * sum_y) / denom
         return round(float(slope), 4)
 
+    @staticmethod
+    def _distribution(counter: Dict[Any, int]) -> Dict[Any, int]:
+        return dict(counter)
 
-    def count_true(self,values):
-        return sum(1 for v in values if v is True)
-
-
-    def distribution(self,values):
-        vals = [v for v in values if v is not None]
-        return dict(Counter(vals))
-
-
-    def mode_value(self,values):
-        vals = [v for v in values if v is not None]
-        if not vals:
+    @staticmethod
+    def _mode(counter: Dict[Any, int]) -> Optional[Any]:
+        if not counter:
             return None
-        return Counter(vals).most_common(1)[0][0]
+        return max(counter, key=counter.get)
 
+    @staticmethod
+    def _count_true(true_count: int) -> int:
+        return true_count
 
-    def build_consolidated_summary(self,reps, camera_view):
-        """
-        Builds the consolidated block for the final JSON.
-        Expects reps to be a list of rep dictionaries.
-        """
-
+    def build_consolidated_summary(self, reps, camera_view):
         total_reps = len(reps)
 
-        back_angle_max_values = [
-            r.get("back_data", {}).get("back_angle_max")
-            for r in reps
-        ]
+        # Running stats
+        back_angle_max_sum = 0.0
+        back_angle_max_count = 0
+        back_angle_max_x = 0.0
+        back_angle_max_x2 = 0.0
+        back_angle_max_xy = 0.0
 
-        back_angle_bottom_values = [
-            r.get("back_data", {}).get("back_angle_at_bottom")
-            for r in reps
-        ]
+        back_angle_bottom_sum = 0.0
+        back_angle_bottom_count = 0
 
-        back_status_values = [
-            r.get("back_data", {}).get("status")
-            for r in reps
-        ]
+        knee_valgus_sum = 0.0
+        knee_valgus_count = 0
+        knee_valgus_x = 0.0
+        knee_valgus_x2 = 0.0
+        knee_valgus_xy = 0.0
 
-        knee_valgus_values = [
-            r.get("stability_data", {}).get("knee_valgus_distance")
-            for r in reps
-        ]
+        knee_angle_min_sum = 0.0
+        knee_angle_min_count = 0
+        knee_angle_min_x = 0.0
+        knee_angle_min_x2 = 0.0
+        knee_angle_min_xy = 0.0
 
-        valgus_flag_values = [
-            r.get("stability_data", {}).get("valgus_flag")
-            for r in reps
-        ]
+        eccentric_sum = 0.0
+        eccentric_count = 0
 
-        valgus_phase_values = [
-            r.get("stability_data", {}).get("valgus_phase")
-            for r in reps
-        ]
+        pause_sum = 0.0
+        pause_count = 0
 
-        heel_lift_values = [
-            r.get("stability_data", {}).get("heel_lift_detected")
-            for r in reps
-        ]
+        concentric_sum = 0.0
+        concentric_count = 0
 
-        depth_distribution_values = [
-            r.get("depth_data", {}).get("depth_classification")
-            for r in reps
-        ]
+        total_sum = 0.0
+        total_count = 0
+        total_x = 0.0
+        total_x2 = 0.0
+        total_xy = 0.0
 
-        knee_angle_min_values = [
-            r.get("depth_data", {}).get("knee_angle_min")
-            for r in reps
-        ]
+        back_status_counter = Counter()
+        valgus_phase_counter = Counter()
+        depth_counter = Counter()
+        tempo_notation_counter = Counter()
 
-        depth_insufficient_values = [
-            r.get("depth_data", {}).get("depth_insufficient_flag")
-            for r in reps
-        ]
+        valgus_flag_count = 0
+        heel_lift_count = 0
+        depth_insufficient_count = 0
 
-        ankle_dorsiflexion_values = [
-            r.get("ankle_data", {}).get("dorsiflexion_at_bottom")
-            for r in reps
-        ]
+        foot_turnout_left_sum = 0.0
+        foot_turnout_left_count = 0
 
-        foot_turnout_left_values = [
-            r.get("ankle_data", {}).get("foot_turnout_left")
-            for r in reps
-        ]
+        foot_turnout_right_sum = 0.0
+        foot_turnout_right_count = 0
 
-        foot_turnout_right_values = [
-            r.get("ankle_data", {}).get("foot_turnout_right")
-            for r in reps
-        ]
+        ankle_dorsiflexion_values = []
 
-        eccentric_values = [
-            r.get("tempo_data", {}).get("eccentric")
-            for r in reps
-        ]
+        for i, rep in enumerate(reps):
+            back = rep.get("back_data", {})
+            stability = rep.get("stability_data", {})
+            depth = rep.get("depth_data", {})
+            ankle = rep.get("ankle_data", {})
+            tempo = rep.get("tempo_data", {})
 
-        pause_values = [
-            r.get("tempo_data", {}).get("pause")
-            for r in reps
-        ]
+            back_angle_max = back.get("back_angle_max")
+            if back_angle_max is not None:
+                back_angle_max_sum += back_angle_max
+                back_angle_max_count += 1
+                back_angle_max_x += i
+                back_angle_max_x2 += i * i
+                back_angle_max_xy += i * back_angle_max
 
-        concentric_values = [
-            r.get("tempo_data", {}).get("concentric")
-            for r in reps
-        ]
+            back_angle_bottom = back.get("back_angle_at_bottom")
+            if back_angle_bottom is not None:
+                back_angle_bottom_sum += back_angle_bottom
+                back_angle_bottom_count += 1
 
-        total_values = [
-            r.get("tempo_data", {}).get("total")
-            for r in reps
-        ]
+            status = back.get("status")
+            if status is not None:
+                back_status_counter[status] += 1
 
-        tempo_notation_values = [
-            r.get("tempo_data", {}).get("tempo_notation")
-            for r in reps
-        ]
+            knee_valgus = stability.get("knee_valgus_distance")
+            if knee_valgus is not None:
+                knee_valgus_sum += knee_valgus
+                knee_valgus_count += 1
+                knee_valgus_x += i
+                knee_valgus_x2 += i * i
+                knee_valgus_xy += i * knee_valgus
+
+            valgus_phase = stability.get("valgus_phase")
+            if valgus_phase is not None:
+                valgus_phase_counter[valgus_phase] += 1
+
+            if stability.get("valgus_flag") is True:
+                valgus_flag_count += 1
+
+            if stability.get("heel_lift_detected") is True:
+                heel_lift_count += 1
+
+            depth_classification = depth.get("depth_classification")
+            if depth_classification is not None:
+                depth_counter[depth_classification] += 1
+
+            knee_angle_min = depth.get("knee_angle_min")
+            if knee_angle_min is not None:
+                knee_angle_min_sum += knee_angle_min
+                knee_angle_min_count += 1
+                knee_angle_min_x += i
+                knee_angle_min_x2 += i * i
+                knee_angle_min_xy += i * knee_angle_min
+
+            if depth.get("depth_insufficient_flag") is True:
+                depth_insufficient_count += 1
+
+            foot_turnout_left = ankle.get("foot_turnout_left")
+            if foot_turnout_left is not None:
+                foot_turnout_left_sum += foot_turnout_left
+                foot_turnout_left_count += 1
+
+            foot_turnout_right = ankle.get("foot_turnout_right")
+            if foot_turnout_right is not None:
+                foot_turnout_right_sum += foot_turnout_right
+                foot_turnout_right_count += 1
+
+            dorsiflexion_bottom = ankle.get("dorsiflexion_at_bottom")
+            if dorsiflexion_bottom is not None:
+                ankle_dorsiflexion_values.append(dorsiflexion_bottom)
+
+            eccentric = tempo.get("eccentric")
+            if eccentric is not None:
+                eccentric_sum += eccentric
+                eccentric_count += 1
+
+            pause = tempo.get("pause")
+            if pause is not None:
+                pause_sum += pause
+                pause_count += 1
+
+            concentric = tempo.get("concentric")
+            if concentric is not None:
+                concentric_sum += concentric
+                concentric_count += 1
+
+            total = tempo.get("total")
+            if total is not None:
+                total_sum += total
+                total_count += 1
+                total_x += i
+                total_x2 += i * i
+                total_xy += i * total
+
+            tempo_notation = tempo.get("tempo_notation")
+            if tempo_notation is not None:
+                tempo_notation_counter[tempo_notation] += 1
+
+        consolidated = {
+            "total_reps": total_reps,
+            "posture": {
+                "back_angle_max_mean": self._mean(back_angle_max_sum, back_angle_max_count),
+                "back_angle_at_bottom_mean": self._mean(back_angle_bottom_sum, back_angle_bottom_count),
+                "back_angle_trend": self._trend_slope_from_sums(
+                    back_angle_max_count,
+                    back_angle_max_x,
+                    back_angle_max_sum,
+                    back_angle_max_x2,
+                    back_angle_max_xy,
+                ),
+                "status_distribution": self._distribution(back_status_counter),
+            },
+            "tempo": {
+                "eccentric_mean": self._mean(eccentric_sum, eccentric_count),
+                "pause_mean": self._mean(pause_sum, pause_count),
+                "concentric_mean": self._mean(concentric_sum, concentric_count),
+                "total_mean": self._mean(total_sum, total_count),
+                "total_trend": self._trend_slope_from_sums(
+                    total_count,
+                    total_x,
+                    total_sum,
+                    total_x2,
+                    total_xy,
+                ),
+                "tempo_notation_mode": self._mode(tempo_notation_counter),
+            },
+        }
 
         if camera_view in ("front", "angled"):
-
-            consolidated = {
-                "total_reps": total_reps,
-
-                "posture": {
-                    "back_angle_max_mean": self.safe_mean(back_angle_max_values),
-                    "back_angle_at_bottom_mean": self.safe_mean(back_angle_bottom_values),
-                    "back_angle_trend": self.trend_slope(back_angle_max_values),
-                    "status_distribution": self.distribution(back_status_values),
-                },
-
-                "stability": {
-                    "knee_valgus_mean": self.safe_mean(knee_valgus_values),
-                    "knee_valgus_trend": self.trend_slope(knee_valgus_values),
-                    "valgus_flag_reps": self.count_true(valgus_flag_values),
-                    "valgus_phase_distribution": self.distribution(valgus_phase_values),
-                    "heel_lift_reps": self.count_true(heel_lift_values),
-                },
-
-                "movement_quality": {
-                    "depth_distribution": self.distribution(depth_distribution_values),
-                    "knee_angle_min_mean": self.safe_mean(knee_angle_min_values),
-                    "depth_trend": self.trend_slope(knee_angle_min_values),
-                    "depth_insufficient_reps": self.count_true(depth_insufficient_values),
-                    "foot_turnout_left_mean": self.safe_mean(foot_turnout_left_values),
-                    "foot_turnout_right_mean": self.safe_mean(foot_turnout_right_values),
-                },
-
-                "tempo": {
-                    "eccentric_mean": self.safe_mean(eccentric_values),
-                    "pause_mean": self.safe_mean(pause_values),
-                    "concentric_mean": self.safe_mean(concentric_values),
-                    "total_mean": self.safe_mean(total_values),
-                    "total_trend": self.trend_slope(total_values),
-                    "tempo_notation_mode": self.mode_value(tempo_notation_values),
-                }
+            consolidated["stability"] = {
+                "knee_valgus_mean": self._mean(knee_valgus_sum, knee_valgus_count),
+                "knee_valgus_trend": self._trend_slope_from_sums(
+                    knee_valgus_count,
+                    knee_valgus_x,
+                    knee_valgus_sum,
+                    knee_valgus_x2,
+                    knee_valgus_xy,
+                ),
+                "valgus_flag_reps": valgus_flag_count,
+                "valgus_phase_distribution": self._distribution(valgus_phase_counter),
+                "heel_lift_reps": heel_lift_count,
             }
 
-        if "side" in camera_view:
-            consolidated = {
-                "total_reps": total_reps,
+            consolidated["movement_quality"] = {
+                "depth_distribution": self._distribution(depth_counter),
+                "knee_angle_min_mean": self._mean(knee_angle_min_sum, knee_angle_min_count),
+                "depth_trend": self._trend_slope_from_sums(
+                    knee_angle_min_count,
+                    knee_angle_min_x,
+                    knee_angle_min_sum,
+                    knee_angle_min_x2,
+                    knee_angle_min_xy,
+                ),
+                "depth_insufficient_reps": depth_insufficient_count,
+                "foot_turnout_left_mean": self._mean(foot_turnout_left_sum, foot_turnout_left_count),
+                "foot_turnout_right_mean": self._mean(foot_turnout_right_sum, foot_turnout_right_count),
+            }
 
-                "posture": {
-                    "back_angle_max_mean": self.safe_mean(back_angle_max_values),
-                    "back_angle_at_bottom_mean": self.safe_mean(back_angle_bottom_values),
-                    "back_angle_trend": self.trend_slope(back_angle_max_values),
-                    "status_distribution": self.distribution(back_status_values),
-                },
-                "movement_quality": {
-                    "depth_distribution": self.distribution(depth_distribution_values),
-                    "knee_angle_min_mean": self.safe_mean(knee_angle_min_values),
-                    "depth_trend": self.trend_slope(knee_angle_min_values),
-                    "depth_insufficient_reps": self.count_true(depth_insufficient_values),
-                    "ankle_dorsiflexion_trend": self.mode_value(ankle_dorsiflexion_values),
-                },
-
-                "tempo": {
-                    "eccentric_mean": self.safe_mean(eccentric_values),
-                    "pause_mean": self.safe_mean(pause_values),
-                    "concentric_mean": self.safe_mean(concentric_values),
-                    "total_mean": self.safe_mean(total_values),
-                    "total_trend": self.trend_slope(total_values),
-                    "tempo_notation_mode": self.mode_value(tempo_notation_values),
-                }
+        elif "side" in camera_view:
+            consolidated["movement_quality"] = {
+                "depth_distribution": self._distribution(depth_counter),
+                "knee_angle_min_mean": self._mean(knee_angle_min_sum, knee_angle_min_count),
+                "depth_trend": self._trend_slope_from_sums(
+                    knee_angle_min_count,
+                    knee_angle_min_x,
+                    knee_angle_min_sum,
+                    knee_angle_min_x2,
+                    knee_angle_min_xy,
+                ),
+                "depth_insufficient_reps": depth_insufficient_count,
+                "ankle_dorsiflexion_trend": self._mode(Counter(ankle_dorsiflexion_values)),
             }
 
         return consolidated
