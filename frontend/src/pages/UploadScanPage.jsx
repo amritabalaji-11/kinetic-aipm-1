@@ -2,6 +2,7 @@ import { useState } from "react"
 import { useNavigate } from "react-router-dom"
 import { Upload, CheckCircle, AlertCircle } from "lucide-react"
 
+import { uploadVideo } from "../services/uploadService"
 // Dummy exercise list — will swap for Rayburn's S1-W5-04 fixtures later.
 // Per acceptance criteria: show multiple options but only Goblet Squat is enabled for MVP.
 const EXERCISES = [
@@ -23,7 +24,8 @@ function UploadScanPage() {
   const [exercise, setExercise] = useState("")
   const [weight, setWeight] = useState("")
   const [videoFile, setVideoFile] = useState(null)
-
+  const [isUploading, setIsUploading] = useState(false)
+  const [uploadError, setUploadError] = useState("")
   // Validation/error state
   const [weightTouched, setWeightTouched] = useState(false)
   const [fileError, setFileError] = useState("")
@@ -66,11 +68,32 @@ function UploadScanPage() {
 
   // Handle submit — currently just logs and navigates to the loading page
   // Real /upload API call will be wired up in W6
-  function handleSubmit() {
-    if (!isFormValid) return
-    console.log("Submitting:", { exercise, weight: Number(weight), videoFile })
-    navigate("/upload/loading")
+  async function handleSubmit() {
+  if (!isFormValid || isUploading) return
+
+  setUploadError("")
+  setIsUploading(true)
+
+  try {
+    // Create a preview URL from the video file so LoadingPage
+    // can show the video thumbnail at the top of the screen
+    const videoPreviewUrl = URL.createObjectURL(videoFile)
+
+    // Send the video to the backend — get back the tracking ID
+    const analysisId = await uploadVideo(videoFile, exercise, Number(weight))
+
+    // Go to loading screen and pass the tracking ID + video preview
+    navigate("/upload/loading", {
+      state: { analysisId, videoPreviewUrl, exercise }
+    })
+
+  } catch (err) {
+    setUploadError(err.message || "Upload failed. Please try again.")
+
+  } finally {
+    setIsUploading(false)
   }
+}
 
   return (
     <div className="min-h-screen bg-light-bg p-4 md:p-8">
@@ -192,21 +215,27 @@ function UploadScanPage() {
         </section>
 
         {/* ───────── Submit Button ───────── */}
+        
+         {uploadError && (
+          <p className="text-xs text-error mb-3 flex items-center gap-1">
+            <AlertCircle size={14} />
+            {uploadError}
+          </p>
+        )}
         <button
           type="button"
           onClick={handleSubmit}
-          disabled={!isFormValid}
+          disabled={!isFormValid || isUploading}
           className={`w-full h-12 rounded-lg text-button transition-colors ${
-            isFormValid
+            isFormValid && !isUploading
               ? "bg-blue-600 text-white hover:bg-blue-700"
               : "bg-gray-200 text-gray-400 cursor-not-allowed"
           }`}
         >
-          Submit
+          {isUploading ? "Uploading..." : "Start Analysis →"}
         </button>
       </div>
     </div>
   )
 }
-
 export default UploadScanPage
