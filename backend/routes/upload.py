@@ -4,8 +4,10 @@ from uuid import uuid4
 from utils.gcs import upload_file_to_gcs
 from db.database import db
 
-router = APIRouter()
+import asyncio
+from services.analysis_pipeline import run_analysis
 
+router = APIRouter()
 
 @router.post("/upload")
 async def upload(
@@ -14,16 +16,12 @@ async def upload(
     weight: float = Form(...)
 ):
 
-    # Generate unique analysis ID
     analysis_id = str(uuid4())
 
-    # GCS path required by spec
     gcs_path = f"videos/{analysis_id}/{file.filename}"
 
-    # Upload to Google Cloud Storage
     await upload_file_to_gcs(file, gcs_path)
 
-    # Insert session into database
     await db.execute(
         """
         INSERT INTO form_sessions
@@ -54,7 +52,8 @@ async def upload(
         }
     )
 
-    # STRICT response contract
+    asyncio.create_task(run_analysis(analysis_id, gcs_path))
+
     return {
         "analysis_id": analysis_id
     }
