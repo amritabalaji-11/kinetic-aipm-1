@@ -1,35 +1,49 @@
+# Real backend pipeline
 import asyncio
-from utils.sse_manager import SSEManager
+from utils.sse_manager import sse_manager
 
 async def run_analysis(analysis_id: str, file_location: str):
     try:
-        # ------ Step 0: Initialization ------
-        await asyncio.sleep(1)  # Simulate initialization time
-        await SSEManager().send_event(analysis_id, "Upload recieved", 10)
+        # ------ Step 0 ------
+        await asyncio.sleep(1)
+        await sse_manager.send_event(analysis_id, "upload_received", 10)
         
-        # ------ Step 1: MediaPipe ------
-        await asyncio.sleep(2)  # Simulate MediaPipe processing time
-        await SSEManager().send_event(analysis_id, "MediaPipe processing complete", 50)
+        # ------ MediaPipe ------
+        await sse_manager.send_event(analysis_id, "mediapipe_started", 20)
+        await asyncio.sleep(2)
+        await sse_manager.send_event(analysis_id, "mediapipe_complete", 50)     
 
-        # ------ Step 2: Nemotron (Biomechanics) ------
-        await SSEManager().send_event(analysis_id, "Starting Nemotron processing", 60)
-        await asyncio.sleep(3)  # Simulate Nemotron processing time
-        await SSEManager().send_event(analysis_id, "Nemotron processing complete", 80)
+        # ------ Nemotron ------
+        await sse_manager.send_event(analysis_id, "nemotron_started", 60)
+        await asyncio.sleep(3)
+        await sse_manager.send_event(analysis_id, "nemotron_complete", 80)
 
-        # ------ Step 3: RAG & Claude ------
-        await SSEManager().send_event(analysis_id, "Starting RAG processing", 85)
-        await asyncio.sleep(4)  # Simulate RAG & Claude processing time
-        await SSEManager().send_event(analysis_id, "RAG processing complete", 95)
+        # ------ RAG ------
+        await sse_manager.send_event(analysis_id, "rag_started", 85)
+        await asyncio.sleep(4)
+        await sse_manager.send_event(analysis_id, "rag_complete", 95)
 
-        await SSEManager().send_event(analysis_id, "Starting Claude processing", 96)
-        await asyncio.sleep(2)  # Simulate Claude processing time
-        await SSEManager().send_event(analysis_id, "Claude processing complete", 100)
+        # ------ Claude ------
+        await sse_manager.send_event(analysis_id, "claude_started", 96)
+        await asyncio.sleep(2)
+        await sse_manager.send_event(analysis_id, "claude_complete", 100)
 
-        # ----- Finalization ------
-        await asyncio.sleep(1)  # Simulate finalization time
-        await SSEManager().send_event(analysis_id, "Analysis complete", 100, status="complete")
+        # ------ Final ------
+        await asyncio.sleep(1)
+        await sse_manager.send_event(
+            analysis_id,
+            "analysis_complete",
+            100,
+            status="complete"
+        )
 
-        print(f"Analysis {analysis_id} completed successfully.")
+        print(f"Analysis {analysis_id} completed.")
+
     except Exception as e:
-        await SSEManager().send_event(analysis_id, f"Error: {str(e)}", 0, status="error")
-        print(f"Analysis {analysis_id} failed with error: {str(e)}")
+        await sse_manager.send_event(
+            analysis_id,
+            "error",
+            0,
+            status="error"
+        )
+        print(f"Failed: {e}")
