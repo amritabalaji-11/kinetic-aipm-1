@@ -1,25 +1,67 @@
-import uuid
-from google.cloud import storage
+import os
+
 from fastapi import UploadFile
+from google.cloud import storage
+from google.oauth2 import service_account
+
+
+# =========================================================
+# CONFIGURATION
+# =========================================================
 
 BUCKET_NAME = "kinetic_bucket"
 
+BASE_DIR = os.path.dirname(os.path.dirname(__file__))
+
+CREDENTIALS_PATH = os.path.join(
+    BASE_DIR,
+    "credentials",
+    "kinetic-backend-495415-8cc8d53e4cd0.json"
+)
+
+
+# =========================================================
+# GCS CLIENT
+# =========================================================
+
+credentials = service_account.Credentials.from_service_account_file(
+    CREDENTIALS_PATH
+)
+
+client = storage.Client(
+    credentials=credentials,
+    project=credentials.project_id
+)
+
+
+# =========================================================
+# FILE UPLOAD
+# =========================================================
+
 async def upload_file_to_gcs(
     file: UploadFile,
-    gcs_path: str
+    destination_blob_name: str
 ):
 
-    client = storage.Client()
+    try:
 
-    bucket = client.bucket(BUCKET_NAME)
+        bucket = client.bucket(BUCKET_NAME)
 
-    blob = bucket.blob(gcs_path)
+        blob = bucket.blob(destination_blob_name)
 
-    blob.upload_from_file(
-        file.file,
-        content_type=file.content_type
-    )
+        file.file.seek(0)
 
-    print(f"[GCS] Uploaded to gs://{BUCKET_NAME}/{gcs_path}")
+        blob.upload_from_file(
+            file.file,
+            content_type=file.content_type
+        )
 
-    return f"gs://{BUCKET_NAME}/{gcs_path}"
+        return f"gs://{BUCKET_NAME}/{destination_blob_name}"
+
+    except Exception as e:
+
+        print("========== GCS ERROR ==========")
+        print(str(e))
+        print("================================")
+
+        raise e
