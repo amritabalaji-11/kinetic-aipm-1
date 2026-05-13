@@ -1,6 +1,6 @@
 {
     "session": {
-        "analysis_id": "cbe6b65f-6cae-4623-b3fa-f8fee976332a",
+        "analysis_id": "250db5ef-5d5b-4547-9733-35cc1910bb7e",
         "exercise": "goblet squat",
         "weight_kg": 20,
         "rep_count": 10,
@@ -10,29 +10,29 @@
         {
             "rep_number": 1,
             "tempo_data": {
-                "tempo_notation": "0-1-1",
-                "eccentric": 0.1,
-                "pause": 0.7,
-                "concentric": 0.7,
-                "total": 1.5
+                "tempo_notation": "0-0-1",
+                "eccentric": 0.2,
+                "pause": 0.47,
+                "concentric": 0.8,
+                "total": 1.47
             },
             "back_data": {
-                "back_angle_start": 33.31,
-                "back_angle_max": 34.89,
-                "back_angle_at_bottom": 31.56,
-                "time_warning": 1.3,
+                "back_angle_start": 33.12,
+                "back_angle_max": 36.03,
+                "back_angle_at_bottom": 32.64,
+                "time_warning": 1.27,
                 "time_excessive": 0.0,
                 "status": "ACCEPTABLE"
             },
             "depth_data": {
-                "knee_angle_start": 99.64,
-                "knee_angle_at_bottom": 79.54,
-                "knee_angle_min": 79.54,
+                "knee_angle_start": 102.0,
+                "knee_angle_at_bottom": 88.47,
+                "knee_angle_min": 88.47,
                 "depth_classification": "deep",
                 "depth_insufficient_flag": false
             },
             "ankle_data": {
-                "dorsiflexion_at_bottom": "restricted"
+                "dorsiflexion_at_bottom": "adecuate"
             },
             "camera_view": "side_right"
         },
@@ -40,28 +40,28 @@
             "rep_number": 2,
             "tempo_data": {
                 "tempo_notation": "0-1-1",
-                "eccentric": 0.1,
-                "pause": 0.8,
-                "concentric": 0.7,
-                "total": 1.6
+                "eccentric": 0.2,
+                "pause": 0.57,
+                "concentric": 0.77,
+                "total": 1.53
             },
             "back_data": {
-                "back_angle_start": 30.38,
-                "back_angle_max": 31.13,
-                "back_angle_at_bottom": 28.51,
-                "time_warning": 1.3,
+                "back_angle_start": 30.31,
+                "back_angle_max": 32.47,
+                "back_angle_at_bottom": 28.86,
+                "time_warning": 1.33,
                 "time_excessive": 0.0,
                 "status": "ACCEPTABLE"
             },
             "depth_data": {
-                "knee_angle_start": 102.19,
-                "knee_angle_at_bottom": 78.17,
-                "knee_angle_min": 78.17,
+                "knee_angle_start": 104.81,
+                "knee_angle_at_bottom": 89.48,
+                "knee_angle_min": 89.48,
                 "depth_classification": "deep",
                 "depth_insufficient_flag": false
             },
             "ankle_data": {
-                "dorsiflexion_at_bottom": "restricted"
+                "dorsiflexion_at_bottom": "adecuate"
             },
             "camera_view": "side_right"
         },
@@ -69,28 +69,28 @@
             "rep_number": 3,
             "tempo_data": {
                 "tempo_notation": "0-1-1",
-                "eccentric": 0.2,
-                "pause": 0.8,
-                "concentric": 0.7,
+                "eccentric": 0.27,
+                "pause": 0.63,
+                "concentric": 0.8,
                 "total": 1.7
             },
             "back_data": {
-                "back_angle_start": 32.1,
-                "back_angle_max": 32.1,
-                "back_angle_at_bottom": 24.37,
-                "time_warning": 1.5,
+                "back_angle_start": 32.99,
+                "back_angle_max": 33.32,
+                "back_angle_at_bottom": 26.66,
+                "time_warning": 1.53,
                 "time_excessive": 0.0,
                 "status": "ACCEPTABLE"
             },
             "depth_data": {
-                "knee_angle_start": 102.77,
-                "knee_angle_at_bottom": 77.25,
-                "knee_angle_min": 77.25,
+                "knee_angle_start": 102.44,
+                "knee_angle_at_bottom": 90.09,
+                "knee_angle_min": 90.09,
                 "depth_classification": "deep",
                 "depth_insufficient_flag": false
             },
             "ankle_data": {
-                "dorsiflexion_at_bottom": "restricted"
+                "dorsiflexion_at_bottom": "adecuate"
             },
             "camera_view": "side_right"
         },
@@ -98,28 +98,28 @@
             "rep_number": 4,
             "tempo_data": {
                 "tempo_notation": "0-1-1",
-                "eccentric": 0.1,
-                "pause": 0.9,
+                "eccentric": 0.2,
+                "pause": 0.67,
                 "concentric": 0.9,
-                "total": 1.9
+                "total": 1.77
             },
             "back_data": {
-                "back_angle_start": 31.95,
-                "back_angle_max": 33.67,
-                "back_angle_at_bottom": 29.0,
+                "back_angle_start": 32.36,
+                "back_angle_max": 35.02,
+                "back_angle_at_bottom": 29.28,
                 "time_warning": 1.6,
                 "time_excessive": 0.0,
                 "status": "ACCEPTABLE"
             },
             "depth_data": {
-                "knee_angle_start": 100.88,
-                "knee_angle_at_bottom": 77.35,
-                "knee_angle_min": 77.35,
+                "knee_angle_start": 102.67,
+                "knee_angle_at_bottom": 88.42,
+                "knee_angle_min": 88.42,
                 "depth_classification": "deep",
                 "depth_insufficient_flag": false
             },
             "ankle_data": {
-                "dorsiflexion_at_bottom": "restricted"
+                "dorsiflexion_at_bottom": "adecuate"
             },
             "camera_view": "side_right"
         },
@@ -128,27 +128,27 @@
             "tempo_data": {
                 "tempo_notation": "0-1-1",
                 "eccentric": 0.2,
-                "pause": 0.9,
+                "pause": 0.8,
                 "concentric": 0.8,
-                "total": 1.9
+                "total": 1.8
             },
             "back_data": {
-                "back_angle_start": 31.2,
-                "back_angle_max": 33.79,
-                "back_angle_at_bottom": 25.8,
-                "time_warning": 1.6,
+                "back_angle_start": 31.51,
+                "back_angle_max": 35.21,
+                "back_angle_at_bottom": 28.21,
+                "time_warning": 1.63,
                 "time_excessive": 0.0,
                 "status": "ACCEPTABLE"
             },
             "depth_data": {
-                "knee_angle_start": 103.88,
-                "knee_angle_at_bottom": 76.64,
-                "knee_angle_min": 76.64,
+                "knee_angle_start": 102.35,
+                "knee_angle_at_bottom": 89.26,
+                "knee_angle_min": 89.26,
                 "depth_classification": "deep",
                 "depth_insufficient_flag": false
             },
             "ankle_data": {
-                "dorsiflexion_at_bottom": "restricted"
+                "dorsiflexion_at_bottom": "adecuate"
             },
             "camera_view": "side_right"
         },
@@ -156,28 +156,28 @@
             "rep_number": 6,
             "tempo_data": {
                 "tempo_notation": "0-1-1",
-                "eccentric": 0.1,
-                "pause": 1.0,
-                "concentric": 0.9,
-                "total": 2.0
+                "eccentric": 0.33,
+                "pause": 0.6,
+                "concentric": 0.93,
+                "total": 1.87
             },
             "back_data": {
-                "back_angle_start": 32.05,
-                "back_angle_max": 36.23,
-                "back_angle_at_bottom": 29.02,
-                "time_warning": 1.7,
+                "back_angle_start": 32.68,
+                "back_angle_max": 38.42,
+                "back_angle_at_bottom": 31.69,
+                "time_warning": 1.73,
                 "time_excessive": 0.0,
                 "status": "ACCEPTABLE"
             },
             "depth_data": {
-                "knee_angle_start": 98.85,
-                "knee_angle_at_bottom": 80.43,
-                "knee_angle_min": 80.43,
+                "knee_angle_start": 104.18,
+                "knee_angle_at_bottom": 92.73,
+                "knee_angle_min": 92.73,
                 "depth_classification": "deep",
                 "depth_insufficient_flag": false
             },
             "ankle_data": {
-                "dorsiflexion_at_bottom": "restricted"
+                "dorsiflexion_at_bottom": "adecuate"
             },
             "camera_view": "side_right"
         },
@@ -185,28 +185,28 @@
             "rep_number": 7,
             "tempo_data": {
                 "tempo_notation": "0-1-1",
-                "eccentric": 0.1,
-                "pause": 1.0,
+                "eccentric": 0.37,
+                "pause": 0.63,
                 "concentric": 0.9,
-                "total": 2.0
+                "total": 1.9
             },
             "back_data": {
-                "back_angle_start": 32.23,
-                "back_angle_max": 33.53,
-                "back_angle_at_bottom": 26.9,
-                "time_warning": 1.7,
+                "back_angle_start": 32.93,
+                "back_angle_max": 35.65,
+                "back_angle_at_bottom": 28.3,
+                "time_warning": 1.73,
                 "time_excessive": 0.0,
                 "status": "ACCEPTABLE"
             },
             "depth_data": {
-                "knee_angle_start": 103.71,
-                "knee_angle_at_bottom": 80.73,
-                "knee_angle_min": 80.73,
+                "knee_angle_start": 104.13,
+                "knee_angle_at_bottom": 90.54,
+                "knee_angle_min": 90.54,
                 "depth_classification": "deep",
                 "depth_insufficient_flag": false
             },
             "ankle_data": {
-                "dorsiflexion_at_bottom": "restricted"
+                "dorsiflexion_at_bottom": "adecuate"
             },
             "camera_view": "side_right"
         },
@@ -214,28 +214,28 @@
             "rep_number": 8,
             "tempo_data": {
                 "tempo_notation": "0-1-1",
-                "eccentric": 0.1,
-                "pause": 1.0,
+                "eccentric": 0.33,
+                "pause": 0.73,
                 "concentric": 0.9,
-                "total": 2.0
+                "total": 1.97
             },
             "back_data": {
-                "back_angle_start": 32.9,
-                "back_angle_max": 38.81,
-                "back_angle_at_bottom": 28.99,
-                "time_warning": 1.8,
-                "time_excessive": 0.0,
-                "status": "ACCEPTABLE"
+                "back_angle_start": 33.74,
+                "back_angle_max": 40.54,
+                "back_angle_at_bottom": 30.41,
+                "time_warning": 1.63,
+                "time_excessive": 0.23,
+                "status": "WARNING"
             },
             "depth_data": {
-                "knee_angle_start": 99.08,
-                "knee_angle_at_bottom": 79.58,
-                "knee_angle_min": 79.58,
+                "knee_angle_start": 103.19,
+                "knee_angle_at_bottom": 91.55,
+                "knee_angle_min": 91.55,
                 "depth_classification": "deep",
                 "depth_insufficient_flag": false
             },
             "ankle_data": {
-                "dorsiflexion_at_bottom": "restricted"
+                "dorsiflexion_at_bottom": "adecuate"
             },
             "camera_view": "side_right"
         },
@@ -243,28 +243,28 @@
             "rep_number": 9,
             "tempo_data": {
                 "tempo_notation": "0-1-1",
-                "eccentric": 0.1,
-                "pause": 0.9,
+                "eccentric": 0.2,
+                "pause": 0.77,
                 "concentric": 0.9,
-                "total": 1.9
+                "total": 1.87
             },
             "back_data": {
-                "back_angle_start": 33.45,
-                "back_angle_max": 35.55,
-                "back_angle_at_bottom": 28.15,
+                "back_angle_start": 35.27,
+                "back_angle_max": 38.6,
+                "back_angle_at_bottom": 31.16,
                 "time_warning": 1.7,
                 "time_excessive": 0.0,
                 "status": "ACCEPTABLE"
             },
             "depth_data": {
-                "knee_angle_start": 102.16,
-                "knee_angle_at_bottom": 81.1,
-                "knee_angle_min": 81.1,
+                "knee_angle_start": 103.64,
+                "knee_angle_at_bottom": 91.53,
+                "knee_angle_min": 91.53,
                 "depth_classification": "deep",
                 "depth_insufficient_flag": false
             },
             "ankle_data": {
-                "dorsiflexion_at_bottom": "restricted"
+                "dorsiflexion_at_bottom": "adecuate"
             },
             "camera_view": "side_right"
         },
@@ -272,28 +272,28 @@
             "rep_number": 10,
             "tempo_data": {
                 "tempo_notation": "0-1-1",
-                "eccentric": 0.1,
-                "pause": 1.0,
-                "concentric": 0.9,
-                "total": 2.0
+                "eccentric": 0.23,
+                "pause": 0.73,
+                "concentric": 0.97,
+                "total": 1.93
             },
             "back_data": {
-                "back_angle_start": 34.23,
-                "back_angle_max": 37.9,
-                "back_angle_at_bottom": 30.32,
-                "time_warning": 1.7,
-                "time_excessive": 0.0,
-                "status": "ACCEPTABLE"
+                "back_angle_start": 35.38,
+                "back_angle_max": 40.25,
+                "back_angle_at_bottom": 34.32,
+                "time_warning": 1.67,
+                "time_excessive": 0.13,
+                "status": "WARNING"
             },
             "depth_data": {
-                "knee_angle_start": 99.35,
-                "knee_angle_at_bottom": 82.69,
-                "knee_angle_min": 82.69,
+                "knee_angle_start": 103.82,
+                "knee_angle_at_bottom": 93.38,
+                "knee_angle_min": 93.38,
                 "depth_classification": "deep",
                 "depth_insufficient_flag": false
             },
             "ankle_data": {
-                "dorsiflexion_at_bottom": "restricted"
+                "dorsiflexion_at_bottom": "adecuate"
             },
             "camera_view": "side_right"
         }
@@ -301,29 +301,30 @@
     "consolidated": {
         "total_reps": 10,
         "posture": {
-            "back_angle_max_mean": 34.76,
-            "back_angle_at_bottom_mean": 28.262,
-            "back_angle_trend": 0.5673,
+            "back_angle_max_mean": 36.551,
+            "back_angle_at_bottom_mean": 30.153,
+            "back_angle_trend": 0.7399,
             "status_distribution": {
-                "ACCEPTABLE": 10
+                "ACCEPTABLE": 8,
+                "WARNING": 2
             }
         },
         "tempo": {
-            "eccentric_mean": 0.12,
-            "pause_mean": 0.9,
-            "concentric_mean": 0.83,
-            "total_mean": 1.85,
-            "total_trend": 0.0515,
+            "eccentric_mean": 0.253,
+            "pause_mean": 0.66,
+            "concentric_mean": 0.867,
+            "total_mean": 1.781,
+            "total_trend": 0.0505,
             "tempo_notation_mode": "0-1-1"
         },
         "movement_quality": {
             "depth_distribution": {
                 "deep": 10
             },
-            "knee_angle_min_mean": 79.348,
-            "depth_trend": 0.4512,
+            "knee_angle_min_mean": 90.545,
+            "depth_trend": 0.4586,
             "depth_insufficient_reps": 0,
-            "ankle_dorsiflexion_trend": "restricted"
+            "ankle_dorsiflexion_trend": "adecuate"
         }
     }
 }

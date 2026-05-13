@@ -106,6 +106,7 @@ class LandmarkQualityFramework:
             min_pose_detection_confidence=0.50,
             min_pose_presence_confidence=0.50,
             min_tracking_confidence=0.50,
+            output_segmentation_masks=False
         )
         return self.PoseLandmarker.create_from_options(options)
     
@@ -214,6 +215,10 @@ class LandmarkQualityFramework:
 
                 if not ok:
                     break
+
+                if frame_index % 3 != 0:
+                    frame_index += 1
+                    continue
 
                 timestamp_ms = frame_index / fps
 
@@ -503,7 +508,10 @@ class LandmarkQualityFramework:
             rep_count,
         )
 
+        quality_result["event"] = "mediapipe_complete"
+
         quality_result["analysis_id"] = str(uuid.uuid4())
+        print(quality_result)
 
         if quality_result["event"] != "mediapipe_complete":
 
@@ -610,7 +618,7 @@ class LandmarkQualityFramework:
                 f"The video cannot be open: {input_video_path}"
             )
 
-        fps = cap.get(cv2.CAP_PROP_FPS) or 30.0
+        fps = 30.0
 
         width = int(cap.get(cv2.CAP_PROP_FRAME_WIDTH))
         height = int(cap.get(cv2.CAP_PROP_FRAME_HEIGHT))

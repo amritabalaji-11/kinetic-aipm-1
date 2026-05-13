@@ -13,7 +13,7 @@ from utils.pose_landmarks import (
     NOSE
 )
 
-MEDIAPIPE_MODEL = "./mediapipe_code/model/pose_landmarker_heavy.task"
+MEDIAPIPE_MODEL = "./mediapipe_code/model/pose_landmarker_full.task"
 
 LANDMARKS = {
     # -------------------------
