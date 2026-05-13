@@ -1,24 +1,60 @@
-import uuid
-import os
-from fastapi import APIRouter, File, UploadFile, BackgroundTasks
-from services.analysis_pipeline import run_analysis
+from fastapi import APIRouter, UploadFile, File, Form
+from uuid import uuid4
+
+from utils.gcs import upload_file_to_gcs
+from db.database import db
 
 router = APIRouter()
 
-@router.post("/upload")
-async def upload_video(file: UploadFile = File(...), background_tasks: BackgroundTasks = BackgroundTasks()):
-    # Generate a unique ID for the analysis
-    analysis_id = str(uuid.uuid4())
-    
-    # Save the uploaded file to disk (or you can use in-memory storage)
-    upload_dir = "uploads"
 
-    os.makedirs(upload_dir, exist_ok=True)
-    file_location = os.path.join(upload_dir, f"{analysis_id}_{file.filename}")
-    with open(file_location, "wb") as f:
-        f.write(await file.read())
-    
-    # Start background processing of the file
-    background_tasks.add_task(run_analysis, file_location, analysis_id)
-    
-    return {"status": "file uploaded successfully", "analysis_id": analysis_id, "message": "Processing started in the background. Use the analysis_id to track progress via SSE."}
+@router.post("/upload")
+async def upload(
+    file: UploadFile = File(...),
+    exercise: str = Form(...),
+    weight: float = Form(...)
+):
+
+    # Generate unique analysis ID
+    analysis_id = str(uuid4())
+
+    # GCS path required by spec
+    gcs_path = f"videos/{analysis_id}/{file.filename}"
+
+    # Upload to Google Cloud Storage
+    await upload_file_to_gcs(file, gcs_path)
+
+    # Insert session into database
+    await db.execute(
+        """
+        INSERT INTO form_sessions
+            (
+                session_id,
+                user_id,
+                exercise_name,
+                weight_used,
+                status,
+                video_gcs_path
+            )
+        VALUES
+            (
+                :id,
+                :uid,
+                :exercise,
+                :weight,
+                'processing',
+                :path
+            )
+        """,
+        {
+            "id": analysis_id,
+            "uid": "stub_user",
+            "exercise": exercise,
+            "weight": weight,
+            "path": gcs_path
+        }
+    )
+
+    # STRICT response contract
+    return {
+        "analysis_id": analysis_id
+    }
