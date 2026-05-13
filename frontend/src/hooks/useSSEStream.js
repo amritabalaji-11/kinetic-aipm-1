@@ -55,7 +55,7 @@ function useSSEStream(analysisId) {
   useEffect(() => {
     if (!analysisId) return
 
-    const streamUrl = `${BASE_URL}/api/analysis/${analysisId}/stream`
+    const streamUrl = `${BASE_URL}/analysis/${analysisId}/stream`
     const es = new EventSource(streamUrl)
     eventSourceRef.current = es
 
