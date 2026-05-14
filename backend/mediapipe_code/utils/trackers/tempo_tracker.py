@@ -1,5 +1,5 @@
 import time
-from utils.trackers.traker_configuration import THRESHOLD_DOWN, THRESHOLD_UP, THRESHOLD_DEEP
+from mediapipe_code.utils.trackers.traker_configuration import THRESHOLD_DOWN, THRESHOLD_UP, THRESHOLD_DEEP
 
 
 class TempoTracker:

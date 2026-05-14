@@ -1,7 +1,7 @@
 import numpy as np
 from typing import Any, Dict, List
-from utils.angle_methods import angle_between, ankle_dorsiflexion, back_angle, femur_vertical_angle
-from utils.landmark_quality_configuration import (
+from mediapipe_code.utils.angle_methods import angle_between, ankle_dorsiflexion, back_angle, femur_vertical_angle
+from mediapipe_code.utils.landmark_quality_configuration import (
     PRESENCE_THRESHOLD, VISIBILITY_THRESHOLD, FrameAssessment, FrameLandmarkData)
 
 VIEW_SIDES = {

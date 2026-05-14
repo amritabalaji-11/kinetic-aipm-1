@@ -150,11 +150,20 @@ async def upload(
         )
 
     except Exception as e:
-        print("DB ERROR:", str(e))
+
+        import traceback
+
+        print("====================================")
+        print("DATABASE ERROR")
+        print(str(e))
+        traceback.print_exc()
+        print("====================================")
 
         raise HTTPException(
             status_code=500,
-            detail={"error": "DATABASE_INSERT_FAILED"}
+            detail={
+                "error": str(e)
+            }
         )
 
     # =========================================================

@@ -1,7 +1,7 @@
 import math
 
 import numpy as np
-from utils.pose_landmarks import (
+from mediapipe_code.utils.pose_landmarks import (
     LEFT_SHOULDER, RIGHT_SHOULDER
 )
 

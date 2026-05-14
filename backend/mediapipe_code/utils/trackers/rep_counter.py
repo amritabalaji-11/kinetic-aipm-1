@@ -1,4 +1,4 @@
-from utils.trackers.traker_configuration import MIN_BOTTOM_HOLD, THRESHOLD_DEEP, THRESHOLD_DOWN, THRESHOLD_UP
+from mediapipe_code.utils.trackers.traker_configuration import MIN_BOTTOM_HOLD, THRESHOLD_DEEP, THRESHOLD_DOWN, THRESHOLD_UP
 
 
 class RepCounter:

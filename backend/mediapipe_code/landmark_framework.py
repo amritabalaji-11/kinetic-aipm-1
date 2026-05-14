@@ -5,21 +5,21 @@ import time
 import uuid
 import mediapipe as mp
 import cv2
-from utils.trackers.trend_analyzer import TrendAnalyzer
-from utils.trackers.ankle_tracker import AnkleTracker
-from utils.trackers.back_tracker import BackAngleTracker
-from utils.trackers.depth_tracker import DepthTracker
-from utils.trackers.rep_counter import RepCounter
-from utils.trackers.stability_tracker import StabilityTracker
-from utils.trackers.tempo_tracker import TempoTracker
-from utils.draw_methods import add_text_lines, draw_points_and_lines
-from utils.angle_methods import detect_camera_view
-from utils.landmark_quality_configuration import (
+from mediapipe_code.utils.trackers.trend_analyzer import TrendAnalyzer
+from mediapipe_code.utils.trackers.ankle_tracker import AnkleTracker
+from mediapipe_code.utils.trackers.back_tracker import BackAngleTracker
+from mediapipe_code.utils.trackers.depth_tracker import DepthTracker
+from mediapipe_code.utils.trackers.rep_counter import RepCounter
+from mediapipe_code.utils.trackers.stability_tracker import StabilityTracker
+from mediapipe_code.utils.trackers.tempo_tracker import TempoTracker
+from mediapipe_code.utils.draw_methods import add_text_lines, draw_points_and_lines
+from mediapipe_code.utils.angle_methods import detect_camera_view
+from mediapipe_code.utils.landmark_quality_configuration import (
     LANDMARKS, LEFT_SIDE, LEG_CONNECTIONS, LEG_CONNECTIONS_LEFT_SIDE, 
     LEG_CONNECTIONS_RIGHT_SIDE, LEG_TARGET_LANDMARKS, MEDIAPIPE_MODEL, 
     PRESENCE_THRESHOLD, RIGHT_SIDE, 
     VISIBILITY_THRESHOLD, FrameAssessment )
-from utils.landmark_quality_methods import (
+from mediapipe_code.utils.landmark_quality_methods import (
     compute_composite_score, 
     compute_frame_reliability, compute_reliability,
     compute_view_metrics, evaluate_quality_gate, extract_frame_landmark_data,
