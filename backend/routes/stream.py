@@ -3,8 +3,8 @@
 import asyncio
 from fastapi import APIRouter, Request, HTTPException
 from fastapi.responses import StreamingResponse
-from utils.sse_manager import sse_manager
-from services.pipeline_stream import pipeline_stream, run_pipeline
+from utils.sse_manager import SSEManager
+from services.pipeline_stream import run_pipeline
 from db.database import db
 
 router = APIRouter()
@@ -41,7 +41,7 @@ async def stream_analysis(
         )
 
     return StreamingResponse(
-        sse_manager.subscribe(
+        SSEManager().subscribe(
             analysis_id,
             request
         ),
