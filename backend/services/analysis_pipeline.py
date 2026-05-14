@@ -3,6 +3,7 @@ import asyncio
 from utils.sse_manager import sse_manager
 
 async def run_analysis(analysis_id: str, file_location: str):
+    print(f"[ANALYSIS] Starting analysis for analysis_id={analysis_id}")
     try:
         # ------ Step 0 ------
         await asyncio.sleep(1)

@@ -1,6 +1,6 @@
 from db.database import db
 
-from pipeline.process_video import run_analysis
+from services.analysis_pipeline import run_analysis
 from utils.sse_manager import sse_manager
 
 
@@ -8,6 +8,8 @@ async def run_pipeline(
     analysis_id: str,
     video_url: str
 ):
+
+    print(f"[PIPELINE] Starting pipeline for analysis_id={analysis_id}")
 
     try:
 
@@ -27,18 +29,7 @@ async def run_pipeline(
         )
 
         # =====================================================
-        # SSE EVENT
-        # =====================================================
-
-        await sse_manager.send_event(
-            analysis_id,
-            "processing_started",
-            5,
-            "processing"
-        )
-
-        # =====================================================
-        # RUN REAL PIPELINE
+        # RUN REAL PIPELINE (with SSE events)
         # =====================================================
 
         await run_analysis(
@@ -59,17 +50,6 @@ async def run_pipeline(
             {
                 "analysis_id": analysis_id
             }
-        )
-
-        # =====================================================
-        # FINAL SSE EVENT
-        # =====================================================
-
-        await sse_manager.send_event(
-            analysis_id,
-            "analysis_completed",
-            100,
-            "completed"
         )
 
     except Exception as e:
