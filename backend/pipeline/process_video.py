@@ -1,200 +1,172 @@
-# process_video.py
-import asyncio
 import os
-from concurrent.futures import ThreadPoolExecutor
-from mediapipe_code.landmark_framework import LandmarkQualityFramework
+import asyncio
+import tempfile
+
+from google.cloud import storage
+
 from utils.sse_manager import sse_manager
 
-framework = LandmarkQualityFramework(
-    model_path="mediapipe_code/model/pose_landmarker_heavy.task"
-)
+BUCKET_NAME = os.getenv("GCS_BUCKET_NAME")
 
-# MediaPipe is CPU-bound and synchronous — needs its own thread pool
-_executor = ThreadPoolExecutor(max_workers=2)
+storage_client = storage.Client()
 
 
-def _run_quality_gate(video_path: str) -> dict:
-    """Blocking — runs in thread. Returns quality result dict."""
-    return framework.get_quality_result(video_path)
-
-
-def _run_biomechanics(video_path: str, exercise: str, weight_kg: float) -> dict:
-    """Blocking — runs in thread. Returns full biomechanics JSON."""
-    return framework.get_biomechanics_output(
-        video_path=video_path,
-        exercise=exercise,
-        weight_kg=weight_kg,
-    )
-
-
-def _resolve_local_path(gcs_path: str) -> str:
+async def run_analysis(
+    analysis_id: str,
+    video_url: str
+):
     """
-    Converts a GCS URI to a local path for the ML layer.
-    e.g. gs://kinetic_bucket/uploads/abc.mp4 → ./downloads/abc.mp4
-    
-    Swap this out when you have a real GCS download step.
+    Full real pipeline:
+    1. Download video from GCS
+    2. Run MediaPipe
+    3. Emit SSE events
     """
-    filename = gcs_path.split("/")[-1]
-    local_dir = "./mediapipe_code/videos/incoming"
-    os.makedirs(local_dir, exist_ok=True)
-    return os.path.join(local_dir, filename)
-
-
-async def run_analysis(analysis_id: str, file_location: str):
-    """
-    Real async pipeline with SSE progress events.
-    file_location: GCS URI (gs://...) or local path during dev.
-    """
-    loop = asyncio.get_event_loop()
 
     try:
-        # ------ Step 0: Upload acknowledged ------
-        await sse_manager.send_event(analysis_id, "upload_received", 10)
 
-        # Resolve local path (replace with actual GCS download when ready)
-        local_path = (
-            file_location
-            if not file_location.startswith("gs://")
-            else _resolve_local_path(file_location)
-        )
-
-        if not os.path.exists(local_path):
-            raise FileNotFoundError(f"Video not found at: {local_path}")
-
-        # ------ MediaPipe quality gate (blocking → thread) ------
-        await sse_manager.send_event(analysis_id, "mediapipe_started", 20)
-
-        quality_result = await loop.run_in_executor(
-            _executor,
-            _run_quality_gate,
-            local_path,
-        )
-
-        # Quality gate failed → abort early
-        if quality_result.get("event") not in ["mediapipe_complete", "success"]:
-            await sse_manager.send_event(
-                analysis_id,
-                "mediapipe_failed",
-                20,
-                status="error",
-            )
-            await _store_failed(analysis_id, reason="quality_gate_failed", detail=quality_result)
-            return
-
-        rep_count = (
-             quality_result.get("session", {}).get("rep_count")
-             or quality_result.get("rep_count", 0)
-            )
+        # =====================================================
+        # SSE → download started
+        # =====================================================
 
         await sse_manager.send_event(
             analysis_id,
-            "mediapipe_complete",
-            50,
-            # extra fields picked up by send_event if you extend its signature,
-            # or store in DB here instead (see note below)
+            "download_started",
+            10,
+            "processing"
         )
 
-        # ------ Biomechanics full pass (blocking → thread) ------
-        biomechanics_json = await loop.run_in_executor(
-            _executor,
-            _run_biomechanics,
-            local_path,
-            "Goblet Squat",
-            20.0,
+        # =====================================================
+        # DOWNLOAD VIDEO FROM GCS
+        # =====================================================
+
+        local_video_path = await download_video_from_gcs(
+            analysis_id,
+            video_url
         )
 
-        # Persist to DB right after ML is done
-        await _store_biomechanics(analysis_id, biomechanics_json)
+        # =====================================================
+        # SSE → mediapipe started
+        # =====================================================
 
-        # ------ Nemotron ------
-        await sse_manager.send_event(analysis_id, "nemotron_started", 60)
-        # TODO: call your Nemotron service here
-        await asyncio.sleep(3)  # placeholder
-        await sse_manager.send_event(analysis_id, "nemotron_complete", 80)
-
-        # ------ RAG ------
-        await sse_manager.send_event(analysis_id, "rag_started", 85)
-        # TODO: call your RAG service here
-        await asyncio.sleep(4)  # placeholder
-        await sse_manager.send_event(analysis_id, "rag_complete", 95)
-
-        # ------ Claude ------
-        await sse_manager.send_event(analysis_id, "claude_started", 96)
-        # TODO: call Claude API here
-        await asyncio.sleep(2)  # placeholder
-        await sse_manager.send_event(analysis_id, "claude_complete", 100)
-
-        # ------ Done ------
         await sse_manager.send_event(
             analysis_id,
-            "analysis_complete",
+            "mediapipe_started",
+            30,
+            "processing"
+        )
+
+        # =====================================================
+        # RUN MEDIAPIPE PIPELINE
+        # =====================================================
+
+        result = await asyncio.to_thread(
+            local_video_path
+        )
+
+        # =====================================================
+        # SSE → mediapipe completed
+        # =====================================================
+
+        await sse_manager.send_event(
+            analysis_id,
+            "mediapipe_completed",
+            80,
+            "processing"
+        )
+
+        # =====================================================
+        # OPTIONAL RESULT SAVE
+        # =====================================================
+
+        print("PIPELINE RESULT:")
+        print(result)
+
+        # =====================================================
+        # CLEANUP TEMP FILE
+        # =====================================================
+
+        if os.path.exists(local_video_path):
+            os.remove(local_video_path)
+
+        # =====================================================
+        # SSE → completed
+        # =====================================================
+
+        await sse_manager.send_event(
+            analysis_id,
+            "pipeline_completed",
             100,
-            status="complete",
+            "completed"
         )
-        print(f"[pipeline] Analysis {analysis_id} completed. Reps: {rep_count}")
 
-    except FileNotFoundError as e:
-        print(f"[pipeline] {e}")
-        await sse_manager.send_event(analysis_id, "error", 0, status="error")
+        return result
 
     except Exception as e:
-        print(f"[pipeline] Unexpected failure for {analysis_id}: {e}")
-        await sse_manager.send_event(analysis_id, "error", 0, status="error")
+
+        print("PIPELINE FAILURE:")
+        print(str(e))
+
+        await sse_manager.send_event(
+            analysis_id,
+            "pipeline_failed",
+            100,
+            "failed"
+        )
+
+        raise e
 
 
-# ── DB helpers ────────────────────────────────────────────────────────────────
-
-async def _store_biomechanics(analysis_id: str, data: dict):
+async def download_video_from_gcs(
+    analysis_id: str,
+    gcs_url: str
+) -> str:
     """
-    Persist the full biomechanics JSON to your DB layer.
-    Wire this to your actual db object from db/database.py.
+    Downloads a GCS file locally for MediaPipe processing.
     """
-    from db.database import db
-    import json
 
-    await db.execute(
-        """
-        UPDATE form_sessions
-        SET    status           = 'complete',
-               biomechanics_json = :bio,
-               rep_count        = :reps
-        WHERE  session_id = :sid
-        """,
-        values={
-            "sid": analysis_id,
-            "bio": json.dumps(data),
-            "reps": data.get("session", {}).get("rep_count", 0),
-        },
+    # =========================================================
+    # REMOVE gs://bucket-name/
+    # =========================================================
+
+    prefix = f"gs://{BUCKET_NAME}/"
+
+    blob_path = gcs_url.replace(
+        prefix,
+        ""
     )
 
+    # =========================================================
+    # GET GCS OBJECT
+    # =========================================================
 
-async def _store_failed(analysis_id: str, reason: str, detail: dict = None):
-    from db.database import db
-    import json
+    bucket = storage_client.bucket(BUCKET_NAME)
 
-    await db.execute(
-        """
-        UPDATE form_sessions
-        SET status = 'failed',
-            error_detail = :err
-        WHERE session_id = :sid
-        """,
-        values={
-            "sid": analysis_id,
-            "err": json.dumps({"reason": reason, "detail": detail}),
-        },
+    blob = bucket.blob(blob_path)
+
+    # =========================================================
+    # CREATE TEMP DIRECTORY
+    # =========================================================
+
+    temp_dir = tempfile.mkdtemp(
+        prefix=f"{analysis_id}_"
     )
 
+    filename = os.path.basename(blob_path)
 
-#async def process_video(gcs_path: str, analysis_id: str) -> dict:
+    local_path = os.path.join(
+        temp_dir,
+        filename
+    )
 
- #   await asyncio.sleep(2)
+    # =========================================================
+    # DOWNLOAD FILE
+    # =========================================================
 
-  #  return {
-   #     "status": "success",
-    #    "overlay_video_url": f"gs://overlay/{analysis_id}.mp4",
-     #   "biomechanics_json": {
-      #      "rep_count": 8,
-       #     "overall_score": 72
-        #}
-    #}
+    await asyncio.to_thread(
+        blob.download_to_filename,
+        local_path
+    )
+
+    print(f"DOWNLOADED VIDEO → {local_path}")
+
+    return local_path
