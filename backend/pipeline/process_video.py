@@ -4,6 +4,7 @@ import tempfile
 
 from google.cloud import storage
 
+from mediapipe_code.landmark_framework import process_video_once
 from utils.sse_manager import sse_manager
 
 BUCKET_NAME = os.getenv("GCS_BUCKET_NAME")
@@ -60,6 +61,7 @@ async def run_analysis(
         # =====================================================
 
         result = await asyncio.to_thread(
+            process_video_once,
             local_video_path
         )
 
