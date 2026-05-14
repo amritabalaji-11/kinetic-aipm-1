@@ -2,14 +2,11 @@ import os
 import asyncio
 import tempfile
 
-from google.cloud import storage
-
 from mediapipe_code.landmark_framework import LandmarkQualityFramework
+from utils.gcs import client as storage_client
 from utils.sse_manager import sse_manager
 
 BUCKET_NAME = os.getenv("GCS_BUCKET_NAME")
-
-storage_client = storage.Client()
 
 
 async def run_analysis(

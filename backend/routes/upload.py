@@ -170,11 +170,15 @@ async def upload(
     # ASYNC PIPELINE
     # =========================================================
 
+    print(f"[UPLOAD] Starting background pipeline for analysis_id={analysis_id}")
+
     background_tasks.add_task(
         run_pipeline,
         analysis_id,
         video_url
     )
+
+    print(f"[UPLOAD] Background task added for analysis_id={analysis_id}")
 
     # =========================================================
     # FAST RESPONSE
