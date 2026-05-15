@@ -1,184 +1,241 @@
+import math
 import time
 from typing import Any, Dict, Optional
 from utils.trackers.traker_configuration import THRESHOLD_DOWN, THRESHOLD_UP, MIN_BOTTOM_HOLD, THRESHOLD_DEEP
 
 
 class StabilityTracker:
+    __slots__ = (
+        "hip_angle_threshold_up",
+        "hip_angle_threshold_down",
+        "deep_angle",
+        "min_bottom_hold",
+        "state",
+        "bottom_hold_frames",
+        "rep_frames",
+        "valgus_ratio_threshold",
+        "current_stability_data",
+    )
+
     def __init__(self):
         self.hip_angle_threshold_up = THRESHOLD_UP
         self.hip_angle_threshold_down = THRESHOLD_DOWN
-        self.min_bottom_hold = MIN_BOTTOM_HOLD
         self.deep_angle = THRESHOLD_DEEP
-        self.valgus_distance_threshold = 0.08
-        self.baseline_window = 5
+        self.min_bottom_hold = MIN_BOTTOM_HOLD
+
+        # knees / shoulders
+        # < 1.0 means knees narrower than shoulders
+        self.valgus_ratio_threshold = 1.0
+
+        self.current_stability_data = None
+
         self.reset()
 
     def reset(self):
         self.state = "STANDING"
-        self.phase_start_time = None
-        self.last_timestamp = None
         self.bottom_hold_frames = 0
-
         self.rep_frames = []
-        self.top_frame_index = None
-        self.bottom_frame_index = None
-        self.concentric_start_index = None
 
-    @staticmethod
-    def _mean2(a: float, b: float) -> float:
-        return (a + b) * 0.5
+    # ---------------------------------------------------------
+    # Helpers
+    # ---------------------------------------------------------
 
-    def _extract_frame_data(self, pose_landmarks):
-        left_hip = pose_landmarks[23]
-        right_hip = pose_landmarks[24]
-        left_knee = pose_landmarks[25]
-        right_knee = pose_landmarks[26]
+    def _extract_frame_data(self, norm_pose):
+        """
+        Extract 2D frontal knee vs shoulder distance ratio.
+        Uses only X axis because valgus is horizontal movement.
+        """
 
-        return {
-            "hip_y": self._mean2(left_hip.y, right_hip.y),
-            "knee_valgus_distance": abs(left_knee.x - right_knee.x),
-        }
+        try:
+            left_shoulder = norm_pose[11]
+            right_shoulder = norm_pose[12]
 
-    def _classify_valgus_phase(
-        self,
-        rep_frames,
-        concentric_start_idx,
-        concentric_end_idx,
-    ):
-        if not rep_frames:
+            left_knee = norm_pose[25]
+            right_knee = norm_pose[26]
+
+            shoulder_width = abs(
+                left_shoulder.x - right_shoulder.x
+            )
+
+            knee_width = abs(
+                left_knee.x - right_knee.x
+            )
+
+            if shoulder_width <= 1e-6:
+                return {
+                    "knee_distance": None,
+                    "shoulder_width": None,
+                    "knee_ratio": None,
+                }
+
+            knee_ratio = knee_width / shoulder_width
+
+            return {
+                "knee_distance": knee_width,
+                "shoulder_width": shoulder_width,
+                "knee_ratio": knee_ratio,
+            }
+
+        except Exception:
+            return {
+                "knee_distance": None,
+                "shoulder_width": None,
+                "knee_ratio": None,
+            }
+
+    def _classify_valgus_phase(self):
+        """
+        Find the minimum knee distance during the rep
+        and classify where it occurred.
+        """
+
+        if not self.rep_frames:
             return None, None, False
-
-        concentric_len = concentric_end_idx - concentric_start_idx + 1
-        if concentric_len <= 0:
-            return None, None, False
-
-        window_len = max(1, int(round(0.20 * concentric_len)))
-        window_end_idx = min(concentric_end_idx, concentric_start_idx + window_len - 1)
 
         min_dist = None
         min_pos = None
+        min_ratio = None
 
-        for pos in range(concentric_start_idx, window_end_idx + 1):
-            dist = rep_frames[pos]["knee_valgus_distance"]
-            if dist is None:
+        for i, frame in enumerate(self.rep_frames):
+            dist = frame["knee_distance"]
+            ratio = frame["knee_ratio"]
+
+            if dist is None or ratio is None:
                 continue
+
             if min_dist is None or dist < min_dist:
                 min_dist = dist
-                min_pos = pos
+                min_ratio = ratio
+                min_pos = i
 
         if min_dist is None:
             return None, None, False
 
-        rel_pos = min_pos - concentric_start_idx
-        denom = max(1, window_end_idx - concentric_start_idx)
+        rep_len = len(self.rep_frames)
 
-        pct = rel_pos / denom
-        if pct < 0.33:
-            phase = "EARLY"
-        elif pct < 0.66:
+        if rep_len <= 1:
             phase = "MID"
         else:
-            phase = "LATE"
+            pct = min_pos / (rep_len - 1)
 
-        valgus_flag = min_dist < self.valgus_distance_threshold
-        return round(min_dist, 4), phase, valgus_flag
+            if pct < 0.33:
+                phase = "EARLY"
+            elif pct < 0.66:
+                phase = "MID"
+            else:
+                phase = "LATE"
+
+        valgus_flag = (
+            min_ratio <= self.valgus_ratio_threshold
+        )
+
+        return (
+            round(min_dist, 4),
+            phase,
+            valgus_flag,
+        )
+
+    # ---------------------------------------------------------
+    # Main update
+    # ---------------------------------------------------------
 
     def update(
         self,
         hip_angle: Optional[float],
         knee_angle: Optional[float],
         camera_view,
-        pose_landmarks,
+        norm_pose,
         timestamp: Optional[float] = None,
         debug: bool = False,
     ) -> Optional[Dict[str, Any]]:
+
         if hip_angle is None or knee_angle is None:
             return None
 
-        target_angle = knee_angle if camera_view.startswith("side") else hip_angle
+        # Only analyze frontal / angled views
+        if camera_view.startswith("side"):
+            return None
 
         if timestamp is None:
             timestamp = time.time()
 
-        self.last_timestamp = timestamp
-        frame_data = self._extract_frame_data(pose_landmarks)
+        target_angle = hip_angle
+
+        frame_data = self._extract_frame_data(norm_pose)
+
+        # ---------------------------------------------------------
+        # STANDING
+        # ---------------------------------------------------------
 
         if self.state == "STANDING":
+
             if target_angle < self.hip_angle_threshold_down:
                 self.state = "DESCENDING"
-                self.phase_start_time = timestamp
                 self.bottom_hold_frames = 0
                 self.rep_frames = [frame_data]
+
             return None
 
+        # Store all frames during rep
         self.rep_frames.append(frame_data)
 
+        # ---------------------------------------------------------
+        # DESCENDING
+        # ---------------------------------------------------------
+
         if self.state == "DESCENDING":
+
             if target_angle < self.deep_angle:
                 self.state = "BOTTOM"
                 self.bottom_hold_frames = 0
+
             return None
 
+        # ---------------------------------------------------------
+        # BOTTOM
+        # ---------------------------------------------------------
+
         if self.state == "BOTTOM":
+
             self.bottom_hold_frames += 1
+
             if target_angle > self.hip_angle_threshold_down:
+
                 if self.bottom_hold_frames >= self.min_bottom_hold:
                     self.state = "ASCENDING"
                 else:
                     self.reset()
+
             return None
 
+        # ---------------------------------------------------------
+        # ASCENDING
+        # ---------------------------------------------------------
+
         if self.state == "ASCENDING":
-            if target_angle > self.hip_angle_threshold_up:
-                hip_y_min = None
-                bottom_idx = None
 
-                for i, f in enumerate(self.rep_frames):
-                    hip_y = f["hip_y"]
-                    if hip_y is None:
-                        continue
-                    if hip_y_min is None or hip_y > hip_y_min:
-                        hip_y_min = hip_y
-                        bottom_idx = i
+            if target_angle <= self.hip_angle_threshold_up:
+                return None
 
-                if bottom_idx is None:
-                    self.reset()
-                    return None
+            (
+                knee_valgus_distance,
+                valgus_phase,
+                valgus_flag,
+            ) = self._classify_valgus_phase()
 
-                self.bottom_frame_index = bottom_idx
-                self.top_frame_index = len(self.rep_frames) - 1
+            stability_data = {
+                "knee_valgus_distance": knee_valgus_distance,
+                "valgus_phase": valgus_phase,
+                "valgus_flag": valgus_flag,
+            }
 
-                concentric_start = None
-                for i in range(bottom_idx + 1, len(self.rep_frames)):
-                    prev_y = self.rep_frames[i - 1]["hip_y"]
-                    curr_y = self.rep_frames[i]["hip_y"]
-                    if prev_y is not None and curr_y is not None and curr_y < prev_y:
-                        concentric_start = i
-                        break
+            self.current_stability_data = stability_data
 
-                if concentric_start is None:
-                    concentric_start = bottom_idx
+            if debug:
+                print(stability_data)
 
-                self.concentric_start_index = concentric_start
+            self.reset()
 
-                knee_valgus_distance, valgus_phase, valgus_flag = self._classify_valgus_phase(
-                    self.rep_frames,
-                    concentric_start,
-                    self.top_frame_index,
-                )
-
-                rep_data = {
-                    "knee_valgus_distance": knee_valgus_distance,
-                    "valgus_phase": valgus_phase,
-                    "valgus_flag": valgus_flag,
-                }
-
-                if debug:
-                    print("knee_valgus_distance:", rep_data["knee_valgus_distance"])
-                    print("valgus_phase:", rep_data["valgus_phase"])
-                    print("valgus_flag:", rep_data["valgus_flag"])
-
-                self.reset()
-                return rep_data
+            return stability_data
 
         return None

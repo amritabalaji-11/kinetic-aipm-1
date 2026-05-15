@@ -1,4 +1,5 @@
 from collections import Counter
+import datetime
 import json
 import os
 import time
@@ -131,7 +132,7 @@ class LandmarkQualityFramework:
         if not cap.isOpened():
             raise ValueError(f"The video could not be opened: {resized_video_path}")
 
-        fps = 30.0
+        fps = cap.get(cv2.CAP_PROP_FPS) or 30.0
 
         width = int(cap.get(cv2.CAP_PROP_FRAME_WIDTH))
         height = int(cap.get(cv2.CAP_PROP_FRAME_HEIGHT))
@@ -282,8 +283,7 @@ class LandmarkQualityFramework:
                 # VIEW
                 # -------------------------------------------------
                 camera_view = detect_view(
-                    norm_pose,
-                    world_pose,
+                    norm_pose
                 )
 
                 (
@@ -415,6 +415,10 @@ class LandmarkQualityFramework:
                     timestamp_ms,
                 )
 
+                # If tempo_data fails to track, then put the current tempo
+                if tempo_data is None:
+                    tempo_data = tempo_tracker.current_rep_tempo
+
                 back_data = back_update(
                     back_angle_value,
                     hip_angle,
@@ -447,7 +451,6 @@ class LandmarkQualityFramework:
                 # REP COMPLETED
                 # -------------------------------------------------
                 if rep_completed:
-
                     rep_dict = format_rep_data(
                         rep_count,
                         tempo_data,
@@ -457,11 +460,21 @@ class LandmarkQualityFramework:
                         ankle_data,
                         camera_view,
                     )
+                    # Return the current rep of the tracker to None
+                    tempo_tracker.delete_current_rep()
 
-                    rep_dict["rep_number"] = rep_count
-                    rep_dict["camera_view"] = camera_view
+                    # If a rep has more than 4 seconds, skip it 
+                    if rep_dict["tempo_data"]["total"] > 4:
+                        if rep_counter.rep_count > 1:
+                            rep_counter.reduce_rep()
+                        else:
+                            rep_counter.rep_to_zero()
+                    else:
 
-                    append_rep(rep_dict)
+                        rep_dict["rep_number"] = rep_count
+                        rep_dict["camera_view"] = camera_view
+
+                        append_rep(rep_dict)
 
                 # -------------------------------------------------
                 # CACHE
@@ -561,6 +574,7 @@ class LandmarkQualityFramework:
                 "weight_kg": weight_kg,
                 "rep_count": rep_count,
                 "camera_view": camera_view,
+                "date": str(datetime.date.today())
             },
             "reps": reps_json_info,
             "consolidated": trend_results,
@@ -805,10 +819,10 @@ class LandmarkQualityFramework:
 
 
 # How to use it
-"""framework = LandmarkQualityFramework(model_path=MEDIAPIPE_MODEL)
-input_dir = "./mediapipe_code/videos/good_form/v2_depth_good.mp4"
+framework = LandmarkQualityFramework(model_path=MEDIAPIPE_MODEL)
+input_dir = "./mediapipe_code/videos/good_form/v6_torso_good.mp4"
 
 start = time.time()
 framework.process_video_once(input_dir, "goblet squat", 20)
 end = time.time() - start
-print(end)"""
+print(end)

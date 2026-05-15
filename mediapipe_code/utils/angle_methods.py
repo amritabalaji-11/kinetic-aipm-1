@@ -6,26 +6,26 @@ from utils.pose_landmarks import (
 )
 
 
-def detect_camera_view(landmarks, world_landmarks):
-    left = landmarks[LEFT_SHOULDER]
-    right = landmarks[RIGHT_SHOULDER]
-    left_w = world_landmarks[LEFT_SHOULDER]
-    right_w = world_landmarks[RIGHT_SHOULDER]
+def detect_camera_view(norm_pose):
+    left_shoulder = norm_pose[LEFT_SHOULDER]
+    right_shoulder = norm_pose[RIGHT_SHOULDER]
 
-    dx = left.x - right.x
-    if dx < 0:
-        dx = -dx
+    shoulder_width = abs(
+        left_shoulder.x - right_shoulder.x
+    )
 
-    dz = left_w.z - right_w.z
-    if dz < 0:
-        dz = -dz
-
-    if dx > 0.12 and dz < 0.1:
+    # FRONT
+    if shoulder_width > 0.22:
         return "front"
 
-    if dx < 0.08 and dz > 0.15:
-        return "side_left" if left_w.z < right_w.z else "side_right"
+    # SIDE
+    if shoulder_width < 0.10:
+        # determinar lado
+        if left_shoulder.x < right_shoulder.x:
+            return "side_left"
+        return "side_right"
 
+    # ANGLED
     return "angled"
 
 

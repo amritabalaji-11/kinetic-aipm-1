@@ -86,7 +86,6 @@ class TrendAnalyzer:
         tempo_notation_counter = Counter()
 
         valgus_flag_count = 0
-        heel_lift_count = 0
         depth_insufficient_count = 0
 
         foot_turnout_left_sum = 0.0
@@ -135,9 +134,6 @@ class TrendAnalyzer:
 
             if stability.get("valgus_flag") is True:
                 valgus_flag_count += 1
-
-            if stability.get("heel_lift_detected") is True:
-                heel_lift_count += 1
 
             depth_classification = depth.get("depth_classification")
             if depth_classification is not None:
@@ -237,7 +233,6 @@ class TrendAnalyzer:
                 ),
                 "valgus_flag_reps": valgus_flag_count,
                 "valgus_phase_distribution": self._distribution(valgus_phase_counter),
-                "heel_lift_reps": heel_lift_count,
             }
 
             consolidated["movement_quality"] = {

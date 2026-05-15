@@ -540,20 +540,20 @@ def format_rep_data(rep_count, tempo_data, back_data, depth_data, stability_data
 
         data["stability_data"] = {
             "knee_valgus_distance": stability_data["knee_valgus_distance"],
-            "valgus_phase": stability_data["valgus_phase"],
-            "valgus_flag": stability_data["valgus_flag"],
+            "valgus_flag": stability_data["valgus_flag"]
         }
 
-        data["ankle_data"] = {
-            "foot_turnout_left": ankle_data["foot_turnout_left"],
-            "foot_turnout_right": ankle_data["foot_turnout_right"],
-        }
-
+        if stability_data["valgus_flag"]:
+            data["stability_data"]["valgus_phase"] = stability_data["valgus_phase"]
     else:
         if ankle_data:
             data["ankle_data"] = {
                 "dorsiflexion_at_bottom": ankle_data["dorsiflexion_at_bottom"],
             }
+
+    if camera_view == "front":
+        data["ankle_data"]["foot_turnout_left"] = ankle_data["foot_turnout_left"]
+        data["ankle_data"]["foot_turnout_right"] = ankle_data["foot_turnout_right"]
 
     return data
 
