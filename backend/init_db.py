@@ -15,8 +15,14 @@ CREATE TABLE IF NOT EXISTS form_analyses (
     weight_kg_normalised REAL NOT NULL,
     video_url TEXT NOT NULL,
     status TEXT NOT NULL,
+
+    overlay_video_url TEXT,
+    biomechanics_json TEXT,
+    error_code TEXT,
+    rep_count INTEGER,
+
     created_at TEXT NOT NULL
-);
+)
 """)
 
 conn.commit()

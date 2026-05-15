@@ -1,18 +1,17 @@
 import asyncio
 import uuid
-from process_video import run_analysis
-
+from pipeline.process_video import run_mediapipe_analysis
 
 async def main():
-    analysis_id = str(uuid.uuid4())
+    session_id = str(uuid.uuid4())
 
     # 👇 point this to a real local video file
-    file_location = "./mediapipe_code/videos/goblet_squats_1.mp4"
+    file_location = "./mediapipe_code/videos/good_form/goblet_squats_1.mp4"
 
-    print(f"Starting test: {analysis_id}")
+    print(f"Starting test: {session_id}")
 
-    await run_analysis(
-        analysis_id=analysis_id,
+    await run_mediapipe_analysis(
+        session_id=session_id,
         file_location=file_location
     )
 
