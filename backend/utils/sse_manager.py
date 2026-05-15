@@ -85,10 +85,15 @@ class SSEManager:
             "status": status
         })
 
+        print(f"[SSE] Sending event: {event_name} for {analysis_id}")
+
         self.latest_event[analysis_id] = payload
 
         if analysis_id not in self.active_connections:
+            print(f"[SSE] No active connections for {analysis_id}")
             return
+
+        print(f"[SSE] Broadcasting to {len(self.active_connections[analysis_id])} clients")
 
         for queue in self.active_connections[analysis_id]:
             await queue.put(payload)
