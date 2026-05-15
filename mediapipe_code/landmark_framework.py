@@ -819,10 +819,10 @@ class LandmarkQualityFramework:
 
 
 # How to use it
-framework = LandmarkQualityFramework(model_path=MEDIAPIPE_MODEL)
-input_dir = "./mediapipe_code/videos/good_form/v6_torso_good.mp4"
+"""framework = LandmarkQualityFramework(model_path=MEDIAPIPE_MODEL)
+input_dir = "./mediapipe_code/videos/good_form/v1_depth_fault.mp4"
 
 start = time.time()
 framework.process_video_once(input_dir, "goblet squat", 20)
 end = time.time() - start
-print(end)
+print(end)"""

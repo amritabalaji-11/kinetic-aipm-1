@@ -525,6 +525,9 @@ def format_rep_data(rep_count, tempo_data, back_data, depth_data, stability_data
             "knee_angle_start": depth_data["knee_angle_start"],
             "knee_angle_at_bottom": depth_data["knee_angle_at_bottom"],
             "knee_angle_min": depth_data["knee_angle_min"],
+            "hip_angle_start": depth_data["hip_angle_start"],
+            "hip_angle_at_bottom": depth_data["hip_angle_at_bottom"],
+            "hip_angle_min": depth_data["hip_angle_min"],
             "depth_classification": depth_data["depth_classification"],
             "depth_insufficient_flag": depth_data["depth_insufficient_flag"],
         },
@@ -532,12 +535,6 @@ def format_rep_data(rep_count, tempo_data, back_data, depth_data, stability_data
     }
 
     if camera_view in ("front", "angled"):
-        data["depth_data"].update({
-            "hip_angle_start": depth_data["hip_angle_start"],
-            "hip_angle_at_bottom": depth_data["hip_angle_at_bottom"],
-            "hip_angle_min": depth_data["hip_angle_min"],
-        })
-
         data["stability_data"] = {
             "knee_valgus_distance": stability_data["knee_valgus_distance"],
             "valgus_flag": stability_data["valgus_flag"]
