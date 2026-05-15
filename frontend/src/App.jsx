@@ -9,6 +9,11 @@ import LoadingPage from "./pages/LoadingPage"
 import ResultsPage from "./pages/ResultsPage"
 import ComparisonPage from "./pages/ComparisonPage"
 import SubscriptionPage from "./pages/SubscriptionPage"
+import AuthPage from "./pages/AuthPage"
+import DashboardPage from "./pages/DashboardPage"
+import HistoryPage from "./pages/HistoryPage"
+import WorkoutLoggerPage from "./pages/WorkoutLoggerPage"
+import OnboardingPage from "./pages/OnboardingPage"
 
 function Layout({ children }) {
   return (
@@ -33,6 +38,11 @@ function App() {
         <Route path="/upload/loading" element={<Layout><LoadingPage /></Layout>} />
         <Route path="/upload/results" element={<Layout><ResultsPage /></Layout>} />
         <Route path="/upload/comparison" element={<Layout><ComparisonPage /></Layout>} />
+        <Route path="/dashboard" element={<Layout><DashboardPage /></Layout>} />
+        <Route path="/history" element={<Layout><HistoryPage /></Layout>} />
+        <Route path="/workout" element={<Layout><WorkoutLoggerPage /></Layout>} />
+        <Route path="/onboarding" element={<Layout><OnboardingPage /></Layout>} />
+        <Route path="/auth" element={<Layout><AuthPage /></Layout>} />
         <Route path="/profile/subscription" element={<Layout><SubscriptionPage /></Layout>} />
       </Routes>
     </BrowserRouter>
