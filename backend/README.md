@@ -28,7 +28,7 @@ backend/
 
 ## ⚙️ How to Run Locally with Google Cloud Authentication 
 
-Each teammate must authenticate using their own Google account:
+Each teammate must add the json file in the credentials folder inside the backend folder
 
 ```bash
 gcloud auth login
@@ -41,6 +41,7 @@ source venv/bin/activate
 ```
 ### 2. Install dependencies
 ```bash
+cd backend
 pip install -r requirements.txt
 ```
 ### 3. Run server 
