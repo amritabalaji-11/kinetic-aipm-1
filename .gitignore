@@ -1,2 +1,10 @@
 .DS_Store
 .env
+secrets/
+*.json
+venv
+__pycache__
+
+echo "backend/kinetic.db" >> .gitignore
+echo "__pycache__/" >> .gitignore
+echo "*.pyc" >> .gitignore

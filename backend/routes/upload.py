@@ -1,24 +1,189 @@
-import uuid
-import os
-from fastapi import APIRouter, File, UploadFile, BackgroundTasks
-from services.analysis_pipeline import run_analysis
+from uuid import uuid4
+from datetime import datetime
+
+from fastapi import (
+    APIRouter,
+    UploadFile,
+    File,
+    Form,
+    HTTPException,
+    BackgroundTasks
+)
+
+from db.database import db
+from utils.gcs import upload_file_to_gcs
+from services.pipeline_stream import run_pipeline
 
 router = APIRouter()
 
-@router.post("/upload")
-async def upload_video(file: UploadFile = File(...), background_tasks: BackgroundTasks = BackgroundTasks()):
-    # Generate a unique ID for the analysis
-    analysis_id = str(uuid.uuid4())
-    
-    # Save the uploaded file to disk (or you can use in-memory storage)
-    upload_dir = "uploads"
+# 500MB
+MAX_FILE_SIZE = 500 * 1024 * 1024
 
-    os.makedirs(upload_dir, exist_ok=True)
-    file_location = os.path.join(upload_dir, f"{analysis_id}_{file.filename}")
-    with open(file_location, "wb") as f:
-        f.write(await file.read())
-    
-    # Start background processing of the file
-    background_tasks.add_task(run_analysis, file_location, analysis_id)
-    
-    return {"status": "file uploaded successfully", "analysis_id": analysis_id, "message": "Processing started in the background. Use the analysis_id to track progress via SSE."}
+ALLOWED_MIME_TYPES = {
+    "video/mp4",
+    "video/quicktime",
+    "video/x-msvideo",
+    "video/webm",
+    "application/octet-stream"
+}
+
+
+@router.post("/upload")
+async def upload(
+    background_tasks: BackgroundTasks,
+    file: UploadFile = File(...),
+    exercise_id: str = Form(...),
+    weight_value: float = Form(...),
+    weight_unit: str = Form(...),
+    user_id: str = Form(...),
+    session_id: str = Form(...)
+):
+
+    # =========================================================
+    # MIME TYPE VALIDATION
+    # =========================================================
+
+    if file.content_type not in ALLOWED_MIME_TYPES:
+        raise HTTPException(
+            status_code=415,
+            detail={"error": "UNSUPPORTED_MEDIA_TYPE"}
+        )
+
+    # =========================================================
+    # FILE SIZE VALIDATION
+    # =========================================================
+
+    file.file.seek(0, 2)
+    file_size = file.file.tell()
+    file.file.seek(0)
+
+    if file_size > MAX_FILE_SIZE:
+        raise HTTPException(
+            status_code=413,
+            detail={"error": "FILE_TOO_LARGE"}
+        )
+
+    # =========================================================
+    # ANALYSIS ID
+    # =========================================================
+
+    analysis_id = str(uuid4())
+
+    # =========================================================
+    # NORMALIZE KG
+    # =========================================================
+
+    weight_kg_normalised = weight_value
+
+    if weight_unit.lower() == "lb":
+        weight_kg_normalised = round(weight_value * 0.453592, 2)
+
+    # =========================================================
+    # GCS PATH
+    # =========================================================
+
+    gcs_path = (
+        f"videos/{user_id}/{analysis_id}/{file.filename}"
+    )
+
+    # =========================================================
+    # GCS UPLOAD
+    # =========================================================
+
+    try:
+        video_url = await upload_file_to_gcs(
+            file,
+            gcs_path
+        )
+
+    except Exception as e:
+        print("GCS ERROR:", str(e))
+
+        raise HTTPException(
+            status_code=503,
+            detail={"error": "PIPELINE_UNAVAILABLE"}
+        )
+
+    # =========================================================
+    # INSERT DB RECORD
+    # =========================================================
+
+    try:
+        await db.execute(
+            """
+            INSERT INTO form_analyses (
+                analysis_id,
+                session_id,
+                user_id,
+                exercise_id,
+                weight_value,
+                weight_unit,
+                weight_kg_normalised,
+                video_url,
+                status,
+                created_at
+            )
+            VALUES (
+                :analysis_id,
+                :session_id,
+                :user_id,
+                :exercise_id,
+                :weight_value,
+                :weight_unit,
+                :weight_kg_normalised,
+                :video_url,
+                'uploaded',
+                :created_at
+            )
+            """,
+            {
+                "analysis_id": analysis_id,
+                "session_id": session_id,
+                "user_id": user_id,
+                "exercise_id": exercise_id,
+                "weight_value": weight_value,
+                "weight_unit": weight_unit,
+                "weight_kg_normalised": weight_kg_normalised,
+                "video_url": video_url,
+                "created_at": datetime.utcnow().isoformat()
+            }
+        )
+
+    except Exception as e:
+
+        import traceback
+
+        print("====================================")
+        print("DATABASE ERROR")
+        print(str(e))
+        traceback.print_exc()
+        print("====================================")
+
+        raise HTTPException(
+            status_code=500,
+            detail={
+                "error": str(e)
+            }
+        )
+
+    # =========================================================
+    # ASYNC PIPELINE
+    # =========================================================
+
+    print(f"[UPLOAD] Starting background pipeline for analysis_id={analysis_id}")
+
+    background_tasks.add_task(
+        run_pipeline,
+        analysis_id,
+        video_url
+    )
+
+    print(f"[UPLOAD] Background task added for analysis_id={analysis_id}")
+
+    # =========================================================
+    # FAST RESPONSE
+    # =========================================================
+
+    return {
+        "analysis_id": analysis_id
+    }

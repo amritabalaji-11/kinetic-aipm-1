@@ -237,5 +237,4 @@ function UploadScanPage() {
     </div>
   )
 }
-
 export default UploadScanPage
