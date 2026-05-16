@@ -26,7 +26,14 @@ backend/
 ```
 ---
 
-## ⚙️ How to Run Locally
+## ⚙️ How to Run Locally with Google Cloud Authentication 
+
+Each teammate must authenticate using their own Google account:
+
+```bash
+gcloud auth login
+gcloud auth application-default login
+```
 
 ### 1. Activate environment
 ```bash
@@ -51,6 +58,101 @@ GET `/health` → health check
 POST `/upload` → upload video (WIP)
 POST `/analyze` → video analysis (WIP)
 
+
+
+### 📡 Real-Time Analysis Streaming (SSE)
+
+This project uses Server-Sent Events (SSE) to stream video analysis progress in real time.
+
+
+
+### 📍 Endpoint
+`GET /analysis/{analysis_id}/stream`
+
+## Small Note:
+This system has two layers:
+1. Fake SSE pipeline (used for frontend development before real ML pipeline exist): 
+    `pipeline_stream()`
+2. Real analysis pipeline (backend logic, not yet wired to SSE endpoint)
+    `run_analysis()`
+Executes real processing workflow (MediaPipe → Nemotron → RAG → Claude)
+Emits events via:
+    `sse_manager.send_event()`
+
+### 🧠 How it works
+
+```bash
+Client uploads video → backend creates analysis_id  
+        ↓  
+Client opens SSE stream  
+        ↓  
+Backend streams analysis pipeline events  
+        ↓  
+Frontend updates UI in real time
+```
+
+### 📦 Event Format
+
+All events follow this format:
+`data: {"event":"mediapipe_complete","analysis_id":"abc123",...optional fields...}\n\n`
+
+### Required Rules:
+- Must include `analysis_id`
+- Must be valid JSON
+- Must be prefixed with `data:`
+- Must end with `\n\n`
+- Each event is a single SSE message
+
+### 📊 Event Sequence
+
+Events are always emitted in this order:
+```bash 
+upload_received →
+mediapipe_started →
+mediapipe_complete →
+nemotron_started →
+nemotron_complete →
+rag_started →
+rag_complete →
+claude_started →
+claude_complete →
+analysis_complete
+```
+### ⏱ Timing Rules
+- Minimum delay between events: ≥ 500ms
+- Events must NOT be sent all at once
+- Delays simulate AI processing stages
+
+### ⚠️ Required Cloud Run Headers 
+
+To ensure SSE works on Cloud Run:
+
+```bash 
+{
+    "Cache-Control": "no-cache",
+    "Connection": "keep-alive",
+    "X-Accel-Buffering": "no"
+}
+```
+
+Why:
+- Prevents proxy buffering
+- Ensures real-time streaming
+- Keeps connection open
+
+### 🧪 Testing SSE Locally
+``` curl -N http://127.0.0.1:8000/analysis/test123/stream ```
+
+Expected:
+- Events appear one by one
+- Stream stays open
+- Delays are visible
+
+### ☁️ Cloud Run Testing
+```curl -N https://<your-cloud-run-url>/analysis/test123/stream ```
+
+If events appear all at once → buffering issue
+
 ### ☁️ Cloud Architecture
 
 Client → API Gateway → Cloud Run → FastAPI → Services → GCS / AI APIs
@@ -65,6 +167,7 @@ Uses `.env` locally:
 ```bash
 FRONTEND_ORIGIN=http://localhost:3000
 ENV=development
+GCS_BUCKET_NAME=your-bucket-name
 ```
 Never commit `.env` to repo.
 

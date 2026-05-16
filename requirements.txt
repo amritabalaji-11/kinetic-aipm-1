@@ -1,3 +1,13 @@
 fastapi
-uvicorn
+uvicorn[standard]
 python-dotenv
+aiofiles
+# Async DB (backend/db/database.py)
+databases[sqlite]
+
+# Used by upload / pipeline when reading GCS (optional if you only use local disk staging)
+google-cloud-storage
+
+# Pose pipeline (backend/pipeline/process_video.py)
+mediapipe
+opencv-python-headless

@@ -1,13 +1,25 @@
-import { useState } from "react"
+import { useState, useEffect } from "react"
 import { useNavigate } from "react-router-dom"
 import { Upload, CheckCircle, AlertCircle, RotateCw, Check, ChevronDown, Play } from "lucide-react"
+import { queueAnalysisUpload } from "../lib/pendingAnalysisUpload"
+
+function stableUserId() {
+  const key = "kinetic_user_id"
+  let id = sessionStorage.getItem(key)
+  if (!id) {
+    id = crypto.randomUUID()
+    sessionStorage.setItem(key, id)
+  }
+  return id
+}
 
 const EXERCISES = [
   { id: "barbell-squat", name: "BARBELL SQUAT", enabled: true },
   { id: "deadlift", name: "DEADLIFT", enabled: false },
 ]
 
-const MAX_FILE_SIZE_MB = 100
+// Allow large uploads during testing; backend streams to disk to avoid OOM.
+const MAX_FILE_SIZE_MB = 1024 // 1 GB
 const ACCEPTED_FORMATS = ["video/mp4", "video/quicktime", "video/webm"]
 const ACCEPTED_EXTENSIONS = ".mp4, .mov, .webm"
 
@@ -26,12 +38,19 @@ function UploadScanPage() {
   const [fileError, setFileError] = useState("")
   const [tipsExpanded, setTipsExpanded] = useState(true)
   const [unit, setUnit] = useState("kg")
+  const [formAlert, setFormAlert] = useState("")
+
+  const maxWeightForUnit = unit === "kg" ? MAX_WEIGHT : 440
 
   const isWeightValid = weight > 0
   const isFormValid = exercise && isWeightValid && videoFile && !fileError
   const showWeightError = weightTouched && !isWeightValid
 
   const highlightedMuscle = exercise === "barbell-squat" ? "quads" : null
+
+  useEffect(() => {
+    if (isFormValid) setFormAlert("")
+  }, [isFormValid])
 
   function handleFileChange(e) {
     const file = e.target.files[0]
@@ -70,15 +89,36 @@ function UploadScanPage() {
       return
     }
     const num = Number(val)
-    if (!isNaN(num) && num >= MIN_WEIGHT && num <= MAX_WEIGHT) {
+    if (!isNaN(num) && num >= MIN_WEIGHT && num <= maxWeightForUnit) {
       setWeight(num)
     }
   }
 
   function handleSubmit() {
-    if (!isFormValid) return
-    console.log("Submitting:", { exercise, weight, videoFile })
-    navigate("/upload/loading")
+    if (!isFormValid) {
+      const parts = []
+      if (!exercise) parts.push("select an exercise")
+      if (!videoFile) parts.push("upload a video")
+      if (!isWeightValid) parts.push("set weight greater than 0")
+      if (fileError) parts.push("fix the file error above")
+      setFormAlert(`Before starting: ${parts.join(", ")}.`)
+      setWeightTouched(true)
+      return
+    }
+
+    setFormAlert("")
+    queueAnalysisUpload({
+      videoFile,
+      exercise,
+      weight,
+      unit,
+      videoPreviewUrl,
+      userId: stableUserId(),
+      sessionId: crypto.randomUUID(),
+    })
+    navigate("/upload/loading", {
+      state: { videoPreviewUrl, exercise, queuedFileSize: videoFile?.size ?? null },
+    })
   }
 
   return (
@@ -337,7 +377,7 @@ function UploadScanPage() {
                 type="number"
                 inputMode="numeric"
                 min={MIN_WEIGHT}
-                max={unit === "kg" ? MAX_WEIGHT : 440}
+                max={maxWeightForUnit}
                 step={WEIGHT_STEP}
                 value={weight}
                 onChange={handleWeightInputChange}
@@ -351,7 +391,7 @@ function UploadScanPage() {
           <input
             type="range"
             min={MIN_WEIGHT}
-            max={unit === "kg" ? MAX_WEIGHT : 440}
+            max={maxWeightForUnit}
             step={WEIGHT_STEP}
             value={weight}
             onChange={handleWeightSliderChange}
@@ -370,15 +410,46 @@ function UploadScanPage() {
         <button
           type="button"
           onClick={handleSubmit}
-          disabled={!isFormValid}
           className={`w-full h-14 rounded-xl font-semibold tracking-wide transition-all ${
             isFormValid
               ? "bg-gradient-to-r from-teal to-cyan-glow text-text-primary hover:brightness-105 shadow-md"
-              : "bg-gray-100 text-text-disabled cursor-not-allowed"
+              : "bg-gray-100 text-text-secondary hover:bg-gray-200 border border-gray-200"
           }`}
         >
           START ANALYSIS →
         </button>
+
+        {!isFormValid && (
+          <p className="text-xs text-text-teritary text-center -mt-2">
+            Choose exercise, set load (&gt; 0), and attach a video — then tap start.
+          </p>
+        )}
+
+        {formAlert && (
+          <p className="text-xs text-error text-center flex items-start justify-center gap-1">
+            <AlertCircle size={14} className="mt-0.5 flex-shrink-0" />
+            <span>{formAlert}</span>
+          </p>
+        )}
+
+        {import.meta.env.DEV && (
+          <button
+            type="button"
+            className="w-full py-2 text-xs text-teal underline text-center"
+            onClick={() =>
+              navigate("/upload/loading", {
+                state: {
+                  mockPipeline: true,
+                  exercise: exercise || "barbell-squat",
+                  queuedFileSize: videoFile?.size ?? 55 * 1024 * 1024,
+                  videoPreviewUrl,
+                },
+              })
+            }
+          >
+            Dev: preview loading UI (no server)
+          </button>
+        )}
 
       </div>
     </div>
