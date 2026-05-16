@@ -1,0 +1,46 @@
+[
+  {
+    "_scenario": "M2 — both sides not visible",
+    "analysis_id": "00000000-0000-0000-0000-000000000001",
+    "status": "failed",
+    "error_code": "CRITICAL_OCCLUSION",
+    "error_stage": "mediapipe",
+    "retryable": "false",
+    "title": "We couldn't see your lower body clearly",
+    "message": "Your camera may be facing you from directly to your side or slightly behind you. Try angling it slightly toward the front of your body so both legs are fully in view throughout the squat.",
+    "cta_label": "Re-film — see tips"
+  },
+  {
+    "_scenario": "M6 — too few reps",
+    "analysis_id": "00000000-0000-0000-0000-000000000002",
+    "status": "failed",
+    "error_code": "INSUFFICIENT_REPS",
+    "error_stage": "mediapipe",
+    "retryable": "false",
+    "title": "Film a full set to get your analysis",
+    "message": "We need at least 3 complete reps to give you meaningful feedback. Squat all the way down and all the way back up for each one — don't stop at 1 or 2.",
+    "cta_label": "Re-film"
+  },
+  {
+    "_scenario": "M4 — poor composite score",
+    "analysis_id": "00000000-0000-0000-0000-000000000003",
+    "status": "failed",
+    "error_code": "POOR_COMPOSITE",
+    "error_stage": "mediapipe",
+    "retryable": "false",
+    "title": "We couldn't read your body position clearly",
+    "message": "This usually happens when filming from behind, with something blocking the view, or in low lighting. Film from your side with good lighting and a clear background.",
+    "cta_label": "Re-film — see tips"
+  },
+  {
+    "_scenario": "M7 — acceptable quality, pass with inline warning",
+    "analysis_id": "00000000-0000-0000-0000-000000000004",
+    "status": "complete",
+    "error_code": "ACCEPTABLE",
+    "error_stage": null,
+    "retryable": "partial",
+    "title": "Results may be slightly less accurate",
+    "message": "Some parts of your form were harder to read than usual. Try filming closer to the guidelines next time for a sharper analysis.",
+    "cta_label": null
+  }
+]
