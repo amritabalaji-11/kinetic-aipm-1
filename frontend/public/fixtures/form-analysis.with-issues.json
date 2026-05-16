@@ -1,0 +1,77 @@
+{
+  "_fixture": "form-analysis.with-issues",
+  "_schema_ref": "S1-W5-04 · FE_Response_Schemas.md",
+  "_notes": "Goblet Squat · 40kg · 2 issues (moderate + low) · Hold recommendation.",
+
+  "analysis_id": "550e8400-e29b-41d4-a716-446655440001",
+  "session_id": "c1d2e3f4-0000-0000-0000-aabbccddeeff",
+  "user_id": "a3f8c2d1-9b4e-4f7a-8c2d-1e5f9b3a7c4e",
+  "exercise_id": "ex_goblet_squat_001",
+  "exercise_slug": "goblet_squat",
+  "display_name": "Goblet Squat",
+  "weight_value": 40.0,
+  "weight_unit": "kg",
+  "created_at": "2026-05-11T09:14:33.000Z",
+  "processed_at": "2026-05-11T09:15:44.000Z",
+  "status": "complete",
+
+  "annotated_frame_url": "gs://kinetic-videos/analyses/550e8400-e29b-41d4-a716-446655440001/frame_bottom.jpg",
+
+  "summary": {
+    "overall_form_score": 72,
+    "movement_quality_score": 68,
+    "stability_score": 75,
+    "posture_score": 73,
+    "tempo_score": 55,
+    "rep_count": 5,
+    "avg_rep_duration_s": 3.6
+  },
+
+  "reps": [
+    { "rep_number": 1, "form_score": 81, "movement_quality_score": 78, "stability_score": 84, "posture_score": 80, "tempo_score": 62 },
+    { "rep_number": 2, "form_score": 74, "movement_quality_score": 70, "stability_score": 76, "posture_score": 74, "tempo_score": 58 },
+    { "rep_number": 3, "form_score": 68, "movement_quality_score": 64, "stability_score": 70, "posture_score": 70, "tempo_score": 54 },
+    { "rep_number": 4, "form_score": 70, "movement_quality_score": 66, "stability_score": 72, "posture_score": 72, "tempo_score": 52 },
+    { "rep_number": 5, "form_score": 65, "movement_quality_score": 60, "stability_score": 72, "posture_score": 70, "tempo_score": 48 }
+  ],
+
+  "coaching": {
+    "summary_paragraph": "At 40kg your squat shows decent depth but your left knee is consistently caving inward from rep 2 onwards. This pattern has appeared before at this weight — address the movement fault before adding more load.",
+    "parameters": {
+      "posture": {
+        "score": 73,
+        "affirmation": null,
+        "observation": null,
+        "correction": "Keep your chest tall throughout the descent — brace your core before each rep and think about pulling your elbows down toward your hips."
+      },
+      "stability": {
+        "score": 75,
+        "affirmation": null,
+        "observation": null,
+        "correction": "Push your left knee outward in line with your pinky toe as you drive up — focus on this cue on every rep."
+      },
+      "movement_quality": {
+        "score": 68,
+        "affirmation": null,
+        "observation": null,
+        "correction": "Slow your descent to a 3-count — you are rushing the bottom of the squat which is reducing your control and depth."
+      },
+      "tempo": {
+        "score": 55,
+        "affirmation": null,
+        "observation": null,
+        "correction": "Try a 3-1-2 tempo — 3 seconds down, 1 second pause at the bottom, 2 seconds up. Your reps are getting faster as fatigue sets in."
+      }
+    }
+  },
+
+  "progression": {
+    "recommendation": "hold",
+    "recommendation_score": 42,
+    "current_weight_value": 40.0,
+    "current_weight_unit": "kg",
+    "suggested_weight_value": 40.0,
+    "suggested_weight_unit": "kg",
+    "reasoning": "Knee valgus present in 4 of 5 reps and worsening across sessions at this weight. Hold at 40kg and address hip abductor activation before progressing."
+  }
+}
