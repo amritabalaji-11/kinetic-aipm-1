@@ -1,7 +1,6 @@
 import { useState } from "react"
 import { useNavigate } from "react-router-dom"
 import { Upload, CheckCircle, AlertCircle } from "lucide-react"
-
 import { uploadVideo } from "../services/uploadService"
 // Dummy exercise list — will swap for Rayburn's S1-W5-04 fixtures later.
 // Per acceptance criteria: show multiple options but only Goblet Squat is enabled for MVP.

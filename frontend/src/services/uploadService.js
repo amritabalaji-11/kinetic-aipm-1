@@ -28,6 +28,7 @@ async function uploadVideo(videoFile, exercise, weight){
     formData.append("user_id", userId)
     formData.append("session_id", sessionId)
 
+
     const response = await fetch(`${BASE_URL}/upload`, {
         method: "POST",
         body: formData,
@@ -35,6 +36,7 @@ async function uploadVideo(videoFile, exercise, weight){
 
     if(!response.ok){
         const errorData = await response.json().catch(()=>{})
+
 
         const message = errorData.detail || errorData.message || "Upload failed"
 
@@ -48,3 +50,4 @@ async function uploadVideo(videoFile, exercise, weight){
 }
 
 export {uploadVideo}
+
