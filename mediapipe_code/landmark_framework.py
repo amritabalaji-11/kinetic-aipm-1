@@ -529,7 +529,7 @@ class LandmarkQualityFramework:
             rep_count,
         )
 
-        quality_result["event"] = "mediapipe_complete"
+        #quality_result["event"] = "mediapipe_complete"
 
         quality_result["analysis_id"] = str(uuid.uuid4())
         #print(quality_result)
