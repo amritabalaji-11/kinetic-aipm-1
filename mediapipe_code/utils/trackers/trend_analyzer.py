@@ -95,6 +95,11 @@ class TrendAnalyzer:
         foot_turnout_right_count = 0
 
         ankle_dorsiflexion_values = []
+        ankle_dorsiflexion_sum = 0.0
+        ankle_dorsiflexion_count = 0
+        ankle_dorsiflexion_x = 0.0
+        ankle_dorsiflexion_x2 = 0.0
+        ankle_dorsiflexion_xy = 0.0
 
         for i, rep in enumerate(reps):
             back = rep.get("back_data", {})
@@ -162,7 +167,11 @@ class TrendAnalyzer:
 
             dorsiflexion_bottom = ankle.get("dorsiflexion_at_bottom")
             if dorsiflexion_bottom is not None:
-                ankle_dorsiflexion_values.append(dorsiflexion_bottom)
+                ankle_dorsiflexion_sum += dorsiflexion_bottom
+                ankle_dorsiflexion_count += 1
+                ankle_dorsiflexion_x += i
+                ankle_dorsiflexion_x2 += i * i
+                ankle_dorsiflexion_xy += i * dorsiflexion_bottom
 
             eccentric = tempo.get("eccentric")
             if eccentric is not None:
@@ -262,7 +271,14 @@ class TrendAnalyzer:
                     knee_angle_min_xy,
                 ),
                 "depth_insufficient_reps": depth_insufficient_count,
-                "ankle_dorsiflexion_trend": self._mode(Counter(ankle_dorsiflexion_values)),
+                "ankle_dorsiflexion_mean": self._mean(ankle_dorsiflexion_sum, ankle_dorsiflexion_count),
+                "ankle_dorsiflexion_trend": self._trend_slope_from_sums(
+                    ankle_dorsiflexion_count,
+                    ankle_dorsiflexion_x,
+                    ankle_dorsiflexion_sum,
+                    ankle_dorsiflexion_x2,
+                    ankle_dorsiflexion_xy,
+                ),
             }
 
         return consolidated

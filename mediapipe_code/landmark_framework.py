@@ -529,7 +529,7 @@ class LandmarkQualityFramework:
             rep_count,
         )
 
-        #quality_result["event"] = "mediapipe_complete"
+        quality_result["event"] = "mediapipe_complete"
 
         quality_result["analysis_id"] = str(uuid.uuid4())
         #print(quality_result)
@@ -625,7 +625,7 @@ class LandmarkQualityFramework:
             if os.path.exists(temp_raw_video_path):
                 os.remove(temp_raw_video_path)
 
-        return json_final
+        return json_final, quality_result
     
 
     def _render_video_from_cache(
@@ -820,7 +820,7 @@ class LandmarkQualityFramework:
 
 # How to use it
 """framework = LandmarkQualityFramework(model_path=MEDIAPIPE_MODEL)
-input_dir = "./mediapipe_code/videos/good_form/v1_depth_fault.mp4"
+input_dir = "./mediapipe_code/videos/good_form/v6_torso_good.mp4"
 
 start = time.time()
 framework.process_video_once(input_dir, "goblet squat", 20)
