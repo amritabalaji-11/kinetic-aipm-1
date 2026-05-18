@@ -267,7 +267,7 @@ def evaluate_quality_gate(
             return {
                 "event": "error",
                 "error_stage": "quality_gate",
-                "retryable": False,
+                "retryable": "false",
                 "error_code": "occlusion_both_sides",
                 "landmark_medians": landmark_medians,
                 "message": "We couldn't see your lower body clearly",
@@ -277,7 +277,7 @@ def evaluate_quality_gate(
             return {
                 "event": "error",
                 "error_stage": "quality_gate",
-                "retryable": False,
+                "retryable": "false",
                 "error_code": "occlusion_left_side",
                 "landmark_medians": landmark_medians,
                 "message": "Part of your left side was hidden from view",
@@ -288,7 +288,7 @@ def evaluate_quality_gate(
             return {
                 "event": "error",
                 "error_stage": "quality_gate",
-                "retryable": False,
+                "retryable": "false",
                 "error_code": "occlusion_right_side",
                 "landmark_medians": landmark_medians,
                 "message": "Part of your right side was hidden from view",
@@ -299,7 +299,7 @@ def evaluate_quality_gate(
             return {
                 "event": "error",
                 "error_stage": "quality_gate",
-                "retryable": False,
+                "retryable": "false",
                 "error_code": "out_of_frame_left",
                 "landmark_medians": landmark_medians,
                 "message": "Your left side kept moving out of frame",
@@ -310,7 +310,7 @@ def evaluate_quality_gate(
             return {
                 "event": "error",
                 "error_stage": "quality_gate",
-                "retryable": False,
+                "retryable": "false",
                 "error_code": "out_of_frame_right",
                 "landmark_medians": landmark_medians,
                 "message": "Your right side kept moving out of frame",
@@ -324,7 +324,7 @@ def evaluate_quality_gate(
             return {
                 "event": "error",
                 "error_stage": "quality_gate",
-                "retryable": False,
+                "retryable": "false",
                 "error_code": "occlusion_left_side",
                 "landmark_medians": landmark_medians,
                 "message": "Part of your left side was hidden from view",
@@ -335,7 +335,7 @@ def evaluate_quality_gate(
             return {
                 "event": "error",
                 "error_stage": "quality_gate",
-                "retryable": False,
+                "retryable": "false",
                 "error_code": "out_of_frame_left",
                 "landmark_medians": landmark_medians,
                 "message": "Your left side kept moving out of frame",
@@ -349,7 +349,7 @@ def evaluate_quality_gate(
             return {
                 "event": "error",
                 "error_stage": "quality_gate",
-                "retryable": False,
+                "retryable": "false",
                 "error_code": "occlusion_right_side",
                 "landmark_medians": landmark_medians,
                 "message": "Part of your right side was hidden from view",
@@ -360,7 +360,7 @@ def evaluate_quality_gate(
             return {
                 "event": "error",
                 "error_stage": "quality_gate",
-                "retryable": False,
+                "retryable": "false",
                 "error_code": "out_of_frame_right",
                 "landmark_medians": landmark_medians,
                 "message": "Your right side kept moving out of frame",
@@ -374,7 +374,7 @@ def evaluate_quality_gate(
         return {
             "event": "error",
             "error_stage": "quality_gate",
-            "retryable": False,
+            "retryable": "false",
             "error_code": "poor_video_quality",
             "message": "We couldn't read your body position clearly",
         }
@@ -386,7 +386,7 @@ def evaluate_quality_gate(
         return {
             "event": "error",
             "error_stage": "quality_gate",
-            "retryable": False,
+            "retryable": "false",
             "error_code": "no_reps_detected",
             "message": "We couldn't detect any squats in your video",
         }
@@ -395,7 +395,7 @@ def evaluate_quality_gate(
         return {
             "event": "error",
             "error_stage": "quality_gate",
-            "retryable": False,
+            "retryable": "false",
             "error_code": "insufficient_reps",
             "message": "We need at least 3 complete reps to give you meaningful feedback",
         }
