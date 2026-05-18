@@ -1,0 +1,72 @@
+{
+  "_fixture": "form-comparison — Case 1 (previous session exists)",
+  "_schema_ref": "S1-W5-04 · FE_Response_Schemas.md · section 8b",
+  "_notes": "Goblet Squat. Current: May 11 · 40kg. Previous: Apr 27 · 40kg. Declining trend.",
+
+  "has_comparison": true,
+  "empty_state_message": null,
+
+  "current": {
+    "analysis_id": "550e8400-e29b-41d4-a716-446655440001",
+    "created_at": "2026-05-11T09:14:33.000Z",
+    "date_label": "May 11",
+    "weight_value": 40.0,
+    "weight_unit": "kg",
+    "overall_form_score": 72,
+    "posture_score": 73,
+    "stability_score": 75,
+    "movement_quality_score": 68,
+    "tempo_score": 55,
+    "annotated_frame_url": "gs://kinetic-videos/analyses/550e8400-e29b-41d4-a716-446655440001/frame_bottom.jpg",
+    "reps": [
+      { "rep_number": 1, "form_score": 81 },
+      { "rep_number": 2, "form_score": 74 },
+      { "rep_number": 3, "form_score": 68 },
+      { "rep_number": 4, "form_score": 70 },
+      { "rep_number": 5, "form_score": 65 }
+    ]
+  },
+
+  "previous": {
+    "analysis_id": "661f9511-f30c-52e5-b827-557766551002",
+    "created_at": "2026-04-27T10:02:17.000Z",
+    "date_label": "Apr 27",
+    "weight_value": 40.0,
+    "weight_unit": "kg",
+    "overall_form_score": 76,
+    "posture_score": 76,
+    "stability_score": 79,
+    "movement_quality_score": 74,
+    "tempo_score": 71,
+    "annotated_frame_url": "gs://kinetic-videos/analyses/661f9511-f30c-52e5-b827-557766551002/frame_bottom.jpg",
+    "reps": [
+      { "rep_number": 1, "form_score": 83 },
+      { "rep_number": 2, "form_score": 79 },
+      { "rep_number": 3, "form_score": 75 },
+      { "rep_number": 4, "form_score": 74 },
+      { "rep_number": 5, "form_score": 69 }
+    ]
+  },
+
+  "comparison_coaching": {
+    "summary_paragraph": "Your form score dropped 4 points at the same weight compared to your last session. Knee stability has declined and a new tempo issue has emerged in the later reps — focus on controlling your descent before adding more load.",
+    "parameters": {
+      "posture": {
+        "score": 73,
+        "observation_action": "Posture held reasonably well but chest position dipped slightly on reps 4 and 5. Reinforce your brace before each rep."
+      },
+      "stability": {
+        "score": 75,
+        "observation_action": "Knee valgus has worsened since last session — affecting 4 reps this time vs 3 last time. Prioritise the outward knee cue on every rep."
+      },
+      "movement_quality": {
+        "score": 68,
+        "observation_action": "Depth is still good but bar path is less consistent than last session. Slow the descent to regain control."
+      },
+      "tempo": {
+        "score": 55,
+        "observation_action": "Tempo has declined noticeably — reps are getting faster as the set progresses. Use a 3-1-2 count to keep it consistent."
+      }
+    }
+  }
+}
