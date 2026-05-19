@@ -1,5 +1,7 @@
 import cv2
 
+from utils.landmark_quality_configuration import LEFT_SIDE, LEG_CONNECTIONS, LEG_CONNECTIONS_LEFT_SIDE, LEG_CONNECTIONS_RIGHT_SIDE, LEG_TARGET_LANDMARKS, RIGHT_SIDE
+
 
 def draw_points_and_lines(
     image,
@@ -64,3 +66,88 @@ def add_text_lines(image, lines, start_x=10, start_y=30, dy=40):
             2,
         )
         y += dy
+
+
+def annotate_frame(
+        frame_bgr,
+        camera_view,
+        norm_pose,
+        width,
+        height,
+        hip_angle,
+        knee_angle,
+        back_angle_value,
+        left_knee_valgus,
+        right_knee_valgus,
+        rep_count,
+        tempo_state,
+    ):
+        annotated = frame_bgr.copy()
+
+        if camera_view == "side_left":
+            draw_points_and_lines(
+                annotated,
+                norm_pose,
+                width,
+                height,
+                LEFT_SIDE,
+                LEG_CONNECTIONS_LEFT_SIDE,
+                threshold=0.0,
+            )
+        elif camera_view == "side_right":
+            draw_points_and_lines(
+                annotated,
+                norm_pose,
+                width,
+                height,
+                RIGHT_SIDE,
+                LEG_CONNECTIONS_RIGHT_SIDE,
+                threshold=0.0,
+            )
+        else:
+            draw_points_and_lines(
+                annotated,
+                norm_pose,
+                width,
+                height,
+                LEG_TARGET_LANDMARKS,
+                LEG_CONNECTIONS,
+                threshold=0.0,
+            )
+
+        lines = [
+            (
+                f"Hip Angle: {hip_angle:.1f}" if hip_angle is not None else "Hip Angle: N/A",
+                (0, 255, 0),
+                1,
+            ),
+            (
+                f"Knee Angle: {knee_angle:.1f}" if knee_angle is not None else "Knee Angle: N/A",
+                (0, 255, 0),
+                1,
+            ),
+            (
+                f"Back Angle: {back_angle_value:.1f}" if back_angle_value is not None else "Back Angle: N/A",
+                (0, 255, 0),
+                1,
+            ),
+            (f"Reps: {rep_count}", (0, 0, 255), 1),
+            (f"State: {tempo_state}", (255, 0, 0), 1),
+            (f"Camera: {camera_view}", (0, 255, 0), 1),
+        ]
+
+        if left_knee_valgus is not None:
+            lines.append((f"Left Valgus: {left_knee_valgus:.3f}", (0, 255, 0), 1))
+
+        if right_knee_valgus is not None:
+            lines.append((f"Right Valgus: {right_knee_valgus:.3f}", (0, 255, 0), 1))
+
+        add_text_lines(
+            annotated,
+            lines,
+            start_x=10,
+            start_y=30,
+            dy=40,
+        )
+
+        return annotated

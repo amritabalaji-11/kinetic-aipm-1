@@ -36,6 +36,7 @@ class TrendAnalyzer:
             return None
         return max(counter, key=counter.get)
 
+
     @staticmethod
     def _count_true(true_count: int) -> int:
         return true_count
@@ -67,10 +68,8 @@ class TrendAnalyzer:
 
         eccentric_sum = 0.0
         eccentric_count = 0
-
         pause_sum = 0.0
         pause_count = 0
-
         concentric_sum = 0.0
         concentric_count = 0
 
@@ -90,16 +89,18 @@ class TrendAnalyzer:
 
         foot_turnout_left_sum = 0.0
         foot_turnout_left_count = 0
-
         foot_turnout_right_sum = 0.0
         foot_turnout_right_count = 0
 
-        ankle_dorsiflexion_values = []
         ankle_dorsiflexion_sum = 0.0
         ankle_dorsiflexion_count = 0
         ankle_dorsiflexion_x = 0.0
         ankle_dorsiflexion_x2 = 0.0
         ankle_dorsiflexion_xy = 0.0
+
+        # NEW session-level valgus stats
+        session_valgus_reps_flagged = 0
+        session_valgus_reps_valid = 0
 
         for i, rep in enumerate(reps):
             back = rep.get("back_data", {})
@@ -139,6 +140,11 @@ class TrendAnalyzer:
 
             if stability.get("valgus_flag") is True:
                 valgus_flag_count += 1
+
+            
+            session_valgus_reps_valid += 1
+            if knee_valgus is not None and knee_valgus < 0.22:
+                session_valgus_reps_flagged += 1
 
             depth_classification = depth.get("depth_classification")
             if depth_classification is not None:
@@ -200,6 +206,11 @@ class TrendAnalyzer:
             if tempo_notation is not None:
                 tempo_notation_counter[tempo_notation] += 1
 
+        session_valgus_fault = (
+            session_valgus_reps_valid > 0
+            and (session_valgus_reps_flagged / session_valgus_reps_valid) >= 0.50
+        )
+
         consolidated = {
             "total_reps": total_reps,
             "posture": {
@@ -231,7 +242,7 @@ class TrendAnalyzer:
         }
 
         if camera_view in ("front", "angled"):
-            consolidated["stability"] = {
+            consolidated["stability_data"] = {
                 "knee_valgus_mean": self._mean(knee_valgus_sum, knee_valgus_count),
                 "knee_valgus_trend": self._trend_slope_from_sums(
                     knee_valgus_count,
@@ -242,6 +253,9 @@ class TrendAnalyzer:
                 ),
                 "valgus_flag_reps": valgus_flag_count,
                 "valgus_phase_distribution": self._distribution(valgus_phase_counter),
+                "session_valgus_fault": session_valgus_fault,
+                "session_valgus_reps_flagged": session_valgus_reps_flagged,
+                "session_valgus_reps_valid": session_valgus_reps_valid,
             }
 
             consolidated["movement_quality"] = {

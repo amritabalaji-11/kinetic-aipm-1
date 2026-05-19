@@ -13,7 +13,7 @@ class StabilityTracker:
         "state",
         "bottom_hold_frames",
         "rep_frames",
-        "valgus_ratio_threshold",
+        "valgus_limit_threshold",
         "current_stability_data",
     )
 
@@ -25,7 +25,7 @@ class StabilityTracker:
 
         # knees / shoulders
         # < 1.0 means knees narrower than shoulders
-        self.valgus_ratio_threshold = 1.0
+        self.valgus_limit_threshold = 0.22
 
         self.current_stability_data = None
 
@@ -126,7 +126,7 @@ class StabilityTracker:
                 phase = "LATE"
 
         valgus_flag = (
-            min_ratio <= self.valgus_ratio_threshold
+            min_dist < self.valgus_limit_threshold
         )
 
         return (

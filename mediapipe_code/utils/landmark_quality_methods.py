@@ -1,3 +1,6 @@
+import os
+import subprocess
+import cv2
 import numpy as np
 from typing import Any, Dict, List
 from utils.angle_methods import angle_between, ankle_dorsiflexion, back_angle, femur_vertical_angle
@@ -13,6 +16,8 @@ VIEW_SIDES = {
 LEFT_PREFIX = "LEFT_"
 RIGHT_PREFIX = "RIGHT_"
 CRITICAL_SIDE_JOINTS = ["HIP", "KNEE", "ANKLE", "FOOT", "SHOULDER", "ANKLE"]
+
+FFMPEG_PATH = "mediapipe_code/ffmpeg/ffmpeg.exe"
 
 
 def get_first_pose(result):
@@ -642,3 +647,59 @@ def foot_turnout_relative(heel, foot_index, left_hip, right_hip):
         angle = 180 - angle
 
     return angle
+
+
+def build_composite_from_frames(frames, cols=4):
+        if not frames:
+            return None
+
+        rows = math.ceil(len(frames) / cols)
+
+        h, w = frames[0].shape[:2]
+        tw, th = min(w, 320), min(h, 240)
+
+        grid_rows = []
+
+        for r in range(rows):
+            row_frames = frames[r * cols:(r + 1) * cols]
+
+            while len(row_frames) < cols:
+                row_frames.append(np.zeros((th, tw, 3), dtype=np.uint8))
+
+            resized = [
+                cv2.resize(f, (tw, th), interpolation=cv2.INTER_AREA)
+                for f in row_frames
+            ]
+            grid_rows.append(np.hstack(resized))
+
+        grid = np.vstack(grid_rows)
+        return grid
+
+
+def resize_video(video_path: str):
+
+        name = video_path.split("/")[-1]
+        full_name = name.split(".")[0]
+        os.makedirs("./mediapipe_code/video_results", exist_ok=True)
+        output_path = f"./mediapipe_code/video_results/{full_name}_resized.mp4"
+
+        command = [
+            str(FFMPEG_PATH),
+
+            "-y",
+            "-i", video_path,
+            "-loglevel", "quiet",
+            "-vf",
+            "fps=30,"
+            "scale=720:1280",
+            "-threads", "0",
+            "-c:v", "libx264",
+            "-preset", "ultrafast",
+            "-crf", "28",
+
+            output_path
+        ]
+
+        subprocess.run(command)
+
+        return output_path
