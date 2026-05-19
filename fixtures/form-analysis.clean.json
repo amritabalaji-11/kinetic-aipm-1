@@ -1,0 +1,77 @@
+{
+  "_fixture": "form-analysis.clean",
+  "_schema_ref": "S1-W5-04 · FE_Response_Schemas.md",
+  "_notes": "Goblet Squat · 35kg · 0 issues · Progress to 40kg recommendation. Tests zero-state issue list and green score UI.",
+
+  "analysis_id": "661f9511-f30c-52e5-b827-557766551002",
+  "session_id": "c1d2e3f4-0000-0000-0000-aabbccddeeff",
+  "user_id": "a3f8c2d1-9b4e-4f7a-8c2d-1e5f9b3a7c4e",
+  "exercise_id": "ex_goblet_squat_001",
+  "exercise_slug": "goblet_squat",
+  "display_name": "Goblet Squat",
+  "weight_value": 35.0,
+  "weight_unit": "kg",
+  "created_at": "2026-04-27T10:02:17.000Z",
+  "processed_at": "2026-04-27T10:03:21.000Z",
+  "status": "complete",
+
+  "annotated_frame_url": "gs://kinetic-videos/analyses/661f9511-f30c-52e5-b827-557766551002/frame_bottom.jpg",
+
+  "summary": {
+    "overall_form_score": 81,
+    "movement_quality_score": 79,
+    "stability_score": 84,
+    "posture_score": 82,
+    "tempo_score": 78,
+    "rep_count": 5,
+    "avg_rep_duration_s": 3.2
+  },
+
+  "reps": [
+    { "rep_number": 1, "form_score": 83, "movement_quality_score": 81, "stability_score": 86, "posture_score": 84, "tempo_score": 80 },
+    { "rep_number": 2, "form_score": 82, "movement_quality_score": 80, "stability_score": 85, "posture_score": 83, "tempo_score": 79 },
+    { "rep_number": 3, "form_score": 80, "movement_quality_score": 78, "stability_score": 83, "posture_score": 81, "tempo_score": 77 },
+    { "rep_number": 4, "form_score": 81, "movement_quality_score": 79, "stability_score": 84, "posture_score": 82, "tempo_score": 78 },
+    { "rep_number": 5, "form_score": 79, "movement_quality_score": 77, "stability_score": 82, "posture_score": 80, "tempo_score": 76 }
+  ],
+
+  "coaching": {
+    "summary_paragraph": "Excellent session at 35kg. Your knee tracking was clean across all 5 reps, depth was consistently below parallel, and your tempo stayed controlled throughout. This is the most consistent set you have recorded at this weight.",
+    "parameters": {
+      "posture": {
+        "score": 82,
+        "affirmation": null,
+        "observation": null,
+        "correction": "Chest position is solid — keep the same upright posture as you move to heavier weights."
+      },
+      "stability": {
+        "score": 84,
+        "affirmation": null,
+        "observation": null,
+        "correction": "Knee tracking is clean. Continue reinforcing this by actively pushing knees out on every rep."
+      },
+      "movement_quality": {
+        "score": 79,
+        "affirmation": null,
+        "observation": null,
+        "correction": "Depth is good and consistent. At the next weight focus on maintaining this same range of motion."
+      },
+      "tempo": {
+        "score": 78,
+        "affirmation": null,
+        "observation": null,
+        "correction": "Tempo is well controlled. As you increase load, keep the same 3-count descent — do not let the weight rush you down."
+      }
+    }
+  },
+
+  "progression": {
+    "recommendation": "progress",
+    "recommendation_score": 81,
+    "current_weight_value": 35.0,
+    "current_weight_unit": "kg",
+    "suggested_weight_value": 40.0,
+    "suggested_weight_unit": "kg",
+    "reasoning": "All form thresholds met across all 5 reps with no issues detected. Score of 81 comfortably clears the 75-point progression threshold. Safe to increase to 40kg next session."
+  }
+}

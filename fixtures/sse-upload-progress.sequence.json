@@ -1,0 +1,214 @@
+{
+  "_fixture": "sse-upload-progress.sequence",
+  "_schema_ref": "S1-W5-04 · Complete SSE Event Timeline · S1-W5-06 SSE skeleton",
+  "_notes": "Full 13-event SSE sequence. delayMs = realistic time since previous event. Use in mock SSE emitter to reproduce authentic progress UI. User-facing messages match the copy table in the schema doc exactly.",
+
+  "analysis_id": "550e8400-e29b-41d4-a716-446655440001",
+  "session_id": "c1d2e3f4-0000-0000-0000-aabbccddeeff",
+  "user_id": "a3f8c2d1-9b4e-4f7a-8c2d-1e5f9b3a7c4e",
+  "video_filename": "alex_barbell_squat_20260511.mp4",
+  "video_size_mb": 43.12,
+
+  "events": [
+    {
+      "seq": 1,
+      "delay_ms": 0,
+      "event": "upload_received",
+      "progress_pct": 5,
+      "user_facing_message": "Video received. Preparing your session...",
+      "data": {
+        "analysis_id": "550e8400-e29b-41d4-a716-446655440001",
+        "session_id": "c1d2e3f4-0000-0000-0000-aabbccddeeff",
+        "user_id": "a3f8c2d1-9b4e-4f7a-8c2d-1e5f9b3a7c4e",
+        "filename": "alex_barbell_squat_20260511.mp4",
+        "size_mb": 43.12,
+        "created_at": "2026-05-11T09:14:33.412Z"
+      }
+    },
+    {
+      "seq": 2,
+      "delay_ms": 1200,
+      "event": "mediapipe_started",
+      "progress_pct": 10,
+      "user_facing_message": "Reading your movement patterns...",
+      "data": {
+        "analysis_id": "550e8400-e29b-41d4-a716-446655440001",
+        "session_id": "c1d2e3f4-0000-0000-0000-aabbccddeeff",
+        "user_id": "a3f8c2d1-9b4e-4f7a-8c2d-1e5f9b3a7c4e",
+        "video_url": "gs://kinetic-videos/videos/a3f8c2d1-9b4e-4f7a-8c2d-1e5f9b3a7c4e/550e8400-e29b-41d4-a716-446655440001/original.mp4"
+      }
+    },
+    {
+      "seq": 3,
+      "delay_ms": 8400,
+      "event": "mediapipe_complete",
+      "progress_pct": 30,
+      "user_facing_message": "Reading your movement patterns...",
+      "_note": "Message unchanged from mediapipe_started — % bar advances only",
+      "data": {
+        "analysis_id": "550e8400-e29b-41d4-a716-446655440001",
+        "session_id": "c1d2e3f4-0000-0000-0000-aabbccddeeff",
+        "user_id": "a3f8c2d1-9b4e-4f7a-8c2d-1e5f9b3a7c4e",
+        "rep_count": 5,
+        "fps": 30,
+        "keypoints_detected": 33,
+        "frames_processed": 924
+      }
+    },
+    {
+      "seq": 4,
+      "delay_ms": 3100,
+      "event": "biomechanics_complete",
+      "progress_pct": 33,
+      "user_facing_message": null,
+      "_note": "Silent event — % bar nudges from 30→33 only. No message change. Confirms biomechanics script ran before Nemotron starts.",
+      "data": {
+        "analysis_id": "550e8400-e29b-41d4-a716-446655440001",
+        "session_id": "c1d2e3f4-0000-0000-0000-aabbccddeeff",
+        "user_id": "a3f8c2d1-9b4e-4f7a-8c2d-1e5f9b3a7c4e",
+        "rep_count": 5,
+        "joints_computed": 8,
+        "avg_confidence": 0.87
+      }
+    },
+    {
+      "seq": 5,
+      "delay_ms": 900,
+      "event": "nemotron_started",
+      "progress_pct": 35,
+      "user_facing_message": "Analysing your form frame by frame...",
+      "data": {
+        "analysis_id": "550e8400-e29b-41d4-a716-446655440001",
+        "session_id": "c1d2e3f4-0000-0000-0000-aabbccddeeff",
+        "user_id": "a3f8c2d1-9b4e-4f7a-8c2d-1e5f9b3a7c4e",
+        "video_url": "gs://kinetic-videos/videos/a3f8c2d1-9b4e-4f7a-8c2d-1e5f9b3a7c4e/550e8400-e29b-41d4-a716-446655440001/original.mp4"
+      }
+    },
+    {
+      "seq": 6,
+      "delay_ms": 22000,
+      "event": "nemotron_complete",
+      "progress_pct": 65,
+      "user_facing_message": "Form patterns identified. Building your report...",
+      "data": {
+        "analysis_id": "550e8400-e29b-41d4-a716-446655440001",
+        "session_id": "c1d2e3f4-0000-0000-0000-aabbccddeeff",
+        "user_id": "a3f8c2d1-9b4e-4f7a-8c2d-1e5f9b3a7c4e",
+        "overall_score": 72,
+        "issues_count": 2
+      }
+    },
+    {
+      "seq": 7,
+      "delay_ms": 800,
+      "event": "frames_extracting",
+      "progress_pct": 70,
+      "user_facing_message": "Form patterns identified. Building your report...",
+      "_note": "Shares message with nemotron_complete group — internal OpenCV step not surfaced to user",
+      "data": {
+        "analysis_id": "550e8400-e29b-41d4-a716-446655440001",
+        "session_id": "c1d2e3f4-0000-0000-0000-aabbccddeeff",
+        "user_id": "a3f8c2d1-9b4e-4f7a-8c2d-1e5f9b3a7c4e",
+        "video_url": "gs://kinetic-videos/videos/a3f8c2d1-9b4e-4f7a-8c2d-1e5f9b3a7c4e/550e8400-e29b-41d4-a716-446655440001/original.mp4",
+        "frames_total": 1
+      }
+    },
+    {
+      "seq": 8,
+      "delay_ms": 4200,
+      "event": "frames_ready",
+      "progress_pct": 75,
+      "user_facing_message": "Form patterns identified. Building your report...",
+      "data": {
+        "analysis_id": "550e8400-e29b-41d4-a716-446655440001",
+        "session_id": "c1d2e3f4-0000-0000-0000-aabbccddeeff",
+        "user_id": "a3f8c2d1-9b4e-4f7a-8c2d-1e5f9b3a7c4e",
+        "frame_url": "gs://kinetic-videos/analyses/550e8400-e29b-41d4-a716-446655440001/frame_bottom.jpg"
+      }
+    },
+    {
+      "seq": 9,
+      "delay_ms": 600,
+      "event": "rag_started",
+      "progress_pct": 78,
+      "user_facing_message": "Form patterns identified. Building your report...",
+      "data": {
+        "analysis_id": "550e8400-e29b-41d4-a716-446655440001",
+        "session_id": "c1d2e3f4-0000-0000-0000-aabbccddeeff",
+        "user_id": "a3f8c2d1-9b4e-4f7a-8c2d-1e5f9b3a7c4e"
+      }
+    },
+    {
+      "seq": 10,
+      "delay_ms": 3400,
+      "event": "rag_complete",
+      "progress_pct": 85,
+      "user_facing_message": "Form patterns identified. Building your report...",
+      "data": {
+        "analysis_id": "550e8400-e29b-41d4-a716-446655440001",
+        "session_id": "c1d2e3f4-0000-0000-0000-aabbccddeeff",
+        "user_id": "a3f8c2d1-9b4e-4f7a-8c2d-1e5f9b3a7c4e",
+        "passages_retrieved": 8
+      }
+    },
+    {
+      "seq": 11,
+      "delay_ms": 700,
+      "event": "claude_started",
+      "progress_pct": 88,
+      "user_facing_message": "Writing your personalised coaching...",
+      "data": {
+        "analysis_id": "550e8400-e29b-41d4-a716-446655440001",
+        "session_id": "c1d2e3f4-0000-0000-0000-aabbccddeeff",
+        "user_id": "a3f8c2d1-9b4e-4f7a-8c2d-1e5f9b3a7c4e"
+      }
+    },
+    {
+      "seq": 12,
+      "delay_ms": 9800,
+      "event": "claude_complete",
+      "progress_pct": 96,
+      "user_facing_message": "Almost there. Finalising your results...",
+      "data": {
+        "analysis_id": "550e8400-e29b-41d4-a716-446655440001",
+        "session_id": "c1d2e3f4-0000-0000-0000-aabbccddeeff",
+        "user_id": "a3f8c2d1-9b4e-4f7a-8c2d-1e5f9b3a7c4e",
+        "recommendation": "hold"
+      }
+    },
+    {
+      "seq": 13,
+      "delay_ms": 1800,
+      "event": "analysis_complete",
+      "progress_pct": 100,
+      "user_facing_message": "Your analysis is ready.",
+      "_note": "Frontend auto-navigates to Results screen on this event.",
+      "data": {
+        "analysis_id": "550e8400-e29b-41d4-a716-446655440001",
+        "session_id": "c1d2e3f4-0000-0000-0000-aabbccddeeff",
+        "user_id": "a3f8c2d1-9b4e-4f7a-8c2d-1e5f9b3a7c4e",
+        "full_result_url": "/results/550e8400-e29b-41d4-a716-446655440001"
+      }
+    }
+  ],
+
+  "error_scenario": {
+    "_notes": "Drop-in replacement for seq 5 onwards to test the error state UI. Splice after seq 4 (biomechanics_complete). Covers the Loading_Error screen — shows Cancel + Try Again CTAs.",
+    "event": {
+      "seq": 5,
+      "delay_ms": 14000,
+      "event": "error",
+      "progress_pct": null,
+      "user_facing_message": "We couldn't read your body position clearly. Film from your side with good lighting and a clear background.",
+      "data": {
+        "analysis_id": "550e8400-e29b-41d4-a716-446655440001",
+        "session_id": "c1d2e3f4-0000-0000-0000-aabbccddeeff",
+        "user_id": "a3f8c2d1-9b4e-4f7a-8c2d-1e5f9b3a7c4e",
+        "error_code": "poor_video_quality",
+        "error_stage": "quality_gate",
+        "retryable": "false",
+        "message": "MediaPipe composite visibility score below threshold: 0.61"
+      }
+    }
+  }
+}
