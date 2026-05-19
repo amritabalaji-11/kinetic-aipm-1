@@ -136,7 +136,7 @@ class LandmarkQualityFramework:
             - weight_kg: float - the weight being lifted in the exercise (if applicable)
         
         Returns:
-            - json_final: dict - the final JSON result containing session info, reps data, and consolidated trends. None if the video doesn't pass quality gate.
+            - final_json: dict - the final JSON result containing session info, reps data, and consolidated trends. None if the video doesn't pass quality gate.
             - quality_result: dict - the result of the quality evaluation, including pass/fail and scores
             - collage_b64: str or None - a base64-encoded string of the annotated collage image, or None if no frames were processed. None if the video doesn't pass quality gate.
         """
@@ -506,7 +506,7 @@ class LandmarkQualityFramework:
             camera_view,
         )
 
-        json_final = {
+        final_json = {
             "session": {
                 "analysis_id": str(uuid.uuid4()),
                 "exercise": exercise,
@@ -525,7 +525,7 @@ class LandmarkQualityFramework:
         json_filename = os.path.join(output_dir, f"{video_name}.json")
         with open(json_filename, "w", encoding="utf-8") as f:
             json.dump(
-                json_final,
+                final_json,
                 f,
                 indent=4,
                 ensure_ascii=False,
@@ -543,7 +543,7 @@ class LandmarkQualityFramework:
                 cols=4,
             )
 
-        return json_final, quality_result, collage_b64
+        return final_json, quality_result, collage_b64
     
     def _render_video_from_cache(
         self,
@@ -711,8 +711,8 @@ class LandmarkQualityFramework:
 input_dir = "./mediapipe_code/videos/good_form/v3_knee_fault.mp4"
 
 start = time.time()
-json_final, _, collage_b64 = framework.process_video_once(input_dir, "goblet squat", 20)
-response = run_llm(json_final, collage_b64, debug=True)
+final_json, _, collage_b64 = framework.process_video_once(input_dir, "goblet squat", 20)
+response = run_llm(final_json, collage_b64, debug=True)
 
 print(response)
 end = time.time() - start
