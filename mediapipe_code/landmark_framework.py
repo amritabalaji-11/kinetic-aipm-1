@@ -8,6 +8,7 @@ import uuid
 import mediapipe as mp
 import cv2
 from pathlib import Path
+from llm_run_code import run_llm
 from utils.trackers.trend_analyzer import TrendAnalyzer
 from utils.trackers.ankle_tracker import AnkleTracker
 from utils.trackers.back_tracker import BackAngleTracker
@@ -26,6 +27,7 @@ from utils.landmark_quality_methods import (
     compute_composite_score, 
     compute_frame_reliability, compute_reliability,
     compute_view_metrics, evaluate_quality_gate, extract_frame_landmark_data,
+    extract_frames_from_memory,
     format_rep_data,
     get_first_pose,
     resize_video,
@@ -533,19 +535,13 @@ class LandmarkQualityFramework:
         # COLLAGE IMAGE
         # -------------------------------------------------
         if annotated_frames:
-            collage = build_composite_from_frames(
-                annotated_frames,
+
+            frames_base64 = extract_frames_from_memory(annotated_frames)
+
+            collage_b64 = build_composite_from_frames(
+                frames_base64,
                 cols=4,
             )
-
-            _, buffer = cv2.imencode(
-                ".jpg",
-                collage,
-                [cv2.IMWRITE_JPEG_QUALITY, 85],
-            )
-
-            collage_b64 = base64.b64encode(buffer).decode("utf-8")
-            
 
         return json_final, quality_result, collage_b64
     
@@ -711,10 +707,13 @@ class LandmarkQualityFramework:
 
 
 # How to use it
-framework = LandmarkQualityFramework(model_path=MEDIAPIPE_MODEL)
-input_dir = "./mediapipe_code/videos/good_form/v1_depth_fault.mp4"
+"""framework = LandmarkQualityFramework(model_path=MEDIAPIPE_MODEL)
+input_dir = "./mediapipe_code/videos/good_form/v3_knee_fault.mp4"
 
 start = time.time()
-framework.process_video_once(input_dir, "goblet squat", 20)
+json_final, _, collage_b64 = framework.process_video_once(input_dir, "goblet squat", 20)
+response = run_llm(json_final, collage_b64, debug=True)
+
+print(response)
 end = time.time() - start
-print(end)
+print(end)"""

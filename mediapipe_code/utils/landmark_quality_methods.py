@@ -1,3 +1,4 @@
+import base64
 import os
 import subprocess
 import cv2
@@ -649,31 +650,57 @@ def foot_turnout_relative(heel, foot_index, left_hip, right_hip):
     return angle
 
 
-def build_composite_from_frames(frames, cols=4):
-        if not frames:
-            return None
+def build_composite_from_frames(frames_b64, cols=4):
+    frames = []
+    for b64 in frames_b64:
+        arr = cv2.imdecode(np.frombuffer(base64.b64decode(b64), np.uint8), cv2.IMREAD_COLOR)
+        if arr is not None:
+            frames.append(arr)
+    rows = math.ceil(len(frames) / cols)
+    h, w = frames[0].shape[:2]
+    tw, th = min(w, 320), min(h, 240)
+    grid_rows = []
+    for r in range(rows):
+        row_frames = frames[r*cols:(r+1)*cols]
+        while len(row_frames) < cols:
+            row_frames.append(np.zeros((th, tw, 3), dtype=np.uint8))
+        grid_rows.append(np.hstack([cv2.resize(f, (tw, th)) for f in row_frames]))
+    grid = np.vstack(grid_rows)
+    _, buf = cv2.imencode(".jpg", grid, [cv2.IMWRITE_JPEG_QUALITY, 80])
+    return base64.b64encode(buf).decode()
 
-        rows = math.ceil(len(frames) / cols)
 
-        h, w = frames[0].shape[:2]
-        tw, th = min(w, 320), min(h, 240)
+def extract_frames_from_memory(
+    frames: list[np.ndarray],
+    n: int = 8,
+) -> list[str]:
 
-        grid_rows = []
+    if not frames:
+        return []
 
-        for r in range(rows):
-            row_frames = frames[r * cols:(r + 1) * cols]
+    total = len(frames)
 
-            while len(row_frames) < cols:
-                row_frames.append(np.zeros((th, tw, 3), dtype=np.uint8))
+    frames_b64 = []
 
-            resized = [
-                cv2.resize(f, (tw, th), interpolation=cv2.INTER_AREA)
-                for f in row_frames
-            ]
-            grid_rows.append(np.hstack(resized))
+    for i in range(n):
+        idx = int(i * total / n)
 
-        grid = np.vstack(grid_rows)
-        return grid
+        if idx >= total:
+            idx = total - 1
+
+        frame = frames[idx]
+
+        _, buf = cv2.imencode(
+            ".jpg",
+            frame,
+            [cv2.IMWRITE_JPEG_QUALITY, 85],
+        )
+
+        frames_b64.append(
+            base64.b64encode(buf).decode("utf-8")
+        )
+
+    return frames_b64
 
 
 def resize_video(video_path: str):
