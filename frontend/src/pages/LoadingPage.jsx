@@ -1,181 +1,124 @@
-/**
- * LoadingPage — W5 fixture build
- *
- * Reads `fixtureMode: true` from route state (set by UploadScanPage).
- * Runs a fake timed pipeline progress animation, then navigates to
- * ResultsPage passing the fixture JSON directly — zero network calls.
- *
- * W6: replace the fake pipeline block with real SSE stream + upload call.
- */
-
-import { useEffect, useState, useRef } from "react"
+import { useEffect } from "react"
 import { useNavigate, useLocation } from "react-router-dom"
-import { Lightbulb, Check, X } from "lucide-react"
+import { Lightbulb, Check, X, AlertTriangle } from "lucide-react"
+import { useSSEStream } from "../hooks/useSSEStream"
 
-// ─── Fixture data ─────────────────────────────────────────────────────────────
-// W5: results come from this file. W6: swap for real API response.
-import FIXTURE_CLEAN      from "../../../fixtures/form-analysis.clean.json"
-import FIXTURE_WITH_ISSUES from "../../../fixtures/form-analysis.with-issues.json"
+function LoadingPage() {
+  const navigate = useNavigate()
+  const location = useLocation()
 
-// ─── Fake pipeline steps ──────────────────────────────────────────────────────
-const PIPELINE_STEPS = [
-  { label: "Lock onto your posture…" },
-  { label: "Check your barbell depth…" },
-  { label: "Mapping bar path and stability…" },
-  { label: "Calculating force and rhythm…" },
-]
+  const { analysisId, videoPreviewUrl } = location.state || {}
 
-const STEP_DELAY_MS = 900  // how long each step takes in the fake pipeline
-const DONE_HOLD_MS  = 1200 // brief pause before navigating to results
+  const { steps, isDone, error, partialWarning, cancel, resultUrl } = useSSEStream(analysisId)
 
-// ─────────────────────────────────────────────────────────────────────────────
 
-function initialSteps() {
-  return PIPELINE_STEPS.map((s) => ({ label: s.label, status: "pending" }))
-}
-
-function LoadingShell({ children }) {
-  return (
-    <div className="min-h-screen bg-[#ececef] flex flex-col">
-      <div className="max-w-md mx-auto w-full flex-1 flex flex-col px-3 pt-4 pb-6">
-        <div className="bg-white rounded-[1.35rem] shadow border border-gray-200/70 overflow-hidden flex flex-col flex-1 min-h-0">
-          {children}
-        </div>
-      </div>
-    </div>
-  )
-}
-
-export default function LoadingPage() {
-  const navigate  = useNavigate()
-  const location  = useLocation()
-  const state     = location.state || {}
-
-  const videoPreviewUrl = state.videoPreviewUrl ?? null
-  const exercise        = state.exercise ?? ""
-
-  // Pick fixture based on exercise — clean for now; swap logic as needed
-  // You can also toggle this to FIXTURE_WITH_ISSUES to test the issues view
-  const fixture = FIXTURE_CLEAN
-
-  const [steps,   setSteps]   = useState(initialSteps)
-  const [isDone,  setIsDone]  = useState(false)
-  const [isCancelled, setIsCancelled] = useState(false)
-
-  const abortRef = useRef(null)
-
-  // ─── Fake pipeline runner ──────────────────────────────────────────────────
-  useEffect(() => {
-    const ac = new AbortController()
-    abortRef.current = ac
-
-    const sleep = (ms) =>
-      new Promise((res, rej) => {
-        const t = setTimeout(res, ms)
-        ac.signal.addEventListener("abort", () => { clearTimeout(t); rej(new Error("aborted")) })
-      })
-
-    ;(async () => {
-      try {
-        for (let i = 0; i < PIPELINE_STEPS.length; i++) {
-          await sleep(STEP_DELAY_MS)
-          setSteps(PIPELINE_STEPS.map((s, idx) => ({
-            label: s.label,
-            status: idx < i  ? "complete"
-                  : idx === i ? "active"
-                  : "pending",
-          })))
-        }
-
-        await sleep(STEP_DELAY_MS)
-        // Mark all complete
-        setSteps(PIPELINE_STEPS.map((s) => ({ label: s.label, status: "complete" })))
-        await sleep(DONE_HOLD_MS)
-
-        setIsDone(true)
-      } catch {
-        // aborted — user cancelled
-      }
-    })()
-
-    return () => ac.abort()
-  }, [])
-
-  // ─── Navigate to results once done ────────────────────────────────────────
+  // When analysis_complete fires, wait 1.5s then navigate to results
   useEffect(() => {
     if (!isDone) return
-    navigate("/upload/results", {
-      state: {
-        analysisResult: fixture,
-        videoPreviewUrl,
-        exercise,
-      },
-    })
-  }, [isDone])
+    const timer = setTimeout(() => {
+      navigate(resultUrl || "/upload/results", { state: { analysisId } })
+    }, 1500)
+    return () => clearTimeout(timer)
+  }, [isDone, analysisId, navigate, resultUrl])
 
-  // ─── Cancel handler ────────────────────────────────────────────────────────
-  function handleCancel() {
-    abortRef.current?.abort()
-    setIsCancelled(true)
-    navigate("/upload")
+
+  // Guard — no analysis in progress
+  if (!analysisId) {
+    return (
+      <div className="min-h-screen bg-light-bg dark:bg-dark-bg flex flex-col items-center justify-center px-6">
+        <p className="text-text-primary dark:text-white text-body text-center mb-4">
+          No analysis in progress.
+        </p>
+        <button
+          className="text-teal underline text-body"
+          onClick={() => navigate("/upload")}
+        >
+          Upload a video
+        </button>
+      </div>
+    )
   }
 
-  if (isCancelled) return null
 
   return (
-    <LoadingShell>
-      {/* Video preview strip */}
-      <div
-        className="w-full shrink-0 bg-gray-100"
-        style={{ maxHeight: 280, aspectRatio: "4 / 3" }}
-      >
-        {videoPreviewUrl ? (
-          <video
-            src={videoPreviewUrl}
-            className="w-full h-full max-h-[280px] object-cover object-center"
-            autoPlay
-            muted
-            loop
-            playsInline
-          />
-        ) : (
-          <div className="w-full h-full min-h-[160px] flex items-center justify-center">
-            <p className="text-gray-400 text-sm">Video preview</p>
-          </div>
-        )}
+    <div className="min-h-screen bg-light-bg dark:bg-dark-bg flex flex-col">
+
+      {/* Video thumbnail */}
+      <div className="pt-3 px-4">
+        <div className="w-full rounded-2xl overflow-hidden" style={{ height: "380px" }}>
+          {videoPreviewUrl ? (
+            <video
+              src={videoPreviewUrl}
+              className="w-full h-full object-cover object-center"
+              autoPlay
+              muted
+              loop
+              playsInline
+            />
+          ) : (
+            <div className="w-full h-full bg-dark-card flex items-center justify-center">
+              <p className="text-gray-600 text-body">Preview unavailable</p>
+            </div>
+          )}
+        </div>
       </div>
 
-      <div className="flex flex-col flex-1 px-5 pt-5 pb-6 gap-4">
-        {/* Header */}
+
+      {/* Content */}
+      <div className="flex flex-col flex-1 px-5 pt-5 pb-8 gap-4">
+
+        {/* Title + subtitle */}
         <div className="text-center">
-          <h1 className="font-semibold text-[17px] leading-snug mb-1 text-gray-900">
+          <h1
+            className="text-text-primary dark:text-white font-medium mb-1"
+            style={{ fontSize: "17px" }}
+          >
             Form Check in Progress
           </h1>
-          <p className="text-gray-500 text-[15px] leading-snug">
-            Kinetic is analyzing your {exercise.replace(/-/g, " ") || "video"}…
+          <p className="text-text-tertiary dark:text-gray-400 text-body">
+            Kinetic is analyzing your video upload...
           </p>
         </div>
 
-        {/* Tip */}
-        <div className="rounded-2xl p-4 bg-gray-50 border border-gray-100 flex items-start gap-3">
-          <Lightbulb size={18} className="text-teal-500 mt-0.5 shrink-0" strokeWidth={1.75} />
-          <p className="text-[14px] leading-relaxed text-gray-600">
-            <span className="text-gray-900 font-semibold">Tip: </span>
-            Take a 45-second breather between sets — your muscles need the reset.
+
+        {/* Partial warning banner — non-blocking */}
+        {/* Shows when retryable: "partial" fires — pipeline still running, results still load */}
+        {partialWarning && (
+          <div className="bg-amber-50 dark:bg-amber-900/20 rounded-2xl px-4 py-3 border border-amber-200 dark:border-amber-700 flex items-start gap-3">
+            <AlertTriangle size={16} className="text-amber-500 mt-0.5 shrink-0" />
+            <p className="text-body text-amber-700 dark:text-amber-400">
+              {partialWarning}
+            </p>
+          </div>
+        )}
+
+
+        {/* Tips card */}
+        <div className="bg-white dark:bg-dark-card rounded-2xl p-4 border border-gray-100 dark:border-transparent flex items-start gap-3">
+          <Lightbulb
+            size={18}
+            className="text-text-tertiary dark:text-gray-400 mt-0.5 shrink-0"
+          />
+          <p className="text-body text-text-tertiary dark:text-gray-400 leading-relaxed">
+            <span className="text-text-primary dark:text-white font-medium">
+              Tips:{" "}
+            </span>
+            Take a 45-second breather. Your muscles need this reset for the next set.
           </p>
         </div>
 
-        {/* Pipeline steps */}
-        <div className="flex flex-col gap-4">
-          {steps.map((step, i) => (
-            <div key={i} className="flex items-center gap-3.5">
+
+        {/* Steps checklist card */}
+        <div className="bg-white dark:bg-dark-card rounded-2xl px-4 py-3 border border-gray-100 dark:border-transparent flex flex-col gap-3">
+          {steps.map((step, index) => (
+            <div key={index} className="flex items-center gap-3">
               <StepIcon status={step.status} />
               <span
-                className={`text-[15px] leading-snug ${
-                  step.status === "complete" ? "text-gray-900 font-medium"
-                : step.status === "active"   ? "text-gray-900 font-medium"
-                : step.status === "error"    ? "text-red-500 font-medium"
-                : "text-gray-400"
+                className={`text-body ${
+                  step.status === "complete" ? "text-text-primary dark:text-white" :
+                  step.status === "active"   ? "text-text-primary dark:text-white" :
+                  step.status === "error"    ? "text-error" :
+                  "text-text-disabled dark:text-gray-500"
                 }`}
               >
                 {step.label}
@@ -184,43 +127,113 @@ export default function LoadingPage() {
           ))}
         </div>
 
-        <div className="flex-1 min-h-2" />
 
-        {/* Cancel button — disabled once done */}
-        <button
-          type="button"
-          disabled={isDone}
-          onClick={handleCancel}
-          className="w-full py-3.5 rounded-xl text-sm font-semibold uppercase tracking-wide bg-[#FF9B9B] text-[#2d3436] disabled:opacity-50 disabled:cursor-default"
-        >
-          {isDone ? "Complete — opening results…" : "Cancel"}
-        </button>
+        <div className="flex-1" />
+
+
+        {/* Buttons */}
+
+        {/* Blocking error state */}
+        {error ? (
+          <div className="flex flex-col gap-3">
+
+            {/* Error message — from error_code lookup, never from backend message field */}
+            <div className="bg-red-50 dark:bg-red-900/20 rounded-2xl px-4 py-3 border border-red-100 dark:border-red-800">
+              <p className="text-body text-error">{error.userMessage}</p>
+            </div>
+
+            <div className="flex gap-3">
+              {/* Cancel is always shown on error */}
+              <button
+                className="flex-1 py-4 rounded-2xl text-button font-medium text-white"
+                style={{ backgroundColor: "#E57373" }}
+                onClick={() => {
+                  cancel()
+                  navigate("/upload")
+                }}
+              >
+                Cancel
+              </button>
+
+              {/* Always show Try Again — matches Figma design */}
+              <button
+                className="flex-1 py-4 rounded-2xl text-button font-medium text-white"
+                style={{ backgroundColor: "#E8A050" }}
+                onClick={() => {
+                  cancel()
+                  navigate("/upload")
+                }}
+              >
+                Try Again
+              </button>
+            </div>
+          </div>
+
+        ) : (
+          // Normal state — Cancel while processing, disabled when done
+          <button
+            className="w-full py-4 rounded-2xl text-button font-medium text-white uppercase tracking-wide dark:bg-[#7B1D1D] bg-[#E57373]"
+            onClick={() => {
+              if (!isDone) {
+                cancel()
+                navigate("/upload")
+              }
+            }}
+            disabled={isDone}
+          >
+            {isDone ? "Complete! Taking you to results..." : "Cancel"}
+          </button>
+        )}
+
       </div>
-    </LoadingShell>
+    </div>
   )
 }
 
+
+// Step icon component — matches Figma exactly
 function StepIcon({ status }) {
+
   if (status === "complete") {
     return (
-      <div className="w-5 h-5 rounded-full flex items-center justify-center shrink-0 bg-teal-400">
+      <div
+        className="w-5 h-5 rounded-full flex items-center justify-center shrink-0"
+        style={{ backgroundColor: "#00d66b" }}
+      >
         <Check size={11} color="white" strokeWidth={3} />
       </div>
     )
   }
+
   if (status === "active") {
+    // Spinning teal ring — matches Figma loading state
     return (
-      <div className="w-5 h-5 rounded-full border-2 border-teal-400 border-t-transparent animate-spin shrink-0" />
+      <div
+        className="w-5 h-5 rounded-full border-2 animate-spin shrink-0"
+        style={{
+          borderColor: "#99f6e4",
+          borderTopColor: "transparent",
+        }}
+      />
     )
   }
+
   if (status === "error") {
     return (
-      <div className="w-5 h-5 rounded-full flex items-center justify-center shrink-0 bg-red-500">
+      <div
+        className="w-5 h-5 rounded-full flex items-center justify-center shrink-0"
+        style={{ backgroundColor: "#ff3b30" }}
+      >
         <X size={11} color="white" strokeWidth={3} />
       </div>
     )
   }
+
+  // pending — gray circle outline
   return (
-    <div className="w-5 h-5 rounded-full border-2 border-gray-300 shrink-0" />
+    <div className="w-5 h-5 rounded-full border-2 border-gray-300 dark:border-gray-600 shrink-0" />
   )
 }
+
+
+export default LoadingPage
