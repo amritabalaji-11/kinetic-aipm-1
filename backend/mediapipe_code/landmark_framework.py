@@ -149,6 +149,9 @@ class LandmarkQualityFramework:
         """
         resized_video_path = resize_video(video_path)
 
+        if not os.path.exists(resized_video_path):
+            raise ValueError(f"Resized video not found at path: {resized_video_path}")
+
         cap = cv2.VideoCapture(resized_video_path)
         if not cap.isOpened():
             raise ValueError(f"The video could not be opened: {resized_video_path}")

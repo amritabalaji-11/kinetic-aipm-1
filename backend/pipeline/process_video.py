@@ -30,14 +30,6 @@ framework = LandmarkQualityFramework(
     model_path="mediapipe_code/model/pose_landmarker_heavy.task"
 )
 
-result = framework.process_video_once(
-    "mediapipe_code/videos/good_form/v3_knee_fault.mp4",
-    "Goblet Squat",
-    20.0,
-)
-print("Type:", type(result))
-print("Value:", result)
-
 # We run MediaPipe in a thread pool because it's CPU-heavy.
 # Running it directly in async would freeze the whole server.
 _executor = ThreadPoolExecutor(max_workers=2)

@@ -76,7 +76,7 @@ This system has two layers:
     `pipeline_stream()`
 2. Real analysis pipeline (backend logic, not yet wired to SSE endpoint)
     `run_analysis()`
-Executes real processing workflow (MediaPipe → Nemotron → RAG → Claude)
+Executes real processing workflow (MediaPipe → Claude Haiku)
 Emits events via:
     `sse_manager.send_event()`
 
@@ -111,10 +111,6 @@ Events are always emitted in this order:
 upload_received →
 mediapipe_started →
 mediapipe_complete →
-nemotron_started →
-nemotron_complete →
-rag_started →
-rag_complete →
 claude_started →
 claude_complete →
 analysis_complete
@@ -161,7 +157,7 @@ Client → API Gateway → Cloud Run → FastAPI → Services → GCS / AI APIs
 ### 🧠 Architecture Pattern
 `routes/` → HTTP layer
 `services/` → business logic
-external APIs (Claude, Nemotron, GCS) called inside services
+external APIs (Claude Haiku, GCS) called inside services
 
 ### 🔐 Environment Variables
 Uses `.env` locally:
