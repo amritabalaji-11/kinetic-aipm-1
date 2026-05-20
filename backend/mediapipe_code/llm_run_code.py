@@ -9,8 +9,9 @@ from mediapipe_code.prompt_configuration import COACHING_SYSTEM, build_single_ll
 
 load_dotenv()
 
+DEFAULT_HAIKU_MODEL = "claude-haiku-4-5-20251001"
 ANTHROPIC_API_KEY = os.getenv("ANTHROPIC_API_KEY")
-HAIKU_MODEL  = os.getenv("HAIKU_MODEL")
+HAIKU_MODEL = os.getenv("HAIKU_MODEL", DEFAULT_HAIKU_MODEL)
 
 
 def extract_json(raw: str) -> dict:

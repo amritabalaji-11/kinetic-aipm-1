@@ -86,8 +86,6 @@ function validateSSE(fixture) {
 
   const validEvents = new Set([
     'upload_received', 'mediapipe_started', 'mediapipe_complete',
-    'biomechanics_complete', 'nemotron_started', 'nemotron_complete',
-    'frames_extracting', 'frames_ready', 'rag_started', 'rag_complete',
     'claude_started', 'claude_complete', 'analysis_complete', 'error',
   ]);
 

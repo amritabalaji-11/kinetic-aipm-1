@@ -8,18 +8,13 @@ const PIPELINE_STEPS = [
     completeOn: "mediapipe_complete",
   },
   {
-    label: "Check your barbell depth...",
-    activeOn: ["overlay_complete", "biomechanics_complete", "nemotron_started"],
-    completeOn: "nemotron_complete",
+    label: "Analyzing your form...",
+    activeOn: ["claude_started"],
+    completeOn: "claude_complete",
   },
   {
-    label: "Mapping bar path and stability...",
-    activeOn: ["frames_extracting", "frames_ready", "rag_started"],
-    completeOn: "rag_complete",
-  },
-  {
-    label: "Calculating force and rhythm...",
-    activeOn: ["claude_started", "claude_complete"],
+    label: "Finalizing your analysis...",
+    activeOn: ["claude_complete"],
     completeOn: "analysis_complete",
   },
 ]
@@ -40,15 +35,8 @@ const ERROR_USER_COPY = {
   NO_MOVEMENT_DETECTED:        "The video looks still. Make sure the camera is filming your full movement.",
   NO_REPS_DETECTED:            "We couldn't detect a full squat rep. Make sure your full body is visible and complete at least one rep.",
   BIOMECHANICS_COMPUTE_ERROR:  "Something went wrong reading your movement data. Try re-uploading.",
-  // Nemotron
-  NEMOTRON_TIMEOUT:            "Form analysis is taking longer than expected. We'll retry automatically — hang tight.",
-  NEMOTRON_NO_OUTPUT:          "The AI couldn't interpret your movement data. Try re-uploading — if it persists, let us know.",
-  NEMOTRON_CONTEXT_OVERFLOW:   "That video is too long for detailed analysis. Try uploading a 30–60 second clip.",
-  // Frame extraction (partial — non-blocking)
+  // Haiku coaching / pipeline
   FRAME_EXTRACTION_FAILED:     "We identified form issues but couldn't extract the frames to show you. Your text coaching is still available below.",
-  // RAG (partial — non-blocking)
-  RAG_UNAVAILABLE:             "Coaching library is temporarily unavailable. Your form analysis is ready, but personalised drills may be limited.",
-  RAG_NO_RESULTS:              "We couldn't find specific drills for your movement pattern yet. General coaching below.",
   // Claude
   CLAUDE_TIMEOUT:              "Your coaching report is taking longer than expected. Refreshing should show your results shortly.",
   CLAUDE_ERROR:                "We hit a snag writing your coaching report. Your raw form data is saved — try refreshing.",
