@@ -2,7 +2,6 @@
 #
 # This is the main video analysis pipeline.
 # It runs in the background after a user uploads a video.
-#
 # Flow:
 #   1. Acknowledge the upload
 #   2. Download the video from GCS (if needed)
@@ -19,6 +18,8 @@ from concurrent.futures import ThreadPoolExecutor
 
 from mediapipe_code.landmark_framework import LandmarkQualityFramework
 from utils.sse_manager import sse_manager
+from mediapipe_code.llm_run_code import run_llm
+
 
 
 # =========================================================
@@ -28,6 +29,14 @@ from utils.sse_manager import sse_manager
 framework = LandmarkQualityFramework(
     model_path="mediapipe_code/model/pose_landmarker_heavy.task"
 )
+
+result = framework.process_video_once(
+    "mediapipe_code/videos/good_form/v3_knee_fault.mp4",
+    "Goblet Squat",
+    20.0,
+)
+print("Type:", type(result))
+print("Value:", result)
 
 # We run MediaPipe in a thread pool because it's CPU-heavy.
 # Running it directly in async would freeze the whole server.
@@ -138,60 +147,55 @@ async def run_mediapipe_analysis(session_id: str, file_location: str):
 
         # run_in_executor moves the CPU-heavy MediaPipe work into a thread
         # so the async event loop stays responsive for other requests
-        mp_result = await loop.run_in_executor(
+        mp_result,quality_result, collage_b64 = await loop.run_in_executor(
             _executor,
             framework.process_video_once,
             local_path,
             "Goblet Squat",
             20.0,
-            session_id
+          # removed session_id --> see process_video_once()  
         )
 
         # -------------------------------------------------
         # STEP 3 — check what came back
         # -------------------------------------------------
 
-        # If the framework returned nothing at all, something crashed silently
-        if not mp_result:
-            await _store_failed(session_id, "BIOMECHANICS_COMPUTE_ERROR", None)
-            await sse_manager.send_error_event(
-                analysis_id=session_id,
-                error_code="BIOMECHANICS_COMPUTE_ERROR",
-                error_stage="biomechanics",
-                retryable="true",       # computation crashed — same video may work on retry
-                message="Something went wrong reading your movement data. Try re-uploading.",
+        # MediaPipe / quality gate failed
+        if mp_result is None:
+
+            error_code = quality_result.get(
+                "error_code",
+                "QUALITY_GATE_FAILED"
             )
-            return
 
-        # If the framework returned {"event": "error", ...} it means either:
-        #   - quality gate failed (bad camera angle, occlusion, not enough reps)
-        #   - biomechanics check failed (video too short, no movement detected)
-        if mp_result.get("event") == "error":
+            error_stage = quality_result.get(
+             "error_stage",
+             "quality_gate"
+            )
 
-            error_code  = mp_result.get("error_code",  "SYSTEM_ERROR")
-            error_stage = mp_result.get("error_stage", "quality_gate")
-            message     = mp_result.get("message",     "Something went wrong with your video.")
+            message = quality_result.get(
+            "message",
+            "Your movement could not be analyzed."
+            )
 
-            # retryable comes from the framework as a Python boolean (True/False).
-            # The SSE spec requires it to be a STRING ("true"/"false").
-            # The frontend does: if (retryable === "true") — strict comparison.
-            # If we sent a boolean False, JS would see "False" which is truthy — wrong button shows.
-            retryable_raw = mp_result.get("retryable", False)
-            retryable_str = "true" if retryable_raw is True else "false"
+            retryable_raw = quality_result.get("retryable", False)
+            retryable_str = "true" if retryable_raw else "false"
 
-            # Store the failure in the DB before sending SSE
-            await _store_failed(session_id, error_code, mp_result)
+            await _store_failed(
+                session_id,
+                error_code,
+                quality_result
+            )
 
-            # Send the error event so the frontend shows the right message + buttons
             await sse_manager.send_error_event(
                 analysis_id=session_id,
                 error_code=error_code,
                 error_stage=error_stage,
                 retryable=retryable_str,
                 message=message,
-                # For occlusion/out-of-frame errors, include which body part failed
-                landmark_medians=mp_result.get("landmark_medians"),
+                landmark_medians=quality_result.get("landmark_medians"),
             )
+
             return
 
         # -------------------------------------------------
@@ -221,21 +225,46 @@ async def run_mediapipe_analysis(session_id: str, file_location: str):
             )
 
         # -------------------------------------------------
-        # STEP 7 — rest of the pipeline (placeholders for now)
-        # These will be replaced when Nemotron, RAG, and Claude are wired up
+        # STEP 7 — run Claude Haiku coaching analysis
         # -------------------------------------------------
-        await sse_manager.send_event(session_id, "nemotron_started", 60)
-        await asyncio.sleep(2)
-        await sse_manager.send_event(session_id, "nemotron_complete", 80)
+        if collage_b64 is None:
+            await _store_failed(session_id, "COLLAGE_BUILD_ERROR", None)
+            await sse_manager.send_error_event(
+                analysis_id=session_id,
+                error_code="COLLAGE_BUILD_ERROR",
+                error_stage="coaching",
+                retryable="true",
+                message="Something went wrong generating your analysis. Try re-uploading.",
+            )
+            return
 
-        await sse_manager.send_event(session_id, "rag_started", 85)
-        await asyncio.sleep(2)
-        await sse_manager.send_event(session_id, "rag_complete", 95)
+        await sse_manager.send_event(session_id, "claude_started", 60)
 
-        await sse_manager.send_event(session_id, "claude_started", 96)
-        await asyncio.sleep(1)
-        await sse_manager.send_event(session_id, "claude_complete", 100)
+        try:
+            llm_result, latency, _ = await loop.run_in_executor(
+                _executor,
+                run_llm,
+                mp_result,
+                collage_b64,
+            )
+        except Exception as e:
+            print(f"[pipeline] Claude Haiku failed: {e}")
+            await _store_failed(session_id, "COACHING_ERROR", str(e))
+            await sse_manager.send_error_event(
+                analysis_id=session_id,
+                error_code="COACHING_ERROR",
+                error_stage="coaching",
+                retryable="true",
+                message="Something went wrong generating your coaching feedback. Try re-uploading.",
+            )
+            return
 
+        await sse_manager.send_event(session_id, "claude_complete", 90)
+        await _store_llm_result(session_id, llm_result)
+
+        # -------------------------------------------------
+        # STEP 8 — done
+        # -------------------------------------------------
         await sse_manager.send_event(
             session_id,
             "analysis_complete",
@@ -243,9 +272,8 @@ async def run_mediapipe_analysis(session_id: str, file_location: str):
             status="complete"
         )
 
-        print(f"[pipeline] Completed session={session_id}, reps={rep_count}")
-        return mp_result
-
+        print(f"[pipeline] Completed session={session_id}, reps={rep_count}, haiku_latency={latency:.0f}ms")
+        return {**mp_result, "llm": llm_result}
     except FileNotFoundError as e:
         # The video file didn't exist on disk — infra issue, not the user's fault
         print(f"[pipeline] File not found: {e}")
@@ -310,5 +338,23 @@ async def _store_failed(session_id: str, reason: str, detail=None):
         values={
             "sid": session_id,
             "err": json.dumps({"reason": reason, "detail": str(detail) if detail else None}),
+        },
+    )
+
+async def _store_llm_result(session_id: str, llm_result: dict):
+    """Saves Claude Haiku coaching output to the database."""
+    from db.database import db
+
+    await db.execute(
+        """
+        UPDATE form_analyses
+        SET llm_json    = :llm,
+            total_score = :score
+        WHERE session_id = :sid
+        """,
+        values={
+            "sid":   session_id,
+            "llm":   json.dumps(llm_result),
+            "score": llm_result.get("total_score"),
         },
     )

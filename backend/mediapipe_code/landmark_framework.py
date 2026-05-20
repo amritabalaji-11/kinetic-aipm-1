@@ -1,10 +1,14 @@
+import base64
 from collections import Counter
+import datetime
 import json
 import os
 import time
 import uuid
 import mediapipe as mp
 import cv2
+from pathlib import Path
+from mediapipe_code.llm_run_code import run_llm
 from mediapipe_code.utils.trackers.trend_analyzer import TrendAnalyzer
 from mediapipe_code.utils.trackers.ankle_tracker import AnkleTracker
 from mediapipe_code.utils.trackers.back_tracker import BackAngleTracker
@@ -12,23 +16,35 @@ from mediapipe_code.utils.trackers.depth_tracker import DepthTracker
 from mediapipe_code.utils.trackers.rep_counter import RepCounter
 from mediapipe_code.utils.trackers.stability_tracker import StabilityTracker
 from mediapipe_code.utils.trackers.tempo_tracker import TempoTracker
-from mediapipe_code.utils.draw_methods import add_text_lines, draw_points_and_lines
+from mediapipe_code.utils.draw_methods import add_text_lines, annotate_frame, draw_points_and_lines
 from mediapipe_code.utils.angle_methods import detect_camera_view
 from mediapipe_code.utils.landmark_quality_configuration import (
-    LANDMARKS, LEFT_SIDE, LEG_CONNECTIONS, LEG_CONNECTIONS_LEFT_SIDE, 
-    LEG_CONNECTIONS_RIGHT_SIDE, LEG_TARGET_LANDMARKS, MEDIAPIPE_MODEL, 
+    LANDMARKS, LEFT_SIDE, LEG_CONNECTIONS, LEG_CONNECTIONS_LEFT_SIDE, LEG_CONNECTIONS_RIGHT_SIDE, LEG_TARGET_LANDMARKS, MEDIAPIPE_MODEL, 
     PRESENCE_THRESHOLD, RIGHT_SIDE, 
     VISIBILITY_THRESHOLD, FrameAssessment )
 from mediapipe_code.utils.landmark_quality_methods import (
+    build_composite_from_frames,
     compute_composite_score, 
     compute_frame_reliability, compute_reliability,
     compute_view_metrics, evaluate_quality_gate, extract_frame_landmark_data,
+    extract_frames_from_memory,
     format_rep_data,
     get_first_pose,
+    resize_video,
     safe_get_landmark, 
     select_landmarks_by_view,
     torso_vertical_angle)
 
+BASE_DIR = Path(__file__).resolve().parent
+
+import shutil
+
+FFMPEG_PATH = shutil.which("ffmpeg")
+
+if FFMPEG_PATH is None:
+    raise RuntimeError("ffmpeg is not installed. Run: brew install ffmpeg")
+
+#FFMPEG_PATH = BASE_DIR / "ffmpeg" / "ffmpeg.exe"
 
 CRITICAL_LANDMARKS = [
     name for name, data in LANDMARKS.items()
@@ -116,83 +132,64 @@ class LandmarkQualityFramework:
         video_path,
         exercise,
         weight_kg,
-        save_video=True,
     ):
-        cap = cv2.VideoCapture(video_path)
+        
+        """
+        Process_video_once is the main method that processes a single video and returns the analysis results.
 
+        Args:
+            - video_path: str - the path to the input video file
+            - exercise: str - the name of the exercise being performed in the video
+            - weight_kg: float - the weight being lifted in the exercise (if applicable)
+        
+        Returns:
+            - final_json: dict - the final JSON result containing session info, reps data, and consolidated trends. None if the video doesn't pass quality gate.
+            - quality_result: dict - the result of the quality evaluation, including pass/fail and scores
+            - collage_b64: str or None - a base64-encoded string of the annotated collage image, or None if no frames were processed. None if the video doesn't pass quality gate.
+        """
+        resized_video_path = resize_video(video_path)
+
+        cap = cv2.VideoCapture(resized_video_path)
         if not cap.isOpened():
-            raise ValueError(f"The video could not be opened: {video_path}")
+            raise ValueError(f"The video could not be opened: {resized_video_path}")
 
         fps = 30.0
-
         width = int(cap.get(cv2.CAP_PROP_FRAME_WIDTH))
         height = int(cap.get(cv2.CAP_PROP_FRAME_HEIGHT))
 
-        video_name = os.path.splitext(
-            os.path.basename(video_path)
-        )[0]
+        video_name = os.path.splitext(os.path.basename(resized_video_path))[0]
 
         raw_frames = []
         reps_json_info = []
         frame_cache = []
+        annotated_frames = []
 
         frame_index = 0
         rep_count = 0
-
-        temp_raw_video_path = None
-        raw_writer = None
 
         # Local refs
         append_raw = raw_frames.append
         append_rep = reps_json_info.append
         append_cache = frame_cache.append
+        append_annotated = annotated_frames.append
 
         cvt_color = cv2.cvtColor
         read = cap.read
-
         compute_metrics = compute_view_metrics
         detect_view = detect_camera_view
-
         compute_rel = compute_frame_reliability
-
         select_landmarks = select_landmarks_by_view
-
         safe_landmark = safe_get_landmark
         extract_lm = extract_frame_landmark_data
-
         mp_image_cls = mp.Image
         mp_srgb = mp.ImageFormat.SRGB
 
         visibility_threshold = VISIBILITY_THRESHOLD
         presence_threshold = PRESENCE_THRESHOLD
-
         landmarks_config = self.landmarks
         view_config = self.view_config
 
-        if save_video:
-
-            output_video_dir = "./mediapipe_code/video_results"
-
-            os.makedirs(output_video_dir, exist_ok=True)
-
-            temp_raw_video_path = os.path.join(
-                output_video_dir,
-                f"{video_name}_raw_tmp.mp4",
-            )
-
-            raw_writer = cv2.VideoWriter(
-                temp_raw_video_path,
-                cv2.VideoWriter_fourcc(*"mp4v"),
-                fps,
-                (width, height),
-            )
-
-            write_raw = raw_writer.write
-        else:
-            write_raw = None
-
         with self._create_landmarker() as landmarker:
-
             detect_for_video = landmarker.detect_for_video
 
             rep_counter = RepCounter()
@@ -210,9 +207,7 @@ class LandmarkQualityFramework:
             ankle_update = ankle_tracker.update
 
             while True:
-
                 ok, frame_bgr = read()
-
                 if not ok:
                     break
 
@@ -222,11 +217,7 @@ class LandmarkQualityFramework:
 
                 timestamp_ms = frame_index / fps
 
-                frame_rgb = cvt_color(
-                    frame_bgr,
-                    cv2.COLOR_BGR2RGB,
-                )
-
+                frame_rgb = cvt_color(frame_bgr, cv2.COLOR_BGR2RGB)
                 frame_rgb.flags.writeable = False
 
                 detection_result = detect_for_video(
@@ -237,15 +228,12 @@ class LandmarkQualityFramework:
                     int(timestamp_ms * 1000),
                 )
 
-                world_pose, norm_pose = get_first_pose(
-                    detection_result
-                )
+                world_pose, norm_pose = get_first_pose(detection_result)
 
-                if write_raw is not None:
-                    write_raw(frame_bgr)
-
+                # -------------------------------------------------
+                # NO POSE
+                # -------------------------------------------------
                 if world_pose is None or norm_pose is None:
-
                     append_raw(
                         FrameAssessment(
                             frame_index=frame_index,
@@ -257,9 +245,13 @@ class LandmarkQualityFramework:
                             expected_critical_landmarks=[],
                             critical_failures=[
                                 f"no_pose_detected_frame_{frame_index}"
-                            ]
+                            ],
                         )
                     )
+
+                    annotated = frame_bgr.copy()
+                    
+                    append_annotated(annotated)
 
                     append_cache({
                         "frame_index": frame_index,
@@ -273,21 +265,14 @@ class LandmarkQualityFramework:
                 # -------------------------------------------------
                 # VIEW
                 # -------------------------------------------------
-                camera_view = detect_view(
-                    norm_pose,
-                    world_pose,
-                )
+                camera_view = detect_view(norm_pose)
 
-                (
-                    active_landmarks,
-                    active_critical_landmarks,
-                ) = select_landmarks(
+                active_landmarks, active_critical_landmarks = select_landmarks(
                     camera_view,
                     view_config,
                 )
 
                 tracked_landmarks = {}
-
                 critical_failures = []
                 passes_critical_gate = True
 
@@ -295,45 +280,26 @@ class LandmarkQualityFramework:
                 # LANDMARKS
                 # -------------------------------------------------
                 for name in active_landmarks:
-
                     idx = landmarks_config[name]["id"]
 
-                    world_lm = safe_landmark(
-                        world_pose,
-                        idx,
-                    )
-
+                    world_lm = safe_landmark(world_pose, idx)
                     if world_lm is None:
                         continue
 
-                    norm_lm = safe_landmark(
-                        norm_pose,
-                        idx,
-                    )
-
+                    norm_lm = safe_landmark(norm_pose, idx)
                     if norm_lm is None:
                         continue
 
-                    tracked_landmarks[name] = extract_lm(
-                        world_lm,
-                        norm_lm,
-                    )
+                    tracked_landmarks[name] = extract_lm(world_lm, norm_lm)
 
                 # -------------------------------------------------
                 # QUALITY
                 # -------------------------------------------------
-
                 for name in active_critical_landmarks:
-
                     lm = tracked_landmarks.get(name)
-
                     if lm is None:
                         passes_critical_gate = False
-
-                        critical_failures.append(
-                            f"{name}:missing"
-                        )
-
+                        critical_failures.append(f"{name}:missing")
                         continue
 
                     visibility = lm.visibility
@@ -344,7 +310,6 @@ class LandmarkQualityFramework:
                         or presence < presence_threshold
                     ):
                         passes_critical_gate = False
-
                         critical_failures.append(
                             f"{name}:visibility={visibility:.2f},presence={presence:.2f}"
                         )
@@ -364,35 +329,30 @@ class LandmarkQualityFramework:
                         expected_landmarks=active_landmarks,
                         expected_critical_landmarks=active_critical_landmarks,
                         frame_reliability=frame_reliability,
-                        critical_failures=critical_failures
+                        critical_failures=critical_failures,
                     )
                 )
 
                 # -------------------------------------------------
                 # BIOMECHANICS
                 # -------------------------------------------------
-
                 metrics = compute_metrics(
                     world_pose,
                     camera_view,
                 )
+                if world_pose is None:
+                 continue
 
                 hip_angle = metrics["hip_angle"]
                 knee_angle = metrics["knee_angle"]
-
                 back_angle_value = metrics["back_angle"]
-
                 left_knee_valgus = metrics["left_knee_valgus"]
                 right_knee_valgus = metrics["right_knee_valgus"]
-
                 dorsiflexion = metrics["dorsiflexion"]
 
-                torso_angle = torso_vertical_angle(
-                    world_pose
-                )
+                torso_angle = torso_vertical_angle(world_pose)
 
                 rep_completed = None
-
                 if hip_angle is not None:
                     rep_completed, rep_count = rep_update(
                         hip_angle,
@@ -407,6 +367,9 @@ class LandmarkQualityFramework:
                     timestamp_ms,
                 )
 
+                if tempo_data is None:
+                    tempo_data = tempo_tracker.current_rep_tempo
+
                 back_data = back_update(
                     back_angle_value,
                     hip_angle,
@@ -415,11 +378,13 @@ class LandmarkQualityFramework:
                     timestamp_ms,
                     torso_angle=torso_angle,
                 )
+
                 depth_data = depth_update(
                     hip_angle,
                     knee_angle,
-                    camera_view
+                    camera_view,
                 )
+
                 stability_data = stability_update(
                     hip_angle,
                     knee_angle,
@@ -427,6 +392,7 @@ class LandmarkQualityFramework:
                     norm_pose,
                     timestamp_ms,
                 )
+
                 ankle_data = ankle_update(
                     hip_angle,
                     knee_angle,
@@ -439,7 +405,6 @@ class LandmarkQualityFramework:
                 # REP COMPLETED
                 # -------------------------------------------------
                 if rep_completed:
-
                     rep_dict = format_rep_data(
                         rep_count,
                         tempo_data,
@@ -450,10 +415,17 @@ class LandmarkQualityFramework:
                         camera_view,
                     )
 
-                    rep_dict["rep_number"] = rep_count
-                    rep_dict["camera_view"] = camera_view
+                    tempo_tracker.delete_current_rep()
 
-                    append_rep(rep_dict)
+                    if rep_dict["tempo_data"]["total"] > 4:
+                        if rep_counter.rep_count > 1:
+                            rep_counter.reduce_rep()
+                        else:
+                            rep_counter.rep_to_zero()
+                    else:
+                        rep_dict["rep_number"] = rep_count
+                        rep_dict["camera_view"] = camera_view
+                        append_rep(rep_dict)
 
                 # -------------------------------------------------
                 # CACHE
@@ -473,28 +445,39 @@ class LandmarkQualityFramework:
                     "tempo_state": tempo_tracker.state,
                 })
 
+                # -------------------------------------------------
+                # ANNOTATED FRAME FOR COLLAGE
+                # -------------------------------------------------
+                annotated = annotate_frame(
+                    frame_bgr=frame_bgr,
+                    camera_view=camera_view,
+                    norm_pose=norm_pose,
+                    width=width,
+                    height=height,
+                    hip_angle=hip_angle,
+                    knee_angle=knee_angle,
+                    back_angle_value=back_angle_value,
+                    left_knee_valgus=left_knee_valgus,
+                    right_knee_valgus=right_knee_valgus,
+                    rep_count=rep_counter.rep_count,
+                    tempo_state=tempo_tracker.state,
+                )
+
+                append_annotated(annotated)
+
                 frame_index += 1
 
         cap.release()
-
-        if raw_writer is not None:
-            raw_writer.release()
-
         cv2.destroyAllWindows()
 
         # -------------------------------------------------
         # QUALITY SCORE
         # -------------------------------------------------
-        reliability_by_landmark = compute_reliability(
-            raw_frames
-        )
+        reliability_by_landmark = compute_reliability(raw_frames)
 
         expected_landmarks = set()
-
         for frame in raw_frames:
-            expected_landmarks.update(
-                frame.expected_landmarks
-            )
+            expected_landmarks.update(frame.expected_landmarks)
 
         composite_score = compute_composite_score(
             self.weights,
@@ -508,20 +491,10 @@ class LandmarkQualityFramework:
             rep_count,
         )
 
-        
-
         quality_result["analysis_id"] = str(uuid.uuid4())
-        print(quality_result)
 
-        if quality_result.get("event") == "error":
-
-            if (
-                temp_raw_video_path
-                and os.path.exists(temp_raw_video_path)
-            ):
-                os.remove(temp_raw_video_path)
-
-            return quality_result
+        if quality_result["event"] != "mediapipe_complete":
+            return None, quality_result, None
 
         # -------------------------------------------------
         # FINAL JSON
@@ -529,82 +502,58 @@ class LandmarkQualityFramework:
         trend_analyzer = TrendAnalyzer()
 
         if reps_json_info:
-
             camera_view = Counter(
                 rep["camera_view"]
                 for rep in reps_json_info
                 if rep.get("camera_view") is not None
             ).most_common(1)[0][0]
-
         else:
             camera_view = "unknown"
 
-        trend_results = (
-            trend_analyzer.build_consolidated_summary(
-                reps_json_info,
-                camera_view,
-            )
+        trend_results = trend_analyzer.build_consolidated_summary(
+            reps_json_info,
+            camera_view,
         )
 
-        json_final = {
+        final_json = {
             "session": {
                 "analysis_id": str(uuid.uuid4()),
                 "exercise": exercise,
                 "weight_kg": weight_kg,
                 "rep_count": rep_count,
                 "camera_view": camera_view,
+                "date": str(datetime.date.today()),
             },
             "reps": reps_json_info,
             "consolidated": trend_results,
         }
 
         output_dir = "./mediapipe_code/results"
-
         os.makedirs(output_dir, exist_ok=True)
 
-        json_filename = os.path.join(
-            output_dir,
-            f"{video_name}.json",
-        )
-
-        with open(
-            json_filename,
-            "w",
-            encoding="utf-8",
-        ) as f:
+        json_filename = os.path.join(output_dir, f"{video_name}.json")
+        with open(json_filename, "w", encoding="utf-8") as f:
             json.dump(
-                json_final,
+                final_json,
                 f,
                 indent=4,
                 ensure_ascii=False,
             )
 
         # -------------------------------------------------
-        # RENDER
+        # COLLAGE IMAGE
         # -------------------------------------------------
-        if save_video and temp_raw_video_path:
+        if annotated_frames:
 
-            final_video_path = os.path.join(
-                "./mediapipe_code/video_results",
-                f"{video_name}_processed.mp4",
+            frames_base64 = extract_frames_from_memory(annotated_frames)
+
+            collage_b64 = build_composite_from_frames(
+                frames_base64,
+                cols=4,
             )
 
-            self._render_video_from_cache(
-                temp_raw_video_path,
-                frame_cache,
-                final_video_path,
-            )
-
-            json_final["output_video_path"] = (
-                final_video_path
-            )
-
-            if os.path.exists(temp_raw_video_path):
-                os.remove(temp_raw_video_path)
-
-        return json_final
+        return final_json, quality_result, collage_b64
     
-
     def _render_video_from_cache(
         self,
         input_video_path,
@@ -768,9 +717,12 @@ class LandmarkQualityFramework:
 
 # How to use it
 """framework = LandmarkQualityFramework(model_path=MEDIAPIPE_MODEL)
+input_dir = "./mediapipe_code/videos/good_form/v3_knee_fault.mp4"
 
-input_dir = "./mediapipe_code/videos/good_form/goblet_squats_2.mp4"
 start = time.time()
-framework.process_video_once(input_dir, "goblet squat", 20)
+final_json, _, collage_b64 = framework.process_video_once(input_dir, "goblet squat", 20)
+response = run_llm(final_json, collage_b64, debug=True)
+
+print(response)
 end = time.time() - start
 print(end)"""
