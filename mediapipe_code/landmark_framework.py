@@ -1,4 +1,3 @@
-import base64
 from collections import Counter
 import datetime
 import json
@@ -7,8 +6,8 @@ import time
 import uuid
 import mediapipe as mp
 import cv2
-from pathlib import Path
-from llm_run_code import run_llm
+from llm_run_code import get_analysis_result, get_comparison_result, run_llm_analysis, run_llm_comparison
+from utils.trackers.traker_configuration import THRESHOLD_DEEP
 from utils.trackers.trend_analyzer import TrendAnalyzer
 from utils.trackers.ankle_tracker import AnkleTracker
 from utils.trackers.back_tracker import BackAngleTracker
@@ -16,7 +15,7 @@ from utils.trackers.depth_tracker import DepthTracker
 from utils.trackers.rep_counter import RepCounter
 from utils.trackers.stability_tracker import StabilityTracker
 from utils.trackers.tempo_tracker import TempoTracker
-from utils.draw_methods import add_text_lines, annotate_frame, draw_points_and_lines
+from utils.draw_methods import add_text_lines, annotate_frame, draw_points_and_lines, extract_worst_frame
 from utils.angle_methods import detect_camera_view
 from utils.landmark_quality_configuration import (
     LANDMARKS, LEFT_SIDE, LEG_CONNECTIONS, LEG_CONNECTIONS_LEFT_SIDE, LEG_CONNECTIONS_RIGHT_SIDE, LEG_TARGET_LANDMARKS, MEDIAPIPE_MODEL, 
@@ -35,9 +34,6 @@ from utils.landmark_quality_methods import (
     select_landmarks_by_view,
     torso_vertical_angle)
 
-BASE_DIR = Path(__file__).resolve().parent
-
-FFMPEG_PATH = BASE_DIR / "ffmpeg" / "ffmpeg.exe"
 
 CRITICAL_LANDMARKS = [
     name for name, data in LANDMARKS.items()
@@ -139,6 +135,7 @@ class LandmarkQualityFramework:
             - final_json: dict - the final JSON result containing session info, reps data, and consolidated trends. None if the video doesn't pass quality gate.
             - quality_result: dict - the result of the quality evaluation, including pass/fail and scores
             - collage_b64: str or None - a base64-encoded string of the annotated collage image, or None if no frames were processed. None if the video doesn't pass quality gate.
+            - bottom_frames: List of frames of each rep.
         """
         resized_video_path = resize_video(video_path)
 
@@ -154,8 +151,8 @@ class LandmarkQualityFramework:
 
         raw_frames = []
         reps_json_info = []
-        frame_cache = []
         annotated_frames = []
+        bottom_frames = []
 
         frame_index = 0
         rep_count = 0
@@ -163,8 +160,8 @@ class LandmarkQualityFramework:
         # Local refs
         append_raw = raw_frames.append
         append_rep = reps_json_info.append
-        append_cache = frame_cache.append
         append_annotated = annotated_frames.append
+        append_bottom_frames = bottom_frames.append
 
         cvt_color = cv2.cvtColor
         read = cap.read
@@ -245,12 +242,6 @@ class LandmarkQualityFramework:
                     annotated = frame_bgr.copy()
                     
                     append_annotated(annotated)
-
-                    append_cache({
-                        "frame_index": frame_index,
-                        "timestamp_ms": timestamp_ms,
-                        "has_pose": False,
-                    })
 
                     frame_index += 1
                     continue
@@ -393,6 +384,39 @@ class LandmarkQualityFramework:
                 )
 
                 # -------------------------------------------------
+                # BOTTOM FRAMES
+                # -------------------------------------------------
+                
+                if camera_view in ("front", "angled"):
+                    append_bottom_frames(
+                            {"frame_index": frame_index,
+                             "frame_bgr": frame_bgr,
+                             "camera_view": camera_view,
+                             "norm_pose": norm_pose,
+                             "width": width,
+                             "height": height,
+                             "hip_angle": hip_angle,
+                             "knee_angle": knee_angle,
+                             "back_angle_value": back_angle_value,
+                             "knee_valgus_distance": stability_data["knee_valgus_distance"] if stability_data else None,
+                             "rep_number": rep_counter.rep_count,
+                             "tempo_state": tempo_tracker.state}
+                        )
+                else:
+                    append_bottom_frames(
+                            {"frame_index": frame_index,
+                             "frame_bgr": frame_bgr,
+                             "camera_view":camera_view,
+                             "norm_pose":norm_pose,
+                             "width":width,
+                             "height":height,
+                             "knee_angle":knee_angle,
+                             "back_angle_value":back_angle_value,
+                             "dorsiflexion": ankle_data["dorsiflexion_at_bottom"] if ankle_data else None,
+                             "rep_number":rep_counter.rep_count}
+                        )
+
+                # -------------------------------------------------
                 # REP COMPLETED
                 # -------------------------------------------------
                 if rep_completed:
@@ -413,28 +437,11 @@ class LandmarkQualityFramework:
                             rep_counter.reduce_rep()
                         else:
                             rep_counter.rep_to_zero()
+
                     else:
                         rep_dict["rep_number"] = rep_count
                         rep_dict["camera_view"] = camera_view
                         append_rep(rep_dict)
-
-                # -------------------------------------------------
-                # CACHE
-                # -------------------------------------------------
-                append_cache({
-                    "frame_index": frame_index,
-                    "timestamp_ms": timestamp_ms,
-                    "has_pose": True,
-                    "camera_view": camera_view,
-                    "norm_pose": norm_pose,
-                    "hip_angle": hip_angle,
-                    "knee_angle": knee_angle,
-                    "back_angle_value": back_angle_value,
-                    "left_knee_valgus": left_knee_valgus,
-                    "right_knee_valgus": right_knee_valgus,
-                    "rep_count": rep_counter.rep_count,
-                    "tempo_state": tempo_tracker.state,
-                })
 
                 # -------------------------------------------------
                 # ANNOTATED FRAME FOR COLLAGE
@@ -485,7 +492,7 @@ class LandmarkQualityFramework:
         quality_result["analysis_id"] = str(uuid.uuid4())
 
         if quality_result["event"] != "mediapipe_complete":
-            return None, quality_result, None
+            return None, quality_result, None, None
 
         # -------------------------------------------------
         # FINAL JSON
@@ -543,7 +550,7 @@ class LandmarkQualityFramework:
                 cols=4,
             )
 
-        return final_json, quality_result, collage_b64
+        return final_json, quality_result, collage_b64, bottom_frames
     
     def _render_video_from_cache(
         self,
@@ -704,16 +711,3 @@ class LandmarkQualityFramework:
 
         cap.release()
         out.release()
-
-
-# How to use it
-"""framework = LandmarkQualityFramework(model_path=MEDIAPIPE_MODEL)
-input_dir = "./mediapipe_code/videos/good_form/v3_knee_fault.mp4"
-
-start = time.time()
-final_json, _, collage_b64 = framework.process_video_once(input_dir, "goblet squat", 20)
-response = run_llm(final_json, collage_b64, debug=True)
-
-print(response)
-end = time.time() - start
-print(end)"""

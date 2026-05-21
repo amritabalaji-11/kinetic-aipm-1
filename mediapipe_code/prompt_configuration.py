@@ -53,174 +53,201 @@ Output rules:
 - No prose outside the JSON
 """
 
-COACHING_SCHEMA = """
-## Output — Coaching Response
+ANALYSIS_SCHEMA = """
+Output schema:
+
 {
-  "total_score": <0-100 — overall form score. Start from 100 and deduct based on faults found:
-                  significant fault = -20 to -25, moderate = -10 to -15, minor = -5.
-                  If no faults, score should reflect technique quality (consistency, tempo etc).>,
-
-  "verdict": "<2-4 sentences. Second person. Overall assessment of their form this session.
-               Lead with the most important finding. If a causal chain exists, name it.>",
-
-  "positive_observations": [
-    {
-      "observation": "<specific — name the rep numbers, how many reps, actual metric value>",
-      "category": "<Posture | Stability | Movement Quality | Range of Motion>"
+  "overall_score": <integer 0-100>,
+  "progression_recommendation": "<hold|progress|drop|null>",
+  "annotated_frame_url": "<string or null>",
+  "worse_rep": <integer or null>,
+  "critical_problem": "<hip_angle|knee_angle|back_angle_value|knee_valgus_distance|null>",
+  "coaching": {
+    "summary_paragraph": "<max 400 chars. 2-4 sentences. Second person. Start with the most important finding. Mention the strongest pattern in the session and any worsening trend. Explain causal chains clearly when present.>",
+    "parameters": {
+      "posture": {
+        "score": <integer 0-100>,
+        "affirmation": "<string or null>",
+        "observation": "<string or null>",
+        "correction": "<string or null>"
+      },
+      "stability": {
+        "score": <integer 0-100>,
+        "affirmation": "<string or null>",
+        "observation": "<string or null>",
+        "correction": "<string or null>"
+      },
+      "movement_quality": {
+        "score": <integer 0-100>,
+        "affirmation": "<string or null>",
+        "observation": "<string or null>",
+        "correction": "<string or null>"
+      },
+      "tempo": {
+        "score": <integer 0-100>,
+        "affirmation": "<string or null>",
+        "observation": "<string or null>",
+        "correction": "<string or null>"
+      }
     }
-  ],
-  // maximum 3 items, most impactful first
-
-  "critical_observations": [
+  },
+  "reps": [
     {
-      "observation": "<specific — rep numbers, how many reps, measured value, worsening trend if any>",
-      "category": "<Posture | Stability | Movement Quality | Range of Motion>",
-      "type": "<root_cause | symptom>",
-      "caused_by": "<name of root cause if this is a symptom, else null>"
+      "rep_number": <integer>,
+      "form_score": <integer 0-100>
     }
-  ],
-  // maximum 3 items, ordered by severity — most severe first
-  // if causal chain exists: root_cause item must come before its symptoms
+  ]
+}
 
-  "recommendation": "<If causal chain: state it clearly (e.g. fix ankle mobility first — it is causing the lean and the depth deficit). Then state 1-2 specific things to do in the NEXT workout: named drill, reps, sets.>",
+Rules:
 
-  "rep_trend": {
-    "observation": "<2-3 sentences on how form evolved from rep 1 to the last rep. Reference specific parameters that changed — did lean worsen, did depth improve, did tempo slow? Be specific.>",
-    "recommendation": "<1 sentence on the single most important thing to focus on next session based on this trend.>"
+- overall_score is an integer from 0 to 100.
+- overall_score should reflect the whole session.
+- Start from 100 and deduct based on faults:
+  - significant fault: -20 to -25
+  - moderate fault: -10 to -15
+  - minor fault: -5
+- If there are no faults, score based on technique quality, consistency, and tempo.
+
+- progression_recommendation:
+  - "progress" only if technique is stable and no major faults remain.
+  - "hold" if the athlete is usable as-is but still has issues to clean up.
+  - "drop" if form breaks down significantly or faults are likely to worsen with load.
+  - return null if the input does not support a recommendation.
+
+- quality_gate_status:
+  - return "GOOD" or "ACCEPTABLE" only if supported by the input.
+  - otherwise return null.
+  - if ACCEPTABLE, it should be treated as a soft warning only.
+
+- annotated_frame_url:
+  - return the URL of the worst representative frame if available.
+  - otherwise return null.
+
+- worse_rep:
+  - Return the rep number of the worst rep by score.
+  - Use the "reps" list to extract the rep number.
+  - Return null if there is no critical_problem.
+
+- critical_problem:
+  - Select the single main issue that best explains the largest quality degradation across the full session.
+  - Allowed values: "hip_angle", "knee_angle", "back_angle_value", "knee_valgus_distance", or null.
+  - If reps are not reaching parallel or sufficient depth and camera_view is "front" or "angles", prioritize "hip_angle".
+  - If reps are not reaching parallel or sufficient depth and camera_view is "side_right" or "side_left", prioritize "knee_angle" for depth evaluation.
+  - Prefer the issue that appears most consistently and has the strongest impact on scoring or movement quality.
+  - Return null if there is not enough evidence to identify a dominant problem.
+
+- coaching.summary_paragraph:
+  - maximum 400 characters.
+  - 2-4 sentences.
+  - second person.
+  - lead with the most important finding.
+  - mention rep numbers and measured values when possible.
+  - mention worsening trends when present.
+  - if there is a causal chain, state it clearly.
+
+- coaching.parameters:
+  - Each category must always be present: posture, stability, movement_quality, tempo.
+  - Each parameter score is specific to that dimension only.
+  - If a parameter is good, put a short positive affirmation in "affirmation" and keep "observation" null.
+  - If a parameter has a fault, put the specific issue in "observation" and a concrete cue or drill in "correction".
+  - Keep corrections short, actionable, and specific.
+  - Prefer the single most important issue per category.
+  - If a category is not relevant, still include it with a score and null fields.
+  - "correction" should be null only when there is nothing meaningful to correct.  
+
+- reps:
+  - Return one object per rep in the session.
+  - rep_number must match the provided rep sequence.
+  - form_score must be an integer from 0 to 100.
+  - scores should generally reflect the quality trend across the session.
+  - later reps may score lower if form worsens.
+
+- Do not invent measurements.
+- If the source data does not include a metric, do not mention it as a fact.
+- Keep the response JSON parsable.
+- Do not wrap the response in code fences.
+"""
+
+
+COMPARISON_COACHING_PROMPT = """
+Your job is to compare the current session against the previous session and produce this exact shape:
+
+{
+  "comparison_coaching": {
+    "summary_paragraph": "<1-2 sentences. Mention overall improvement or decline, the score delta, the weight change if relevant, and the strongest pattern across posture, stability, movement quality, and tempo. Be specific and concise.>",
+    "parameters": {
+      "posture": {
+        "observation_action": "<one short sentence comparing current vs previous posture, then give one actionable cue>"
+      },
+      "stability": {
+        "observation_action": "<one short sentence comparing current vs previous stability, then give one actionable cue>"
+      },
+      "movement_quality": {
+        "observation_action": "<one short sentence comparing current vs previous movement quality, then give one actionable cue>"
+      },
+      "tempo": {
+        "observation_action": "<one short sentence comparing current vs previous tempo, then give one actionable cue>"
+      }
+    }
   }
 }
+
+Rules:
+- Compare current against previous, not against an absolute ideal only.
+- Use overall_score and parameter scores to infer changes.
+- Mention the score difference explicitly when possible, for example: "Your form improved 7 points since your last session."
+- Mention the weight change when relevant, for example: "at 20kg vs 15kg."
+- If one parameter clearly improved, say so.
+- If one parameter worsened, say so.
+- If a metric is not available, infer cautiously from the provided scores and rep_scores.
+- Keep each observation_action short, specific, and actionable.
+- Use second person ("your", "you").
+- Keep the summary paragraph natural and coach-like.
+- Return only the JSON object.
+"""
+
+COMPARISON_SYSTEM = """
+You are an elite biomechanics and strength-training coach specialized in comparing workout sessions.
+
+Compare a CURRENT session against a PREVIOUS session using only the provided data.
+
+Rules:
+- Return ONLY valid JSON.
+- Do not use markdown.
+- Do not invent metrics or faults.
+- Use second-person language ("you", "your").
+- Be concise, practical, and coach-like.
+- Focus on meaningful changes in:
+  - posture
+  - stability
+  - movement quality
+  - tempo
+- Mention improvements and regressions clearly.
+- Mention score and weight changes when relevant.
+- Prioritize fatigue trends and technique consistency across reps.
+- Give short, actionable coaching cues.
+- Avoid generic praise or filler text.
 """
 
 
-def build_single_llm_prompt(mediapipe_json: dict, visual_context: str) -> str:
+def build_analysis_prompt(mediapipe_json: dict, visual_context: str) -> str:
     return f"""{visual_context}
-{ANGLE_CONVENTION}
-{MOVEMENT_CONTEXT}
-## Biomechanics JSON
-{json.dumps(mediapipe_json, indent=2)}
-{ANALYSIS_RULES}
+      {ANGLE_CONVENTION}
+      {MOVEMENT_CONTEXT}
+      ## Biomechanics JSON
+      {json.dumps(mediapipe_json, indent=2)}
+      {ANALYSIS_RULES}
+      {ANALYSIS_SCHEMA}"""
 
-# Athlete Profile
 
-- Recreational lifter
-- Approximately 6 months to 2 years of training experience
-- Understands basic gym terminology
-- May NOT understand biomechanical jargon
-- Prefer simple explanations over technical terminology
+def build_comparison_prompt(current_json: dict, previous_json: dict) -> str:
+    return f"""
+      {COMPARISON_COACHING_PROMPT}
 
-# Your Tasks
+      CURRENT SESSION:
+      {json.dumps(current_json, indent=2, ensure_ascii=False)}
 
-You must perform TWO tasks:
-
-1. Analyse squat biomechanics
-2. Generate concise coaching feedback
-
-Base ALL conclusions strictly on:
-- biomechanics JSON
-- visible movement evidence
-- trend data
-- rep-by-rep consistency
-
-Do NOT invent faults, asymmetries, or improvements.
-
-# Analysis Requirements
-
-Determine:
-- rep count
-- valid reps
-- movement quality trends
-- bilateral asymmetries
-- causal chains
-- root causes vs symptoms
-- whether faults worsen, improve, or remain stable
-
-Fault detection must be conservative:
-- only mark faults true if evidence is strong
-- confidence should reflect certainty
-
-# Coaching Requirements
-
-Write feedback like an experienced gym coach.
-
-Style:
-- concise
-- practical
-- direct
-- easy to understand
-
-Avoid unexplained technical jargon.
-
-BAD:
-- "limited ankle dorsiflexion causes dynamic valgus"
-
-GOOD:
-- "your knees collapse inward as you descend"
-
-Translate issues into actions:
-- what to change
-- what to focus on
-- what to practice next session
-
-Prefer coaching language like:
-- "Keep your chest taller"
-- "Push your knees out earlier"
-- "Slow the lowering phase"
-- "Pause briefly at the bottom"
-- "Brace before descending"
-
-# Writing Constraints
-
-- verdict: max 80 words
-- recommendation: max 120 words
-- rep_trend.observation: max 60 words
-- observations should be concise and information-dense
-- avoid repeating the same coaching point multiple times
-
-# Scoring Rules
-
-total_score starts at 100.
-
-Deduct:
-- 20-25 for major faults
-- 10-15 for moderate faults
-- 5 for minor faults
-
-Consistency, control, and stable technique can improve the score.
-
-# Critical Observations Rules
-
-- maximum 3
-- order by severity
-- root cause first
-- symptoms after root cause
-
-# Positive Observations Rules
-
-Only include genuinely supported positives.
-Do not invent praise.
-
-# Output Requirements
-
-Return ONLY valid JSON.
-
-At the TOP of the JSON include:
-
-"faults_detected": {{
-  "insufficient_depth": <bool>,
-  "knee_valgus": <bool>,
-  "excessive_forward_lean": <bool>
-}}
-
-"confidence": {{
-  "insufficient_depth": <0.0-1.0>,
-  "knee_valgus": <0.0-1.0>,
-  "excessive_forward_lean": <0.0-1.0>
-}}
-
-"evidence_source":
-"<json|visual|both>"
-
-Then include the coaching schema below.
-
-{COACHING_SCHEMA}
-"""
+      PREVIOUS SESSION:
+      {json.dumps(previous_json, indent=2, ensure_ascii=False)}
+      """
