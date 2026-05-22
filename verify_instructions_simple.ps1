@@ -7,7 +7,7 @@ Write-Host "  KINETIC - Instructions.md Implementation Verification" -Foreground
 Write-Host "=============================================================" -ForegroundColor Cyan
 Write-Host ""
 
-$workspacePath = "c:\Users\vncas\VisualStudio\kinetic-aipm-1"
+$workspacePath = "kinetic-aipm-1"
 $instructionsFile = Join-Path $workspacePath ".instructions.md"
 
 # Test 1: File Existence
