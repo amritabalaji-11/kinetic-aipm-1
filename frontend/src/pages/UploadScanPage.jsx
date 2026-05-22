@@ -1,12 +1,7 @@
 import { useState, useEffect } from "react"
 import { useNavigate } from "react-router-dom"
 import { Upload, CheckCircle, AlertCircle, RotateCw, Check, ChevronDown, Play } from "lucide-react"
-
-// ─── W5 NOTE ─────────────────────────────────────────────────────────────────
-// queueAnalysisUpload removed — no API calls in W5.
-// handleSubmit navigates to LoadingPage in fixtureMode.
-// Real /upload wiring comes in W6.
-// ─────────────────────────────────────────────────────────────────────────────
+import { uploadVideo } from "../services/uploadService"
 
 const EXERCISES = [
   { id: "goblet-squat",  name: "GOBLET SQUAT",  enabled: true  },
@@ -34,6 +29,8 @@ function UploadScanPage() {
   const [tipsExpanded,    setTipsExpanded]    = useState(true)
   const [unit,            setUnit]            = useState("kg")
   const [formAlert,       setFormAlert]       = useState("")
+  const [isUploading,     setIsUploading]     = useState(false)
+  const [uploadError,     setUploadError]     = useState("")
 
   const maxWeightForUnit  = unit === "kg" ? MAX_WEIGHT : 440
   const isWeightValid     = weight > 0
@@ -84,8 +81,7 @@ function UploadScanPage() {
     if (!isNaN(num) && num >= MIN_WEIGHT && num <= maxWeightForUnit) setWeight(num)
   }
 
-  // ─── W5: fixture-mode submit — no API call ────────────────────────────────
-  function handleSubmit() {
+  async function handleSubmit() {
     if (!isFormValid) {
       const parts = []
       if (!exercise)      parts.push("select an exercise")
@@ -98,16 +94,18 @@ function UploadScanPage() {
     }
 
     setFormAlert("")
-    navigate("/upload/loading", {
-      state: {
-        fixtureMode:    true,
-        exercise,
-        weight,
-        unit,
-        videoPreviewUrl,
-        queuedFileSize: videoFile?.size ?? null,
-      },
-    })
+    setUploadError("")
+    setIsUploading(true)
+
+    try {
+      const analysisId = await uploadVideo(videoFile, exercise, weight, unit)
+      navigate("/upload/loading", {
+        state: { analysisId, videoPreviewUrl },
+      })
+    } catch (err) {
+      setUploadError(err.message || "Upload failed. Please try again.")
+      setIsUploading(false)
+    }
   }
 
   return (
@@ -377,16 +375,17 @@ function UploadScanPage() {
         <button
           type="button"
           onClick={handleSubmit}
+          disabled={isUploading}
           className={`w-full h-14 rounded-xl font-semibold tracking-wide transition-all ${
-            isFormValid
+            isFormValid && !isUploading
               ? "bg-gradient-to-r from-teal to-cyan-glow text-text-primary hover:brightness-105 shadow-md"
-              : "bg-gray-100 text-text-secondary hover:bg-gray-200 border border-gray-200"
+              : "bg-gray-100 text-text-secondary border border-gray-200"
           }`}
         >
-          START ANALYSIS →
+          {isUploading ? "UPLOADING..." : "START ANALYSIS →"}
         </button>
 
-        {!isFormValid && (
+        {!isFormValid && !isUploading && (
           <p className="text-xs text-text-teritary text-center -mt-2">
             Choose exercise, set load (&gt; 0), and attach a video — then tap start.
           </p>
@@ -396,6 +395,13 @@ function UploadScanPage() {
           <p className="text-xs text-error text-center flex items-start justify-center gap-1">
             <AlertCircle size={14} className="mt-0.5 flex-shrink-0" />
             <span>{formAlert}</span>
+          </p>
+        )}
+
+        {uploadError && (
+          <p className="text-xs text-error text-center flex items-start justify-center gap-1">
+            <AlertCircle size={14} className="mt-0.5 flex-shrink-0" />
+            <span>{uploadError}</span>
           </p>
         )}
 
