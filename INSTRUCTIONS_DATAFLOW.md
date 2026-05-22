@@ -7,7 +7,7 @@
 ## I. VERIFICATION CHECKLIST ✅
 
 ### File Status
-- [x] `.instructions.md` created at workspace root: `c:\Users\vncas\VisualStudio\kinetic-aipm-1\.instructions.md`
+- [x] `.instructions.md` created at workspace root: `kinetic-aipm-1\.instructions.md`
 - [x] File contains complete Goblet Squat Coaching Reference (v1.0)
 - [x] All 10 parts present: Angle Targets, Root Cause Taxonomy, Coaching Language, Drills, Verdict Guide, Pain Protocol, Decision Trees, Bonus Rules, Sources
 - [x] File size: ~45KB (includes all JSON schemas, tables, drill library)
@@ -348,13 +348,13 @@ To make instructions global:
 
 ### Test 1: File Presence
 ```powershell
-Test-Path "c:\Users\vncas\VisualStudio\kinetic-aipm-1\.instructions.md"
+Test-Path "kinetic-aipm-1\.instructions.md"
 # Expected: True
 ```
 
 ### Test 2: File Content (first lines)
 ```powershell
-Get-Content "c:\Users\vncas\VisualStudio\kinetic-aipm-1\.instructions.md" -Head 10
+Get-Content "kinetic-aipm-1\.instructions.md" -Head 10
 # Expected: "# Goblet Squat — Coaching Reference & Gold Standard Angles"
 ```
 
