@@ -9,7 +9,7 @@ function generateUUID() {
     })
 }
 
-async function uploadVideo(videoFile, exercise, weight){
+async function uploadVideo(videoFile, exercise, weight, weightUnit = "kg"){
     const formData = new FormData()
 
     // Generate or retrieve user_id and session_id from localStorage
@@ -21,10 +21,13 @@ async function uploadVideo(videoFile, exercise, weight){
 
     const sessionId = generateUUID()
 
+    // Backend expects "lb" (singular) for pounds
+    const normalizedUnit = weightUnit === "lbs" ? "lb" : weightUnit
+
     formData.append("file", videoFile)
     formData.append("exercise_id", exercise)
     formData.append("weight_value", String(weight))
-    formData.append("weight_unit", "lb")
+    formData.append("weight_unit", normalizedUnit)
     formData.append("user_id", userId)
     formData.append("session_id", sessionId)
 

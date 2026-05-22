@@ -11,15 +11,38 @@ function LoadingPage() {
 
   const { steps, isDone, error, partialWarning, cancel, resultUrl } = useSSEStream(analysisId)
 
+  const BASE_URL = import.meta.env.VITE_API_URL || "http://localhost:8000"
 
-  // When analysis_complete fires, wait 1.5s then navigate to results
+  // When analysis_complete fires, fetch the full record then navigate to results
   useEffect(() => {
     if (!isDone) return
-    const timer = setTimeout(() => {
-      navigate(resultUrl || "/upload/results", { state: { analysisId } })
+    const timer = setTimeout(async () => {
+      let analysisResult = null
+      try {
+        const response = await fetch(`${BASE_URL}/analysis/${analysisId}`)
+        if (response.ok) {
+          const record = await response.json()
+          const biomechanics = record.biomechanics_json
+            ? JSON.parse(record.biomechanics_json)
+            : {}
+          analysisResult = {
+            ...biomechanics,
+            analysis_id:  record.analysis_id,
+            exercise_id:  record.exercise_id,
+            weight_value: record.weight_value,
+            weight_unit:  record.weight_unit,
+            status:       record.status,
+          }
+        }
+      } catch {
+        // Fall through — ResultsPage will show fixtures if analysisResult is null
+      }
+      navigate(resultUrl || "/upload/results", {
+        state: { analysisId, analysisResult, videoPreviewUrl },
+      })
     }, 1500)
     return () => clearTimeout(timer)
-  }, [isDone, analysisId, navigate, resultUrl])
+  }, [isDone, analysisId, navigate, resultUrl, videoPreviewUrl])
 
 
   // Guard — no analysis in progress
