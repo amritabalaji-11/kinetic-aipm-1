@@ -9,18 +9,18 @@ const PIPELINE_STEPS = [
   },
   {
     label: "Check your barbell depth...",
-    activeOn: ["overlay_complete", "biomechanics_complete", "nemotron_started"],
-    completeOn: "nemotron_complete",
+    activeOn: ["biomechanics_complete"],
+    completeOn: "haiku_started",
   },
   {
-    label: "Mapping bar path and stability...",
-    activeOn: ["frames_extracting", "frames_ready", "rag_started"],
-    completeOn: "rag_complete",
+    label: "Analysing your form...",
+    activeOn: ["haiku_started"],
+    completeOn: "analysis_ready",
   },
   {
-    label: "Calculating force and rhythm...",
-    activeOn: ["claude_started", "claude_complete"],
-    completeOn: "analysis_complete",
+    label: "Building your coaching report...",
+    activeOn: ["analysis_ready", "frame_ready"],
+    completeOn: "progression_ready",
   },
 ]
 
@@ -139,9 +139,8 @@ function useSSEStream(analysisId) {
 
 
       // --- Final event ---
-      if (eventName === "analysis_complete") {
-        // Mark the last step complete
-        const lastIndex = PIPELINE_STEPS.findIndex(s => s.completeOn === "analysis_complete")
+      if (eventName === "progression_ready") {
+        const lastIndex = PIPELINE_STEPS.findIndex(s => s.completeOn === "progression_ready")
         updateStep(lastIndex, "complete")
         setResultUrl(parsed.full_result_url || null)
         setIsDone(true)
