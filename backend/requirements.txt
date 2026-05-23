@@ -8,3 +8,4 @@ aiosqlite
 numpy
 opencv-python
 mediapipe
+anthropic

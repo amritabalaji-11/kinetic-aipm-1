@@ -72,16 +72,20 @@ class SSEManager:
         analysis_id: str,
         event_name: str,
         percentage: int,
-        status: str = "in_progress"
+        status: str = "in_progress",
+        extra: dict = None,
     ):
         # Builds a normal progress event and sends it to all connected clients.
         # Used for all the happy-path steps: upload_received, mediapipe_started, etc.
-        payload = json.dumps({
+        payload_dict = {
             "analysis_id": analysis_id,
             "event": event_name,
             "percentage": percentage,
-            "status": status
-        })
+            "status": status,
+        }
+        if extra:
+            payload_dict.update(extra)
+        payload = json.dumps(payload_dict)
 
         print(f"[SSE] Sending event: {event_name} for {analysis_id}")
 
@@ -105,6 +109,8 @@ class SSEManager:
         retryable: str,
         message: str,
         landmark_medians: dict = None,
+        session_id: str = None,
+        user_id: str = None,
     ):
         # Sends a blocking error event — the frontend shows the error screen
         # and stops waiting for more pipeline events.
@@ -122,11 +128,15 @@ class SSEManager:
             "analysis_id": analysis_id,
             "event": "error",
             "error_code": error_code,       # e.g. "occlusion_left_side"
-            "error_stage": error_stage,     # e.g. "quality_gate"
+            "error_stage": error_stage,     # quality_gate · biomechanics · haiku_call_1 · opencv_part_2 · haiku_call_2 · pipeline
             "retryable": retryable,         # "true" or "false" — always a string
             "message": message,             # internal message — NOT shown to user
             "status": "failed",             # tells the SSE subscriber to close the stream
         }
+        if session_id:
+            payload_dict["session_id"] = session_id
+        if user_id:
+            payload_dict["user_id"] = user_id
 
         # For occlusion and out-of-frame errors, pass through the landmark data.
         # This tells us exactly which body part was blocked — useful for future
