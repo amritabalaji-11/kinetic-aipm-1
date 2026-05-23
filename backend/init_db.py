@@ -21,6 +21,10 @@ CREATE TABLE IF NOT EXISTS form_analyses (
     error_code TEXT,
     rep_count INTEGER,
 
+    -- Video metadata stored at upload time — used in upload_received SSE payload
+    filename TEXT,
+    size_mb REAL,
+
     -- Haiku Call 2 output (Step 9) — longitudinal coaching for Tab 2
     progression_output TEXT,
 
@@ -28,13 +32,18 @@ CREATE TABLE IF NOT EXISTS form_analyses (
 )
 """)
 
-# Migrate existing DB instances that predate the progression_output column
-try:
-    cursor.execute("ALTER TABLE form_analyses ADD COLUMN progression_output TEXT")
-    conn.commit()
-    print("Migrated: added progression_output column.")
-except sqlite3.OperationalError:
-    pass  # column already exists
+# Migrate existing DB instances
+for col, definition in [
+    ("progression_output", "TEXT"),
+    ("filename",           "TEXT"),
+    ("size_mb",            "REAL"),
+]:
+    try:
+        cursor.execute(f"ALTER TABLE form_analyses ADD COLUMN {col} {definition}")
+        conn.commit()
+        print(f"Migrated: added {col} column.")
+    except sqlite3.OperationalError:
+        pass  # column already exists
 
 conn.commit()
 conn.close()
