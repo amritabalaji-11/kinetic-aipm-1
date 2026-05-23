@@ -79,6 +79,17 @@ Rules:
 
 
 # =========================================================
+# HELPERS
+# =========================================================
+
+def _gcs_uri_to_https(gcs_uri: str) -> str:
+    """Convert gs://bucket/path → https://storage.googleapis.com/bucket/path"""
+    if not gcs_uri or not gcs_uri.startswith("gs://"):
+        return gcs_uri
+    return "https://storage.googleapis.com/" + gcs_uri[5:]
+
+
+# =========================================================
 # CONFIG
 # =========================================================
 
@@ -176,12 +187,14 @@ async def run_mediapipe_analysis(analysis_id: str, file_location: str):
 
     # Fetch context fields needed for SSE payloads
     record = await db.fetch_one(
-        "SELECT session_id, user_id, video_url, created_at FROM form_analyses WHERE analysis_id = :aid",
+        "SELECT session_id, user_id, video_url, filename, size_mb, created_at FROM form_analyses WHERE analysis_id = :aid",
         {"aid": analysis_id}
     )
     session_id = record["session_id"] if record else None
     user_id    = record["user_id"]    if record else None
     video_url  = record["video_url"]  if record else file_location
+    filename   = record["filename"]   if record else None
+    size_mb    = record["size_mb"]    if record else None
     created_at = record["created_at"] if record else None
 
     ctx = {"session_id": session_id, "user_id": user_id}
@@ -192,6 +205,8 @@ async def run_mediapipe_analysis(analysis_id: str, file_location: str):
         # -------------------------------------------------
         await sse_manager.send_event(analysis_id, "upload_received", 10, extra={
             **ctx,
+            "filename":   filename,
+            "size_mb":    size_mb,
             "created_at": created_at,
         })
 
@@ -314,9 +329,12 @@ async def run_mediapipe_analysis(analysis_id: str, file_location: str):
         # progression_ready: Haiku Call 2 (async, does not block analysis_ready)
         # -------------------------------------------------
         async def fire_frame_ready():
-            # TODO: replace sleep with real OpenCV Part 2; annotated_frame_url from DB
+            # TODO: replace sleep with real OpenCV Part 2 call
+            # annotated_frame_url is written to DB by OpenCV Part 2 after this sleep
             await asyncio.sleep(2)
-            annotated_frame_url = mp_result.get("annotated_frame_url", "")
+            gcs_uri = mp_result.get("annotated_frame_url", "")
+            # Must be a public HTTPS URL — not a GCS URI — per FE_SSE_and_Errors.md
+            annotated_frame_url = _gcs_uri_to_https(gcs_uri)
             await sse_manager.send_event(analysis_id, "frame_ready", 90, extra={
                 **ctx,
                 "annotated_frame_url": annotated_frame_url,
