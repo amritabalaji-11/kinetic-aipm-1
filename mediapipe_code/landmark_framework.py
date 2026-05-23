@@ -6,7 +6,7 @@ import time
 import uuid
 import mediapipe as mp
 import cv2
-from llm_run_code import get_analysis_result, get_comparison_result, run_llm_analysis, run_llm_comparison
+from llm_run_code import get_analysis_result, get_comparison_result, run_llm_analysis, run_llm_analysis_test, run_llm_comparison
 from utils.trackers.traker_configuration import THRESHOLD_DEEP
 from utils.trackers.trend_analyzer import TrendAnalyzer
 from utils.trackers.ankle_tracker import AnkleTracker
@@ -387,31 +387,18 @@ class LandmarkQualityFramework:
                 # BOTTOM FRAMES
                 # -------------------------------------------------
                 
-                if camera_view in ("front", "angled"):
-                    append_bottom_frames(
-                            {"frame_index": frame_index,
-                             "frame_bgr": frame_bgr,
-                             "camera_view": camera_view,
-                             "norm_pose": norm_pose,
-                             "width": width,
-                             "height": height,
-                             "hip_angle": hip_angle,
-                             "knee_angle": knee_angle,
-                             "back_angle_value": back_angle_value,
-                             "knee_valgus_distance": stability_data["knee_valgus_distance"] if stability_data else None,
-                             "rep_number": rep_counter.rep_count,
-                             "tempo_state": tempo_tracker.state}
-                        )
-                else:
-                    append_bottom_frames(
+                
+                append_bottom_frames(
                             {"frame_index": frame_index,
                              "frame_bgr": frame_bgr,
                              "camera_view":camera_view,
                              "norm_pose":norm_pose,
                              "width":width,
                              "height":height,
+                             "hip_angle": hip_angle,
                              "knee_angle":knee_angle,
                              "back_angle_value":back_angle_value,
+                             "knee_valgus_distance": stability_data["knee_valgus_distance"] if stability_data else None,
                              "dorsiflexion": ankle_data["dorsiflexion_at_bottom"] if ankle_data else None,
                              "rep_number":rep_counter.rep_count}
                         )
@@ -490,6 +477,7 @@ class LandmarkQualityFramework:
         )
 
         quality_result["analysis_id"] = str(uuid.uuid4())
+        
 
         if quality_result["event"] != "mediapipe_complete":
             return None, quality_result, None, None
@@ -525,6 +513,8 @@ class LandmarkQualityFramework:
             "reps": reps_json_info,
             "consolidated": trend_results,
         }
+
+        final_json["reps"].pop()
 
         output_dir = "./mediapipe_code/results"
         os.makedirs(output_dir, exist_ok=True)
@@ -711,3 +701,29 @@ class LandmarkQualityFramework:
 
         cap.release()
         out.release()
+
+
+# How to use it
+"""framework = LandmarkQualityFramework(model_path=MEDIAPIPE_MODEL)
+input_dir = "./mediapipe_code/videos/good_form/v5_torso_fault.mp4"
+analysis_path = "./mediapipe_code/results/analysis_testing_torso_fault.json"
+
+final_json, quality_result, collage_b64, rep_frames_list = framework.process_video_once(input_dir, "goblet squat", 20)
+
+frame = extract_worst_frame(input_dir, analysis_path, rep_frames_list, "v5_fault")"""
+
+"""start = time.time()
+result = run_llm_analysis_test(final_json, collage_b64, debug=True)
+
+output_dir = "./mediapipe_code/results"
+os.makedirs(output_dir, exist_ok=True)
+json_filename = os.path.join(output_dir, f"test_2.json")
+with open(json_filename, "w", encoding="utf-8") as f:
+        json.dump(
+            result,
+            f,
+            indent=4,
+            ensure_ascii=False,
+        )
+
+print(time.time() - start)"""

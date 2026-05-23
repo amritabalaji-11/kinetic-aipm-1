@@ -241,58 +241,60 @@ class TrendAnalyzer:
             },
         }
 
-        if camera_view in ("front", "angled"):
-            consolidated["stability_data"] = {
-                "knee_valgus_mean": self._mean(knee_valgus_sum, knee_valgus_count),
-                "knee_valgus_trend": self._trend_slope_from_sums(
-                    knee_valgus_count,
-                    knee_valgus_x,
-                    knee_valgus_sum,
-                    knee_valgus_x2,
-                    knee_valgus_xy,
-                ),
-                "valgus_flag_reps": valgus_flag_count,
-                "valgus_phase_distribution": self._distribution(valgus_phase_counter),
-                "session_valgus_fault": session_valgus_fault,
-                "session_valgus_reps_flagged": session_valgus_reps_flagged,
-                "session_valgus_reps_valid": session_valgus_reps_valid,
-            }
+        movement_quality = {
+            "depth_distribution": self._distribution(depth_counter),
+            "knee_angle_min_mean": self._mean(knee_angle_min_sum, knee_angle_min_count),
+            "depth_trend": self._trend_slope_from_sums(
+                knee_angle_min_count,
+                knee_angle_min_x,
+                knee_angle_min_sum,
+                knee_angle_min_x2,
+                knee_angle_min_xy,
+            ),
+            "depth_insufficient_reps": depth_insufficient_count,
+            "foot_turnout_left_mean": self._mean(foot_turnout_left_sum, foot_turnout_left_count),
+            "foot_turnout_right_mean": self._mean(foot_turnout_right_sum, foot_turnout_right_count),
+            "ankle_dorsiflexion_mean": self._mean(ankle_dorsiflexion_sum, ankle_dorsiflexion_count),
+            "ankle_dorsiflexion_trend": self._trend_slope_from_sums(
+                ankle_dorsiflexion_count,
+                ankle_dorsiflexion_x,
+                ankle_dorsiflexion_sum,
+                ankle_dorsiflexion_x2,
+                ankle_dorsiflexion_xy,
+            ),
+        }
 
-            consolidated["movement_quality"] = {
-                "depth_distribution": self._distribution(depth_counter),
-                "knee_angle_min_mean": self._mean(knee_angle_min_sum, knee_angle_min_count),
-                "depth_trend": self._trend_slope_from_sums(
-                    knee_angle_min_count,
-                    knee_angle_min_x,
-                    knee_angle_min_sum,
-                    knee_angle_min_x2,
-                    knee_angle_min_xy,
-                ),
-                "depth_insufficient_reps": depth_insufficient_count,
-                "foot_turnout_left_mean": self._mean(foot_turnout_left_sum, foot_turnout_left_count),
-                "foot_turnout_right_mean": self._mean(foot_turnout_right_sum, foot_turnout_right_count),
-            }
+        stability_data = {
+            "knee_valgus_mean": self._mean(knee_valgus_sum, knee_valgus_count),
+            "knee_valgus_trend": self._trend_slope_from_sums(
+                knee_valgus_count,
+                knee_valgus_x,
+                knee_valgus_sum,
+                knee_valgus_x2,
+                knee_valgus_xy,
+            ),
+            "valgus_flag_reps": valgus_flag_count,
+            "valgus_phase_distribution": self._distribution(valgus_phase_counter),
+            "session_valgus_fault": session_valgus_fault,
+            "session_valgus_reps_flagged": session_valgus_reps_flagged,
+            "session_valgus_reps_valid": session_valgus_reps_valid,
+        }
 
-        elif "side" in camera_view:
-            consolidated["movement_quality"] = {
-                "depth_distribution": self._distribution(depth_counter),
-                "knee_angle_min_mean": self._mean(knee_angle_min_sum, knee_angle_min_count),
-                "depth_trend": self._trend_slope_from_sums(
-                    knee_angle_min_count,
-                    knee_angle_min_x,
-                    knee_angle_min_sum,
-                    knee_angle_min_x2,
-                    knee_angle_min_xy,
-                ),
-                "depth_insufficient_reps": depth_insufficient_count,
-                "ankle_dorsiflexion_mean": self._mean(ankle_dorsiflexion_sum, ankle_dorsiflexion_count),
-                "ankle_dorsiflexion_trend": self._trend_slope_from_sums(
-                    ankle_dorsiflexion_count,
-                    ankle_dorsiflexion_x,
-                    ankle_dorsiflexion_sum,
-                    ankle_dorsiflexion_x2,
-                    ankle_dorsiflexion_xy,
-                ),
-            }
+        # Optional: null out values that do not apply to the current view
+        if "side" not in camera_view:
+            movement_quality["ankle_dorsiflexion_mean"] = None
+            movement_quality["ankle_dorsiflexion_trend"] = None
+
+        if camera_view not in ("front", "angled"):
+            stability_data["knee_valgus_mean"] = None
+            stability_data["knee_valgus_trend"] = None
+            stability_data["valgus_flag_reps"] = None
+            stability_data["valgus_phase_distribution"] = None
+            stability_data["session_valgus_fault"] = None
+            stability_data["session_valgus_reps_flagged"] = None
+            stability_data["session_valgus_reps_valid"] = None
+
+        consolidated["stability_data"] = stability_data
+        consolidated["movement_quality"] = movement_quality
 
         return consolidated

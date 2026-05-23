@@ -7,7 +7,7 @@ import uuid
 import anthropic
 from dotenv import load_dotenv
 
-from prompt_configuration import COACHING_SYSTEM, COMPARISON_SYSTEM, build_analysis_prompt, build_comparison_prompt
+from prompt_configuration import COACHING_SYSTEM, COMPARISON_SYSTEM, PROMPT_TEST_SYSTEM, build_analysis_prompt, build_comparison_prompt, get_user_prompt_test
 
 load_dotenv()
 
@@ -206,3 +206,52 @@ def get_comparison_result(current_json_path, previous_json_path, output_filename
         )
 
     return response
+
+
+def run_llm_analysis_test(mp_json: dict, image_base64, debug = False) -> tuple[dict, float, float]:
+    client = anthropic.Anthropic(api_key=ANTHROPIC_API_KEY)
+    
+    prompt = get_user_prompt_test(mp_json["consolidated"]["total_reps"], mp_json["session"]["analysis_id"], mp_json)
+    schema_reminder = (
+        "\n\nCRITICAL: Return ONLY a valid JSON object matching the schema above. "
+        "faults_detected must be an OBJECT with three boolean keys — not an array. "
+        "No markdown fences, no extra text outside the JSON."
+    )
+    max_tokens_reminder = "\n\nMake sure your response not exceed 2000 tokens"
+    
+    start = time.time()
+    resp = client.messages.create(
+        model=HAIKU_MODEL, max_tokens=2500, system=PROMPT_TEST_SYSTEM,
+        messages=[{"role":"user","content":[
+            {"type":"image","source":{"type":"base64","media_type":"image/jpeg","data":image_base64}},
+            {"type":"text","text":prompt + schema_reminder + max_tokens_reminder},
+        ]}],
+    )
+    
+    if resp.stop_reason == "max_tokens":
+        raise ValueError("Haiku truncated — increase max_tokens")
+    
+    lat = (time.time() - start) * 1000
+
+    if debug:
+      print("Time:", lat)
+
+      usage = resp.usage
+
+      print("=" * 20)
+      print("Input tokens:", usage.input_tokens)
+      print("Output tokens:", usage.output_tokens)
+
+      input_price_per_million = 1.00
+      output_price_per_million = 5.00
+
+      input_cost = (usage.input_tokens / 1000000) * input_price_per_million
+      output_cost = (usage.output_tokens / 1000000) * output_price_per_million
+      total_cost = input_cost + output_cost
+
+      print(f"Input cost:  ${input_cost:.8f}")
+      print(f"Output cost: ${output_cost:.8f}")
+      print(f"Total cost:  ${total_cost:.8f}")
+      print("=" * 20)
+
+    return extract_json(resp.content[0].text)

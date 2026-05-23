@@ -537,26 +537,33 @@ def format_rep_data(rep_count, tempo_data, back_data, depth_data, stability_data
             "depth_classification": depth_data["depth_classification"],
             "depth_insufficient_flag": depth_data["depth_insufficient_flag"],
         },
-        "ankle_data": {},
+        "stability_data": {
+            "knee_valgus_distance": None,
+            "valgus_flag": None,
+            "valgus_phase": None,
+        },
+        "ankle_data": {
+            "dorsiflexion_at_bottom": None,
+            "foot_turnout_left": None,
+            "foot_turnout_right": None,
+        },
     }
 
-    if camera_view in ("front", "angled"):
-        data["stability_data"] = {
-            "knee_valgus_distance": stability_data["knee_valgus_distance"],
-            "valgus_flag": stability_data["valgus_flag"]
-        }
+    if camera_view == "front":
+        data["stability_data"]["knee_valgus_distance"] = stability_data["knee_valgus_distance"]
+        data["stability_data"]["valgus_flag"] = stability_data["valgus_flag"]
+        data["stability_data"]["valgus_phase"] = (
+            stability_data["valgus_phase"] if stability_data["valgus_flag"] else None
+        )
 
-        if stability_data["valgus_flag"]:
-            data["stability_data"]["valgus_phase"] = stability_data["valgus_phase"]
-    else:
+    if camera_view in ("side_left", "side_right", "side"):
         if ankle_data:
-            data["ankle_data"] = {
-                "dorsiflexion_at_bottom": ankle_data["dorsiflexion_at_bottom"],
-            }
+            data["ankle_data"]["dorsiflexion_at_bottom"] = ankle_data["dorsiflexion_at_bottom"]
 
     if camera_view == "front":
-        data["ankle_data"]["foot_turnout_left"] = ankle_data["foot_turnout_left"]
-        data["ankle_data"]["foot_turnout_right"] = ankle_data["foot_turnout_right"]
+        if ankle_data:
+            data["ankle_data"]["foot_turnout_left"] = ankle_data["foot_turnout_left"]
+            data["ankle_data"]["foot_turnout_right"] = ankle_data["foot_turnout_right"]
 
     return data
 
