@@ -57,39 +57,62 @@ async def get_analysis(analysis_id: str):
     return record
 
 
+@app.get("/analysis/{analysis_id}/progression")
+async def get_progression(analysis_id: str):
+    from fastapi import HTTPException
+    import json as _json
+    from pathlib import Path as _Path
+
+    record = _analyses.get(analysis_id)
+    if not record:
+        raise HTTPException(status_code=404, detail="Analysis not found")
+    if record.get("status") != "completed":
+        raise HTTPException(status_code=202, detail="Progression analysis still processing")
+
+    fixture = _json.loads((_Path(__file__).parent / "fixtures" / "form-comparison.json").read_text())
+    return fixture
+
+
 async def pipeline_stream(analysis_id: str):
-    yield f"data: {json.dumps({'event': 'upload_received',    'analysis_id': analysis_id})}\n\n"
+    record     = _analyses.get(analysis_id, {})
+    session_id = record.get("session_id")
+    user_id    = record.get("user_id")
+    ctx        = {"session_id": session_id, "user_id": user_id}
+
+    def ev(event, **extra):
+        return f"data: {json.dumps({'event': event, 'analysis_id': analysis_id, **ctx, **extra})}\n\n"
+
+    yield ev("upload_received",    created_at="2026-05-21T00:00:00Z")
     await asyncio.sleep(0.5)
 
-    yield f"data: {json.dumps({'event': 'mediapipe_started',  'analysis_id': analysis_id})}\n\n"
+    yield ev("mediapipe_started",  video_url=record.get("video_url", ""))
     await asyncio.sleep(1.5)
 
-    yield f"data: {json.dumps({'event': 'mediapipe_complete', 'analysis_id': analysis_id, 'rep_count': 5})}\n\n"
+    yield ev("mediapipe_complete", rep_count=5, fps=30, keypoints_detected=33, frames_processed=120)
     await asyncio.sleep(0.5)
 
-    yield f"data: {json.dumps({'event': 'nemotron_started',   'analysis_id': analysis_id})}\n\n"
+    yield ev("biomechanics_complete", rep_count=5, joints_computed=12, avg_confidence=0.91)
+    await asyncio.sleep(0.5)
+
+    yield ev("haiku_started")
     await asyncio.sleep(2.0)
 
-    yield f"data: {json.dumps({'event': 'nemotron_complete',  'analysis_id': analysis_id})}\n\n"
-    await asyncio.sleep(0.5)
+    overall_score = STUB_BIOMECHANICS.get("summary", {}).get("overall_form_score", 0)
 
-    yield f"data: {json.dumps({'event': 'rag_started',        'analysis_id': analysis_id})}\n\n"
-    await asyncio.sleep(1.0)
-
-    yield f"data: {json.dumps({'event': 'rag_complete',       'analysis_id': analysis_id})}\n\n"
-    await asyncio.sleep(0.5)
-
-    yield f"data: {json.dumps({'event': 'claude_started',     'analysis_id': analysis_id})}\n\n"
-    await asyncio.sleep(1.5)
-
-    yield f"data: {json.dumps({'event': 'claude_complete',    'analysis_id': analysis_id})}\n\n"
-
-    # Populate the in-memory record with stub results before firing analysis_complete
+    # Write stub results to in-memory record so GET /analysis/{id} returns real data
     if analysis_id in _analyses:
         _analyses[analysis_id]["status"] = "completed"
         _analyses[analysis_id]["biomechanics_json"] = json.dumps(STUB_BIOMECHANICS)
 
-    yield f"data: {json.dumps({'event': 'analysis_complete',  'analysis_id': analysis_id})}\n\n"
+    yield ev("analysis_ready", overall_score=overall_score)
+
+    # frame_ready fires ~2s after analysis_ready (OpenCV Part 2)
+    await asyncio.sleep(2)
+    yield ev("frame_ready", annotated_frame_url="")
+
+    # progression_ready fires ~1s after frame_ready (Haiku Call 2)
+    await asyncio.sleep(1)
+    yield ev("progression_ready")
 
 
 @app.get("/analysis/{analysis_id}/stream")
