@@ -21,9 +21,20 @@ CREATE TABLE IF NOT EXISTS form_analyses (
     error_code TEXT,
     rep_count INTEGER,
 
+    -- Haiku Call 2 output (Step 9) — longitudinal coaching for Tab 2
+    progression_output TEXT,
+
     created_at TEXT NOT NULL
 )
 """)
+
+# Migrate existing DB instances that predate the progression_output column
+try:
+    cursor.execute("ALTER TABLE form_analyses ADD COLUMN progression_output TEXT")
+    conn.commit()
+    print("Migrated: added progression_output column.")
+except sqlite3.OperationalError:
+    pass  # column already exists
 
 conn.commit()
 conn.close()
