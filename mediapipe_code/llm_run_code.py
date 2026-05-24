@@ -221,7 +221,7 @@ def run_llm_analysis_test(mp_json: dict, image_base64, debug = False) -> tuple[d
     
     start = time.time()
     resp = client.messages.create(
-        model=HAIKU_MODEL, max_tokens=2500, system=PROMPT_TEST_SYSTEM,
+        model=HAIKU_MODEL, max_tokens=3000, system=PROMPT_TEST_SYSTEM,
         messages=[{"role":"user","content":[
             {"type":"image","source":{"type":"base64","media_type":"image/jpeg","data":image_base64}},
             {"type":"text","text":prompt + schema_reminder + max_tokens_reminder},

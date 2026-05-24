@@ -223,11 +223,37 @@ class StabilityTracker:
                 valgus_flag,
             ) = self._classify_valgus_phase()
 
-            stability_data = {
-                "knee_valgus_distance": knee_valgus_distance,
-                "valgus_phase": valgus_phase,
-                "valgus_flag": valgus_flag,
-            }
+
+
+            if "side" in camera_view:
+                stability_data = {
+                    "knee_valgus_distance": None,
+                    "knee_gap_hip_gap_ratio": None,
+                    "valgus_severity": None,
+                    "valgus_label": None,
+                    "valgus_phase": None,
+                    "valgus_flag": None,
+                }
+            else:
+
+                ratio = 1 - knee_valgus_distance
+
+                if ratio >= 0.92:     valgus_severity = 'severe'
+                elif ratio >= 0.85:   valgus_severity = 'moderate'
+                elif ratio >= 0.72:   valgus_severity = 'mild'
+                else:                 valgus_severity = 'none'
+
+                knee_gap_hip_gap_ratio = ratio                                   # new
+                valgus_label           = 'Good' if valgus_severity == 'none' else 'Warning'  # new
+
+                stability_data = {
+                    "knee_valgus_distance": knee_valgus_distance,
+                    "knee_gap_hip_gap_ratio": knee_gap_hip_gap_ratio,
+                    "valgus_severity": valgus_severity,
+                    "valgus_label": valgus_label,
+                    "valgus_phase": valgus_phase,
+                    "valgus_flag": valgus_flag,
+                }
 
             self.current_stability_data = stability_data
 

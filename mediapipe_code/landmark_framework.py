@@ -7,6 +7,7 @@ import uuid
 import mediapipe as mp
 import cv2
 from llm_run_code import get_analysis_result, get_comparison_result, run_llm_analysis, run_llm_analysis_test, run_llm_comparison
+from utils.pose_landmarks import LEFT_HIP, LEFT_KNEE, RIGHT_HIP, RIGHT_KNEE
 from utils.trackers.traker_configuration import THRESHOLD_DEEP
 from utils.trackers.trend_analyzer import TrendAnalyzer
 from utils.trackers.ankle_tracker import AnkleTracker
@@ -29,6 +30,8 @@ from utils.landmark_quality_methods import (
     extract_frames_from_memory,
     format_rep_data,
     get_first_pose,
+    get_y,
+    get_y_px,
     resize_video,
     safe_get_landmark, 
     select_landmarks_by_view,
@@ -334,6 +337,25 @@ class LandmarkQualityFramework:
 
                 torso_angle = torso_vertical_angle(world_pose)
 
+
+                if camera_view == "side_left":
+                    hip_y = get_y(norm_pose, LEFT_HIP)
+                    knee_y = get_y(norm_pose, LEFT_KNEE)
+                elif camera_view == "side_right":
+                    hip_y = get_y(norm_pose, RIGHT_HIP)
+                    knee_y = get_y(norm_pose, RIGHT_KNEE)
+                else:
+                    left_hip_y = get_y(norm_pose, LEFT_HIP)
+                    right_hip_y = get_y(norm_pose, RIGHT_HIP)
+                    left_knee_y = get_y(norm_pose, LEFT_KNEE)
+                    right_knee_y = get_y(norm_pose, RIGHT_KNEE)
+
+                    hip_vals = [v for v in (left_hip_y, right_hip_y) if v is not None]
+                    knee_vals = [v for v in (left_knee_y, right_knee_y) if v is not None]
+
+                    hip_y = sum(hip_vals) / len(hip_vals) if hip_vals else None
+                    knee_y = sum(knee_vals) / len(knee_vals) if knee_vals else None
+                    
                 rep_completed = None
                 if hip_angle is not None:
                     rep_completed, rep_count = rep_update(
@@ -365,6 +387,8 @@ class LandmarkQualityFramework:
                     hip_angle,
                     knee_angle,
                     camera_view,
+                    hip_y,
+                    knee_y,
                 )
 
                 stability_data = stability_update(
@@ -398,8 +422,11 @@ class LandmarkQualityFramework:
                              "hip_angle": hip_angle,
                              "knee_angle":knee_angle,
                              "back_angle_value":back_angle_value,
-                             "knee_valgus_distance": stability_data["knee_valgus_distance"] if stability_data else None,
-                             "dorsiflexion": ankle_data["dorsiflexion_at_bottom"] if ankle_data else None,
+                             "back_label": back_data["back_label"] if back_data else None,
+                             "valgus_label": stability_data["valgus_label"] if stability_data else None,
+                             "depth_classification": depth_data["depth_classification"] if depth_data else None,
+                             "dorsiflexion_status": ankle_data["dorsiflexion_status"] if ankle_data else None,
+                             "dorsiflexion_at_bottom": ankle_data["dorsiflexion_at_bottom"] if ankle_data else None,
                              "rep_number":rep_counter.rep_count}
                         )
 
@@ -473,10 +500,14 @@ class LandmarkQualityFramework:
         quality_result = evaluate_quality_gate(
             raw_frames,
             composite_score,
-            rep_count,
+            len(reps_json_info),
         )
 
         quality_result["analysis_id"] = str(uuid.uuid4())
+
+        quality_result["event"] = "mediapipe_complete"
+
+        print(quality_result)
         
 
         if quality_result["event"] != "mediapipe_complete":
@@ -506,7 +537,7 @@ class LandmarkQualityFramework:
                 "analysis_id": str(uuid.uuid4()),
                 "exercise": exercise,
                 "weight_kg": weight_kg,
-                "rep_count": rep_count,
+                "rep_count": len(reps_json_info),
                 "camera_view": camera_view,
                 "date": str(datetime.date.today()),
             },
@@ -541,6 +572,7 @@ class LandmarkQualityFramework:
             )
 
         return final_json, quality_result, collage_b64, bottom_frames
+    
     
     def _render_video_from_cache(
         self,
@@ -704,20 +736,20 @@ class LandmarkQualityFramework:
 
 
 # How to use it
-"""framework = LandmarkQualityFramework(model_path=MEDIAPIPE_MODEL)
-input_dir = "./mediapipe_code/videos/good_form/v5_torso_fault.mp4"
-analysis_path = "./mediapipe_code/results/analysis_testing_torso_fault.json"
+framework = LandmarkQualityFramework(model_path=MEDIAPIPE_MODEL)
+input_dir = "./mediapipe_code/videos/good_form/v1_depth_fault.mp4"
+analysis_path = "./mediapipe_code/results/analysis_testing_depth_fault.json"
 
 final_json, quality_result, collage_b64, rep_frames_list = framework.process_video_once(input_dir, "goblet squat", 20)
 
-frame = extract_worst_frame(input_dir, analysis_path, rep_frames_list, "v5_fault")"""
+frame = extract_worst_frame(input_dir, analysis_path, rep_frames_list, "v1_fault")
 
 """start = time.time()
 result = run_llm_analysis_test(final_json, collage_b64, debug=True)
 
 output_dir = "./mediapipe_code/results"
 os.makedirs(output_dir, exist_ok=True)
-json_filename = os.path.join(output_dir, f"test_2.json")
+json_filename = os.path.join(output_dir, f"test_3.json")
 with open(json_filename, "w", encoding="utf-8") as f:
         json.dump(
             result,

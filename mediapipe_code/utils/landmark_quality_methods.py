@@ -513,57 +513,60 @@ def format_rep_data(rep_count, tempo_data, back_data, depth_data, stability_data
     data = {
         "rep_number": rep_count,
         "tempo_data": {
-            "tempo_notation": tempo_data["tempo_notation"],
-            "eccentric": tempo_data["eccentric"],
-            "pause": tempo_data["pause"],
-            "concentric": tempo_data["concentric"],
-            "total": tempo_data["total_time"],
+            "tempo_notation": tempo_data["tempo_notation"] if tempo_data else None,
+            "eccentric": tempo_data["eccentric"] if tempo_data else None,
+            "pause": tempo_data["pause"] if tempo_data else None,
+            "concentric": tempo_data["concentric"] if tempo_data else None,
+            "total": tempo_data["total_time"] if tempo_data else None,
         },
         "back_data": {
-            "back_angle_start": back_data["back_angle_start"],
-            "back_angle_max": back_data["back_angle_max"],
-            "back_angle_at_bottom": back_data["back_angle_at_bottom"],
-            "time_warning": back_data["time_warning"],
-            "time_excessive": back_data["time_excessive"],
-            "status": back_data["status"],
+            "back_angle_start": back_data["back_angle_start"] if back_data else None,
+            "back_angle_max": back_data["back_angle_max"] if back_data else None,
+            "back_angle_at_bottom": back_data["back_angle_at_bottom"] if back_data else None,
+            "time_warning": back_data["time_warning"] if back_data else None,
+            "time_excessive": back_data["time_excessive"] if back_data else None,
+            "back_label": back_data["back_label"] if back_data else None,
         },
         "depth_data": {
-            "knee_angle_start": depth_data["knee_angle_start"],
-            "knee_angle_at_bottom": depth_data["knee_angle_at_bottom"],
-            "knee_angle_min": depth_data["knee_angle_min"],
-            "hip_angle_start": depth_data["hip_angle_start"],
-            "hip_angle_at_bottom": depth_data["hip_angle_at_bottom"],
-            "hip_angle_min": depth_data["hip_angle_min"],
-            "depth_classification": depth_data["depth_classification"],
-            "depth_insufficient_flag": depth_data["depth_insufficient_flag"],
+            "knee_angle_start": depth_data["knee_angle_start"] if depth_data else None,
+            "knee_angle_at_bottom": depth_data["knee_angle_at_bottom"] if depth_data else None,
+            "knee_angle_min": depth_data["knee_angle_min"] if depth_data else None,
+            "hip_angle_start": depth_data["hip_angle_start"] if depth_data else None,
+            "hip_angle_at_bottom": depth_data["hip_angle_at_bottom"] if depth_data else None,
+            "hip_angle_min": depth_data["hip_angle_min"] if depth_data else None,
+            "depth_classification": depth_data["depth_classification"] if depth_data else None,
+            "depth_insufficient_flag": depth_data["depth_insufficient_flag"] if depth_data else None,
         },
         "stability_data": {
             "knee_valgus_distance": None,
+            "knee_gap_hip_gap_ratio": None,
+            "valgus_severity": None,
+            "valgus_label": None,
             "valgus_flag": None,
             "valgus_phase": None,
         },
         "ankle_data": {
-            "dorsiflexion_at_bottom": None,
+            "dorsiflexion_at_bottom": ankle_data["dorsiflexion_at_bottom"] if ankle_data else None,
+            "dorsiflexion_status": ankle_data["dorsiflexion_status"] if ankle_data else None,
             "foot_turnout_left": None,
             "foot_turnout_right": None,
         },
     }
 
     if camera_view == "front":
-        data["stability_data"]["knee_valgus_distance"] = stability_data["knee_valgus_distance"]
-        data["stability_data"]["valgus_flag"] = stability_data["valgus_flag"]
+        data["stability_data"]["knee_valgus_distance"] = stability_data["knee_valgus_distance"] if stability_data else None
+        data["stability_data"]["valgus_flag"] = stability_data["valgus_flag"] if stability_data else None
         data["stability_data"]["valgus_phase"] = (
-            stability_data["valgus_phase"] if stability_data["valgus_flag"] else None
+            stability_data["valgus_phase"] if stability_data else None
         )
-
-    if camera_view in ("side_left", "side_right", "side"):
-        if ankle_data:
-            data["ankle_data"]["dorsiflexion_at_bottom"] = ankle_data["dorsiflexion_at_bottom"]
+        data["stability_data"]["knee_gap_hip_gap_ratio"] = stability_data["knee_gap_hip_gap_ratio"] if stability_data else None
+        data["stability_data"]["valgus_severity"] = stability_data["valgus_severity"] if stability_data else None
+        data["stability_data"]["valgus_label"] = stability_data["valgus_label"] if stability_data else None
 
     if camera_view == "front":
         if ankle_data:
-            data["ankle_data"]["foot_turnout_left"] = ankle_data["foot_turnout_left"]
-            data["ankle_data"]["foot_turnout_right"] = ankle_data["foot_turnout_right"]
+            data["ankle_data"]["foot_turnout_left"] = ankle_data["foot_turnout_left"] if ankle_data else None
+            data["ankle_data"]["foot_turnout_right"] = ankle_data["foot_turnout_right"] if ankle_data else None
 
     return data
 
@@ -737,3 +740,16 @@ def resize_video(video_path: str):
         subprocess.run(command)
 
         return output_path
+
+
+def get_y(norm_pose, idx):
+    lm = safe_get_landmark(norm_pose, idx)
+    if lm is None:
+        return None
+    return lm.y
+
+def get_y_px(norm_pose, idx, height):
+    lm = safe_get_landmark(norm_pose, idx)
+    if lm is None:
+        return None
+    return int(lm.y * height)
