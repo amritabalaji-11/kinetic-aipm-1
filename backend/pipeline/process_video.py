@@ -221,39 +221,27 @@ async def run_mediapipe_analysis(session_id: str, file_location: str):
             )
 
         # -------------------------------------------------
-        # STEP 5 — Haiku Call 1: form analysis (PATCH-S2-W7-B)
-        # Placeholder — real Haiku call wired in S2-W7-05 / S2-W7-06.
-        # When wired, pass overall_score from Haiku output to analysis_ready.
+        # STEP 7 — rest of the pipeline (placeholders for now)
+        # These will be replaced when Nemotron, RAG, and Claude are wired up
         # -------------------------------------------------
-        await sse_manager.send_event(session_id, "haiku_started", 60)
-        await asyncio.sleep(2)  # placeholder for actual Haiku Call 1
+        await sse_manager.send_event(session_id, "nemotron_started", 60)
+        await asyncio.sleep(2)
+        await sse_manager.send_event(session_id, "nemotron_complete", 80)
 
-        # analysis_ready → Tab 1 unlocks on frontend.
-        # S1 calls GET /analysis/{id}/result on receipt.
-        # overall_score will be populated by S2-W7-05/06.
-        await sse_manager.send_event(session_id, "analysis_ready", 85, status="success")
+        await sse_manager.send_event(session_id, "rag_started", 85)
+        await asyncio.sleep(2)
+        await sse_manager.send_event(session_id, "rag_complete", 95)
 
-        # -------------------------------------------------
-        # STEP 5b — OpenCV Part 2: annotated frame extraction
-        # Placeholder — real frame extraction wired in S2-W7-02 / S2-W7-06.
-        # When wired, pass annotated_frame_url (public HTTPS URL, not GCS URI).
-        # -------------------------------------------------
-        await asyncio.sleep(2)  # placeholder for actual OpenCV extraction
+        await sse_manager.send_event(session_id, "claude_started", 96)
+        await asyncio.sleep(1)
+        await sse_manager.send_event(session_id, "claude_complete", 100)
 
-        # frame_ready → annotated frame swaps in on frontend (~2–3s after analysis_ready).
-        # annotated_frame_url will be populated by S2-W7-02/06.
-        await sse_manager.send_event(session_id, "frame_ready", 95, status="success")
-
-        # -------------------------------------------------
-        # STEP 7 — Haiku Call 2: progression output (async, does not block Tab 1)
-        # Placeholder — real progression call wired in S2-W7-06.
-        # -------------------------------------------------
-        await asyncio.sleep(1)  # placeholder for actual Haiku Call 2
-
-        # progression_ready → Tab 2 unlocks on frontend.
-        # S1 calls GET /analysis/{id}/progression on receipt.
-        # status="completed" closes the SSE stream cleanly.
-        await sse_manager.send_event(session_id, "progression_ready", 100, status="completed")
+        await sse_manager.send_event(
+            session_id,
+            "analysis_complete",
+            100,
+            status="complete"
+        )
 
         print(f"[pipeline] Completed session={session_id}, reps={rep_count}")
         return mp_result
