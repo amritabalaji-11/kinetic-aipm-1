@@ -5,6 +5,8 @@ from db.database import db
 from utils.config import FRONTEND_ORIGIN
 from routes.health import router as health_router
 from routes import upload, stream, analysis
+from routes.analysis_haiku_integration_example import router as haiku_router
+
 
 app = FastAPI()
 
@@ -22,6 +24,8 @@ app.include_router(health_router)
 app.include_router(upload.router)
 app.include_router(stream.router)
 app.include_router(analysis.router)
+app.include_router(haiku_router) 
+
 
 #DB connection management
 @app.on_event("startup")
