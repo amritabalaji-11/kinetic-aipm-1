@@ -52,8 +52,12 @@ class SSEManager:
 
                 # Check if the pipeline is done (success or failure)
                 # If so, close the stream — no more events are coming
+                #
+                # "completed" — progression_ready fires, all pipeline stages done
+                # "failed"    — error event fired, pipeline terminated
+                # "complete"  — legacy alias, kept for backward compat during rollout
                 parsed = json.loads(data)
-                if parsed.get("status") in ["completed", "failed"]:
+                if parsed.get("status") in ["completed", "complete", "failed"]:
                     print(f"[SSE] Stream finished: {analysis_id}")
                     break
 
@@ -75,8 +79,16 @@ class SSEManager:
         status: str = "in_progress",
         extra: dict = None,
     ):
+     
         # Builds a normal progress event and sends it to all connected clients.
-        # Used for all the happy-path steps: upload_received, mediapipe_started, etc.
+        # Used for all happy-path steps: upload_received, mediapipe_started,
+        # haiku_started, analysis_ready, frame_ready, progression_ready, etc.
+        #
+        # **extra supports optional per-event payload fields:
+        #   analysis_ready  → overall_score (integer, from Haiku Call 1)
+        #   frame_ready     → annotated_frame_url (public HTTPS URL, from OpenCV Part 2)
+        #
+        # None values are stripped so we don't send null fields to the frontend.
         payload_dict = {
             "analysis_id": analysis_id,
             "event": event_name,
@@ -84,7 +96,8 @@ class SSEManager:
             "status": status,
         }
         if extra:
-            payload_dict.update(extra)
+            payload_dict.update({k: v for k, v in extra.items() if v is not None})
+
         payload = json.dumps(payload_dict)
 
         print(f"[SSE] Sending event: {event_name} for {analysis_id}")
@@ -120,15 +133,20 @@ class SSEManager:
         # If we pass a Python boolean False, JavaScript sees it as the string "False"
         # which is truthy — so the wrong button would show. Always pass "true"/"false".
         #
-        # error_stage tells the frontend which part of the pipeline failed:
-        #   "quality_gate" — bad video (camera angle, occlusion, not enough reps)
-        #   "biomechanics"  — computation crashed or video was too short
+        # error_stage enum (PATCH-S2-W7-B — Haiku pipeline):
+        #   "quality_gate"   — bad video (occlusion, out-of-frame, poor quality, reps)
+        #   "biomechanics"   — computation crashed or video too short
+        #   "haiku_call_1"   — Haiku Call 1 (form analysis) failed
+        #   "opencv_part_2"  — OpenCV frame extraction failed (partial — Tab 1 still loads)
+        #   "haiku_call_2"   — Haiku Call 2 (progression) failed (partial — Tab 1 still loads)
+        #   "pipeline"       — worker crash, timeout, unhandled exception
 
         payload_dict = {
             "analysis_id": analysis_id,
             "event": "error",
-            "error_code": error_code,       # e.g. "occlusion_left_side"
-            "error_stage": error_stage,     # quality_gate · biomechanics · haiku_call_1 · opencv_part_2 · haiku_call_2 · pipeline
+
+            "error_code": error_code,       # e.g. "HAIKU_TIMEOUT"
+            "error_stage": error_stage,     # e.g. "haiku_call_1"
             "retryable": retryable,         # "true" or "false" — always a string
             "message": message,             # internal message — NOT shown to user
             "status": "failed",             # tells the SSE subscriber to close the stream
