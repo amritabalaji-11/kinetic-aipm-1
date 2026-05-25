@@ -26,11 +26,13 @@ import json
 import logging
 from pathlib import Path
 from typing import Any, Optional
+import os
+import re
 
 from anthropic import Anthropic
 
 # Import the prompt builder service
-from backend.services.prompt_builder import load_md_files
+from services.prompt_builder import load_md_files
 
 logger = logging.getLogger(__name__)
 
@@ -115,7 +117,8 @@ class HaikuCall1:
         # Call Haiku with cached system prompt
         logger.debug(f"Calling Haiku with {len(user_message['content'])} tokens")
         response = self.client.messages.create(
-            model="claude-3-5-haiku-20241022",
+            #model="claude-3-5-haiku-20241022",
+            model="claude-haiku-4-5-20251001",
             max_tokens=max_tokens,
             system=self.system_prompt,  # Cached, static
             messages=[{"role": "user", "content": user_message["content"]}],
@@ -126,16 +129,31 @@ class HaikuCall1:
         logger.debug(f"Haiku response: {len(response_text)} chars")
 
         try:
-            coaching_output = json.loads(response_text)
+            # STEP 1: remove markdown fences
+            cleaned = re.sub(r"```json", "", response_text)
+            cleaned = cleaned.replace("```", "").strip()
+            # STEP 2: extract JSON safely (handles truncation)
+            start = cleaned.find("{")
+            end = cleaned.rfind("}")
+            if start == -1 or end == -1:
+                raise ValueError("No JSON found in response")
+
+            cleaned_json = cleaned[start:end+1]
+
+            # STEP 3: parse
+            coaching_output = json.loads(cleaned_json)
+
             logger.info(
-                f"Form analysis complete: score={coaching_output.get('overall_form_score', 'N/A')}, "
-                f"verdict={coaching_output.get('verdict_label', 'N/A')}"
+                f"Form analysis complete: score={coaching_output.get('overall_form_score')}, "
+                f"verdict={coaching_output.get('verdict_label')}"
             )
             return coaching_output
+
         except json.JSONDecodeError as e:
-            logger.error(f"Failed to parse Haiku response as JSON: {e}")
-            logger.error(f"Response text: {response_text[:500]}")
-            raise ValueError(f"Haiku response is not valid JSON: {e}") from e
+            logger.error("RAW RESPONSE (first 2000 chars):")
+            logger.error(response_text[:2000])
+            raise ValueError(f"Invalid JSON from model: {e}") from e
+            
 
     def _build_user_message(
         self,

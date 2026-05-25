@@ -13,8 +13,8 @@ from pydantic import BaseModel, Field
 from fastapi import APIRouter, HTTPException, logger as fastapi_logger
 from anthropic import APIError as AnthropicAPIError
 
-from backend.services.haiku_call_1_integration import HaikuCall1
-from backend.services.prompt_builder import (
+from services.haiku_call_1_integration import HaikuCall1
+from services.prompt_builder import (
     PromptBuilderError,
     CoachingReferenceNotFoundError,
 )
