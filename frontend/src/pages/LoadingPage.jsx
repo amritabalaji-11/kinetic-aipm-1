@@ -1,21 +1,98 @@
-import { useEffect } from "react"
+import { useEffect, useState, useRef } from "react"
 import { useNavigate, useLocation } from "react-router-dom"
 import { Lightbulb, Check, X, AlertTriangle } from "lucide-react"
 import { useSSEStream } from "../hooks/useSSEStream"
+
+// ─── Fixture imports (W5 only) ────────────────────────────────────────────────
+import FIXTURE_CLEAN from "../../../fixtures/form-analysis.clean.json"
+
+// ─── Fake pipeline steps for fixture mode ────────────────────────────────────
+const FIXTURE_STEPS = [
+  { label: "Lock onto your posture…" },
+  { label: "Check your barbell depth…" },
+  { label: "Mapping bar path and stability…" },
+  { label: "Calculating force and rhythm…" },
+]
+const STEP_DELAY_MS = 900
+const DONE_HOLD_MS  = 1200
+
+// ─────────────────────────────────────────────────────────────────────────────
 
 function LoadingPage() {
   const navigate = useNavigate()
   const location = useLocation()
 
-  const { analysisId, videoPreviewUrl } = location.state || {}
+  const {
+    analysisId,
+    videoPreviewUrl,
+    fixtureMode,
+    exercise,
+  } = location.state || {}
 
-  const { steps, isDone, error, partialWarning, cancel, resultUrl } = useSSEStream(analysisId)
+  // ── FIXTURE MODE (W5) ─────────────────────────────────────────────────────
+  // When fixtureMode: true is passed from UploadScanPage, skip the SSE stream
+  // entirely and run a fake timed pipeline instead.
+  const [fixtureSteps, setFixtureSteps] = useState(
+    FIXTURE_STEPS.map((s) => ({ label: s.label, status: "pending" }))
+  )
+  const [fixtureDone, setFixtureDone] = useState(false)
+  const abortRef = useRef(null)
+
+  useEffect(() => {
+    if (!fixtureMode) return
+
+    const ac = new AbortController()
+    abortRef.current = ac
+
+    const sleep = (ms) =>
+      new Promise((res, rej) => {
+        const t = setTimeout(res, ms)
+        ac.signal.addEventListener("abort", () => { clearTimeout(t); rej(new Error("aborted")) })
+      })
+
+    ;(async () => {
+      try {
+        for (let i = 0; i < FIXTURE_STEPS.length; i++) {
+          await sleep(STEP_DELAY_MS)
+          setFixtureSteps(FIXTURE_STEPS.map((s, idx) => ({
+            label:  s.label,
+            status: idx < i  ? "complete"
+                  : idx === i ? "active"
+                  : "pending",
+          })))
+        }
+        await sleep(STEP_DELAY_MS)
+        setFixtureSteps(FIXTURE_STEPS.map((s) => ({ label: s.label, status: "complete" })))
+        await sleep(DONE_HOLD_MS)
+        setFixtureDone(true)
+      } catch {
+        // aborted — user cancelled
+      }
+    })()
+
+    return () => ac.abort()
+  }, [fixtureMode])
+
+  // Navigate to results once fixture pipeline finishes
+  useEffect(() => {
+    if (!fixtureMode || !fixtureDone) return
+    navigate("/upload/results", {
+      state: {
+        analysisResult: FIXTURE_CLEAN,
+        videoPreviewUrl,
+        exercise,
+      },
+    })
+  }, [fixtureMode, fixtureDone])
+
+  // ── REAL SSE MODE (W6) ────────────────────────────────────────────────────
+  const { steps, isDone, error, partialWarning, cancel, resultUrl } =
+    useSSEStream(fixtureMode ? null : analysisId)
 
   const BASE_URL = import.meta.env.VITE_API_URL || "http://localhost:8000"
 
-  // When analysis_complete fires, fetch the full record then navigate to results
   useEffect(() => {
-    if (!isDone) return
+    if (fixtureMode || !isDone) return
     const timer = setTimeout(async () => {
       let analysisResult = null
       try {
@@ -42,11 +119,10 @@ function LoadingPage() {
       })
     }, 1500)
     return () => clearTimeout(timer)
-  }, [isDone, analysisId, navigate, resultUrl, videoPreviewUrl])
+  }, [fixtureMode, isDone, analysisId, navigate, resultUrl, videoPreviewUrl])
 
-
-  // Guard — no analysis in progress
-  if (!analysisId) {
+  // ── GUARD — no analysis in progress (real mode only) ─────────────────────
+  if (!fixtureMode && !analysisId) {
     return (
       <div className="min-h-screen bg-light-bg dark:bg-dark-bg flex flex-col items-center justify-center px-6">
         <p className="text-text-primary dark:text-white text-body text-center mb-4">
@@ -62,7 +138,20 @@ function LoadingPage() {
     )
   }
 
+  // Pick which steps + done state to show depending on mode
+  const displaySteps  = fixtureMode ? fixtureSteps : steps
+  const displayIsDone = fixtureMode ? fixtureDone  : isDone
 
+  function handleCancel() {
+    if (fixtureMode) {
+      abortRef.current?.abort()
+    } else {
+      cancel()
+    }
+    navigate("/upload")
+  }
+
+  // ── RENDER ────────────────────────────────────────────────────────────────
   return (
     <div className="min-h-screen bg-light-bg dark:bg-dark-bg flex flex-col">
 
@@ -73,10 +162,7 @@ function LoadingPage() {
             <video
               src={videoPreviewUrl}
               className="w-full h-full object-cover object-center"
-              autoPlay
-              muted
-              loop
-              playsInline
+              autoPlay muted loop playsInline
             />
           ) : (
             <div className="w-full h-full bg-dark-card flex items-center justify-center">
@@ -85,7 +171,6 @@ function LoadingPage() {
           )}
         </div>
       </div>
-
 
       {/* Content */}
       <div className="flex flex-col flex-1 px-5 pt-5 pb-8 gap-4">
@@ -103,10 +188,8 @@ function LoadingPage() {
           </p>
         </div>
 
-
-        {/* Partial warning banner — non-blocking */}
-        {/* Shows when retryable: "partial" fires — pipeline still running, results still load */}
-        {partialWarning && (
+        {/* Partial warning — real mode only */}
+        {!fixtureMode && partialWarning && (
           <div className="bg-amber-50 dark:bg-amber-900/20 rounded-2xl px-4 py-3 border border-amber-200 dark:border-amber-700 flex items-start gap-3">
             <AlertTriangle size={16} className="text-amber-500 mt-0.5 shrink-0" />
             <p className="text-body text-amber-700 dark:text-amber-400">
@@ -115,25 +198,18 @@ function LoadingPage() {
           </div>
         )}
 
-
         {/* Tips card */}
         <div className="bg-white dark:bg-dark-card rounded-2xl p-4 border border-gray-100 dark:border-transparent flex items-start gap-3">
-          <Lightbulb
-            size={18}
-            className="text-text-tertiary dark:text-gray-400 mt-0.5 shrink-0"
-          />
+          <Lightbulb size={18} className="text-text-tertiary dark:text-gray-400 mt-0.5 shrink-0" />
           <p className="text-body text-text-tertiary dark:text-gray-400 leading-relaxed">
-            <span className="text-text-primary dark:text-white font-medium">
-              Tips:{" "}
-            </span>
+            <span className="text-text-primary dark:text-white font-medium">Tips: </span>
             Take a 45-second breather. Your muscles need this reset for the next set.
           </p>
         </div>
 
-
-        {/* Steps checklist card */}
+        {/* Steps checklist */}
         <div className="bg-white dark:bg-dark-card rounded-2xl px-4 py-3 border border-gray-100 dark:border-transparent flex flex-col gap-3">
-          {steps.map((step, index) => (
+          {displaySteps.map((step, index) => (
             <div key={index} className="flex items-center gap-3">
               <StepIcon status={step.status} />
               <span
@@ -150,61 +226,38 @@ function LoadingPage() {
           ))}
         </div>
 
-
         <div className="flex-1" />
 
-
         {/* Buttons */}
-
-        {/* Blocking error state */}
-        {error ? (
+        {!fixtureMode && error ? (
           <div className="flex flex-col gap-3">
-
-            {/* Error message — from error_code lookup, never from backend message field */}
             <div className="bg-red-50 dark:bg-red-900/20 rounded-2xl px-4 py-3 border border-red-100 dark:border-red-800">
               <p className="text-body text-error">{error.userMessage}</p>
             </div>
-
             <div className="flex gap-3">
-              {/* Cancel is always shown on error */}
               <button
                 className="flex-1 py-4 rounded-2xl text-button font-medium text-white"
                 style={{ backgroundColor: "#E57373" }}
-                onClick={() => {
-                  cancel()
-                  navigate("/upload")
-                }}
+                onClick={handleCancel}
               >
                 Cancel
               </button>
-
-              {/* Always show Try Again — matches Figma design */}
               <button
                 className="flex-1 py-4 rounded-2xl text-button font-medium text-white"
                 style={{ backgroundColor: "#E8A050" }}
-                onClick={() => {
-                  cancel()
-                  navigate("/upload")
-                }}
+                onClick={handleCancel}
               >
                 Try Again
               </button>
             </div>
           </div>
-
         ) : (
-          // Normal state — Cancel while processing, disabled when done
           <button
             className="w-full py-4 rounded-2xl text-button font-medium text-white uppercase tracking-wide dark:bg-[#7B1D1D] bg-[#E57373]"
-            onClick={() => {
-              if (!isDone) {
-                cancel()
-                navigate("/upload")
-              }
-            }}
-            disabled={isDone}
+            onClick={() => { if (!displayIsDone) handleCancel() }}
+            disabled={displayIsDone}
           >
-            {isDone ? "Complete! Taking you to results..." : "Cancel"}
+            {displayIsDone ? "Complete! Taking you to results..." : "Cancel"}
           </button>
         )}
 
@@ -213,50 +266,27 @@ function LoadingPage() {
   )
 }
 
-
-// Step icon component — matches Figma exactly
 function StepIcon({ status }) {
-
   if (status === "complete") {
     return (
-      <div
-        className="w-5 h-5 rounded-full flex items-center justify-center shrink-0"
-        style={{ backgroundColor: "#00d66b" }}
-      >
+      <div className="w-5 h-5 rounded-full flex items-center justify-center shrink-0" style={{ backgroundColor: "#00d66b" }}>
         <Check size={11} color="white" strokeWidth={3} />
       </div>
     )
   }
-
   if (status === "active") {
-    // Spinning teal ring — matches Figma loading state
     return (
-      <div
-        className="w-5 h-5 rounded-full border-2 animate-spin shrink-0"
-        style={{
-          borderColor: "#99f6e4",
-          borderTopColor: "transparent",
-        }}
-      />
+      <div className="w-5 h-5 rounded-full border-2 animate-spin shrink-0" style={{ borderColor: "#99f6e4", borderTopColor: "transparent" }} />
     )
   }
-
   if (status === "error") {
     return (
-      <div
-        className="w-5 h-5 rounded-full flex items-center justify-center shrink-0"
-        style={{ backgroundColor: "#ff3b30" }}
-      >
+      <div className="w-5 h-5 rounded-full flex items-center justify-center shrink-0" style={{ backgroundColor: "#ff3b30" }}>
         <X size={11} color="white" strokeWidth={3} />
       </div>
     )
   }
-
-  // pending — gray circle outline
-  return (
-    <div className="w-5 h-5 rounded-full border-2 border-gray-300 dark:border-gray-600 shrink-0" />
-  )
+  return <div className="w-5 h-5 rounded-full border-2 border-gray-300 dark:border-gray-600 shrink-0" />
 }
-
 
 export default LoadingPage
