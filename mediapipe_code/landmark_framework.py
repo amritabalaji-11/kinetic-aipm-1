@@ -7,6 +7,7 @@ import uuid
 import mediapipe as mp
 import cv2
 from llm_run_code import get_analysis_result, get_comparison_result, run_llm_analysis, run_llm_analysis_test, run_llm_comparison
+from prompt_script_haiku_v2 import run_llm_analysis_test_haiku_v2
 from utils.pose_landmarks import LEFT_HIP, LEFT_KNEE, RIGHT_HIP, RIGHT_KNEE
 from utils.trackers.traker_configuration import THRESHOLD_DEEP
 from utils.trackers.trend_analyzer import TrendAnalyzer
@@ -737,19 +738,19 @@ class LandmarkQualityFramework:
 
 # How to use it
 framework = LandmarkQualityFramework(model_path=MEDIAPIPE_MODEL)
-input_dir = "./mediapipe_code/videos/good_form/v1_depth_fault.mp4"
+input_dir = "./mediapipe_code/videos/user_001_videos/user_001_side_12.5kg.mp4"
 analysis_path = "./mediapipe_code/results/analysis_testing_depth_fault.json"
 
-final_json, quality_result, collage_b64, rep_frames_list = framework.process_video_once(input_dir, "goblet squat", 20)
+start = time.time()
+final_json, quality_result, collage_b64, rep_frames_list = framework.process_video_once(input_dir, "goblet-squat", 12.5)
 
-frame = extract_worst_frame(input_dir, analysis_path, rep_frames_list, "v1_fault")
+#frame = extract_worst_frame(input_dir, analysis_path, rep_frames_list, "v1_fault")
 
-"""start = time.time()
-result = run_llm_analysis_test(final_json, collage_b64, debug=True)
+result = run_llm_analysis_test_haiku_v2(final_json, collage_b64, debug=True)
 
-output_dir = "./mediapipe_code/results"
+output_dir = "./mediapipe_code/results/call_1"
 os.makedirs(output_dir, exist_ok=True)
-json_filename = os.path.join(output_dir, f"test_3.json")
+json_filename = os.path.join(output_dir, f"call_1_user_001_side_12.5kg.json")
 with open(json_filename, "w", encoding="utf-8") as f:
         json.dump(
             result,
@@ -758,4 +759,4 @@ with open(json_filename, "w", encoding="utf-8") as f:
             ensure_ascii=False,
         )
 
-print(time.time() - start)"""
+print("Total time:",time.time() - start)

@@ -753,3 +753,21 @@ def get_y_px(norm_pose, idx, height):
     if lm is None:
         return None
     return int(lm.y * height)
+
+
+def apply_person_mask(frame_bgr, segmentation_mask, threshold=0.5):
+    mask = segmentation_mask.numpy_view()
+
+    if mask.shape[:2] != frame_bgr.shape[:2]:
+        mask = cv2.resize(
+            mask,
+            (frame_bgr.shape[1], frame_bgr.shape[0]),
+            interpolation=cv2.INTER_LINEAR,
+        )
+
+    if len(mask.shape) == 3:
+        mask = mask[:, :, 0]
+
+    binary = (mask > threshold).astype(np.uint8)
+
+    return frame_bgr * binary[:, :, None]
