@@ -417,7 +417,30 @@ async def run_mediapipe_analysis(analysis_id: str, file_location: str):
                     }]
                 )
 
-                progression_output = json.loads(response.content[0].text)
+                response_text = (response.content[0].text if response.content else "").strip()
+                
+                if not response_text.strip():
+                    raise ValueError("Empty response from Haiku Call 2")
+                    
+                # ── Clean + extract JSON safely ───────────────────────────
+                cleaned = re.sub(r"```json", "", response_text)
+                cleaned = cleaned.replace("```", "").strip()
+                start = cleaned.find("{")
+                end = cleaned.rfind("}")
+                    
+                if start == -1 or end == -1:
+                        print("[pipeline] RAW RESPONSE:")
+                        print(response_text[:2000])
+                        raise ValueError("No JSON found in Haiku response")                        
+                
+                cleaned_json = cleaned[start:end + 1]
+                
+                try:
+                    progression_output = json.loads(cleaned_json)
+                except json.JSONDecodeError as e:
+                    print("[pipeline] RAW RESPONSE:")
+                    print(response_text[:2000])
+                    raise ValueError(f"Invalid JSON from Haiku Call 2: {e}")```
                 print(f"[pipeline] Haiku Call 2 complete for analysis_id={analysis_id}")
 
                 # ── Store to DB ──────────────────────────────────────────
