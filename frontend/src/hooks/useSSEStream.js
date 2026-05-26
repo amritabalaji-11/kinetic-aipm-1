@@ -2,19 +2,24 @@ import { useState, useEffect, useRef } from "react"
 
 const PIPELINE_STEPS = [
   {
-    label: "Receiving your video",
-    activeOn: ["upload_received"],
-    completeOn: "upload_received",
+    label: "Lock onto your posture...",
+    activeOn: ["upload_received", "mediapipe_started"],
+    completeOn: "mediapipe_complete",
   },
   {
-    label: "Detecting your movement",
-    activeOn: ["mediapipe_started", "mediapipe_complete"],
-    completeOn: "biomechanics_complete",
+    label: "Check your barbell depth...",
+    activeOn: ["biomechanics_complete"],
+    completeOn: "haiku_started",
   },
   {
-    label: "Analysing your form",
-    activeOn: ["biomechanics_complete", "haiku_started"],
+    label: "Analysing your form...",
+    activeOn: ["haiku_started"],
     completeOn: "analysis_ready",
+  },
+  {
+    label: "Building your coaching report...",
+    activeOn: ["analysis_ready", "frame_ready"],
+    completeOn: "progression_ready",
   },
 ]
 
@@ -83,14 +88,10 @@ function useSSEStream(analysisId) {
 
       if (eventName === "error") {
         const code = parsed.error_code || "SYSTEM_ERROR"
-        const retryable = parsed.retryable || "true"
+        const retryable = parsed.retryable 
         const userMessage = ERROR_USER_COPY[code] || "Something went wrong. Please try again."
 
-        if (retryable === "partial") {
-          setPartialWarning(userMessage)
-          return
-        }
-
+     
         setSteps(prev => prev.map(s => s.status === "active" ? { ...s, status: "error" } : s))
         setError({ userMessage })
         es.close()
@@ -100,17 +101,26 @@ function useSSEStream(analysisId) {
       if (eventName === "analysis_ready") {
         const lastIndex = PIPELINE_STEPS.findIndex(s => s.completeOn === "analysis_ready")
         if (lastIndex !== -1) updateStep(lastIndex, "complete")
+        return
+      }
+
+      // --- Final event ---
+      if (eventName === "progression_ready") {
+        const lastIndex = PIPELINE_STEPS.findIndex(s => s.completeOn === "progression_ready")
+        if (lastIndex !== -1) updateStep(lastIndex, "complete")
 
         if (!doneRef.current) {
           doneRef.current = true
-          setResultUrl(null)
           setIsDone(true)
+          setResultUrl(parsed.full_result_url || null)
+
         }
+
         es.close()
         return
       }
 
-      if (eventName === "frame_ready" || eventName === "progression_ready") {
+      if (eventName === "frame_ready") {
         return
       }
 

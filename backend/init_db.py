@@ -18,10 +18,31 @@ CREATE TABLE IF NOT EXISTS form_analyses (
     biomechanics_json TEXT,
     error_code TEXT,
     rep_count INTEGER,
+
+    -- Video metadata stored at upload time — used in upload_received SSE payload
+    filename TEXT,
+    size_mb REAL,
+
+    -- Haiku Call 2 output (Step 9) — longitudinal coaching for Tab 2
+    progression_output TEXT,
+
     created_at TEXT NOT NULL
 )
 """)
 
+# Migrate existing DB instances
+for col, definition in [
+    ("progression_output", "TEXT"),
+    ("filename",           "TEXT"),
+    ("size_mb",            "REAL"),
+]:
+    try:
+        cursor.execute(f"ALTER TABLE form_analyses ADD COLUMN {col} {definition}")
+        conn.commit()
+        print(f"Migrated: added {col} column.")
+    except sqlite3.OperationalError:
+        pass  # column already exists
+# Analysis Results Table
 cursor.execute("""
 CREATE TABLE IF NOT EXISTS form_analysis_results (
     analysis_id TEXT PRIMARY KEY,
