@@ -1,9 +1,10 @@
 import sqlite3
+from pathlib import Path
 
-conn = sqlite3.connect("kinetic.db")
-cursor = conn.cursor()
+BASE_DIR = Path(__file__).resolve().parent
+DATABASE_PATH = BASE_DIR / "kinetic.db"
 
-cursor.execute("""
+CREATE_FORM_ANALYSES_SQL = """
 CREATE TABLE IF NOT EXISTS form_analyses (
     analysis_id TEXT PRIMARY KEY,
     session_id TEXT NOT NULL,
@@ -28,22 +29,9 @@ CREATE TABLE IF NOT EXISTS form_analyses (
 
     created_at TEXT NOT NULL
 )
-""")
+"""
 
-# Migrate existing DB instances
-for col, definition in [
-    ("progression_output", "TEXT"),
-    ("filename",           "TEXT"),
-    ("size_mb",            "REAL"),
-]:
-    try:
-        cursor.execute(f"ALTER TABLE form_analyses ADD COLUMN {col} {definition}")
-        conn.commit()
-        print(f"Migrated: added {col} column.")
-    except sqlite3.OperationalError:
-        pass  # column already exists
-# Analysis Results Table
-cursor.execute("""
+CREATE_FORM_ANALYSIS_RESULTS_SQL = """
 CREATE TABLE IF NOT EXISTS form_analysis_results (
     analysis_id TEXT PRIMARY KEY,
     session_id TEXT NOT NULL,
@@ -67,8 +55,30 @@ CREATE TABLE IF NOT EXISTS form_analysis_results (
     causal_chain TEXT,
     annotated_frame_url TEXT
 )
-""")
+"""
 
-conn.commit()
-conn.close()
-print("Database initialized.")
+def init_db():
+    conn = sqlite3.connect(DATABASE_PATH)
+    cursor = conn.cursor()
+
+    cursor.execute(CREATE_FORM_ANALYSES_SQL)
+
+    for col, definition in [
+        ("progression_output", "TEXT"),
+        ("filename", "TEXT"),
+        ("size_mb", "REAL"),
+    ]:
+        try:
+            cursor.execute(f"ALTER TABLE form_analyses ADD COLUMN {col} {definition}")
+            conn.commit()
+            print(f"Migrated: added {col} column.")
+        except sqlite3.OperationalError:
+            pass  # column already exists
+
+    cursor.execute(CREATE_FORM_ANALYSIS_RESULTS_SQL)
+    conn.commit()
+    conn.close()
+    print("Database initialized.")
+
+if __name__ == "__main__":
+    init_db()

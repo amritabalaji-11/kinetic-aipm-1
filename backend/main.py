@@ -4,6 +4,7 @@ from db.database import db
 
 from utils.config import FRONTEND_ORIGIN
 from routes.health import router as health_router
+from init_db import init_db
 
 from routes.analysis_haiku_integration_example import router as haiku_router
 from routes import upload, stream, analysis, progression
@@ -31,6 +32,7 @@ app.include_router(progression.router)
 #DB connection management
 @app.on_event("startup")
 async def startup():
+    init_db()
     await db.connect()
 
 
