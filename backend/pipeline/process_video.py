@@ -232,31 +232,43 @@ async def run_mediapipe_analysis(analysis_id: str, file_location: str):
 
         # run_in_executor moves the CPU-heavy MediaPipe work into a thread
         # so the async event loop stays responsive for other requests
-        # mp_result,quality_result, collage_b64 = await loop.run_in_executor(
-        mp_result = await loop.run_in_executor(
+        final_json, quality_result, collage_b64 = await loop.run_in_executor(
             _executor,
             framework.process_video_once,
             local_path,
             "Goblet Squat",
             20.0,
-            analysis_id,
         )
+
+        if final_json is None:
+            error_code = quality_result.get("error_code", "BIOMECHANICS_COMPUTE_ERROR")
+            error_stage = quality_result.get("error_stage", "quality_gate")
+            retryable_str = "true" if quality_result.get("retryable", False) else "false"
+
+            await _store_failed(analysis_id, error_code, quality_result)
+            await sse_manager.send_error_event(
+                analysis_id=analysis_id,
+                error_code=error_code,
+                error_stage=error_stage,
+                retryable=retryable_str,
+                message=quality_result.get("message", "Something went wrong with your video."),
+                landmark_medians=quality_result.get("landmark_medians"),
+                session_id=session_id,
+                user_id=user_id,
+            )
+            return
+
+        mp_result = {
+            **final_json,
+            **quality_result,
+        }
+
+        if collage_b64 is not None:
+            mp_result["collage_b64"] = collage_b64
 
         # -------------------------------------------------
         # STEP 3 — check what came back
         # -------------------------------------------------
-        if not mp_result:
-            await _store_failed(analysis_id, "BIOMECHANICS_COMPUTE_ERROR", None)
-            await sse_manager.send_error_event(
-                analysis_id=analysis_id,
-                error_code="BIOMECHANICS_COMPUTE_ERROR",
-                error_stage="biomechanics",
-                retryable="true",
-                message="Something went wrong reading your movement data. Try re-uploading.",
-                session_id=session_id,
-                user_id=user_id,
-            )
-
         if mp_result.get("event") == "error":
             error_code  = mp_result.get("error_code",  "SYSTEM_ERROR")
             error_stage = mp_result.get("error_stage", "quality_gate")
@@ -430,7 +442,7 @@ async def run_mediapipe_analysis(analysis_id: str, file_location: str):
                 except json.JSONDecodeError as e:
                     print("[pipeline] RAW RESPONSE:")
                     print(response_text[:2000])
-                    raise ValueError(f"Invalid JSON from Haiku Call 2: {e}")```
+                    raise ValueError(f"Invalid JSON from Haiku Call 2: {e}")
                 print(f"[pipeline] Haiku Call 2 complete for analysis_id={analysis_id}")
 
                 # ── Store to DB ──────────────────────────────────────────
