@@ -259,10 +259,6 @@ def run_llm_analysis_test_haiku_v2(mp_json: dict, image_base64, debug = False) -
     system_prompt = get_system_prompt()
 
     system_prompt = system_prompt.replace("[COACHING_REFERENCE]", COACHING_LANGUAGE_REFERENCE)
-
-    #print(system_prompt)
-
-    print("ta bien:", COACHING_LANGUAGE_REFERENCE in system_prompt)
     
     prompt = get_user_prompt_test(mp_json["consolidated"]["total_reps"], mp_json["session"]["analysis_id"], mp_json)
     schema_reminder = (
