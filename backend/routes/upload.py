@@ -120,6 +120,8 @@ async def upload(
                 weight_unit,
                 weight_kg_normalised,
                 video_url,
+                filename,
+                size_mb,
                 status,
                 created_at
             )
@@ -132,6 +134,8 @@ async def upload(
                 :weight_unit,
                 :weight_kg_normalised,
                 :video_url,
+                :filename,
+                :size_mb,
                 'uploaded',
                 :created_at
             )
@@ -145,6 +149,8 @@ async def upload(
                 "weight_unit": weight_unit,
                 "weight_kg_normalised": weight_kg_normalised,
                 "video_url": video_url,
+                "filename": file.filename,
+                "size_mb": round(file_size / (1024 * 1024), 2),
                 "created_at": datetime.utcnow().isoformat()
             }
         )
