@@ -2,7 +2,6 @@
 #
 # This is the main video analysis pipeline.
 # It runs in the background after a user uploads a video.
-#
 # Flow:
 #   1. Acknowledge the upload
 #   2. Download the video from GCS (if needed)
@@ -22,6 +21,8 @@ import anthropic
 
 from mediapipe_code.landmark_framework import LandmarkQualityFramework
 from utils.sse_manager import sse_manager
+from mediapipe_code.llm_run_code import run_llm
+
 
 
 # =========================================================
@@ -178,7 +179,6 @@ async def run_mediapipe_analysis(analysis_id: str, file_location: str):
     Event sequence:
       upload_received → mediapipe_started → mediapipe_complete → biomechanics_complete
       → haiku_started → analysis_ready (Tab 1 unlocks)
-      → frame_ready (async, ~2-3s after analysis_ready)
       → progression_ready (async, after Haiku Call 2) — closes stream
     """
     from db.database import db
@@ -230,6 +230,9 @@ async def run_mediapipe_analysis(analysis_id: str, file_location: str):
             "video_url": video_url,
         })
 
+        # run_in_executor moves the CPU-heavy MediaPipe work into a thread
+        # so the async event loop stays responsive for other requests
+        # mp_result,quality_result, collage_b64 = await loop.run_in_executor(
         mp_result = await loop.run_in_executor(
             _executor,
             framework.process_video_once,
@@ -253,7 +256,6 @@ async def run_mediapipe_analysis(analysis_id: str, file_location: str):
                 session_id=session_id,
                 user_id=user_id,
             )
-            return
 
         if mp_result.get("event") == "error":
             error_code  = mp_result.get("error_code",  "SYSTEM_ERROR")
@@ -273,6 +275,7 @@ async def run_mediapipe_analysis(analysis_id: str, file_location: str):
                 session_id=session_id,
                 user_id=user_id,
             )
+
             return
 
         # -------------------------------------------------
@@ -325,21 +328,8 @@ async def run_mediapipe_analysis(analysis_id: str, file_location: str):
         })
 
         # -------------------------------------------------
-        # STEP 8 — frame_ready and progression_ready fire concurrently
-        # frame_ready:      OpenCV Part 2 (~2-3s after analysis_ready)
-        # progression_ready: Haiku Call 2 (async, does not block analysis_ready)
+        # STEP 8 —  progression_ready: Haiku Call 2 (async, does not block analysis_ready)
         # -------------------------------------------------
-        async def fire_frame_ready():
-            # TODO: replace sleep with real OpenCV Part 2 call
-            # annotated_frame_url is written to DB by OpenCV Part 2 after this sleep
-            await asyncio.sleep(2)
-            gcs_uri = mp_result.get("annotated_frame_url", "")
-            # Must be a public HTTPS URL — not a GCS URI — per FE_SSE_and_Errors.md
-            annotated_frame_url = _gcs_uri_to_https(gcs_uri)
-            await sse_manager.send_event(analysis_id, "frame_ready", 90, extra={
-                **ctx,
-                "annotated_frame_url": annotated_frame_url,
-            })
 
         async def fire_progression_ready():
             # Step 9 — Haiku Call 2: longitudinal coaching (Tab 2)
@@ -465,7 +455,7 @@ async def run_mediapipe_analysis(analysis_id: str, file_location: str):
                 extra=ctx,
             )
 
-        await asyncio.gather(fire_frame_ready(), fire_progression_ready())
+        await fire_progression_ready()
 
         print(f"[pipeline] Completed analysis_id={analysis_id}, reps={rep_count}")
         return mp_result
@@ -535,5 +525,23 @@ async def _store_failed(analysis_id: str, reason: str, detail=None):
         values={
             "aid": analysis_id,
             "err": json.dumps({"reason": reason, "detail": str(detail) if detail else None}),
+        },
+    )
+
+async def _store_llm_result(session_id: str, llm_result: dict):
+    """Saves Claude Haiku coaching output to the database."""
+    from db.database import db
+
+    await db.execute(
+        """
+        UPDATE form_analyses
+        SET llm_json    = :llm,
+            total_score = :score
+        WHERE session_id = :sid
+        """,
+        values={
+            "sid":   session_id,
+            "llm":   json.dumps(llm_result),
+            "score": llm_result.get("total_score"),
         },
     )
