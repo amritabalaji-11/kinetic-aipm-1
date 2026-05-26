@@ -4,7 +4,7 @@ import datetime
 import json
 import os
 import time
-import uuid
+# import uuid no need to generate a new analysis_id
 import mediapipe as mp
 import cv2
 from pathlib import Path
@@ -132,6 +132,8 @@ class LandmarkQualityFramework:
         video_path,
         exercise,
         weight_kg,
+        analysis_id, # pass the analysis_id from the backend instead of re-creating a new one
+        save_video=True,
     ):
         
         """
@@ -494,7 +496,13 @@ class LandmarkQualityFramework:
             rep_count,
         )
 
-        quality_result["analysis_id"] = str(uuid.uuid4())
+
+        
+
+       # quality_result["analysis_id"] = str(uuid.uuid4())
+        quality_result["analysis_id"] = analysis_id # pass the analysis_id generated from the backend instead of creating a new one
+
+        print(quality_result)
 
         if quality_result["event"] != "mediapipe_complete":
             return None, quality_result, None
@@ -520,7 +528,8 @@ class LandmarkQualityFramework:
 
         final_json = {
             "session": {
-                "analysis_id": str(uuid.uuid4()),
+               # "analysis_id": str(uuid.uuid4()),
+                "analysis_id": analysis_id, # pass analysis_id from the backend 
                 "exercise": exercise,
                 "weight_kg": weight_kg,
                 "rep_count": rep_count,

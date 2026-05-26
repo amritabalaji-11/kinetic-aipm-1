@@ -13,6 +13,7 @@
 import asyncio
 import os
 import json
+import re
 import shutil
 from concurrent.futures import ThreadPoolExecutor
 import re
@@ -238,6 +239,7 @@ async def run_mediapipe_analysis(analysis_id: str, file_location: str):
             local_path,
             "Goblet Squat",
             20.0,
+            analysis_id,
         )
 
         if final_json is None:
@@ -467,7 +469,7 @@ async def run_mediapipe_analysis(analysis_id: str, file_location: str):
                 extra=ctx,
             )
 
-        await fire_progression_ready()
+        asyncio.create_task(fire_progression_ready()) #progression_ready runs async and does NOT block analysis_ready
 
         print(f"[pipeline] Completed analysis_id={analysis_id}, reps={rep_count}")
         return mp_result
