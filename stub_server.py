@@ -106,10 +106,6 @@ async def pipeline_stream(analysis_id: str):
 
     yield ev("analysis_ready", overall_score=overall_score)
 
-    # frame_ready fires ~2s after analysis_ready (OpenCV Part 2)
-    await asyncio.sleep(2)
-    yield ev("frame_ready", annotated_frame_url="")
-
     # progression_ready fires ~1s after frame_ready (Haiku Call 2)
     await asyncio.sleep(1)
     yield ev("progression_ready")

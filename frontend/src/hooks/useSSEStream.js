@@ -12,13 +12,13 @@ const PIPELINE_STEPS = [
     completeOn: "haiku_started",
   },
   {
-    label: "Analysing your form...",
+    label: "Analyzing your form...",
     activeOn: ["haiku_started"],
     completeOn: "analysis_ready",
   },
   {
     label: "Building your coaching report...",
-    activeOn: ["analysis_ready", "frame_ready"],
+    activeOn: ["analysis_ready"],
     completeOn: "progression_ready",
   },
 ]
@@ -120,9 +120,6 @@ function useSSEStream(analysisId) {
         return
       }
 
-      if (eventName === "frame_ready") {
-        return
-      }
 
       PIPELINE_STEPS.forEach((stepDef, index) => {
         if (stepDef.completeOn === eventName) {

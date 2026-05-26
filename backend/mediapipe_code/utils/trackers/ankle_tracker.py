@@ -133,11 +133,8 @@ class AnkleTracker:
         dorsiflexion_at_bottom = self.dorsiflexion_at_bottom
 
         ankle_data = {
-            "dorsiflexion_at_bottom": (
-                "adecuate"
-                if dorsiflexion_at_bottom > 25
-                else "restricted"
-            ),
+            "dorsiflexion_at_bottom": dorsiflexion_at_bottom,
+            "dorsiflexion_flag": "restricted" if dorsiflexion_at_bottom < 25 else "good",
             "foot_turnout_left": (
                 round(self.foot_turnout_left, 2)
                 if self.foot_turnout_left is not None
