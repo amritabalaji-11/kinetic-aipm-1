@@ -16,6 +16,7 @@ import os
 import json
 import shutil
 from concurrent.futures import ThreadPoolExecutor
+import re
 
 import anthropic
 
