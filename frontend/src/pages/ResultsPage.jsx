@@ -1,4 +1,8 @@
+<<<<<<< HEAD
 import { useState, useMemo, useEffect, useRef } from "react"
+=======
+import { useState, useMemo, useEffect } from "react"
+>>>>>>> origin/main
 import { useLocation, useNavigate } from "react-router-dom"
 
 const PARAMS = [
@@ -268,16 +272,53 @@ export default function ResultsPage() {
   const glowRef = useRef(null)
   const videoPreviewUrl = state?.videoPreviewUrl ?? null
 
+<<<<<<< HEAD
+=======
+  const [tab,              setTab]              = useState("current")
+  const [devFixture,       setDevFixture]       = useState("clean")
+  const [devComp,          setDevComp]          = useState("with-data")
+  const [progressionData,  setProgressionData]  = useState(null)
+  const [progressionState, setProgressionState] = useState("idle") // idle | loading | ready | error
+
+  const analysisId = state?.analysisId
+  const BASE_URL   = import.meta.env.VITE_API_URL || "http://localhost:8000"
+
+  // Fetch progression data when comparison tab is opened (if real session)
+  useEffect(() => {
+    if (tab !== "comparison" || !analysisId || progressionData) return
+
+    setProgressionState("loading")
+    fetch(`${BASE_URL}/analysis/${analysisId}/progression`)
+      .then(r => {
+        if (r.status === 202) throw new Error("still_processing")
+        if (!r.ok)            throw new Error("not_available")
+        return r.json()
+      })
+      .then(d => {
+        setProgressionData(d)
+        setProgressionState("ready")
+      })
+      .catch(() => setProgressionState("error"))
+  }, [tab, analysisId, progressionData])
+
+  // Current session data
+>>>>>>> origin/main
   const data = useMemo(() => {
     const real = state?.analysisResult
     if (!real) return MOCK
 
+<<<<<<< HEAD
     const bio     = typeof real.biomechanics_json === "string"
       ? JSON.parse(real.biomechanics_json || "{}")
       : (real.biomechanics_json || {})
     const session = bio.session || {}
     const cons    = bio.consolidated || {}
     const bioReps = bio.reps || []
+=======
+  // Comparison data — real API when available, fixture fallback in dev
+  const compData = progressionData
+    ?? (devComp === "with-data" ? FIXTURE_COMPARISON : FIXTURE_COMP_EMPTY)
+>>>>>>> origin/main
 
     if (!session.rep_count && bioReps.length === 0) {
       return {
@@ -425,7 +466,21 @@ export default function ResultsPage() {
           ))}
         </div>
 
+<<<<<<< HEAD
         {tab === "analysis" && (
+=======
+        {/* ════════════════════════════════════════════════════════════════
+            COMPARISON TAB
+        ════════════════════════════════════════════════════════════════ */}
+        {isComparison && progressionState === "loading" && (
+          <div className="mx-4 mt-6 flex flex-col items-center gap-3 text-gray-400">
+            <div className="w-6 h-6 rounded-full border-2 border-gray-200 border-t-teal-400 animate-spin" />
+            <p className="text-sm">Loading comparison...</p>
+          </div>
+        )}
+
+        {isComparison && progressionState !== "loading" && (
+>>>>>>> origin/main
           <>
             {/* Video / annotated frame */}
             <div className="mx-4 mb-4 bg-white rounded-2xl overflow-hidden border border-gray-100 shadow-sm" style={{ minHeight: 200 }}>

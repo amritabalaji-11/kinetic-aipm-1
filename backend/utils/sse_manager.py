@@ -77,8 +77,9 @@ class SSEManager:
         event_name: str,
         percentage: int,
         status: str = "in_progress",
-        **extra
+        extra: dict = None,
     ):
+     
         # Builds a normal progress event and sends it to all connected clients.
         # Used for all happy-path steps: upload_received, mediapipe_started,
         # haiku_started, analysis_ready, frame_ready, progression_ready, etc.
@@ -94,7 +95,9 @@ class SSEManager:
             "percentage": percentage,
             "status": status,
         }
-        payload_dict.update({k: v for k, v in extra.items() if v is not None})
+        if extra:
+            payload_dict.update({k: v for k, v in extra.items() if v is not None})
+
         payload = json.dumps(payload_dict)
 
         print(f"[SSE] Sending event: {event_name} for {analysis_id}")
@@ -119,6 +122,8 @@ class SSEManager:
         retryable: str,
         message: str,
         landmark_medians: dict = None,
+        session_id: str = None,
+        user_id: str = None,
     ):
         # Sends a blocking error event — the frontend shows the error screen
         # and stops waiting for more pipeline events.
@@ -139,12 +144,17 @@ class SSEManager:
         payload_dict = {
             "analysis_id": analysis_id,
             "event": "error",
+
             "error_code": error_code,       # e.g. "HAIKU_TIMEOUT"
             "error_stage": error_stage,     # e.g. "haiku_call_1"
             "retryable": retryable,         # "true" or "false" — always a string
             "message": message,             # internal message — NOT shown to user
             "status": "failed",             # tells the SSE subscriber to close the stream
         }
+        if session_id:
+            payload_dict["session_id"] = session_id
+        if user_id:
+            payload_dict["user_id"] = user_id
 
         # For occlusion and out-of-frame errors, pass through the landmark data.
         # This tells us exactly which body part was blocked — useful for future

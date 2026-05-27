@@ -11,5 +11,6 @@ export default defineConfig({
         rewrite: (path) => path.replace(/^\/api/, ''),
       },
     },
+    // /analysis already covers /analysis/{id}/progression and /analysis/{id}/stream
   },
 })
