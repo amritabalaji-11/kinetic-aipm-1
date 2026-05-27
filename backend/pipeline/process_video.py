@@ -515,11 +515,7 @@ async def _store_biomechanics(analysis_id: str, data: dict):
         SET status = 'complete',
             biomechanics_json = :bio,
             rep_count = :reps
-<<<<<<< HEAD
-        WHERE analysis_id = :sid
-=======
         WHERE analysis_id = :aid
->>>>>>> origin/main
         """,
         values={
             "aid": analysis_id,
@@ -538,11 +534,7 @@ async def _store_failed(analysis_id: str, reason: str, detail=None):
         UPDATE form_analyses
         SET status = 'failed',
             error_code = :err
-<<<<<<< HEAD
-        WHERE analysis_id = :sid
-=======
         WHERE analysis_id = :aid
->>>>>>> origin/main
         """,
         values={
             "aid": analysis_id,

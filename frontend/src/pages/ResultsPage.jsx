@@ -1,8 +1,4 @@
-<<<<<<< HEAD
 import { useState, useMemo, useEffect, useRef } from "react"
-=======
-import { useState, useMemo, useEffect } from "react"
->>>>>>> origin/main
 import { useLocation, useNavigate } from "react-router-dom"
 
 const PARAMS = [
@@ -268,24 +264,22 @@ const MOCK = {
 export default function ResultsPage() {
   const { state }  = useLocation()
   const navigate   = useNavigate()
-  const [tab, setTab] = useState("analysis")
-  const glowRef = useRef(null)
+  const glowRef    = useRef(null)
   const videoPreviewUrl = state?.videoPreviewUrl ?? null
 
-<<<<<<< HEAD
-=======
-  const [tab,              setTab]              = useState("current")
-  const [devFixture,       setDevFixture]       = useState("clean")
-  const [devComp,          setDevComp]          = useState("with-data")
+  // ── Tab state (kept from HEAD: "analysis" | "progression") ──────────────
+  const [tab, setTab] = useState("analysis")
+
+  // ── Progression fetch state (merged from origin/main) ───────────────────
   const [progressionData,  setProgressionData]  = useState(null)
   const [progressionState, setProgressionState] = useState("idle") // idle | loading | ready | error
 
   const analysisId = state?.analysisId
   const BASE_URL   = import.meta.env.VITE_API_URL || "http://localhost:8000"
 
-  // Fetch progression data when comparison tab is opened (if real session)
+  // Fetch progression data when the progression tab is opened (real sessions only)
   useEffect(() => {
-    if (tab !== "comparison" || !analysisId || progressionData) return
+    if (tab !== "progression" || !analysisId || progressionData) return
 
     setProgressionState("loading")
     fetch(`${BASE_URL}/analysis/${analysisId}/progression`)
@@ -301,34 +295,27 @@ export default function ResultsPage() {
       .catch(() => setProgressionState("error"))
   }, [tab, analysisId, progressionData])
 
-  // Current session data
->>>>>>> origin/main
+  // ── Current session data ─────────────────────────────────────────────────
   const data = useMemo(() => {
     const real = state?.analysisResult
     if (!real) return MOCK
 
-<<<<<<< HEAD
     const bio     = typeof real.biomechanics_json === "string"
       ? JSON.parse(real.biomechanics_json || "{}")
       : (real.biomechanics_json || {})
     const session = bio.session || {}
     const cons    = bio.consolidated || {}
     const bioReps = bio.reps || []
-=======
-  // Comparison data — real API when available, fixture fallback in dev
-  const compData = progressionData
-    ?? (devComp === "with-data" ? FIXTURE_COMPARISON : FIXTURE_COMP_EMPTY)
->>>>>>> origin/main
 
     if (!session.rep_count && bioReps.length === 0) {
       return {
         ...MOCK,
-        exercise:    real.exercise ?? real.exercise_id ?? MOCK.exercise,
-        exercise_id: real.exercise_id,
+        exercise:     real.exercise ?? real.exercise_id ?? MOCK.exercise,
+        exercise_id:  real.exercise_id,
         weight_value: real.weight_value ?? MOCK.weight_kg,
-        weight_kg:   real.weight_kg ?? real.weight_value ?? MOCK.weight_kg,
-        weight_unit: real.weight_unit ?? MOCK.weight_unit,
-        created_at:  real.created_at ?? MOCK.created_at,
+        weight_kg:    real.weight_kg ?? real.weight_value ?? MOCK.weight_kg,
+        weight_unit:  real.weight_unit ?? MOCK.weight_unit,
+        created_at:   real.created_at ?? MOCK.created_at,
       }
     }
 
@@ -409,15 +396,15 @@ export default function ResultsPage() {
     if (valgusFlags === 0) verdictParts.push("Knee tracking is solid throughout.")
 
     return {
-      exercise:    real.exercise ?? real.exercise_id ?? session.exercise ?? "Session",
-      exercise_id: real.exercise_id,
+      exercise:     real.exercise ?? real.exercise_id ?? session.exercise ?? "Session",
+      exercise_id:  real.exercise_id,
       weight_value: real.weight_value ?? session.weight_kg ?? 0,
-      weight_kg:   real.weight_kg ?? real.weight_value ?? session.weight_kg ?? 0,
-      weight_unit: real.weight_unit ?? "kg",
-      rep_count:   real.rep_count ?? totalReps,
-      created_at:  real.created_at,
+      weight_kg:    real.weight_kg ?? real.weight_value ?? session.weight_kg ?? 0,
+      weight_unit:  real.weight_unit ?? "kg",
+      rep_count:    real.rep_count ?? totalReps,
+      created_at:   real.created_at,
       overall_score: overallScore,
-      verdict:     verdictParts.join(" "),
+      verdict:      verdictParts.join(" "),
       parameters,
       reps,
       annotated_frame_url: null,
@@ -466,21 +453,10 @@ export default function ResultsPage() {
           ))}
         </div>
 
-<<<<<<< HEAD
-        {tab === "analysis" && (
-=======
         {/* ════════════════════════════════════════════════════════════════
-            COMPARISON TAB
+            ANALYSIS TAB
         ════════════════════════════════════════════════════════════════ */}
-        {isComparison && progressionState === "loading" && (
-          <div className="mx-4 mt-6 flex flex-col items-center gap-3 text-gray-400">
-            <div className="w-6 h-6 rounded-full border-2 border-gray-200 border-t-teal-400 animate-spin" />
-            <p className="text-sm">Loading comparison...</p>
-          </div>
-        )}
-
-        {isComparison && progressionState !== "loading" && (
->>>>>>> origin/main
+        {tab === "analysis" && (
           <>
             {/* Video / annotated frame */}
             <div className="mx-4 mb-4 bg-white rounded-2xl overflow-hidden border border-gray-100 shadow-sm" style={{ minHeight: 200 }}>
@@ -596,12 +572,29 @@ export default function ResultsPage() {
           </>
         )}
 
-        {tab === "progression" && (
+        {/* ════════════════════════════════════════════════════════════════
+            PROGRESSION TAB
+        ════════════════════════════════════════════════════════════════ */}
+        {tab === "progression" && progressionState === "loading" && (
+          <div className="mx-4 mt-6 flex flex-col items-center gap-3 text-gray-400">
+            <div className="w-6 h-6 rounded-full border-2 border-gray-200 border-t-teal-400 animate-spin" />
+            <p className="text-sm">Loading comparison...</p>
+          </div>
+        )}
+
+        {tab === "progression" && progressionState !== "loading" && (
           <div className="mx-4 bg-white rounded-2xl p-6 text-center shadow-sm">
-            <div className="text-2xl mb-3">📈</div>
-            <p className="text-sm text-gray-500 leading-relaxed">
-              You haven't done a previous session for this exercise yet. Upload another session to unlock comparison.
-            </p>
+            {progressionState === "ready" && progressionData ? (
+              // TODO: render progressionData here
+              <p className="text-sm text-gray-500 leading-relaxed">Progression data loaded.</p>
+            ) : (
+              <>
+                <div className="text-2xl mb-3">📈</div>
+                <p className="text-sm text-gray-500 leading-relaxed">
+                  You haven't done a previous session for this exercise yet. Upload another session to unlock comparison.
+                </p>
+              </>
+            )}
           </div>
         )}
 
