@@ -7,16 +7,7 @@ const PIPELINE_STEPS = [
     completeOn: "mediapipe_complete",
   },
   {
-<<<<<<< HEAD
-    label: "Detecting your movement",
-    activeOn: ["mediapipe_started", "mediapipe_complete"],
-    completeOn: "mediapipe_complete",
-  },
-  {
-    label: "Analysing your form",
-    activeOn: ["nemotron_started", "nemotron_complete", "rag_started", "rag_complete", "claude_started", "haiku_started"],
-    completeOn: "analysis_complete",
-=======
+
     label: "Check your barbell depth...",
     activeOn: ["biomechanics_complete"],
     completeOn: "haiku_started",
@@ -25,7 +16,6 @@ const PIPELINE_STEPS = [
     label: "Analyzing your form...",
     activeOn: ["haiku_started"],
     completeOn: "analysis_ready",
->>>>>>> origin/main
   },
   {
     label: "Building your coaching report...",
@@ -34,7 +24,9 @@ const PIPELINE_STEPS = [
   },
 ]
 
-const DONE_EVENTS = new Set(["analysis_complete", "analysis_ready", "progression_ready"])
+// const DONE_EVENTS = new Set(["analysis_complete", "analysis_ready", "progression_ready"])
+const DONE_EVENTS = new Set(["analysis_complete", "analysis_ready"])
+
 
 const ERROR_USER_COPY = {
   occlusion_left_side: "Part of your left side was hidden from view. Rather than switching sides, rotate your camera slightly toward the front of your body.",
@@ -85,6 +77,8 @@ function useSSEStream(analysisId) {
 
   useEffect(() => {
     if (!analysisId) return
+    if (isDone) return
+
 
     const es = new EventSource(`${BASE_URL}/analysis/${analysisId}/stream`)
     eventSourceRef.current = es
