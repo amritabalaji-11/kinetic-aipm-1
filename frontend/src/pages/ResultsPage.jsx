@@ -9,9 +9,8 @@ const PARAMS = [
 ]
 
 function ringColor(score) {
-  if (score >= 80) return { stroke: "#22C55E", text: "#22C55E" }
-  if (score >= 65) return { stroke: "#FF8C00", text: "#FF8C00" }
-  return              { stroke: "#FF4C4C", text: "#FF4C4C" }
+  if (score >= 65) return { stroke: "#F97316", text: "#F97316" }
+  return              { stroke: "#EF4444", text: "#EF4444" }
 }
 
 function ScoreRing({ score, size = 56, strokeW = 6, animate = false }) {
@@ -152,6 +151,12 @@ function ParamCard({ paramKey, label, data }) {
   )
 }
 
+function segColor(score) {
+  if (score >= 80) return "#22C55E"
+  if (score >= 65) return "#F97316"
+  return "#EF4444"
+}
+
 function RepChart({ reps }) {
   if (!reps || reps.length < 2) {
     return (
@@ -168,20 +173,17 @@ function RepChart({ reps }) {
   const secondHalf = scores.slice(half).reduce((a, b) => a + b, 0) / (n - half)
   const dip = Math.round(((secondHalf - firstHalf) / firstHalf) * 100)
   const dipLabel = dip < 0 ? `${dip}% Dip` : `+${dip}%`
-  const dipColor = dip < 0 ? "#FF4C4C" : "#22C55E"
+  const dipColor = dip < 0 ? "#EF4444" : "#22C55E"
 
   const W = 320, H = 130, PAD = 16
   const xOf = i => PAD + (i / (n - 1)) * (W - PAD * 2)
   const yOf = v => PAD + (1 - v / 100) * (H - PAD * 2)
   const pts = scores.map((v, i) => [xOf(i), yOf(v)])
-  const linePt = pts.map(([x, y]) => `${x},${y}`).join(" ")
   const areaPt = [
     `${pts[0][0]},${H - PAD}`,
     ...pts.map(([x, y]) => `${x},${y}`),
     `${pts[pts.length - 1][0]},${H - PAD}`,
   ].join(" ")
-
-  const repLabels = scores.map((_, i) => `REP ${i + 1}`)
 
   return (
     <div>
@@ -197,8 +199,8 @@ function RepChart({ reps }) {
       <svg viewBox={`0 0 ${W} ${H}`} width="100%" height={H}>
         <defs>
           <linearGradient id="repGrad" x1="0" y1="0" x2="0" y2="1">
-            <stop offset="0%"   stopColor="#818cf8" stopOpacity="0.35" />
-            <stop offset="100%" stopColor="#818cf8" stopOpacity="0.02" />
+            <stop offset="0%"   stopColor="#F97316" stopOpacity="0.25" />
+            <stop offset="100%" stopColor="#F97316" stopOpacity="0.02" />
           </linearGradient>
         </defs>
         {[20, 40, 60, 80].map(v => (
@@ -211,9 +213,17 @@ function RepChart({ reps }) {
           <text key={v} x={PAD - 2} y={yOf(v) + 3} fontSize="7" fill="#9ca3af" textAnchor="end">{v}</text>
         ))}
         <polygon points={areaPt} fill="url(#repGrad)" />
-        <polyline points={linePt} fill="none" stroke="#6366f1" strokeWidth="2" strokeLinejoin="round" />
+        {pts.slice(0, -1).map(([x1, y1], i) => {
+          const [x2, y2] = pts[i + 1]
+          const midScore = (scores[i] + scores[i + 1]) / 2
+          return (
+            <line key={i} x1={x1} y1={y1} x2={x2} y2={y2}
+              stroke={segColor(midScore)} strokeWidth="2.5" strokeLinecap="round"
+            />
+          )
+        })}
         {pts.map(([x, y], i) => (
-          <circle key={i} cx={x} cy={y} r={3} fill="white" stroke="#6366f1" strokeWidth="1.5" />
+          <circle key={i} cx={x} cy={y} r={3.5} fill="white" stroke={segColor(scores[i])} strokeWidth="1.5" />
         ))}
         {scores.map((_, i) => (
           <text key={i} x={xOf(i)} y={H - 2} fontSize="6" fill="#9ca3af" textAnchor="middle">
@@ -256,23 +266,20 @@ export default function ResultsPage() {
   const navigate   = useNavigate()
   const [tab, setTab] = useState("analysis")
   const glowRef = useRef(null)
+  const videoPreviewUrl = state?.videoPreviewUrl ?? null
 
   const data = useMemo(() => {
     const real = state?.analysisResult
     if (!real) return MOCK
 
-    const bio      = typeof real.biomechanics_json === "string"
+    const bio     = typeof real.biomechanics_json === "string"
       ? JSON.parse(real.biomechanics_json || "{}")
       : (real.biomechanics_json || {})
-    const summary  = bio.summary || bio.session || {}
-    const bioReps  = bio.reps || []
-    const prog     = real.progression_data || null
-    const current  = prog?.current || null
-    const coaching = prog?.comparison_coaching || null
+    const session = bio.session || {}
+    const cons    = bio.consolidated || {}
+    const bioReps = bio.reps || []
 
-    const overallScore = summary.overall_form_score ?? current?.overall_form_score ?? 0
-
-    if (!overallScore) {
+    if (!session.rep_count && bioReps.length === 0) {
       return {
         ...MOCK,
         exercise:    real.exercise ?? real.exercise_id ?? MOCK.exercise,
@@ -284,37 +291,95 @@ export default function ResultsPage() {
       }
     }
 
-    const buildParam = (key, src, directScore) => ({
-      score:       src?.score ?? directScore ?? 0,
-      observation: src?.observation_action ?? null,
-      affirmation: null,
-      tips:        src?.observation_action ? [src.observation_action] : [],
+    const totalReps = cons.total_reps || bioReps.length || 1
+
+    const postureCons  = cons.posture || {}
+    const backAngle    = postureCons.back_angle_at_bottom_mean ?? 40
+    const warnCount    = postureCons.status_distribution?.WARNING ?? 0
+    const postureScore = Math.max(0, Math.min(100, Math.round(100 - backAngle * 0.75)))
+
+    const stabCons       = cons.stability || {}
+    const valgusMean     = stabCons.knee_valgus_mean ?? 0
+    const valgusFlags    = stabCons.valgus_flag_reps ?? 0
+    const stabilityScore = Math.max(0, Math.min(100, Math.round(85 - valgusMean * 150 + (valgusFlags === 0 ? 5 : -15))))
+
+    const mqCons      = cons.movement_quality || {}
+    const depthDist   = mqCons.depth_distribution || {}
+    const deepReps    = depthDist.deep ?? 0
+    const parallelRps = depthDist.parallel ?? 0
+    const insufReps   = mqCons.depth_insufficient_reps ?? 0
+    const leftTurn    = mqCons.foot_turnout_left_mean ?? 25
+    const depthScore  = Math.round((deepReps * 100 + parallelRps * 80 + insufReps * 50) / totalReps)
+    const mqScore     = Math.max(0, Math.min(100, depthScore - Math.round(Math.max(0, leftTurn - 30) * 0.5)))
+
+    const tempoCons       = cons.tempo || {}
+    const eccentric       = tempoCons.eccentric_mean ?? 1
+    const concentric      = tempoCons.concentric_mean ?? 1
+    const pause           = tempoCons.pause_mean ?? 1
+    const eccentricScore  = Math.min(100, Math.round(eccentric * 30 + 35))
+    const concentricScore = Math.min(100, Math.round(concentric * 40 + 45))
+    const pauseScore      = (pause >= 0.3 && pause <= 2) ? 85 : 60
+    const tempoScore      = Math.round((eccentricScore + concentricScore + pauseScore) / 3)
+
+    const overallScore = Math.round((postureScore + stabilityScore + mqScore + tempoScore) / 4)
+
+    const reps = bioReps.map((r, i) => {
+      const bScore = Math.max(0, Math.min(100, Math.round(100 - (r.back_data?.back_angle_at_bottom ?? 45) * 0.75)))
+      const dScore = r.depth_data?.depth_classification === "deep" ? 90
+        : r.depth_data?.depth_classification === "parallel" ? 75 : 50
+      const sScore = Math.max(0, Math.min(100, Math.round(100 - (r.stability_data?.knee_valgus_distance ?? 0.15) * 150)))
+      const tScore = Math.min(100, Math.round((r.tempo_data?.eccentric ?? 1) * 30 + 35))
+      return { rep: r.rep_number ?? i + 1, score: Math.round((bScore + dScore + sScore + tScore) / 4) }
     })
 
     const parameters = {
-      tempo:            buildParam("tempo",            coaching?.parameters?.tempo,            current?.tempo_score            ?? summary.tempo_score),
-      stability:        buildParam("stability",        coaching?.parameters?.stability,        current?.stability_score        ?? summary.stability_score),
-      posture:          buildParam("posture",          coaching?.parameters?.posture,          current?.posture_score          ?? summary.posture_score),
-      movement_quality: buildParam("movement_quality", coaching?.parameters?.movement_quality, current?.movement_quality_score ?? summary.movement_quality_score),
+      tempo: {
+        score: tempoScore,
+        observation: `Avg descent ${eccentric.toFixed(1)}s — target 2–3s`,
+        affirmation: pause >= 0.8 ? "Good pause at the bottom." : null,
+        tips: ["Slow your descent to 2–3 seconds per rep. Controlled lowering activates more muscle and reduces joint stress."],
+      },
+      stability: {
+        score: stabilityScore,
+        observation: valgusFlags === 0 ? "Good knee tracking overall" : `Knee cave on ${valgusFlags} rep${valgusFlags > 1 ? "s" : ""}`,
+        affirmation: valgusFlags === 0 ? "No valgus flags — solid knee control." : null,
+        tips: ["Drive your knees outward on the way up. Think 'spread the floor' with your feet."],
+      },
+      posture: {
+        score: postureScore,
+        observation: warnCount === totalReps ? "Forward lean on all reps" : `Forward lean on ${warnCount} rep${warnCount !== 1 ? "s" : ""}`,
+        affirmation: postureScore >= 75 ? "Back angle within acceptable range." : null,
+        tips: ["Keep your chest up throughout the squat. Brace your core before each descent to maintain an upright torso."],
+      },
+      movement_quality: {
+        score: mqScore,
+        observation: deepReps === totalReps ? "Full depth on every rep" : `${deepReps} deep, ${parallelRps} parallel`,
+        affirmation: insufReps === 0 ? "No insufficient depth reps — good range of motion." : null,
+        tips: leftTurn > 30
+          ? [`Left foot turnout is ${Math.round(leftTurn)}° — try pointing both feet at the same angle for balanced load.`]
+          : ["Maintain consistent depth on every rep. Good squat depth activates glutes and quads more effectively."],
+      },
     }
 
-    const reps = bioReps.length
-      ? bioReps.map((r, i) => ({ rep: r.rep_number ?? i + 1, score: r.form_score ?? 0 }))
-      : (current?.reps || []).map((r, i) => ({ rep: r.rep_number ?? i + 1, score: r.form_score ?? 0 }))
+    const verdictParts = []
+    if (deepReps > 0) verdictParts.push(`${deepReps} of ${totalReps} reps hit full depth.`)
+    if (eccentric < 0.5) verdictParts.push(`Slow your descent — currently ${eccentric.toFixed(1)}s avg (target 2–3s).`)
+    if (warnCount === totalReps) verdictParts.push("Keep chest up to reduce forward lean.")
+    if (valgusFlags === 0) verdictParts.push("Knee tracking is solid throughout.")
 
     return {
-      exercise:    real.exercise ?? real.exercise_id ?? "Session",
+      exercise:    real.exercise ?? real.exercise_id ?? session.exercise ?? "Session",
       exercise_id: real.exercise_id,
-      weight_value: real.weight_value ?? 0,
-      weight_kg:   real.weight_kg ?? real.weight_value ?? 0,
+      weight_value: real.weight_value ?? session.weight_kg ?? 0,
+      weight_kg:   real.weight_kg ?? real.weight_value ?? session.weight_kg ?? 0,
       weight_unit: real.weight_unit ?? "kg",
-      rep_count:   real.rep_count ?? reps.length,
+      rep_count:   real.rep_count ?? totalReps,
       created_at:  real.created_at,
       overall_score: overallScore,
-      verdict:     coaching?.summary_paragraph ?? "",
+      verdict:     verdictParts.join(" "),
       parameters,
       reps,
-      annotated_frame_url: bio.annotated_frame_url ?? null,
+      annotated_frame_url: null,
     }
   }, [state?.analysisResult])
 
@@ -342,7 +407,7 @@ export default function ResultsPage() {
         </div>
 
         {/* Tab toggle */}
-        <div className="mx-4 mb-4 flex rounded-2xl p-1" style={{ background: "linear-gradient(135deg, #a78bfa, #818cf8)" }}>
+        <div className="mx-4 mb-4 flex rounded-2xl p-1" style={{ background: "#EDE9FE" }}>
           {[["analysis", "Analysis"], ["progression", "Progression"]].map(([key, label]) => (
             <button
               key={key}
@@ -351,7 +416,8 @@ export default function ResultsPage() {
               className="flex-1 py-2 rounded-xl text-sm font-semibold transition-all"
               style={{
                 background:  tab === key ? "white" : "transparent",
-                color:       tab === key ? "#1f2937" : "rgba(255,255,255,0.8)",
+                color:       tab === key ? "#6366f1" : "#9ca3af",
+                boxShadow:   tab === key ? "0 1px 4px rgba(0,0,0,0.08)" : "none",
               }}
             >
               {label}
@@ -361,9 +427,11 @@ export default function ResultsPage() {
 
         {tab === "analysis" && (
           <>
-            {/* Annotated frame */}
+            {/* Video / annotated frame */}
             <div className="mx-4 mb-4 bg-white rounded-2xl overflow-hidden border border-gray-100 shadow-sm" style={{ minHeight: 200 }}>
-              {frameUrl ? (
+              {videoPreviewUrl ? (
+                <video src={videoPreviewUrl} className="w-full" style={{ display: "block", maxHeight: 300, objectFit: "cover" }} controls playsInline />
+              ) : frameUrl ? (
                 <img src={frameUrl} alt="Annotated frame" className="w-full object-cover" />
               ) : (
                 <div className="h-52 flex items-center justify-center relative" style={{ background: "#f8f7ff" }}>
@@ -389,7 +457,7 @@ export default function ResultsPage() {
               ref={glowRef}
               className="mx-4 mb-4 rounded-2xl p-4 shadow-lg"
               style={{
-                background: "linear-gradient(135deg, #6366f1 0%, #818cf8 60%, #60a5fa 100%)",
+                background: "linear-gradient(135deg, #6366f1 0%, #8b5cf6 100%)",
                 animation: "verdictGlow 1.8s ease-in-out forwards",
               }}
             >
@@ -433,8 +501,10 @@ export default function ResultsPage() {
             {/* Key Insights */}
             <div className="mx-4 mb-4">
               <div className="flex items-center gap-2 mb-3">
-                <svg className="w-4 h-4 text-indigo-500" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-                  <path strokeLinecap="round" strokeLinejoin="round" d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z" />
+                <svg className="w-4 h-4" style={{ color: "#F97316" }} fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                  <circle cx="12" cy="12" r="10" />
+                  <circle cx="12" cy="12" r="6" />
+                  <circle cx="12" cy="12" r="2" />
                 </svg>
                 <h2 className="text-sm font-extrabold text-gray-900 tracking-wide uppercase">Key Insights</h2>
               </div>
@@ -481,21 +551,22 @@ export default function ResultsPage() {
         )}
 
         {/* CTAs */}
-        <div className="mx-4 flex gap-3">
-          <button
-            type="button"
-            onClick={() => navigate("/")}
-            className="flex-1 py-3.5 rounded-2xl border border-gray-300 text-gray-700 text-sm font-semibold bg-white"
-          >
-            Continue
-          </button>
+        <div className="mx-4 flex flex-col gap-3">
           <button
             type="button"
             onClick={() => navigate("/upload")}
-            className="flex-1 py-3.5 rounded-2xl text-white text-sm font-semibold"
-            style={{ background: "linear-gradient(135deg, #6366f1, #818cf8)" }}
+            className="w-full py-4 rounded-2xl text-white text-sm font-bold tracking-wide"
+            style={{ background: "linear-gradient(90deg, #6366f1, #8b5cf6)" }}
           >
             New Upload
+          </button>
+          <button
+            type="button"
+            onClick={() => navigate("/")}
+            className="w-full py-4 rounded-2xl text-sm font-semibold bg-white text-gray-800"
+            style={{ border: "1.5px solid #e5e7eb" }}
+          >
+            Continue to Set 3
           </button>
         </div>
       </div>

@@ -9,14 +9,16 @@ const PIPELINE_STEPS = [
   {
     label: "Detecting your movement",
     activeOn: ["mediapipe_started", "mediapipe_complete"],
-    completeOn: "biomechanics_complete",
+    completeOn: "mediapipe_complete",
   },
   {
     label: "Analysing your form",
-    activeOn: ["biomechanics_complete", "haiku_started"],
-    completeOn: "analysis_ready",
+    activeOn: ["nemotron_started", "nemotron_complete", "rag_started", "rag_complete", "claude_started", "haiku_started"],
+    completeOn: "analysis_complete",
   },
 ]
+
+const DONE_EVENTS = new Set(["analysis_complete", "analysis_ready", "progression_ready"])
 
 const ERROR_USER_COPY = {
   occlusion_left_side: "Part of your left side was hidden from view. Rather than switching sides, rotate your camera slightly toward the front of your body.",
@@ -48,6 +50,7 @@ function useSSEStream(analysisId) {
   const [error, setError] = useState(null)
   const [partialWarning, setPartialWarning] = useState(null)
   const [resultUrl, setResultUrl] = useState(null)
+  const [analysisData, setAnalysisData] = useState(null)
 
   const eventSourceRef = useRef(null)
   const doneRef = useRef(false)
@@ -97,9 +100,13 @@ function useSSEStream(analysisId) {
         return
       }
 
-      if (eventName === "analysis_ready") {
-        const lastIndex = PIPELINE_STEPS.findIndex(s => s.completeOn === "analysis_ready")
+      if (DONE_EVENTS.has(eventName)) {
+        const lastIndex = PIPELINE_STEPS.findIndex(s =>
+          s.completeOn === eventName || s.completeOn === "analysis_complete"
+        )
         if (lastIndex !== -1) updateStep(lastIndex, "complete")
+
+        setAnalysisData(parsed)
 
         if (!doneRef.current) {
           doneRef.current = true
@@ -136,7 +143,7 @@ function useSSEStream(analysisId) {
     }
   }, [analysisId])
 
-  return { steps, isDone, error, partialWarning, cancel, resultUrl }
+  return { steps, isDone, error, partialWarning, cancel, resultUrl, analysisData }
 }
 
 export { useSSEStream, PIPELINE_STEPS }
