@@ -629,7 +629,39 @@ def annotate_frame_side(
     return annotated
 
 
-def extract_worst_frame(video_url, analysis_path, rep_frames, output_filename):
+def overlay_frame(frame, frame_info, camera_view, output_filename):
+    height, width = frame.shape[:2]
+
+    if camera_view in ("front", "angled"):
+
+        annotated_worst_frame = annotate_frame_front(
+            frame,
+            frame_info,
+            width,
+            height
+        )
+    else:
+        annotated_worst_frame = annotate_frame_side(
+        frame,
+        frame_info,
+        width,
+        height
+    )
+
+    output_dir = "./worst_frames"
+    os.makedirs(output_dir, exist_ok=True)
+
+    output_path = os.path.join(
+        output_dir,
+        f"{output_filename}.jpg"
+    )
+
+    cv2.imwrite(output_path, annotated_worst_frame)
+
+    return annotated_worst_frame
+
+
+def extract_worst_frame(video_url, analysis_path, rep_frames):
     """
     Extract and visualize the most critical frame from the worst rep.
 
@@ -654,8 +686,12 @@ def extract_worst_frame(video_url, analysis_path, rep_frames, output_filename):
             Raised if the target frame cannot be read from the video.
 
     Returns:
-        annotated_worst_frame:
-            The worst frame of the worst rep
+        resized:
+            The worst frame on 720p
+        filtered_frame_critical:
+            The worst frame data
+        dominant_camera_view:
+            The dominant camera view in all the frames of the worst rep
     """
 
     with open(analysis_path, "r") as f:
@@ -670,7 +706,9 @@ def extract_worst_frame(video_url, analysis_path, rep_frames, output_filename):
         if frame["rep_number"] == worse_rep
     ]
 
-    if "side" in get_dominant_camera_view_worst_frame(filtered_frames_worse_rep):
+    dominant_camera_view = get_dominant_camera_view_worst_frame(filtered_frames_worse_rep)
+
+    if "side" in dominant_camera_view:
         filtered_frame_critical = min(
             filtered_frames_worse_rep,
             key=lambda x: x.get("knee_angle", float("inf"))
@@ -696,35 +734,7 @@ def extract_worst_frame(video_url, analysis_path, rep_frames, output_filename):
         interpolation=cv2.INTER_AREA,
     )
 
-    height, width = resized.shape[:2]
-
-    if get_dominant_camera_view_worst_frame(rep_frames) in ("front", "angled"):
-
-        annotated_worst_frame = annotate_frame_front(
-            resized,
-            filtered_frame_critical,
-            width,
-            height
-        )
-    else:
-        annotated_worst_frame = annotate_frame_side(
-        resized,
-        filtered_frame_critical,
-        width,
-        height
-    )
-
-    output_dir = "./worst_frames"
-    os.makedirs(output_dir, exist_ok=True)
-
-    output_path = os.path.join(
-        output_dir,
-        f"{output_filename}.jpg"
-    )
-
-    cv2.imwrite(output_path, annotated_worst_frame)
-
-    return annotated_worst_frame
+    return resized, filtered_frame_critical, dominant_camera_view
 
 
 def get_dominant_camera_view_worst_frame(frames):

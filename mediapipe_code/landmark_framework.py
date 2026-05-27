@@ -17,7 +17,7 @@ from utils.trackers.depth_tracker import DepthTracker
 from utils.trackers.rep_counter import RepCounter
 from utils.trackers.stability_tracker import StabilityTracker
 from utils.trackers.tempo_tracker import TempoTracker
-from utils.draw_methods import add_text_lines, annotate_frame, draw_points_and_lines, extract_worst_frame
+from utils.draw_methods import add_text_lines, annotate_frame, draw_points_and_lines, extract_worst_frame, overlay_frame
 from utils.angle_methods import detect_camera_view
 from utils.landmark_quality_configuration import (
     LANDMARKS, LEFT_SIDE, LEG_CONNECTIONS, LEG_CONNECTIONS_LEFT_SIDE, LEG_CONNECTIONS_RIGHT_SIDE, LEG_TARGET_LANDMARKS, MEDIAPIPE_MODEL, 
@@ -738,15 +738,17 @@ class LandmarkQualityFramework:
 
 # How to use it
 framework = LandmarkQualityFramework(model_path=MEDIAPIPE_MODEL)
-input_dir = "./mediapipe_code/videos/user_001_videos/user_001_side_12.5kg.mp4"
+input_dir = "./mediapipe_code/videos/user_001_videos/user_001_side_17.5kg.mp4"
 analysis_path = "./mediapipe_code/results/analysis_testing_depth_fault.json"
 
 start = time.time()
 final_json, quality_result, collage_b64, rep_frames_list = framework.process_video_once(input_dir, "goblet-squat", 12.5)
 
-#frame = extract_worst_frame(input_dir, analysis_path, rep_frames_list, "v1_fault")
+#frame, frame_data, dominant_camera_view = extract_worst_frame(input_dir, analysis_path, rep_frames_list)
 
-result = run_llm_analysis_test_haiku_v2(final_json, collage_b64, debug=True)
+#annotated_worst_frame = overlay_frame(frame, frame_data, dominant_camera_view, output_filename="v1111_fault")
+
+"""result = run_llm_analysis_test_haiku_v2(final_json, collage_b64, debug=True)
 
 output_dir = "./mediapipe_code/results/call_1"
 os.makedirs(output_dir, exist_ok=True)
@@ -759,4 +761,4 @@ with open(json_filename, "w", encoding="utf-8") as f:
             ensure_ascii=False,
         )
 
-print("Total time:",time.time() - start)
+print("Total time:",time.time() - start)"""

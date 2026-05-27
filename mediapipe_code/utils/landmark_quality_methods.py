@@ -269,7 +269,7 @@ def evaluate_quality_gate(
         left_vis, left_pres, left_joint = side_metrics("LEFT")
         right_vis, right_pres, right_joint = side_metrics("RIGHT")
 
-        if left_vis <= 0.60 and right_vis <= 0.60:
+        if left_vis <= 0.50 and right_vis <= 0.50:
             return {
                 "event": "error",
                 "error_stage": "quality_gate",
@@ -279,7 +279,7 @@ def evaluate_quality_gate(
                 "message": "We couldn't see your lower body clearly",
             }
 
-        if left_vis <= 0.60 and right_vis >= 0.60:
+        if left_vis <= 0.50 and right_vis >= 0.50:
             return {
                 "event": "error",
                 "error_stage": "quality_gate",
@@ -290,7 +290,7 @@ def evaluate_quality_gate(
                 "detail": f"Your left {left_joint} wasn't clearly visible.",
             }
 
-        if right_vis <= 0.60 and left_vis >= 0.60:
+        if right_vis <= 0.50 and left_vis >= 0.50:
             return {
                 "event": "error",
                 "error_stage": "quality_gate",
@@ -301,7 +301,7 @@ def evaluate_quality_gate(
                 "detail": f"Your right {right_joint} wasn't clearly visible.",
             }
 
-        if left_vis > 0.60 and left_pres <= 0.50:
+        if left_vis > 0.50 and left_pres <= 0.50:
             return {
                 "event": "error",
                 "error_stage": "quality_gate",
@@ -312,7 +312,7 @@ def evaluate_quality_gate(
                 "detail": f"Your left {left_joint} wasn't fully in frame throughout the video.",
             }
 
-        if right_vis > 0.60 and right_pres <= 0.50:
+        if right_vis > 0.50 and right_pres <= 0.50:
             return {
                 "event": "error",
                 "error_stage": "quality_gate",
@@ -326,7 +326,7 @@ def evaluate_quality_gate(
     elif dominant_view == "side_left":
         left_vis, left_pres, left_joint = side_metrics("LEFT")
 
-        if left_vis <= 0.60:
+        if left_vis <= 0.30:
             return {
                 "event": "error",
                 "error_stage": "quality_gate",
@@ -337,7 +337,7 @@ def evaluate_quality_gate(
                 "detail": f"Your left {left_joint} wasn't clearly visible.",
             }
 
-        if left_vis > 0.60 and left_pres <= 0.50:
+        if left_vis > 0.30 and left_pres <= 0.30:
             return {
                 "event": "error",
                 "error_stage": "quality_gate",
@@ -351,7 +351,7 @@ def evaluate_quality_gate(
     elif dominant_view == "side_right":
         right_vis, right_pres, right_joint = side_metrics("RIGHT")
 
-        if right_vis <= 0.60:
+        if right_vis <= 0.30:
             return {
                 "event": "error",
                 "error_stage": "quality_gate",
@@ -362,7 +362,7 @@ def evaluate_quality_gate(
                 "detail": f"Your right {right_joint} wasn't clearly visible.",
             }
 
-        if right_vis > 0.60 and right_pres <= 0.50:
+        if right_vis > 0.30 and right_pres <= 0.30:
             return {
                 "event": "error",
                 "error_stage": "quality_gate",
@@ -376,7 +376,7 @@ def evaluate_quality_gate(
     # ----------------------------
     # Gate 2 — Composite Score
     # ----------------------------
-    if video_score < 0.70:
+    if video_score < 0.50:
         return {
             "event": "error",
             "error_stage": "quality_gate",
