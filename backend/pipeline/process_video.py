@@ -286,7 +286,7 @@ async def _store_biomechanics(session_id: str, data: dict):
         SET status = 'complete',
             biomechanics_json = :bio,
             rep_count = :reps
-        WHERE session_id = :sid
+        WHERE analysis_id = :sid
         """,
         values={
             "sid": session_id,
@@ -305,7 +305,7 @@ async def _store_failed(session_id: str, reason: str, detail=None):
         UPDATE form_analyses
         SET status = 'failed',
             error_code = :err
-        WHERE session_id = :sid
+        WHERE analysis_id = :sid
         """,
         values={
             "sid": session_id,

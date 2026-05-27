@@ -5,7 +5,7 @@ import { useSSEStream } from "../hooks/useSSEStream"
 function StepIcon({ status }) {
   if (status === "complete") {
     return (
-      <div className="w-6 h-6 rounded-full flex items-center justify-center shrink-0" style={{ background: "#6366f1" }}>
+      <div className="w-6 h-6 rounded-full flex items-center justify-center shrink-0" style={{ background: "#22c55e" }}>
         <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="white" strokeWidth={3}>
           <path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" />
         </svg>
@@ -36,11 +36,26 @@ const DISPLAY_LABELS = [
   "Calculating force and rhythm...",
 ]
 
+const EVENT_SUBLABELS = {
+  upload_received:    "Video received",
+  mediapipe_started:  "Running pose detection",
+  mediapipe_complete: "Pose detection complete",
+  nemotron_started:   "Scoring your movement",
+  nemotron_complete:  "Movement scored",
+  rag_started:        "Looking up exercise data",
+  rag_complete:       "Exercise data retrieved",
+  claude_started:     "Generating your coaching",
+  claude_complete:    "Coaching generated",
+  haiku_started:      "Generating your coaching",
+  analysis_complete:  "Analysis complete",
+  analysis_ready:     "Analysis ready",
+}
+
 export default function LoadingPage() {
   const navigate  = useNavigate()
   const location  = useLocation()
   const { analysisId, videoPreviewUrl } = location.state || {}
-  const { steps, isDone, error, cancel, resultUrl, analysisData } = useSSEStream(analysisId)
+  const { steps, isDone, error, cancel, resultUrl, analysisData, lastEvent } = useSSEStream(analysisId)
 
   const [booted, setBooted] = useState(false)
   useEffect(() => {
@@ -48,13 +63,23 @@ export default function LoadingPage() {
     return () => clearTimeout(t)
   }, [])
 
+  const [elapsed, setElapsed] = useState(0)
+  useEffect(() => {
+    if (isDone) return
+    const t = setInterval(() => setElapsed(s => s + 1), 1000)
+    return () => clearInterval(t)
+  }, [isDone])
+
+  const elapsedLabel = elapsed < 60
+    ? `${elapsed}s`
+    : `${Math.floor(elapsed / 60)}m ${elapsed % 60}s`
+
   const displaySteps = DISPLAY_LABELS.map((label, i) => {
     if (!booted) return { label, status: i === 0 ? "active" : "pending" }
+    const step = steps[i]
     return {
       label,
-      status: i < steps.length
-        ? steps[i].status
-        : isDone ? "complete" : "pending",
+      status: step ? step.status : (isDone ? "complete" : "pending"),
     }
   })
 
@@ -90,11 +115,12 @@ export default function LoadingPage() {
         }
       } catch (_) {}
 
+      console.log("[DEBUG] analysisRecord:", JSON.stringify(analysisRecord, null, 2))
       const result = analysisRecord
         ? { ...analysisRecord, progression_data: progressionData }
         : null
 
-      navigate(resultUrl || "/upload/results", { state: { analysisId, analysisResult: result } })
+      navigate(resultUrl || "/upload/results", { state: { analysisId, analysisResult: result, videoPreviewUrl } })
     }, 3000)
     return () => clearTimeout(t)
   }, [isDone, analysisId, navigate, resultUrl])
@@ -139,7 +165,10 @@ export default function LoadingPage() {
 
         <div className="text-center">
           <h1 className="text-lg font-semibold text-gray-900 mb-0.5">Form Check in Progress</h1>
-          <p className="text-sm text-gray-500">Kinetic is analyzing your video upload...</p>
+          <p className="text-sm text-gray-500">
+            Pose analysis takes 2–5 minutes — hang tight
+            {elapsed > 0 && <span className="ml-1 text-indigo-400 font-medium">({elapsedLabel})</span>}
+          </p>
         </div>
 
         <div className="rounded-2xl px-4 py-4 flex items-start gap-3" style={{ background: "linear-gradient(135deg, #6366f1 0%, #818cf8 100%)" }}>
@@ -162,9 +191,17 @@ export default function LoadingPage() {
           {displaySteps.map((step, i) => (
             <div key={i} className="flex items-center gap-3">
               <StepIcon status={step.status} />
-              <span className={`text-sm font-medium ${step.status === "pending" ? "text-gray-400" : "text-gray-800"}`}>
-                {step.label}
-              </span>
+              <div className="flex flex-col">
+                <span className={`text-sm font-medium ${step.status === "pending" ? "text-gray-400" : "text-gray-800"}`}>
+                  {step.label}
+                </span>
+                {step.status === "active" && lastEvent && EVENT_SUBLABELS[lastEvent] && (
+                  <span className="text-xs text-indigo-500 mt-0.5">{EVENT_SUBLABELS[lastEvent]}</span>
+                )}
+                {step.status === "error" && lastEvent && (
+                  <span className="text-xs text-red-400 mt-0.5">Failed at: {lastEvent}</span>
+                )}
+              </div>
             </div>
           ))}
         </div>

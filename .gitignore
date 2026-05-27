@@ -8,4 +8,6 @@ __pycache__
 echo "backend/kinetic.db" >> .gitignore
 echo "__pycache__/" >> .gitignore
 echo "*.pyc" >> .gitignore
-backend/credentials/
+backend/credentials/"backend/kinetic.db" 
+"backend/mediapipe_code/videos/" 
+"backend/mediapipe_code/video_results/" 
