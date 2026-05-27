@@ -57,6 +57,30 @@ CREATE TABLE IF NOT EXISTS form_analysis_results (
 )
 """
 
+CREATE_PROGRESSION_RESULTS_SQL = """
+CREATE TABLE IF NOT EXISTS progression_results (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+
+    analysis_id TEXT NOT NULL,
+
+    available INTEGER DEFAULT 1,
+
+    progress_direction TEXT,
+    progression_verdict TEXT,
+
+    weight_recommendation TEXT,
+
+    focus_this_week TEXT,
+
+    posture_trend TEXT,
+    stability_trend TEXT,
+    range_of_motion_trend TEXT,
+    movement_quality_trend TEXT,
+
+    created_at TEXT DEFAULT CURRENT_TIMESTAMP
+)
+"""
+
 def init_db():
     conn = sqlite3.connect(DATABASE_PATH)
     cursor = conn.cursor()
@@ -76,6 +100,7 @@ def init_db():
             pass  # column already exists
 
     cursor.execute(CREATE_FORM_ANALYSIS_RESULTS_SQL)
+    cursor.execute(CREATE_PROGRESSION_RESULTS_SQL)
     conn.commit()
     conn.close()
     print("Database initialized.")
