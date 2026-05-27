@@ -1,361 +1,435 @@
-import { useState, useRef } from "react"
+import { useState, useEffect } from "react"
 import { useNavigate } from "react-router-dom"
+import { Upload, CheckCircle, AlertCircle, RotateCw, Check, ChevronDown, Play } from "lucide-react"
 import { uploadVideo } from "../services/uploadService"
 
-const MUSCLE_IMAGES = {
-  default:    "/muscular_light.png",
-  QUADS:      "/muscular_quads.png",
-  SHOULDERS:  "/muscular_light.png",
-  BICEPS:     "/muscular_light.png",
-  FOREARMS:   "/muscular_light.png",
-  CHEST:      "/muscular_light.png",
-  "ABS/CORE": "/muscular_light.png",
-}
-
-const EXERCISES = {
-  QUADS: [
-    { id: "goblet-squat",  name: "GOBLET SQUAT"  },
-    { id: "barbell-squat", name: "BARBELL SQUAT"  },
-    { id: "deadlift",      name: "DEADLIFT"       },
-  ],
-  SHOULDERS: [], BICEPS: [], FOREARMS: [], CHEST: [], "ABS/CORE": [],
-}
-
-const TIPS_TITLE = {
-  "goblet-squat":  "LET'S CRUSH YOUR GOBLET SQUATS TODAY",
-  "barbell-squat": "LET'S CRUSH YOUR BARBELL SQUATS TODAY",
-  "deadlift":      "LET'S CRUSH YOUR DEADLIFTS TODAY",
-}
-
-const CAMERA_TIPS = [
-  { label: "Angle",    text: "Record directly from the side. The AI needs to see your spine and joint angles clearly." },
-  { label: "Distance", text: "Stand about 6–8 feet away so your entire body remains in the frame at the bottom of the squat." },
-  { label: "Height",   text: "Place the phone at hip/waist height. Floor angles distort the AI's depth perception." },
-  { label: "Contrast", text: "Wear clothes that contrast with your background (e.g., don't wear black leggings against a black wall)." },
+const EXERCISES = [
+  { id: "goblet-squat",  name: "GOBLET SQUAT",  enabled: true  },
+  { id: "barbell-squat", name: "BARBELL SQUAT",  enabled: false },
+  { id: "deadlift",      name: "DEADLIFT",       enabled: false },
 ]
 
-const MAX_FILE_SIZE_MB = 500
-const ACCEPTED_FORMATS = ["video/mp4", "video/quicktime", "video/webm"]
+const MAX_FILE_SIZE_MB    = 500
+const ACCEPTED_FORMATS    = ["video/mp4", "video/quicktime", "video/webm"]
+const ACCEPTED_EXTENSIONS = ".mp4, .mov, .webm"
 
-export default function UploadScanPage() {
-  const navigate     = useNavigate()
-  const videoRef     = useRef(null)
-  const fileInputRef = useRef(null)
+const MIN_WEIGHT  = 0
+const MAX_WEIGHT  = 200
+const WEIGHT_STEP = 0.5
 
-  const [selectedMuscle,   setSelectedMuscle]   = useState(null)
-  const [selectedExercise, setSelectedExercise] = useState(null)
-  const [videoFile,        setVideoFile]        = useState(null)
-  const [videoPreviewUrl,  setVideoPreviewUrl]  = useState(null)
-  const [isPlaying,        setIsPlaying]        = useState(false)
-  const [weight,           setWeight]           = useState(0)
-  const [unit,             setUnit]             = useState("kg")
-  const [fileError,        setFileError]        = useState("")
-  const [isUploading,      setIsUploading]      = useState(false)
-  const [uploadError,      setUploadError]      = useState("")
+function UploadScanPage() {
+  const navigate = useNavigate()
 
-  const maxWeight      = unit === "kg" ? 200 : 440
-  const isFormValid    = selectedExercise && videoFile && !fileError && weight > 0
-  const exerciseList   = selectedMuscle ? (EXERCISES[selectedMuscle] || []) : []
-  const showUnitToggle = weight > 0
-  const tipsTitle      = selectedExercise ? TIPS_TITLE[selectedExercise] : null
+  const [exercise,        setExercise]        = useState("")
+  const [weight,          setWeight]          = useState(0)
+  const [videoFile,       setVideoFile]       = useState(null)
+  const [videoPreviewUrl, setVideoPreviewUrl] = useState(null)
+  const [weightTouched,   setWeightTouched]   = useState(false)
+  const [fileError,       setFileError]       = useState("")
+  const [tipsExpanded,    setTipsExpanded]    = useState(true)
+  const [unit,            setUnit]            = useState("kg")
+  const [formAlert,       setFormAlert]       = useState("")
+  const [isUploading,     setIsUploading]     = useState(false)
+  const [uploadError,     setUploadError]     = useState("")
+
+  const maxWeightForUnit  = unit === "kg" ? MAX_WEIGHT : 440
+  const isWeightValid     = weight > 0
+  const isFormValid       = exercise && isWeightValid && videoFile && !fileError
+  const showWeightError   = weightTouched && !isWeightValid
+  const highlightedMuscle = exercise === "goblet-squat" || exercise === "barbell-squat" ? "quads" : null
+
+  useEffect(() => {
+    if (isFormValid) setFormAlert("")
+  }, [isFormValid])
 
   function handleFileChange(e) {
-    const file = e.target.files?.[0]
+    const file = e.target.files[0]
     if (!file) return
     setFileError("")
+
     if (!ACCEPTED_FORMATS.includes(file.type)) {
-      setFileError("Unsupported format. Please upload MP4, MOV or WebM.")
-      setVideoFile(null); setVideoPreviewUrl(null); return
+      setFileError(`Unsupported format. Please upload ${ACCEPTED_EXTENSIONS}.`)
+      setVideoFile(null)
+      setVideoPreviewUrl(null)
+      return
     }
-    if (file.size / (1024 * 1024) > MAX_FILE_SIZE_MB) {
-      setFileError("File too large. Max " + MAX_FILE_SIZE_MB + " MB.")
-      setVideoFile(null); setVideoPreviewUrl(null); return
+
+    const fileSizeMB = file.size / (1024 * 1024)
+    if (fileSizeMB > MAX_FILE_SIZE_MB) {
+      setFileError(
+        `File too large (${fileSizeMB.toFixed(1)} MB). Max ${MAX_FILE_SIZE_MB} MB. ` +
+        `Try trimming the clip to the working set only.`
+      )
+      setVideoFile(null)
+      setVideoPreviewUrl(null)
+      return
     }
+
     setVideoFile(file)
     setVideoPreviewUrl(URL.createObjectURL(file))
   }
 
+  function handleWeightSliderChange(e) {
+    setWeight(Number(e.target.value))
+    setWeightTouched(true)
+  }
+
+  function handleWeightInputChange(e) {
+    const val = e.target.value
+    if (val === "") { setWeight(0); return }
+    const num = Number(val)
+    if (!isNaN(num) && num >= MIN_WEIGHT && num <= maxWeightForUnit) setWeight(num)
+  }
+
   async function handleSubmit() {
-    if (!isFormValid) return
-    setUploadError(""); setIsUploading(true)
+    if (!isFormValid) {
+      const parts = []
+      if (!exercise)      parts.push("select an exercise")
+      if (!videoFile)     parts.push("upload a video")
+      if (!isWeightValid) parts.push("set weight greater than 0")
+      if (fileError)      parts.push("fix the file error above")
+      setFormAlert(`Before starting: ${parts.join(", ")}.`)
+      setWeightTouched(true)
+      return
+    }
+
+    setFormAlert("")
+    setUploadError("")
+    setIsUploading(true)
+
     try {
-      const analysisId = await uploadVideo(videoFile, selectedExercise, weight, unit)
-      navigate("/upload/loading", { state: { analysisId, videoPreviewUrl } })
+      const analysisId = await uploadVideo(videoFile, exercise, weight, unit)
+      navigate("/upload/loading", {
+        state: { analysisId, videoPreviewUrl },
+      })
     } catch (err) {
       setUploadError(err.message || "Upload failed. Please try again.")
       setIsUploading(false)
     }
   }
 
-  const NAV_ITEMS = [
-    { label: "Home",     icon: "M3 12l2-2m0 0l7-7 7 7M5 10v10a1 1 0 001 1h3m10-11l2 2m-2-2v10a1 1 0 01-1 1h-3m-6 0a1 1 0 001-1v-4a1 1 0 011-1h2a1 1 0 011 1v4a1 1 0 001 1m-6 0h6", path: "/" },
-    { label: "Plan",     icon: "M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z", path: "/plan" },
-    { label: "Anaylsis", icon: "M15 10l4.553-2.069A1 1 0 0121 8.82v6.36a1 1 0 01-1.447.894L15 14M3 8a2 2 0 012-2h8a2 2 0 012 2v8a2 2 0 01-2 2H5a2 2 0 01-2-2V8z", path: "/upload", active: true },
-    { label: "Timeline", icon: "M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z", path: "/timeline" },
-    { label: "Profile",  icon: "M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z", path: "/profile" },
-  ]
-
   return (
-    <div className="min-h-screen pb-24" style={{ backgroundColor: "#F0EFFE", colorScheme: "light" }}>
-      <div className="max-w-sm mx-auto px-4 pt-6">
+    <div className="min-h-screen bg-light-bg text-text-primary p-4">
+      <div className="max-w-md mx-auto space-y-4">
 
-        <h1 className="text-xl font-bold text-gray-900 mb-4">Select Target Muscle</h1>
+        {/* ───────── Anatomy + Exercise Module ───────── */}
+        <section className="border-2 border-dashed border-cyan-glow/60 rounded-xl p-4 bg-light-card shadow-sm">
 
-        {/* Body diagram + Exercise Module */}
-        <div className="rounded-2xl mb-4" style={{ border: "1.5px dashed #a5b4fc", background: "white" }}>
+          <div className="relative flex justify-center mb-6">
+            <div className="relative w-64 h-84">
+              <img
+                src="/muscular_light.png"
+                alt="Anatomy diagram"
+                className="w-full h-full object-cover rounded-lg"
+              />
 
-          <div className="relative pt-4 pb-3 px-2">
-            <div className="flex items-center justify-center gap-2">
-
-              <div className="flex flex-col items-end gap-3" style={{ width: 72 }}>
-                {["SHOULDERS","BICEPS","FOREARMS"].map(m => (
-                  <span key={m} className="text-[9px] font-semibold tracking-wider" style={{ color: "#9ca3af" }}>{m}</span>
-                ))}
-                <button
-                  type="button"
-                  onClick={() => { setSelectedMuscle(selectedMuscle === "QUADS" ? null : "QUADS"); setSelectedExercise(null) }}
-                  className="text-[9px] font-bold tracking-wider px-2 py-0.5 rounded-full transition-all"
-                  style={{
-                    background: selectedMuscle === "QUADS" ? "#6366f1" : "rgba(99,102,241,0.08)",
-                    color: selectedMuscle === "QUADS" ? "#fff" : "#6366f1",
-                    border: "1.5px solid #6366f1",
-                  }}
-                >
-                  QUADS
-                </button>
-              </div>
-
-              <div className="relative flex-shrink-0" style={{ width: 168, height: 248 }}>
-                <img
-                  src={MUSCLE_IMAGES[selectedMuscle] || MUSCLE_IMAGES.default}
-                  alt="Body diagram"
-                  className="w-full h-full object-contain"
-                />
-              </div>
-
-              <div className="flex flex-col items-start gap-3 pt-2" style={{ width: 64 }}>
-                {["CHEST","ABS/CORE"].map(m => (
-                  <span key={m} className="text-[9px] font-semibold tracking-wider" style={{ color: "#9ca3af" }}>{m}</span>
-                ))}
-              </div>
-            </div>
-
-            <div className="flex justify-end pr-2 mt-1">
-              <button type="button" className="text-gray-400" aria-label="Rotate">
-                <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-                  <path strokeLinecap="round" strokeLinejoin="round" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
-                </svg>
-              </button>
-            </div>
-          </div>
-
-          <div style={{ backgroundColor: "#ede9fe" }} className="px-4 pt-3 pb-4 rounded-b-2xl overflow-hidden">
-            <div className="flex items-center justify-between mb-3">
-              <span className="text-[11px] font-bold text-gray-500 tracking-widest uppercase">Exercise Module</span>
-              <svg className="w-4 h-4 text-gray-400" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2}>
-                <rect x="3" y="3" width="7" height="7" rx="1"/><rect x="14" y="3" width="7" height="7" rx="1"/>
-                <rect x="3" y="14" width="7" height="7" rx="1"/><rect x="14" y="14" width="7" height="7" rx="1"/>
-              </svg>
-            </div>
-            {exerciseList.length === 0 ? (
-              <div className="bg-white rounded-xl px-4 py-3">
-                <span className="text-sm text-gray-400">Select Target Muscle</span>
-              </div>
-            ) : (
-              <div className="space-y-2">
-                {exerciseList.map(ex => {
-                  const sel = selectedExercise === ex.id
-                  return (
-                    <button
-                      key={ex.id}
-                      type="button"
-                      onClick={() => setSelectedExercise(ex.id)}
-                      className="w-full flex items-center justify-between px-4 py-3 rounded-xl text-sm font-semibold tracking-wide bg-white transition-all"
-                      style={{ border: sel ? "2px solid #6366f1" : "2px solid transparent" }}
-                    >
-                      <span className="flex items-center gap-3 text-gray-900">
-                        <span>🏋️</span>
-                        <span>{ex.name}</span>
-                      </span>
-                      {sel && (
-                        <span className="w-6 h-6 rounded-full flex items-center justify-center flex-shrink-0" style={{ background: "#6366f1" }}>
-                          <svg className="w-3.5 h-3.5 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={3}>
-                            <path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" />
-                          </svg>
-                        </span>
-                      )}
-                    </button>
-                  )
-                })}
-                <button type="button" className="w-full px-4 py-3 rounded-xl bg-white text-sm text-gray-400 font-medium">
-                  VIEW MORE
-                </button>
-              </div>
-            )}
-          </div>
-        </div>
-
-        {/* Tips */}
-        {tipsTitle && (
-          <div className="bg-white rounded-2xl p-4 mb-4 shadow-sm border border-gray-100">
-            <div className="flex items-center justify-between mb-3">
-              <span className="text-sm font-semibold text-gray-900">Tips for the video upload</span>
-              <div className="w-6 h-0.5 bg-blue-400" />
-            </div>
-            <p className="text-[11px] font-bold text-gray-700 tracking-wide text-center mb-3">{tipsTitle}</p>
-            <img src="/angle.png" alt="Form reference" className="w-full rounded-lg mb-3 object-contain max-h-44" onError={e => { e.currentTarget.style.display = "none" }} />
-            <ul className="space-y-1.5">
-              {CAMERA_TIPS.map(tip => (
-                <li key={tip.label} className="text-xs text-gray-600 leading-relaxed">
-                  <span className="font-semibold">{tip.label}: </span>{tip.text}
-                </li>
-              ))}
-            </ul>
-          </div>
-        )}
-
-        {/* Upload Session Video */}
-        <h2 className="text-base font-bold text-gray-900 mb-3">Upload Session Video</h2>
-        {videoPreviewUrl ? (
-          <div className="relative rounded-2xl overflow-hidden border border-gray-200 bg-white shadow-sm mb-4">
-            <video
-              ref={videoRef}
-              src={videoPreviewUrl}
-              className="w-full cursor-pointer"
-              style={{ display: "block" }}
-              muted
-              playsInline
-              onPlay={() => setIsPlaying(true)}
-              onPause={() => setIsPlaying(false)}
-              onEnded={() => setIsPlaying(false)}
-              onClick={() => {
-                if (!videoRef.current) return
-                videoRef.current.paused ? videoRef.current.play() : videoRef.current.pause()
-              }}
-            />
-            <div className="absolute inset-0 flex items-center justify-center pointer-events-none">
-              {!isPlaying && (
-                <button
-                  type="button"
-                  className="w-14 h-14 rounded-full bg-white bg-opacity-90 flex items-center justify-center shadow-lg pointer-events-auto"
-                  onClick={() => { if (videoRef.current) videoRef.current.play() }}
-                >
-                  <svg className="w-6 h-6 ml-1" fill="#6366f1" viewBox="0 0 24 24"><path d="M8 5v14l11-7z" /></svg>
-                </button>
+              {highlightedMuscle === "quads" && (
+                <div className="absolute left-1/2 top-[48%] -translate-x-1/2 w-20 h-16 bg-cyan-glow/40 blur-sm rounded-full pointer-events-none" />
               )}
+
+              <span className="absolute top-10 left-[155px] text-[10px] text-text-teritary tracking-wide">SHOULDERS</span>
+              <span className="absolute top-[60px] left-[50px] text-[10px] text-text-teritary tracking-wide">BICEPS</span>
+              <span className="absolute top-[95px] left-[12px] text-[10px] text-text-teritary tracking-wide">FOREARMS</span>
+              <span
+                className={`absolute top-[192px] left-[55px] text-[10px] tracking-wide ${
+                  highlightedMuscle === "quads" ? "text-cyan-glow font-semibold" : "text-text-teritary"
+                }`}
+                style={{ pointerEvents: "none" }}
+              >
+                QUADS
+              </span>
+              <span className="absolute top-[140px] right-[60px] text-[10px] text-text-teritary tracking-wide">CHEST</span>
+              <span className="absolute bottom-[180px] right-[160px] text-[10px] text-text-teritary tracking-wide">ABS/CORE</span>
             </div>
-            <button
-              type="button"
-              onClick={() => {
-                setVideoFile(null)
-                setVideoPreviewUrl(null)
-                setIsPlaying(false)
-                if (fileInputRef.current) fileInputRef.current.value = ""
-              }}
-              className="absolute top-2 right-2 w-7 h-7 rounded-full flex items-center justify-center text-white text-sm font-bold"
-              style={{ background: "rgba(0,0,0,0.55)" }}
-            >✕</button>
-          </div>
-        ) : (
-          <div className="rounded-2xl p-8 text-center mb-4" style={{ background: "linear-gradient(135deg, #e0e7ff 0%, #f0effe 100%)", border: "1.5px dashed #a5b4fc" }}>
-            <div className="w-14 h-14 rounded-full bg-white flex items-center justify-center mx-auto mb-3 shadow-sm">
-              <svg className="w-7 h-7 text-gray-500" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-                <path strokeLinecap="round" strokeLinejoin="round" d="M7 16a4 4 0 01-.88-7.903A5 5 0 1115.9 6L16 6a5 5 0 011 9.9M15 13l-3-3m0 0l-3 3m3-3v12" />
-              </svg>
-            </div>
-            <p className="text-sm font-semibold text-gray-800 mb-1">Upload Video</p>
-            <p className="text-xs text-gray-500 mb-4">Supports high-quality files.</p>
-            <button
-              type="button"
-              onClick={() => fileInputRef.current?.click()}
-              className="flex items-center gap-2 mx-auto px-5 py-2 rounded-lg text-sm font-semibold text-white"
-              style={{ background: "#1f2937" }}
+
+            <svg
+              className="absolute inset-0 w-full h-full pointer-events-none"
+              viewBox="0 0 192 288"
+              preserveAspectRatio="none"
             >
-              <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-                <path strokeLinecap="round" strokeLinejoin="round" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-8l-4-4m0 0L8 8m4-4v12" />
-              </svg>
-              Upload Video
+              <line x1="109" y1="55" x2="112" y2="45" stroke="#1d2d3e" strokeOpacity="0.4" strokeWidth="1" />
+              <line x1="69" y1="62" x2="75" y2="80" stroke="#1d2d3e" strokeOpacity="0.4" strokeWidth="1" />
+              <line x1="57" y1="92" x2="57" y2="112" stroke="#1d2d3e" strokeOpacity="0.4" strokeWidth="1" />
+              <line
+                x1="80" y1="167" x2="87" y2="167"
+                stroke={highlightedMuscle === "quads" ? "#00ffc2" : "#1d2d3e"}
+                strokeOpacity={highlightedMuscle === "quads" ? "0.9" : "0.4"}
+                strokeWidth="1"
+              />
+              <line x1="115" y1="118" x2="105" y2="84" stroke="#1d2d3e" strokeOpacity="0.4" strokeWidth="1" />
+              <line x1="81" y1="130" x2="95" y2="120" stroke="#1d2d3e" strokeOpacity="0.4" strokeWidth="1" />
+            </svg>
+
+            <button
+              type="button"
+              className="absolute bottom-0 right-0 text-text-teritary hover:text-text-primary"
+              aria-label="Rotate view"
+            >
+              <RotateCw size={20} />
             </button>
           </div>
-        )}
-        <input ref={fileInputRef} type="file" accept="video/mp4,video/quicktime,video/webm" onChange={handleFileChange} className="hidden" />
-        {fileError && <p className="text-xs text-red-500 mb-3">{fileError}</p>}
 
-        {/* Load Parameters */}
-        <div className="bg-white rounded-2xl p-4 mb-4 shadow-sm border border-gray-100">
           <div className="flex items-center justify-between mb-3">
-            <span className="text-sm font-semibold text-gray-700">Load Parameters</span>
-            {showUnitToggle && (
-              <div className="flex rounded-full overflow-hidden border border-indigo-200 text-xs font-semibold">
-                {[["Kg","kg"],["Lbs","lbs"]].map(([label, val]) => (
-                  <button key={val} type="button" onClick={() => { setUnit(val); setWeight(0) }}
-                    className="px-3 py-1 transition-colors"
-                    style={{ background: unit === val ? "#6366f1" : "white", color: unit === val ? "white" : "#6b7280" }}>
-                    {label}
-                  </button>
-                ))}
-              </div>
-            )}
+            <h2 className="text-xs uppercase tracking-wider text-text-teritary">Exercise Module</h2>
+            <button type="button" className="text-text-disabled hover:text-text-teritary" aria-label="View options">
+              <ChevronDown size={14} />
+            </button>
           </div>
-          <div className="flex items-baseline justify-between mb-3">
-            <span className="text-sm font-bold text-gray-700 uppercase tracking-wide">Weight</span>
-            <span className="text-2xl font-bold text-gray-900">
-              {weight} <span className="text-sm font-semibold text-gray-500 uppercase">{unit}</span>
-            </span>
-          </div>
-          <input type="range" min={0} max={maxWeight} step={0.5} value={weight}
-            onChange={e => setWeight(Number(e.target.value))} className="w-full" style={{ accentColor: "#6366f1" }} />
-          <div className="flex justify-between mt-1 px-1">
-            {[0,1,2,3,4].map(i => <div key={i} className="w-px h-1.5 bg-gray-300" />)}
-          </div>
-        </div>
 
-        {/* Start Analysis */}
+          <div className="space-y-2">
+            {EXERCISES.map((ex) => {
+              const isSelected = exercise === ex.id
+              return (
+                <button
+                  key={ex.id}
+                  type="button"
+                  onClick={() => ex.enabled && setExercise(ex.id)}
+                  disabled={!ex.enabled}
+                  className={`w-full flex items-center justify-between px-4 py-3 rounded-lg border text-sm font-medium tracking-wide transition-colors ${
+                    isSelected
+                      ? "border-cyan-glow text-text-primary bg-cyan-glow/15"
+                      : ex.enabled
+                      ? "border-gray-200 text-text-primary hover:border-gray-300 bg-white"
+                      : "border-gray-100 text-text-disabled cursor-not-allowed bg-white"
+                  }`}
+                >
+                  <span className="flex items-center gap-2">
+                    <span className="w-4 h-4 rounded-sm bg-gray-100" />
+                    {ex.name}
+                  </span>
+                  {!ex.enabled && (
+                    <span className="text-[10px] text-text-disabled uppercase tracking-wider">Soon</span>
+                  )}
+                  {isSelected && (
+                    <span className="w-5 h-5 rounded-full bg-cyan-glow flex items-center justify-center">
+                      <Check size={14} className="text-text-primary" />
+                    </span>
+                  )}
+                </button>
+              )
+            })}
+            <button
+              type="button"
+              className="w-full px-4 py-3 rounded-lg border border-gray-200 text-sm text-text-teritary hover:text-text-primary hover:border-gray-300 transition-colors"
+            >
+              VIEW MORE
+            </button>
+          </div>
+        </section>
+
+        {/* ───────── Filming Tips (collapsible) ───────── */}
+        <section className="border-2 border-dashed border-cyan-glow/60 rounded-xl p-4 bg-light-card shadow-sm">
+          <button
+            type="button"
+            onClick={() => setTipsExpanded((v) => !v)}
+            className="w-full flex items-center justify-between mb-3"
+          >
+            <h2 className="text-sm font-semibold text-text-primary">Tips for the video upload</h2>
+            <span className="text-error text-lg leading-none">{tipsExpanded ? "—" : "+"}</span>
+          </button>
+
+          {tipsExpanded && (
+            <>
+              <div className="mb-3">
+                <img
+                  src="/angle.png"
+                  alt="Correct vs incorrect squat form reference"
+                  className="w-full aspect-video object-contain rounded-md"
+                  onError={(e) => { e.currentTarget.style.display = "none" }}
+                />
+              </div>
+              <ul className="text-xs text-text-secondary space-y-1.5 list-disc list-inside leading-relaxed">
+                <li><strong>Angle</strong>: Record directly from the side. The AI needs to see your spine and joint angles clearly.</li>
+                <li><strong>Distance</strong>: Stand about 6–8 feet away so your entire body stays in frame at the bottom of the squat.</li>
+                <li><strong>Height</strong>: Place the phone at hip/waist height. Floor angles distort the AI's depth perception.</li>
+                <li><strong>Contrast</strong>: Wear clothes that contrast with your background (e.g., don't wear black leggings against a black wall).</li>
+              </ul>
+            </>
+          )}
+        </section>
+
+        {/* ───────── Upload Session Video ───────── */}
+        <section>
+          <h2 className="text-base font-semibold text-text-primary mb-3">Upload Session Video</h2>
+
+          {videoPreviewUrl ? (
+            <div className="relative rounded-xl overflow-hidden bg-light-card border border-gray-200 shadow-sm">
+              <video src={videoPreviewUrl} className="w-full aspect-video object-cover" muted playsInline />
+              <div className="absolute inset-0 flex items-center justify-center bg-black/20">
+                <button
+                  type="button"
+                  onClick={(e) => {
+                    const vid = e.currentTarget.closest("div").querySelector("video")
+                    if (vid.paused) vid.play(); else vid.pause()
+                  }}
+                  className="w-14 h-14 rounded-full bg-cyan-glow flex items-center justify-center hover:scale-105 transition-transform shadow-lg"
+                  aria-label="Play video preview"
+                >
+                  <Play size={24} className="text-text-primary ml-1" fill="currentColor" />
+                </button>
+              </div>
+              <button
+                type="button"
+                onClick={() => document.getElementById("video-upload").click()}
+                className="absolute top-2 right-2 px-3 py-1 bg-white/90 text-text-primary text-xs rounded-md hover:bg-white shadow"
+              >
+                Change
+              </button>
+            </div>
+          ) : (
+            <div className="border-2 border-dashed border-cyan-glow/60 rounded-xl p-6 bg-light-card text-center shadow-sm">
+              <Upload size={36} className="text-text-teritary mx-auto mb-3" />
+              <p className="text-sm font-medium text-text-primary mb-1">Upload Video</p>
+              <p className="text-xs text-text-teritary mb-4">MP4, MOV or WebM · max {MAX_FILE_SIZE_MB} MB</p>
+              <button
+                type="button"
+                onClick={() => document.getElementById("video-upload").click()}
+                className="px-4 py-2 bg-gray-100 hover:bg-gray-200 text-text-primary text-sm rounded-lg transition-colors"
+              >
+                Upload Video
+              </button>
+            </div>
+          )}
+
+          <input
+            id="video-upload"
+            type="file"
+            accept="video/mp4,video/quicktime,video/webm"
+            onChange={handleFileChange}
+            className="hidden"
+          />
+
+          {videoFile && !fileError && (
+            <p className="text-xs text-text-teritary mt-2 flex items-center gap-1">
+              <CheckCircle size={12} className="text-success" />
+              {videoFile.name} · {(videoFile.size / (1024 * 1024)).toFixed(1)} MB
+            </p>
+          )}
+
+          {fileError && (
+            <p className="text-xs text-error mt-2 flex items-start gap-1">
+              <AlertCircle size={14} className="mt-0.5 flex-shrink-0" />
+              <span>{fileError}</span>
+            </p>
+          )}
+        </section>
+
+        {/* ───────── Load Parameters (weight) ───────── */}
+        <section className="border-2 border-dashed border-cyan-glow/60 rounded-xl p-4 bg-light-card shadow-sm">
+          <div className="flex items-center justify-between mb-3">
+            <label className="text-xs uppercase tracking-wider text-text-teritary">Load Parameters</label>
+            <div className="flex bg-gray-100 rounded-md p-0.5 text-xs">
+              {["kg", "lbs"].map((u) => (
+                <button
+                  key={u}
+                  type="button"
+                  onClick={() => { setUnit(u); setWeight(0); setWeightTouched(false) }}
+                  className={`px-2 py-0.5 rounded transition-colors uppercase ${
+                    unit === u ? "bg-cyan-glow text-text-primary font-semibold" : "text-text-teritary"
+                  }`}
+                >
+                  {u}
+                </button>
+              ))}
+            </div>
+          </div>
+
+          <div className="flex items-center justify-between mb-3">
+            <span className="text-sm font-medium text-text-primary">Weight</span>
+            <div className="flex items-baseline gap-1">
+              <input
+                type="number"
+                inputMode="numeric"
+                min={MIN_WEIGHT}
+                max={maxWeightForUnit}
+                step={WEIGHT_STEP}
+                value={weight === 0 ? "" : weight}
+                placeholder="0"
+                onChange={handleWeightInputChange}
+                onBlur={() => setWeightTouched(true)}
+                className="w-16 bg-transparent text-right text-2xl text-text-primary font-semibold focus:outline-none"
+              />
+              <span className="text-sm text-text-teritary uppercase">{unit}</span>
+            </div>
+          </div>
+
+          <input
+            type="range"
+            min={MIN_WEIGHT}
+            max={maxWeightForUnit}
+            step={WEIGHT_STEP}
+            value={weight}
+            onChange={handleWeightSliderChange}
+            className="w-full accent-cyan-glow"
+          />
+
+          {showWeightError && (
+            <p className="text-xs text-error mt-2 flex items-center gap-1">
+              <AlertCircle size={14} />
+              Weight must be greater than 0
+            </p>
+          )}
+        </section>
+
+        {/* ───────── Start Analysis Button ───────── */}
         <button
           type="button"
           onClick={handleSubmit}
           disabled={isUploading}
-          className="w-full py-4 rounded-2xl text-sm font-bold tracking-widest uppercase mb-2"
-          style={{
-            background: isFormValid ? "linear-gradient(135deg, #4f46e5 0%, #7c3aed 100%)" : "#e5e7eb",
-            color: isFormValid ? "white" : "#9ca3af",
-          }}
+          className={`w-full h-14 rounded-xl font-semibold tracking-wide transition-all ${
+            isFormValid && !isUploading
+              ? "bg-gradient-to-r from-teal to-cyan-glow text-text-primary hover:brightness-105 shadow-md"
+              : "bg-gray-100 text-text-secondary border border-gray-200"
+          }`}
         >
-          {isUploading ? "Uploading..." : "START ANALYSIS →"}
+          {isUploading ? "UPLOADING..." : "START ANALYSIS →"}
         </button>
 
         {!isFormValid && !isUploading && (
-          <p className="text-xs text-gray-400 text-center mb-2">Choose exercise, set load (&gt; 0), and attach a video — then tap start.</p>
+          <p className="text-xs text-text-teritary text-center -mt-2">
+            Choose exercise, set load (&gt; 0), and attach a video — then tap start.
+          </p>
         )}
-        {uploadError && <p className="text-xs text-red-500 text-center mb-2">{uploadError}</p>}
 
+        {formAlert && (
+          <p className="text-xs text-error text-center flex items-start justify-center gap-1">
+            <AlertCircle size={14} className="mt-0.5 flex-shrink-0" />
+            <span>{formAlert}</span>
+          </p>
+        )}
+
+        {uploadError && (
+          <p className="text-xs text-error text-center flex items-start justify-center gap-1">
+            <AlertCircle size={14} className="mt-0.5 flex-shrink-0" />
+            <span>{uploadError}</span>
+          </p>
+        )}
+
+        {/* Dev shortcut */}
         {import.meta.env.DEV && (
-          <button type="button" className="w-full py-2 text-xs text-indigo-400 underline text-center"
-            onClick={() => navigate("/upload/loading", { state: { fixtureMode: true, videoPreviewUrl, analysisId: "dev-test" } })}>
-            Dev: skip to loading screen
+          <button
+            type="button"
+            className="w-full py-2 text-xs text-teal underline text-center"
+            onClick={() =>
+              navigate("/upload/loading", {
+                state: {
+                  fixtureMode:    true,
+                  exercise:       exercise || "goblet-squat",
+                  weight:         weight || 20,
+                  unit,
+                  videoPreviewUrl,
+                  queuedFileSize: videoFile?.size ?? 55 * 1024 * 1024,
+                },
+              })
+            }
+          >
+            Dev: preview loading UI (no server)
           </button>
         )}
-      </div>
 
-      {/* Bottom nav */}
-      <div className="fixed bottom-0 left-0 right-0 bg-white border-t border-gray-100 flex justify-around items-center py-2 px-4">
-        {NAV_ITEMS.map(({ label, icon, path, active }) => (
-          <button key={label} type="button" onClick={() => navigate(path)} className="flex flex-col items-center gap-0.5">
-            {active ? (
-              <div className="w-10 h-10 rounded-full flex items-center justify-center -mt-4 shadow-lg" style={{ background: "linear-gradient(135deg, #6366f1, #818cf8)" }}>
-                <svg className="w-5 h-5 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-                  <path strokeLinecap="round" strokeLinejoin="round" d={icon} />
-                </svg>
-              </div>
-            ) : (
-              <svg className="w-5 h-5 text-gray-400" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-                <path strokeLinecap="round" strokeLinejoin="round" d={icon} />
-              </svg>
-            )}
-            <span className="text-[10px]" style={{ color: active ? "#6366f1" : "#9ca3af" }}>{label}</span>
-          </button>
-        ))}
       </div>
     </div>
   )
 }
+
+export default UploadScanPage
