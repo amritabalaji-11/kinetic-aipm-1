@@ -65,3 +65,10 @@ class RepCounter:
                 return True, self.rep_count
 
         return False, self.rep_count
+    
+
+    def reduce_rep(self):
+        self.rep_count -= 1
+
+    def rep_to_zero(self):
+        self.rep_count = 0

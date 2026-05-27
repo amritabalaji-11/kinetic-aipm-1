@@ -1,3 +1,7 @@
+import base64
+import os
+import subprocess
+import cv2
 import numpy as np
 from typing import Any, Dict, List
 from mediapipe_code.utils.angle_methods import angle_between, ankle_dorsiflexion, back_angle, femur_vertical_angle
@@ -14,6 +18,9 @@ LEFT_PREFIX = "LEFT_"
 RIGHT_PREFIX = "RIGHT_"
 CRITICAL_SIDE_JOINTS = ["HIP", "KNEE", "ANKLE", "FOOT", "SHOULDER", "ANKLE"]
 
+import shutil
+
+FFMPEG_PATH = shutil.which("ffmpeg")
 
 def get_first_pose(result):
     """
@@ -267,7 +274,7 @@ def evaluate_quality_gate(
             return {
                 "event": "error",
                 "error_stage": "quality_gate",
-                "retryable": "false",
+                "retryable": False,
                 "error_code": "occlusion_both_sides",
                 "landmark_medians": landmark_medians,
                 "message": "We couldn't see your lower body clearly",
@@ -277,7 +284,7 @@ def evaluate_quality_gate(
             return {
                 "event": "error",
                 "error_stage": "quality_gate",
-                "retryable": "false",
+                "retryable": False,
                 "error_code": "occlusion_left_side",
                 "landmark_medians": landmark_medians,
                 "message": "Part of your left side was hidden from view",
@@ -288,7 +295,7 @@ def evaluate_quality_gate(
             return {
                 "event": "error",
                 "error_stage": "quality_gate",
-                "retryable": "false",
+                "retryable": False,
                 "error_code": "occlusion_right_side",
                 "landmark_medians": landmark_medians,
                 "message": "Part of your right side was hidden from view",
@@ -299,7 +306,7 @@ def evaluate_quality_gate(
             return {
                 "event": "error",
                 "error_stage": "quality_gate",
-                "retryable": "false",
+                "retryable": False,
                 "error_code": "out_of_frame_left",
                 "landmark_medians": landmark_medians,
                 "message": "Your left side kept moving out of frame",
@@ -310,7 +317,7 @@ def evaluate_quality_gate(
             return {
                 "event": "error",
                 "error_stage": "quality_gate",
-                "retryable": "false",
+                "retryable": False,
                 "error_code": "out_of_frame_right",
                 "landmark_medians": landmark_medians,
                 "message": "Your right side kept moving out of frame",
@@ -324,7 +331,7 @@ def evaluate_quality_gate(
             return {
                 "event": "error",
                 "error_stage": "quality_gate",
-                "retryable": "false",
+                "retryable": False,
                 "error_code": "occlusion_left_side",
                 "landmark_medians": landmark_medians,
                 "message": "Part of your left side was hidden from view",
@@ -335,7 +342,7 @@ def evaluate_quality_gate(
             return {
                 "event": "error",
                 "error_stage": "quality_gate",
-                "retryable": "false",
+                "retryable": False,
                 "error_code": "out_of_frame_left",
                 "landmark_medians": landmark_medians,
                 "message": "Your left side kept moving out of frame",
@@ -349,7 +356,7 @@ def evaluate_quality_gate(
             return {
                 "event": "error",
                 "error_stage": "quality_gate",
-                "retryable": "false",
+                "retryable": False,
                 "error_code": "occlusion_right_side",
                 "landmark_medians": landmark_medians,
                 "message": "Part of your right side was hidden from view",
@@ -360,7 +367,7 @@ def evaluate_quality_gate(
             return {
                 "event": "error",
                 "error_stage": "quality_gate",
-                "retryable": "false",
+                "retryable": False,
                 "error_code": "out_of_frame_right",
                 "landmark_medians": landmark_medians,
                 "message": "Your right side kept moving out of frame",
@@ -374,7 +381,7 @@ def evaluate_quality_gate(
         return {
             "event": "error",
             "error_stage": "quality_gate",
-            "retryable": "false",
+            "retryable": False,
             "error_code": "poor_video_quality",
             "message": "We couldn't read your body position clearly",
         }
@@ -386,7 +393,7 @@ def evaluate_quality_gate(
         return {
             "event": "error",
             "error_stage": "quality_gate",
-            "retryable": "false",
+            "retryable": False,
             "error_code": "no_reps_detected",
             "message": "We couldn't detect any squats in your video",
         }
@@ -395,7 +402,7 @@ def evaluate_quality_gate(
         return {
             "event": "error",
             "error_stage": "quality_gate",
-            "retryable": "false",
+            "retryable": False,
             "error_code": "insufficient_reps",
             "message": "We need at least 3 complete reps to give you meaningful feedback",
         }
@@ -525,6 +532,9 @@ def format_rep_data(rep_count, tempo_data, back_data, depth_data, stability_data
             "knee_angle_start": depth_data["knee_angle_start"],
             "knee_angle_at_bottom": depth_data["knee_angle_at_bottom"],
             "knee_angle_min": depth_data["knee_angle_min"],
+            "hip_angle_start": depth_data["hip_angle_start"],
+            "hip_angle_at_bottom": depth_data["hip_angle_at_bottom"],
+            "hip_angle_min": depth_data["hip_angle_min"],
             "depth_classification": depth_data["depth_classification"],
             "depth_insufficient_flag": depth_data["depth_insufficient_flag"],
         },
@@ -532,27 +542,22 @@ def format_rep_data(rep_count, tempo_data, back_data, depth_data, stability_data
     }
 
     if camera_view in ("front", "angled"):
-        data["depth_data"].update({
-            "hip_angle_start": depth_data["hip_angle_start"],
-            "hip_angle_at_bottom": depth_data["hip_angle_at_bottom"],
-            "hip_angle_min": depth_data["hip_angle_min"],
-        })
-
         data["stability_data"] = {
             "knee_valgus_distance": stability_data["knee_valgus_distance"],
-            "valgus_phase": stability_data["valgus_phase"],
-            "valgus_flag": stability_data["valgus_flag"],
+            "valgus_flag": stability_data["valgus_flag"]
         }
 
-        data["ankle_data"] = {
-            "foot_turnout_left": ankle_data["foot_turnout_left"],
-            "foot_turnout_right": ankle_data["foot_turnout_right"],
-        }
-
+        if stability_data["valgus_flag"]:
+            data["stability_data"]["valgus_phase"] = stability_data["valgus_phase"]
     else:
-        data["ankle_data"] = {
-            "dorsiflexion_at_bottom": ankle_data["dorsiflexion_at_bottom"],
-        }
+        if ankle_data:
+            data["ankle_data"] = {
+                "dorsiflexion_at_bottom": ankle_data["dorsiflexion_at_bottom"],
+            }
+
+    if camera_view == "front":
+        data["ankle_data"]["foot_turnout_left"] = ankle_data["foot_turnout_left"]
+        data["ankle_data"]["foot_turnout_right"] = ankle_data["foot_turnout_right"]
 
     return data
 
@@ -644,3 +649,86 @@ def foot_turnout_relative(heel, foot_index, left_hip, right_hip):
         angle = 180 - angle
 
     return angle
+
+
+def build_composite_from_frames(frames_b64, cols=4):
+    frames = []
+    for b64 in frames_b64:
+        arr = cv2.imdecode(np.frombuffer(base64.b64decode(b64), np.uint8), cv2.IMREAD_COLOR)
+        if arr is not None:
+            frames.append(arr)
+    rows = math.ceil(len(frames) / cols)
+    h, w = frames[0].shape[:2]
+    tw, th = min(w, 320), min(h, 240)
+    grid_rows = []
+    for r in range(rows):
+        row_frames = frames[r*cols:(r+1)*cols]
+        while len(row_frames) < cols:
+            row_frames.append(np.zeros((th, tw, 3), dtype=np.uint8))
+        grid_rows.append(np.hstack([cv2.resize(f, (tw, th)) for f in row_frames]))
+    grid = np.vstack(grid_rows)
+    _, buf = cv2.imencode(".jpg", grid, [cv2.IMWRITE_JPEG_QUALITY, 80])
+    return base64.b64encode(buf).decode()
+
+
+def extract_frames_from_memory(
+    frames: list[np.ndarray],
+    n: int = 8,
+) -> list[str]:
+
+    if not frames:
+        return []
+
+    total = len(frames)
+
+    frames_b64 = []
+
+    for i in range(n):
+        idx = int(i * total / n)
+
+        if idx >= total:
+            idx = total - 1
+
+        frame = frames[idx]
+
+        _, buf = cv2.imencode(
+            ".jpg",
+            frame,
+            [cv2.IMWRITE_JPEG_QUALITY, 85],
+        )
+
+        frames_b64.append(
+            base64.b64encode(buf).decode("utf-8")
+        )
+
+    return frames_b64
+
+
+def resize_video(video_path: str):
+
+        name = os.path.basename(video_path)
+        full_name = os.path.splitext(name)[0]
+        output_dir = os.path.join("./mediapipe_code/video_results")
+        os.makedirs(output_dir, exist_ok=True)
+        output_path = os.path.join(output_dir, f"{full_name}_resized.mp4")
+
+        command = [
+            str(FFMPEG_PATH),
+
+            "-y",
+            "-i", video_path,
+            "-loglevel", "quiet",
+            "-vf",
+            "fps=30,"
+            "scale=720:1280",
+            "-threads", "0",
+            "-c:v", "libx264",
+            "-preset", "ultrafast",
+            "-crf", "28",
+
+            output_path
+        ]
+
+        subprocess.run(command)
+
+        return output_path
