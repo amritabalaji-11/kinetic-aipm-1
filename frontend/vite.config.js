@@ -5,11 +5,9 @@ export default defineConfig({
   plugins: [react()],
   server: {
     proxy: {
-      '/api': {
-        target: 'http://localhost:8000',
-        changeOrigin: true,
-        rewrite: (path) => path.replace(/^\/api/, ''),
-      },
+      '/upload':   'http://localhost:8000',
+      '/analysis': 'http://localhost:8000',
+      '/health':   'http://localhost:8000',
     },
     // /analysis already covers /analysis/{id}/progression and /analysis/{id}/stream
   },
