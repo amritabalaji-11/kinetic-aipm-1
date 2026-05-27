@@ -1,170 +1,278 @@
+<<<<<<< HEAD
 import { useState, useMemo, useEffect } from "react"
+=======
+import { useState, useMemo, useEffect, useRef } from "react"
+>>>>>>> frontend/kinetic-ui
 import { useLocation, useNavigate } from "react-router-dom"
 
-import FIXTURE_CLEAN        from "../../../fixtures/form-analysis.clean.json"
-import FIXTURE_WITH_ISSUES  from "../../../fixtures/form-analysis.with-issues.json"
-import FIXTURE_COMPARISON   from "../../../fixtures/form-comparison.json"
-import FIXTURE_COMP_EMPTY   from "../../../fixtures/form-comparison.empty.json"
+const PARAMS = [
+  { key: "tempo",            label: "Range of Motion" },
+  { key: "stability",        label: "Stability"       },
+  { key: "posture",          label: "Posture"         },
+  { key: "movement_quality", label: "Movement Quality"},
+]
 
-// ─── Colour banding ───────────────────────────────────────────────────────────
 function ringColor(score) {
-  if (score >= 75) return { stroke: "#f59e0b", text: "#f59e0b" }
-  if (score >= 50) return { stroke: "#f59e0b", text: "#f59e0b" }
-  return              { stroke: "#ef4444", text: "#ef4444" }
+  if (score >= 65) return { stroke: "#F97316", text: "#F97316" }
+  return              { stroke: "#EF4444", text: "#EF4444" }
 }
 
-// ─── SVG score ring ───────────────────────────────────────────────────────────
-function ScoreRing({ score, size = 80, strokeW = 8, delta = null, label = "" }) {
+function ScoreRing({ score, size = 56, strokeW = 6, animate = false }) {
+  const [display, setDisplay] = useState(animate ? 0 : score)
   const r    = (size - strokeW) / 2
   const circ = 2 * Math.PI * r
-  const off  = circ - (Math.max(0, Math.min(100, score)) / 100) * circ
-  const c    = ringColor(score)
+  const pct  = Math.max(0, Math.min(100, display))
+  const off  = circ - (pct / 100) * circ
+  const c    = ringColor(display)
+
+  useEffect(() => {
+    if (!animate) return
+    const start = performance.now()
+    const dur   = 1200
+    function step(now) {
+      const t = Math.min((now - start) / dur, 1)
+      const ease = 1 - Math.pow(1 - t, 3)
+      setDisplay(Math.round(ease * score))
+      if (t < 1) requestAnimationFrame(step)
+    }
+    requestAnimationFrame(step)
+  }, [score, animate])
 
   return (
-    <div className="flex flex-col items-center gap-1">
-      <div className="relative flex items-center justify-center" style={{ width: size, height: size }}>
-        <svg width={size} height={size} style={{ transform: "rotate(-90deg)" }}>
-          <circle cx={size/2} cy={size/2} r={r} fill="none" stroke="#e5e7eb" strokeWidth={strokeW} />
-          <circle
-            cx={size/2} cy={size/2} r={r}
-            fill="none" stroke={c.stroke} strokeWidth={strokeW}
-            strokeDasharray={circ} strokeDashoffset={off} strokeLinecap="round"
-          />
-        </svg>
-        <div className="absolute flex flex-col items-center leading-none gap-0.5">
-          <span className="font-bold text-xl" style={{ color: c.text }}>{score}</span>
-          {delta !== null && (
-            <span
-              className="text-[10px] font-bold"
-              style={{ color: delta >= 0 ? "#6366f1" : "#ef4444" }}
-            >
-              {delta > 0 ? `+${delta}` : delta}
-            </span>
+    <div className="relative flex items-center justify-center flex-shrink-0" style={{ width: size, height: size }}>
+      <svg width={size} height={size} style={{ transform: "rotate(-90deg)" }}>
+        <circle cx={size/2} cy={size/2} r={r} fill="none" stroke="rgba(255,255,255,0.2)" strokeWidth={strokeW} />
+        <circle
+          cx={size/2} cy={size/2} r={r}
+          fill="none" stroke={c.stroke} strokeWidth={strokeW}
+          strokeDasharray={circ} strokeDashoffset={off} strokeLinecap="round"
+          style={{ transition: "stroke-dashoffset 0.1s" }}
+        />
+      </svg>
+      <span className="absolute text-sm font-bold" style={{ color: c.text }}>{display}</span>
+    </div>
+  )
+}
+
+function BigScoreRing({ score }) {
+  const [display, setDisplay] = useState(0)
+  const size = 90, strokeW = 8
+  const r    = (size - strokeW) / 2
+  const circ = 2 * Math.PI * r
+  const pct  = Math.max(0, Math.min(100, display))
+  const off  = circ - (pct / 100) * circ
+  const c    = ringColor(display)
+
+  useEffect(() => {
+    const start = performance.now()
+    const dur   = 1200
+    function step(now) {
+      const t = Math.min((now - start) / dur, 1)
+      const ease = 1 - Math.pow(1 - t, 3)
+      setDisplay(Math.round(ease * score))
+      if (t < 1) requestAnimationFrame(step)
+    }
+    requestAnimationFrame(step)
+  }, [score])
+
+  return (
+    <div className="relative flex items-center justify-center flex-shrink-0" style={{ width: size, height: size }}>
+      <svg width={size} height={size} style={{ transform: "rotate(-90deg)" }}>
+        <circle cx={size/2} cy={size/2} r={r} fill="none" stroke="rgba(255,255,255,0.2)" strokeWidth={strokeW} />
+        <circle
+          cx={size/2} cy={size/2} r={r}
+          fill="none" stroke={c.stroke} strokeWidth={strokeW}
+          strokeDasharray={circ} strokeDashoffset={off} strokeLinecap="round"
+        />
+      </svg>
+      <div className="absolute flex flex-col items-center leading-none">
+        <span className="text-2xl font-extrabold" style={{ color: c.text }}>{display}</span>
+      </div>
+    </div>
+  )
+}
+
+function ParamCard({ paramKey, label, data }) {
+  const [open, setOpen] = useState(paramKey === "tempo")
+  const score       = data?.score ?? 0
+  const correction  = data?.tips?.[0] ?? null
+  const affirmation = data?.affirmation ?? null
+  const observation = data?.observation ?? null
+
+  return (
+    <div className="bg-white rounded-2xl mb-2 overflow-hidden shadow-sm">
+      <button
+        type="button"
+        onClick={() => setOpen(o => !o)}
+        className="w-full flex items-center gap-3 px-4 py-3"
+      >
+        <ScoreRing score={score} />
+        <div className="flex-1 text-left">
+          <div className="text-sm font-bold text-gray-900">{label}</div>
+          {observation && (
+            <div className="text-xs text-gray-500 mt-0.5 leading-snug">{observation}</div>
           )}
         </div>
-      </div>
-      {label && (
-        <span className="text-[11px] text-gray-400 text-center leading-tight">{label}</span>
+        <svg
+          className="w-4 h-4 text-gray-400 flex-shrink-0 transition-transform"
+          style={{ transform: open ? "rotate(180deg)" : "rotate(0deg)" }}
+          fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}
+        >
+          <path strokeLinecap="round" strokeLinejoin="round" d="M19 9l-7 7-7-7" />
+        </svg>
+      </button>
+      {open && (
+        <div className="px-4 pb-4 space-y-2">
+          {correction && (
+            <div className="flex items-start gap-2 bg-blue-50 rounded-xl px-3 py-2 border-l-4 border-blue-400">
+              <span className="text-blue-400 mt-0.5 flex-shrink-0">
+                <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                  <path strokeLinecap="round" strokeLinejoin="round" d="M13 16h-1v-4h-1m1-4h.01M12 2a10 10 0 100 20A10 10 0 0012 2z" />
+                </svg>
+              </span>
+              <p className="text-xs text-blue-700 leading-relaxed">{correction}</p>
+            </div>
+          )}
+          {affirmation && (
+            <div className="flex items-start gap-2">
+              <svg className="w-4 h-4 text-green-500 mt-0.5 flex-shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                <path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" />
+              </svg>
+              <p className="text-xs text-gray-600 leading-relaxed">{affirmation}</p>
+            </div>
+          )}
+          {observation && (
+            <div className="flex items-start gap-2">
+              <svg className="w-4 h-4 text-orange-400 mt-0.5 flex-shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                <path strokeLinecap="round" strokeLinejoin="round" d="M12 9v2m0 4h.01M10.29 3.86L1.82 18a2 2 0 001.71 3h16.94a2 2 0 001.71-3L13.71 3.86a2 2 0 00-3.42 0z" />
+              </svg>
+              <p className="text-xs text-gray-600 leading-relaxed">{observation}</p>
+            </div>
+          )}
+        </div>
       )}
     </div>
   )
 }
 
-// ─── SVG line chart ───────────────────────────────────────────────────────────
-function LineChart({ repScores, color = "#6366f1", gradientColor = "#818cf8" }) {
-  const W = 300, H = 120, PAD = 14
-  if (!repScores || repScores.length < 2) {
+function segColor(score) {
+  if (score >= 80) return "#22C55E"
+  if (score >= 65) return "#F97316"
+  return "#EF4444"
+}
+
+function RepChart({ reps }) {
+  if (!reps || reps.length < 2) {
     return (
       <div className="h-24 flex items-center justify-center text-xs text-gray-400">
         Not enough reps to chart
       </div>
     )
   }
-  const n   = repScores.length
-  const min = Math.min(...repScores) - 8
-  const max = Math.max(...repScores) + 8
-  const xOf = (i) => PAD + (i / (n - 1)) * (W - PAD * 2)
-  const yOf = (v) => PAD + (1 - (v - min) / (max - min)) * (H - PAD * 2)
-  const pts = repScores.map((v, i) => [xOf(i), yOf(v)])
 
-  const linePt = pts.map(([x, y]) => `${x},${y}`).join(" ")
+  const scores = reps.map(r => r.score ?? r.form_score ?? 0)
+  const n = scores.length
+  const half = Math.floor(n / 2)
+  const firstHalf  = scores.slice(0, half).reduce((a, b) => a + b, 0) / half
+  const secondHalf = scores.slice(half).reduce((a, b) => a + b, 0) / (n - half)
+  const dip = Math.round(((secondHalf - firstHalf) / firstHalf) * 100)
+  const dipLabel = dip < 0 ? `${dip}% Dip` : `+${dip}%`
+  const dipColor = dip < 0 ? "#EF4444" : "#22C55E"
+
+  const W = 320, H = 130, PAD = 16
+  const xOf = i => PAD + (i / (n - 1)) * (W - PAD * 2)
+  const yOf = v => PAD + (1 - v / 100) * (H - PAD * 2)
+  const pts = scores.map((v, i) => [xOf(i), yOf(v)])
   const areaPt = [
     `${pts[0][0]},${H - PAD}`,
     ...pts.map(([x, y]) => `${x},${y}`),
     `${pts[pts.length - 1][0]},${H - PAD}`,
   ].join(" ")
 
-  const diff       = repScores[repScores.length - 1] - repScores[0]
-  const trendLabel = diff < 0 ? `${diff}% Dip` : `+${diff}`
-  const trendBg    = "#22c55e"
-
   return (
     <div>
-      <div className="flex items-start justify-between mb-2">
-        <div>
-          <div className="text-sm font-semibold text-gray-800">Performance Over Reps</div>
-          <div className="text-xs text-gray-400">Consistency Analysis</div>
-        </div>
-        <span className="text-xs font-semibold px-2.5 py-0.5 rounded-full text-white mt-0.5"
-          style={{ backgroundColor: trendBg }}>
-          {trendLabel}
+      <div className="flex items-center justify-between mb-1">
+        <div className="text-xs text-gray-500 font-medium">Consistency Analysis</div>
+        <span
+          className="text-xs font-bold px-2 py-0.5 rounded-full text-white"
+          style={{ backgroundColor: dipColor }}
+        >
+          {dipLabel}
         </span>
       </div>
       <svg viewBox={`0 0 ${W} ${H}`} width="100%" height={H}>
         <defs>
-          <linearGradient id={`grad-${color}`} x1="0" y1="0" x2="0" y2="1">
-            <stop offset="0%"   stopColor={gradientColor} stopOpacity="0.4" />
-            <stop offset="100%" stopColor={gradientColor} stopOpacity="0.02" />
+          <linearGradient id="repGrad" x1="0" y1="0" x2="0" y2="1">
+            <stop offset="0%"   stopColor="#F97316" stopOpacity="0.25" />
+            <stop offset="100%" stopColor="#F97316" stopOpacity="0.02" />
           </linearGradient>
         </defs>
-        {[0.25, 0.5, 0.75].map((t, i) => (
-          <line key={i}
-            x1={PAD} y1={PAD + t * (H - PAD * 2)}
-            x2={W - PAD} y2={PAD + t * (H - PAD * 2)}
+        {[20, 40, 60, 80].map(v => (
+          <line key={v}
+            x1={PAD} y1={yOf(v)} x2={W - PAD} y2={yOf(v)}
             stroke="#e5e7eb" strokeWidth="0.5"
           />
         ))}
-        <polygon points={areaPt} fill={`url(#grad-${color})`} />
-        <polyline points={linePt} fill="none" stroke={color} strokeWidth="2" strokeLinejoin="round" />
+        {[20, 40, 60, 80, 100].map(v => (
+          <text key={v} x={PAD - 2} y={yOf(v) + 3} fontSize="7" fill="#9ca3af" textAnchor="end">{v}</text>
+        ))}
+        <polygon points={areaPt} fill="url(#repGrad)" />
+        {pts.slice(0, -1).map(([x1, y1], i) => {
+          const [x2, y2] = pts[i + 1]
+          const midScore = (scores[i] + scores[i + 1]) / 2
+          return (
+            <line key={i} x1={x1} y1={y1} x2={x2} y2={y2}
+              stroke={segColor(midScore)} strokeWidth="2.5" strokeLinecap="round"
+            />
+          )
+        })}
         {pts.map(([x, y], i) => (
-          <circle key={i} cx={x} cy={y} r={3} fill="white" stroke={color} strokeWidth="1.5" />
+          <circle key={i} cx={x} cy={y} r={3.5} fill="white" stroke={segColor(scores[i])} strokeWidth="1.5" />
+        ))}
+        {scores.map((_, i) => (
+          <text key={i} x={xOf(i)} y={H - 2} fontSize="6" fill="#9ca3af" textAnchor="middle">
+            REP {i + 1}
+          </text>
         ))}
       </svg>
     </div>
   )
 }
 
-// ─── Issue card ───────────────────────────────────────────────────────────────
-function IssueCard({ issue }) {
-  const cls =
-    issue.severity === "High"   ? "bg-red-50 border-red-100 text-red-700"
-  : issue.severity === "Medium" ? "bg-amber-50 border-amber-100 text-amber-700"
-  : "bg-gray-50 border-gray-100 text-gray-600"
-  return (
-    <div className={`rounded-xl p-3 border ${cls}`}>
-      <div className="flex items-center justify-between mb-1">
-        <span className="text-sm font-semibold">{issue.title}</span>
-        <span className="text-[10px] uppercase tracking-wide font-medium opacity-70">{issue.severity}</span>
-      </div>
-      <p className="text-xs leading-snug opacity-80">{issue.detail}</p>
-    </div>
-  )
+const MOCK = {
+  exercise: "Goblet Squat",
+  weight_kg: 20,
+  weight_unit: "kg",
+  rep_count: 10,
+  created_at: "2026-04-24T10:32:00Z",
+  overall_score: 76,
+  verdict: [
+    "Your squat depth was good — below knee level on 85% of reps.",
+    "Bracing held for the first 8 reps before fatigue set in on the back half.",
+  ],
+  parameters: {
+    tempo:            { score: 74, affirmation: "Parallel depth achieved.", observation: "Parallel depth achieved", tips: ["Focus on core bracing and hip mobility drills before your next heavy leg day."] },
+    stability:        { score: 70, affirmation: null, observation: "Lateral shift detected", tips: ["Drive knees outward on the ascent."] },
+    posture:          { score: 75, affirmation: null, observation: "Instability in joints detected", tips: ["Brace your core before each descent."] },
+    movement_quality: { score: 68, affirmation: null, observation: "Inconsistent speed detected", tips: ["Aim for a controlled 2s descent."] },
+  },
+  reps: [
+    { rep: 1,  score: 85 }, { rep: 2,  score: 84 }, { rep: 3,  score: 83 },
+    { rep: 4,  score: 82 }, { rep: 5,  score: 80 }, { rep: 6,  score: 78 },
+    { rep: 7,  score: 76 }, { rep: 8,  score: 74 }, { rep: 9,  score: 72 },
+    { rep: 10, score: 70 }, { rep: 11, score: 69 }, { rep: 12, score: 68 },
+  ],
+  annotated_frame_url: null,
 }
-
-// ─── Frame placeholder with glowing dots ─────────────────────────────────────
-function FramePlaceholder({ highlight = false, label, weight }) {
-  return (
-    <div className="flex flex-col items-center py-3 px-2 flex-1">
-      <div className="text-xs text-gray-500 mb-0.5">{label}</div>
-      <div className="text-xs font-semibold text-gray-700 mb-2">{weight}</div>
-      <div className="relative h-28 w-full flex items-center justify-center bg-gray-50 rounded-xl overflow-hidden">
-        <div className="w-14 h-24 bg-gray-200 rounded-full opacity-30" />
-        {highlight && (
-          <>
-            <div className="absolute top-6 left-6 w-3 h-3 rounded-full bg-amber-400 shadow-lg shadow-amber-300" />
-            <div className="absolute top-12 left-10 w-3 h-3 rounded-full bg-amber-300 shadow-lg shadow-amber-200" />
-            <div className="absolute bottom-5 left-14 w-3 h-3 rounded-full bg-amber-200 shadow-lg shadow-amber-100" />
-          </>
-        )}
-      </div>
-    </div>
-  )
-}
-
-// ─── Params config ────────────────────────────────────────────────────────────
-const PARAMS = [
-  { key: "posture",          summaryKey: "posture",          label: "Range of Motion", compKey: "posture"          },
-  { key: "stability",        summaryKey: "stability",        label: "Stability",       compKey: "stability"        },
-  { key: "movement_quality", summaryKey: "movement_quality", label: "Joint Angle",     compKey: "movement_quality" },
-  { key: "velocity",         summaryKey: "tempo",            label: "Velocity",        compKey: "tempo"            },
-]
-
-// ─────────────────────────────────────────────────────────────────────────────
 
 export default function ResultsPage() {
-  const { state } = useLocation()
-  const navigate  = useNavigate()
+  const { state }  = useLocation()
+  const navigate   = useNavigate()
+  const [tab, setTab] = useState("analysis")
+  const glowRef = useRef(null)
+  const videoPreviewUrl = state?.videoPreviewUrl ?? null
 
+<<<<<<< HEAD
   const [tab,              setTab]              = useState("current")
   const [devFixture,       setDevFixture]       = useState("clean")
   const [devComp,          setDevComp]          = useState("with-data")
@@ -193,78 +301,172 @@ export default function ResultsPage() {
   }, [tab, analysisId, progressionData])
 
   // Current session data
+=======
+>>>>>>> frontend/kinetic-ui
   const data = useMemo(() => {
-    if (state?.analysisResult) return state.analysisResult
-    return devFixture === "clean" ? FIXTURE_CLEAN : FIXTURE_WITH_ISSUES
-  }, [state?.analysisResult, devFixture])
+    const real = state?.analysisResult
+    if (!real) return MOCK
 
+<<<<<<< HEAD
   // Comparison data — real API when available, fixture fallback in dev
   const compData = progressionData
     ?? (devComp === "with-data" ? FIXTURE_COMPARISON : FIXTURE_COMP_EMPTY)
+=======
+    const bio     = typeof real.biomechanics_json === "string"
+      ? JSON.parse(real.biomechanics_json || "{}")
+      : (real.biomechanics_json || {})
+    const session = bio.session || {}
+    const cons    = bio.consolidated || {}
+    const bioReps = bio.reps || []
+>>>>>>> frontend/kinetic-ui
 
-  const isDevMode    = !state?.analysisResult
-  const isComparison = tab === "comparison"
+    if (!session.rep_count && bioReps.length === 0) {
+      return {
+        ...MOCK,
+        exercise:    real.exercise ?? real.exercise_id ?? MOCK.exercise,
+        exercise_id: real.exercise_id,
+        weight_value: real.weight_value ?? MOCK.weight_kg,
+        weight_kg:   real.weight_kg ?? real.weight_value ?? MOCK.weight_kg,
+        weight_unit: real.weight_unit ?? MOCK.weight_unit,
+        created_at:  real.created_at ?? MOCK.created_at,
+      }
+    }
 
-  // ── Current session fields ────────────────────────────────────────────────
-  const summary  = data.summary  || {}
-  const coaching = data.coaching || {}
-  const params   = coaching.parameters || {}
-  const reps     = data.reps   || []
-  const issues   = data.issues || []
+    const totalReps = cons.total_reps || bioReps.length || 1
 
-  const overall   = summary.overall_form_score ?? 0
-  const repScores = reps.map((r) => r.form_score ?? 0)
+    const postureCons  = cons.posture || {}
+    const backAngle    = postureCons.back_angle_at_bottom_mean ?? 40
+    const warnCount    = postureCons.status_distribution?.WARNING ?? 0
+    const postureScore = Math.max(0, Math.min(100, Math.round(100 - backAngle * 0.75)))
 
-  const headerExercise = (data.display_name || data.exercise_id || "Session").toUpperCase()
-  const headerWeight   =
-    data.weight_value != null && data.weight_unit
-      ? `${data.weight_value}${data.weight_unit.toUpperCase()}`
-      : "—"
+    const stabCons       = cons.stability || {}
+    const valgusMean     = stabCons.knee_valgus_mean ?? 0
+    const valgusFlags    = stabCons.valgus_flag_reps ?? 0
+    const stabilityScore = Math.max(0, Math.min(100, Math.round(85 - valgusMean * 150 + (valgusFlags === 0 ? 5 : -15))))
 
-  const statusFailed =
-    data.status === "failed" || (overall === 0 && reps.length === 0 && issues.length > 0)
+    const mqCons      = cons.movement_quality || {}
+    const depthDist   = mqCons.depth_distribution || {}
+    const deepReps    = depthDist.deep ?? 0
+    const parallelRps = depthDist.parallel ?? 0
+    const insufReps   = mqCons.depth_insufficient_reps ?? 0
+    const leftTurn    = mqCons.foot_turnout_left_mean ?? 25
+    const depthScore  = Math.round((deepReps * 100 + parallelRps * 80 + insufReps * 50) / totalReps)
+    const mqScore     = Math.max(0, Math.min(100, depthScore - Math.round(Math.max(0, leftTurn - 30) * 0.5)))
 
-  // ── Comparison fields ─────────────────────────────────────────────────────
-  const hasComparison  = compData.has_comparison
-  const compCurrent    = compData.current    || {}
-  const compPrevious   = compData.previous   || {}
-  const compCoaching   = compData.comparison_coaching || {}
-  const compParams     = compCoaching.parameters || {}
+    const tempoCons       = cons.tempo || {}
+    const eccentric       = tempoCons.eccentric_mean ?? 1
+    const concentric      = tempoCons.concentric_mean ?? 1
+    const pause           = tempoCons.pause_mean ?? 1
+    const eccentricScore  = Math.min(100, Math.round(eccentric * 30 + 35))
+    const concentricScore = Math.min(100, Math.round(concentric * 40 + 45))
+    const pauseScore      = (pause >= 0.3 && pause <= 2) ? 85 : 60
+    const tempoScore      = Math.round((eccentricScore + concentricScore + pauseScore) / 3)
 
-  // Compute deltas: current score − previous score
-  function delta(currentScore, previousScore) {
-    if (currentScore == null || previousScore == null) return null
-    return currentScore - previousScore
-  }
+    const overallScore = Math.round((postureScore + stabilityScore + mqScore + tempoScore) / 4)
 
-  const today = new Date()
-  const fmt   = (d) => new Date(d).toLocaleDateString("en-US", { month: "long", day: "numeric" })
+    const reps = bioReps.map((r, i) => {
+      const bScore = Math.max(0, Math.min(100, Math.round(100 - (r.back_data?.back_angle_at_bottom ?? 45) * 0.75)))
+      const dScore = r.depth_data?.depth_classification === "deep" ? 90
+        : r.depth_data?.depth_classification === "parallel" ? 75 : 50
+      const sScore = Math.max(0, Math.min(100, Math.round(100 - (r.stability_data?.knee_valgus_distance ?? 0.15) * 150)))
+      const tScore = Math.min(100, Math.round((r.tempo_data?.eccentric ?? 1) * 30 + 35))
+      return { rep: r.rep_number ?? i + 1, score: Math.round((bScore + dScore + sScore + tScore) / 4) }
+    })
+
+    const parameters = {
+      tempo: {
+        score: tempoScore,
+        observation: `Avg descent ${eccentric.toFixed(1)}s — target 2–3s`,
+        affirmation: pause >= 0.8 ? "Good pause at the bottom." : null,
+        tips: ["Slow your descent to 2–3 seconds per rep. Controlled lowering activates more muscle and reduces joint stress."],
+      },
+      stability: {
+        score: stabilityScore,
+        observation: valgusFlags === 0 ? "Good knee tracking overall" : `Knee cave on ${valgusFlags} rep${valgusFlags > 1 ? "s" : ""}`,
+        affirmation: valgusFlags === 0 ? "No valgus flags — solid knee control." : null,
+        tips: ["Drive your knees outward on the way up. Think 'spread the floor' with your feet."],
+      },
+      posture: {
+        score: postureScore,
+        observation: warnCount === totalReps ? "Forward lean on all reps" : `Forward lean on ${warnCount} rep${warnCount !== 1 ? "s" : ""}`,
+        affirmation: postureScore >= 75 ? "Back angle within acceptable range." : null,
+        tips: ["Keep your chest up throughout the squat. Brace your core before each descent to maintain an upright torso."],
+      },
+      movement_quality: {
+        score: mqScore,
+        observation: deepReps === totalReps ? "Full depth on every rep" : `${deepReps} deep, ${parallelRps} parallel`,
+        affirmation: insufReps === 0 ? "No insufficient depth reps — good range of motion." : null,
+        tips: leftTurn > 30
+          ? [`Left foot turnout is ${Math.round(leftTurn)}° — try pointing both feet at the same angle for balanced load.`]
+          : ["Maintain consistent depth on every rep. Good squat depth activates glutes and quads more effectively."],
+      },
+    }
+
+    const verdictParts = []
+    if (deepReps > 0) verdictParts.push(`${deepReps} of ${totalReps} reps hit full depth.`)
+    if (eccentric < 0.5) verdictParts.push(`Slow your descent — currently ${eccentric.toFixed(1)}s avg (target 2–3s).`)
+    if (warnCount === totalReps) verdictParts.push("Keep chest up to reduce forward lean.")
+    if (valgusFlags === 0) verdictParts.push("Knee tracking is solid throughout.")
+
+    return {
+      exercise:    real.exercise ?? real.exercise_id ?? session.exercise ?? "Session",
+      exercise_id: real.exercise_id,
+      weight_value: real.weight_value ?? session.weight_kg ?? 0,
+      weight_kg:   real.weight_kg ?? real.weight_value ?? session.weight_kg ?? 0,
+      weight_unit: real.weight_unit ?? "kg",
+      rep_count:   real.rep_count ?? totalReps,
+      created_at:  real.created_at,
+      overall_score: overallScore,
+      verdict:     verdictParts.join(" "),
+      parameters,
+      reps,
+      annotated_frame_url: null,
+    }
+  }, [state?.analysisResult])
+
+  const overall    = data.overall_score ?? 0
+  const exercise   = (data.exercise ?? "Session").replace(/[-_]/g, " ").replace(/\b\w/g, c => c.toUpperCase())
+  const weightKg   = data.weight_kg ?? data.weight_value ?? 0
+  const weightUnit = data.weight_unit ?? "kg"
+  const repCount   = data.rep_count ?? data.reps?.length ?? 0
+  const reps       = data.reps ?? []
+  const params     = data.parameters ?? {}
+  const verdict    = Array.isArray(data.verdict) ? data.verdict.join(" ") : (data.verdict ?? "")
+  const frameUrl   = data.annotated_frame_url ?? null
+  const createdAt  = data.created_at
+    ? new Date(data.created_at).toLocaleDateString("en-GB", { day: "numeric", month: "short" })
+    : ""
+  const weightLabel = `${weightKg}${weightUnit}`
 
   return (
-    <div className="min-h-screen bg-gray-50">
-      <div className="max-w-sm mx-auto pb-10">
+    <div className="min-h-screen" style={{ backgroundColor: "#F0EFFE" }}>
+      <div className="max-w-sm mx-auto pb-24">
 
-        {/* ── Header ────────────────────────────────────────────────────── */}
+        {/* Header */}
         <div className="pt-6 pb-3 px-4 text-center">
-          <h1 className="text-base font-bold text-gray-900 tracking-widest">{headerExercise}</h1>
+          <h1 className="text-base font-bold text-gray-900">{exercise}</h1>
         </div>
 
-        {/* ── Tab toggle ────────────────────────────────────────────────── */}
-        <div className="mx-4 mb-4 flex bg-gray-100 rounded-xl p-1 border border-gray-200">
-          {["current", "comparison"].map((t) => (
+        {/* Tab toggle */}
+        <div className="mx-4 mb-4 flex rounded-2xl p-1" style={{ background: "#EDE9FE" }}>
+          {[["analysis", "Analysis"], ["progression", "Progression"]].map(([key, label]) => (
             <button
-              key={t}
+              key={key}
               type="button"
-              onClick={() => setTab(t)}
-              className={`flex-1 py-1.5 rounded-lg text-sm font-medium capitalize transition-colors ${
-                tab === t ? "bg-white text-gray-900 shadow-sm font-semibold" : "text-gray-400"
-              }`}
+              onClick={() => setTab(key)}
+              className="flex-1 py-2 rounded-xl text-sm font-semibold transition-all"
+              style={{
+                background:  tab === key ? "white" : "transparent",
+                color:       tab === key ? "#6366f1" : "#9ca3af",
+                boxShadow:   tab === key ? "0 1px 4px rgba(0,0,0,0.08)" : "none",
+              }}
             >
-              {t.charAt(0).toUpperCase() + t.slice(1)}
+              {label}
             </button>
           ))}
         </div>
 
+<<<<<<< HEAD
         {/* ════════════════════════════════════════════════════════════════
             COMPARISON TAB
         ════════════════════════════════════════════════════════════════ */}
@@ -276,217 +478,184 @@ export default function ResultsPage() {
         )}
 
         {isComparison && progressionState !== "loading" && (
+=======
+        {tab === "analysis" && (
+>>>>>>> frontend/kinetic-ui
           <>
-            {!hasComparison ? (
-              // ── Empty state ──────────────────────────────────────────
-              <div className="mx-4 mb-4 bg-white rounded-2xl border border-gray-100 shadow-sm p-6 text-center">
-                <div className="text-3xl mb-3">📊</div>
-                <p className="text-sm text-gray-500 leading-relaxed">
-                  {compData.empty_state_message}
-                </p>
-              </div>
-            ) : (
-              <>
-                {/* Side-by-side frames */}
-                <div className="mx-4 mb-4 border border-gray-200 rounded-2xl overflow-hidden bg-white flex divide-x divide-gray-100">
-                  <FramePlaceholder
-                    label={compPrevious.date_label || "Previous"}
-                    weight={`${compPrevious.weight_value}${(compPrevious.weight_unit || "kg").toUpperCase()}`}
-                    highlight={false}
-                  />
-                  <FramePlaceholder
-                    label={compCurrent.date_label || "Current"}
-                    weight={`${compCurrent.weight_value}${(compCurrent.weight_unit || "kg").toUpperCase()}`}
-                    highlight={true}
-                  />
-                </div>
-
-                {/* Comparison form score */}
-                <div className="mx-4 mb-4 bg-amber-50 rounded-2xl p-5 text-center border border-amber-100">
-                  <div className="text-xs font-bold text-gray-500 uppercase tracking-widest mb-1">Form Score</div>
-                  <div className="text-6xl font-extrabold mb-1" style={{ color: "#f59e0b" }}>
-                    {compCurrent.overall_form_score ?? overall}
-                  </div>
-                  {compPrevious.overall_form_score != null && (
-                    <div
-                      className="text-sm font-semibold mb-2"
-                      style={{
-                        color: (compCurrent.overall_form_score - compPrevious.overall_form_score) >= 0
-                          ? "#6366f1" : "#ef4444"
-                      }}
-                    >
-                      {compCurrent.overall_form_score - compPrevious.overall_form_score > 0 ? "+" : ""}
-                      {compCurrent.overall_form_score - compPrevious.overall_form_score} vs last session
-                    </div>
-                  )}
-                  <p className="text-sm text-gray-500 leading-relaxed">
-                    {compCoaching.summary_paragraph || ""}
-                  </p>
-                </div>
-
-                {/* Comparison key insights with deltas */}
-                <div className="mx-4 mb-4">
-                  <h2 className="text-base font-bold text-gray-900 mb-3">Key Insights</h2>
-                  <div className="bg-white rounded-2xl border border-gray-100 shadow-sm divide-y divide-gray-100 px-4">
-                    {PARAMS.map((p) => {
-                      const cp     = compParams[p.compKey] || {}
-                      const score  = cp.score ?? compCurrent[`${p.summaryKey}_score`] ?? 0
-                      const prev   = compPrevious[`${p.summaryKey}_score`] ?? null
-                      const d      = delta(score, prev)
-                      const note   = cp.observation_action ?? "No additional notes."
-
-                      return (
-                        <div key={p.key} className="flex items-start gap-4 py-4">
-                          <ScoreRing score={score} size={80} strokeW={8} delta={d} label={p.label} />
-                          <p className="text-sm text-gray-600 leading-relaxed pt-2 flex-1">{note}</p>
-                        </div>
-                      )
-                    })}
-                  </div>
-                </div>
-
-                {/* Comparison rep charts side by side */}
-                <div className="mx-4 mb-4 bg-white rounded-2xl border border-gray-100 shadow-sm p-4">
-                  <LineChart
-                    repScores={compCurrent.reps?.map((r) => r.form_score) || []}
-                    color="#6366f1"
-                    gradientColor="#818cf8"
-                  />
-                </div>
-              </>
-            )}
-          </>
-        )}
-
-        {/* ════════════════════════════════════════════════════════════════
-            CURRENT TAB
-        ════════════════════════════════════════════════════════════════ */}
-        {!isComparison && (
-          <>
-            {/* Frame placeholder */}
-            <div className="mx-4 mb-4 border border-gray-200 rounded-2xl overflow-hidden bg-white">
-              <div className="text-center py-2 text-xs text-gray-500">
-                {today.toLocaleDateString("en-US", { month: "long", day: "numeric" })} · {headerWeight}
-              </div>
-              {state?.videoPreviewUrl ? (
-                <video
-                  src={state.videoPreviewUrl}
-                  className="w-full aspect-video object-cover"
-                  muted playsInline controls
-                />
+            {/* Video / annotated frame */}
+            <div className="mx-4 mb-4 bg-white rounded-2xl overflow-hidden border border-gray-100 shadow-sm" style={{ minHeight: 200 }}>
+              {videoPreviewUrl ? (
+                <video src={videoPreviewUrl} className="w-full" style={{ display: "block", maxHeight: 300, objectFit: "cover" }} controls playsInline />
+              ) : frameUrl ? (
+                <img src={frameUrl} alt="Annotated frame" className="w-full object-cover" />
               ) : (
-                <div className="h-52 bg-gray-50 flex flex-col items-center justify-center gap-2 relative">
-                  <div className="relative">
-                    <div className="w-24 h-36 bg-gray-200 rounded-full opacity-30" />
-                    <div className="absolute top-8 left-2 w-3 h-3 rounded-full bg-red-400 shadow-lg shadow-red-300" />
-                    <div className="absolute top-16 left-8 w-3 h-3 rounded-full bg-amber-400 shadow-lg shadow-amber-300" />
-                    <div className="absolute bottom-4 left-12 w-3 h-3 rounded-full bg-amber-300 shadow-lg shadow-amber-200" />
+                <div className="h-52 flex items-center justify-center relative" style={{ background: "#f8f7ff" }}>
+                  <div className="relative flex items-center justify-center">
+                    <div className="w-20 h-36 bg-gray-200 rounded-full opacity-40" />
+                    <div className="absolute top-4  left-0  w-4 h-4 rounded-full shadow-lg" style={{ background: "#ef4444", boxShadow: "0 0 8px #ef4444" }} />
+                    <div className="absolute top-16 left-8 w-4 h-4 rounded-full shadow-lg" style={{ background: "#f59e0b", boxShadow: "0 0 8px #f59e0b" }} />
+                    <div className="absolute bottom-2 left-12 w-4 h-4 rounded-full shadow-lg" style={{ background: "#fbbf24", boxShadow: "0 0 8px #fbbf24" }} />
                   </div>
-                  <p className="text-xs text-gray-400">Frame analysis coming soon</p>
+                  <div className="absolute inset-0 flex items-center justify-center">
+                    <div className="w-12 h-12 rounded-full bg-gray-800 bg-opacity-50 flex items-center justify-center">
+                      <svg className="w-5 h-5 text-white ml-1" fill="currentColor" viewBox="0 0 24 24">
+                        <path d="M8 5v14l11-7z" />
+                      </svg>
+                    </div>
+                  </div>
                 </div>
               )}
             </div>
 
-            {/* Failed banner */}
-            {statusFailed && (
-              <div className="mx-4 mb-4 text-sm text-amber-800 bg-amber-50 border border-amber-100 rounded-xl p-3">
-                This session didn't produce a full form score — see coaching notes below.
+            {/* AI Verdict card */}
+            <div
+              ref={glowRef}
+              className="mx-4 mb-4 rounded-2xl p-4 shadow-lg"
+              style={{
+                background: "linear-gradient(135deg, #6366f1 0%, #8b5cf6 100%)",
+                animation: "verdictGlow 1.8s ease-in-out forwards",
+              }}
+            >
+              <style>{`
+                @keyframes verdictGlow {
+                  0%   { box-shadow: 0 0 0px rgba(106,77,255,0); }
+                  50%  { box-shadow: 0 0 18px rgba(106,77,255,0.5); }
+                  100% { box-shadow: 0 0 8px rgba(106,77,255,0.25); }
+                }
+                @media (prefers-reduced-motion: reduce) {
+                  * { animation: none !important; transition: none !important; }
+                }
+              `}</style>
+              <div className="text-white text-sm font-bold mb-3">AI Verdict • Maintain</div>
+              <div className="flex items-start gap-4">
+                <div className="flex flex-col items-center gap-1">
+                  <BigScoreRing score={overall} />
+                  <span className="text-white text-xs opacity-80">Form Score</span>
+                </div>
+                <div className="flex-1">
+                  <p className="text-white text-xs leading-relaxed opacity-90 mb-3">
+                    {verdict || "Keep it up — your form is consistent."}
+                  </p>
+                  <div className="flex flex-wrap gap-2">
+                    {createdAt && (
+                      <span className="text-xs font-semibold px-3 py-1 rounded-full bg-white bg-opacity-20 text-white">
+                        {createdAt}
+                      </span>
+                    )}
+                    <span className="text-xs font-semibold px-3 py-1 rounded-full bg-white bg-opacity-20 text-white">
+                      {weightLabel}
+                    </span>
+                    <span className="text-xs font-semibold px-3 py-1 rounded-full bg-white bg-opacity-20 text-white">
+                      {repCount} Reps
+                    </span>
+                  </div>
+                </div>
               </div>
-            )}
-
-            {/* Form score */}
-            <div className="mx-4 mb-4 bg-amber-50 rounded-2xl p-5 text-center border border-amber-100">
-              <div className="text-xs font-bold text-gray-500 uppercase tracking-widest mb-1">Form Score</div>
-              <div className="text-6xl font-extrabold mb-2" style={{ color: "#f59e0b" }}>{overall}</div>
-              <p className="text-sm text-gray-500 leading-relaxed">
-                {coaching.summary_paragraph || "Lets stay in this weight and keep on improving!"}
-              </p>
             </div>
 
             {/* Key Insights */}
             <div className="mx-4 mb-4">
-              <h2 className="text-base font-bold text-gray-900 mb-3">Key Insights</h2>
-              <div className="bg-white rounded-2xl border border-gray-100 shadow-sm divide-y divide-gray-100 px-4">
-                {PARAMS.map((p) => {
-                  const d     = params[p.key] || {}
-                  const score = Math.round(d.score ?? summary?.[`${p.summaryKey}_score`] ?? 0)
-                  const note  = d.observation ?? d.affirmation ?? d.correction ?? "No additional notes."
-                  return (
-                    <div key={p.key} className="flex items-start gap-4 py-4">
-                      <ScoreRing score={score} size={80} strokeW={8} label={p.label} />
-                      <p className="text-sm text-gray-600 leading-relaxed pt-2 flex-1">{note}</p>
-                    </div>
-                  )
-                })}
+              <div className="flex items-center gap-2 mb-3">
+                <svg className="w-4 h-4" style={{ color: "#F97316" }} fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                  <circle cx="12" cy="12" r="10" />
+                  <circle cx="12" cy="12" r="6" />
+                  <circle cx="12" cy="12" r="2" />
+                </svg>
+                <h2 className="text-sm font-extrabold text-gray-900 tracking-wide uppercase">Key Insights</h2>
               </div>
+              {PARAMS.map(({ key, label }) => (
+                <ParamCard key={key} paramKey={key} label={label} data={params[key]} />
+              ))}
             </div>
 
-            {/* Issues */}
-            {issues.length > 0 && (
-              <div className="mx-4 mb-4 space-y-2">
-                <h2 className="text-base font-bold text-gray-900">Issues Detected</h2>
-                {issues.map((issue) => (
-                  <IssueCard key={issue.id || issue.title} issue={issue} />
-                ))}
+            {/* Performance over reps */}
+            <div className="mx-4 mb-4 bg-white rounded-2xl p-4 shadow-sm">
+              <div className="flex items-center gap-2 mb-2">
+                <svg className="w-4 h-4 text-indigo-500" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                  <path strokeLinecap="round" strokeLinejoin="round" d="M13 7h8m0 0v8m0-8l-8 8-4-4-6 6" />
+                </svg>
+                <h2 className="text-sm font-extrabold text-gray-900 tracking-wide uppercase">Performance Over Reps</h2>
               </div>
-            )}
+              <RepChart reps={reps} />
+            </div>
 
-            {/* Rep chart */}
-            <div className="mx-4 mb-4 bg-white rounded-2xl border border-gray-100 shadow-sm p-4">
-              <LineChart repScores={repScores} />
+            {/* Tips for next workout */}
+            <div className="mx-4 mb-6 bg-white rounded-2xl p-4 shadow-sm border border-gray-100">
+              <div className="flex items-center gap-2 mb-3">
+                <svg className="w-5 h-5 text-indigo-400" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                  <circle cx="12" cy="12" r="10" />
+                  <path strokeLinecap="round" strokeLinejoin="round" d="M12 8v4m0 4h.01" />
+                </svg>
+                <span className="text-sm font-bold text-gray-900">Tips for your next workout</span>
+              </div>
+              <blockquote className="border-l-4 border-indigo-300 pl-3 text-xs text-gray-600 leading-relaxed italic">
+                {params?.tempo?.tips?.[0]
+                  ?? "Focus on controlling your descent — aim for a 2-second lower each rep."}
+              </blockquote>
             </div>
           </>
         )}
 
-        {/* ── Actions ───────────────────────────────────────────────────── */}
-        <div className="mx-4 flex gap-3">
-          <button
-            type="button"
-            onClick={() => navigate("/timeline")}
-            className="flex-1 py-3.5 rounded-2xl border border-gray-200 text-gray-700 text-sm font-semibold bg-white"
-          >
-            Timeline
-          </button>
-          <button
-            type="button"
-            onClick={() => navigate("/upload")}
-            className="flex-1 py-3.5 rounded-2xl text-white text-sm font-semibold"
-            style={{ backgroundColor: "#4dd9c0" }}
-          >
-            New Upload
-          </button>
-        </div>
-
-        {/* ── Dev toggles ───────────────────────────────────────────────── */}
-        {isDevMode && (
-          <div className="mt-6 mx-4 text-center text-xs text-gray-400 space-y-3 pt-4 border-t border-gray-100">
-            <div className="space-y-1">
-              <div className="font-medium">Current fixture</div>
-              <div className="flex justify-center gap-4">
-                {["clean", "issues"].map((f) => (
-                  <button key={f} type="button" onClick={() => setDevFixture(f)}
-                    className={`underline ${devFixture === f ? "text-teal-600 font-semibold" : "text-gray-400"}`}>
-                    {f === "clean" ? "no issues" : "with issues"}
-                  </button>
-                ))}
-              </div>
-            </div>
-            <div className="space-y-1">
-              <div className="font-medium">Comparison fixture</div>
-              <div className="flex justify-center gap-4">
-                {["with-data", "empty"].map((f) => (
-                  <button key={f} type="button" onClick={() => setDevComp(f)}
-                    className={`underline ${devComp === f ? "text-teal-600 font-semibold" : "text-gray-400"}`}>
-                    {f === "with-data" ? "with data" : "empty state"}
-                  </button>
-                ))}
-              </div>
-            </div>
+        {tab === "progression" && (
+          <div className="mx-4 bg-white rounded-2xl p-6 text-center shadow-sm">
+            <div className="text-2xl mb-3">📈</div>
+            <p className="text-sm text-gray-500 leading-relaxed">
+              You haven't done a previous session for this exercise yet. Upload another session to unlock comparison.
+            </p>
           </div>
         )}
 
+        {/* CTAs */}
+        <div className="mx-4 flex flex-col gap-3">
+          <button
+            type="button"
+            onClick={() => navigate("/upload")}
+            className="w-full py-4 rounded-2xl text-white text-sm font-bold tracking-wide"
+            style={{ background: "linear-gradient(90deg, #6366f1, #8b5cf6)" }}
+          >
+            New Upload
+          </button>
+          <button
+            type="button"
+            onClick={() => navigate("/")}
+            className="w-full py-4 rounded-2xl text-sm font-semibold bg-white text-gray-800"
+            style={{ border: "1.5px solid #e5e7eb" }}
+          >
+            Continue to Set 3
+          </button>
+        </div>
+      </div>
+
+      {/* Bottom nav */}
+      <div className="fixed bottom-0 left-0 right-0 bg-white border-t border-gray-100 flex justify-around items-center py-2 px-4">
+        {[
+          { label: "Home",     icon: "M3 12l2-2m0 0l7-7 7 7M5 10v10a1 1 0 001 1h3m10-11l2 2m-2-2v10a1 1 0 01-1 1h-3m-6 0a1 1 0 001-1v-4a1 1 0 011-1h2a1 1 0 011 1v4a1 1 0 001 1m-6 0h6", path: "/" },
+          { label: "Plan",     icon: "M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z", path: "/plan" },
+          { label: "Analysis", icon: "M15 10l4.553-2.069A1 1 0 0121 8.82v6.36a1 1 0 01-1.447.894L15 14M3 8a2 2 0 012-2h8a2 2 0 012 2v8a2 2 0 01-2 2H5a2 2 0 01-2-2V8z", path: "/results", active: true },
+          { label: "Timeline", icon: "M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z", path: "/timeline" },
+          { label: "Profile",  icon: "M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z", path: "/profile" },
+        ].map(({ label, icon, path, active }) => (
+          <button
+            key={label}
+            type="button"
+            onClick={() => navigate(path)}
+            className="flex flex-col items-center gap-0.5"
+          >
+            {active ? (
+              <div className="w-10 h-10 rounded-full flex items-center justify-center -mt-4 shadow-lg" style={{ background: "linear-gradient(135deg, #6366f1, #818cf8)" }}>
+                <svg className="w-5 h-5 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                  <path strokeLinecap="round" strokeLinejoin="round" d={icon} />
+                </svg>
+              </div>
+            ) : (
+              <svg className="w-5 h-5 text-gray-400" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                <path strokeLinecap="round" strokeLinejoin="round" d={icon} />
+              </svg>
+            )}
+            <span className="text-[10px]" style={{ color: active ? "#6366f1" : "#9ca3af" }}>{label}</span>
+          </button>
+        ))}
       </div>
     </div>
   )
 }
-
