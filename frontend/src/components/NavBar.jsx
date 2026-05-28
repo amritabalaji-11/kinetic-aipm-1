@@ -1,6 +1,14 @@
 import { Link, useLocation } from "react-router-dom"
 import { Home, BookOpen, TrendingUp, User } from "lucide-react"
 
+const scanStyle = `
+  @keyframes scanLine {
+    0%   { top: 22%; }
+    50%  { top: 78%; }
+    100% { top: 22%; }
+  }
+`
+
 function NavBar() {
   const location = useLocation()
   const path = location.pathname
@@ -8,6 +16,8 @@ function NavBar() {
   const isActive = (to) => path === to
 
   return (
+    <>
+    <style>{scanStyle}</style>
     <nav
       className="fixed bottom-0 z-50 flex items-center justify-around px-2"
       style={{
@@ -49,8 +59,22 @@ function NavBar() {
             backgroundImage: "url('/lifter_icon.png')",
             backgroundSize: "132%",
             backgroundPosition: "55% center",
+            position: "relative",
+            overflow: "hidden",
           }}
-        />
+        >
+          {/* Scan line */}
+          <div style={{
+            position: "absolute",
+            left: "28%",
+            right: "28%",
+            height: 2,
+            borderRadius: 1,
+            background: "linear-gradient(90deg, transparent, rgba(96,200,248,0.9), transparent)",
+            animation: "scanLine 1.8s ease-in-out infinite",
+            top: "8%",
+          }} />
+        </div>
         <span className="text-xs" style={{ color: "#6C5CE7", fontWeight: 600 }}>
           Analysis
         </span>
@@ -74,6 +98,7 @@ function NavBar() {
         <span className="text-xs">Profile</span>
       </Link>
     </nav>
+    </>
   )
 }
 

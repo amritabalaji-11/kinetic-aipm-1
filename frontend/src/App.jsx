@@ -14,11 +14,13 @@ import SubscriptionPage from "./pages/SubscriptionPage"
 
 function Layout({ children }) {
   return (
-    <div className="flex">
-      <NavBar />
-      <main className="w-full md:ml-52 pb-20 md:pb-0 min-h-screen">
-        {children}
-      </main>
+    <div className="min-h-screen" style={{ background: "#f0eeff" }}>
+      <div className="mx-auto pb-24" style={{ maxWidth: 430 }}>
+        <NavBar />
+        <main className="min-h-screen" style={{ background: "white" }}>
+          {children}
+        </main>
+      </div>
     </div>
   )
 }

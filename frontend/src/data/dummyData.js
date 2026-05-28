@@ -155,7 +155,7 @@ export const FORM_HISTORY_DETAILED = {
       date: "May 27",
       weight: "14 kg",
       reps: "8 reps",
-      feedback: "Chest stayed up well. Slight forward lean at depth. Normal at this weight. One more solid set and you're ready for 16 kg.",
+      feedback: "Posture solid across 8 reps. One more clean set and you're ready for 14kg.",
     },
     {
       id: "fh_001_2",
@@ -164,7 +164,7 @@ export const FORM_HISTORY_DETAILED = {
       date: "May 26",
       weight: "14 kg",
       reps: "8 reps",
-      feedback: "Good attempt at new weight. Depth was adequate. Focus on bracing before descent next session.",
+      feedback: "Best tempo yet; minor knee drift on the final rep only.",
     },
     {
       id: "fh_001_3",
@@ -173,7 +173,7 @@ export const FORM_HISTORY_DETAILED = {
       date: "May 24",
       weight: "12 kg",
       reps: "10 reps",
-      feedback: "Best set yet at 12 kg. Consistent depth, solid brace. You've mastered this weight. Time to move up.",
+      feedback: "Depth held for 6 reps, ankle dorsiflexion limited reps 7-8.",
     },
   ],
   user_002: [
