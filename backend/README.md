@@ -1,75 +1,65 @@
-# 🧭 Kinetic Backend
+# Kinetic Backend
 
-Backend service for video upload, analysis, and processing using FastAPI and Google Cloud Platform.
-
----
-
-## 🚀 Tech Stack
-
-- FastAPI (Python)
-- Google Cloud Run
-- Google Cloud Storage
-- API Gateway
-- Cloud Build (CI/CD)
+Backend service for video upload, analysis, and processing using FastAPI and SQLite locally.
 
 ---
 
-## 📁 Project Structure
-
-```text id="fix2"
-backend/
-├── routes/        # API endpoints
-├── services/      # Business logic
-├── models/        # Data schemas
-├── utils/         # Config + helpers
-├── main.py        # App entry point
-```
----
-
-## ⚙️ How to Run Locally
+## How to Run Locally
 
 ### 1. Activate environment
+Navigate to the project root and activate:
 ```bash
 source venv/bin/activate
 ```
+
 ### 2. Install dependencies
 ```bash
-pip install -r requirements.txt
+pip install -r backend/requirements.txt
 ```
-### 3. Run server 
+
+### 3. Initialize local database
+```bash
+python backend/init_db.py
+```
+
+### 4. Run server
 ```bash
 cd backend
-uvicorn main:app --reload
+uvicorn main:app --host 0.0.0.0 --port 8000 --reload
 ```
 
-### 4. Test API
+*Troubleshooting*:
+* If you get a `ModuleNotFoundError: No module named 'utils.config'` error, run from the root folder instead using:
+  ```bash
+  PYTHONPATH=backend uvicorn backend.main:app --host 0.0.0.0 --port 8000 --reload
+  ```
+* If running Python 3.13+ on macOS and the server crashes on start, append `--loop asyncio` to the command:
+  ```bash
+  uvicorn main:app --host 0.0.0.0 --port 8000 --reload --loop asyncio
+  ```
+
+---
+
+## Test API
+
+Confirm the API is working:
 ```bash
-curl http://127.0.0.1:8000/health
+curl http://localhost:8000/health
 ```
-### 🌐 API Endpoints
-GET `/health` → health check
-POST `/upload` → upload video (WIP)
-POST `/analyze` → video analysis (WIP)
 
-### ☁️ Cloud Architecture
+---
 
-Client → API Gateway → Cloud Run → FastAPI → Services → GCS / AI APIs
+## API Endpoints
 
-### 🧠 Architecture Pattern
-`routes/` → HTTP layer
-`services/` → business logic
-external APIs (Claude, Nemotron, GCS) called inside services
+* GET `/health` - health check
+* POST `/upload` - upload video for biomechanics analysis
+* GET `/analysis/{analysis_id}` - retrieve structured biomechanics coaching results
 
-### 🔐 Environment Variables
-Uses `.env` locally:
+---
+
+## Video Upload via CLI
+
 ```bash
-FRONTEND_ORIGIN=http://localhost:3000
-ENV=development
+curl -X POST http://localhost:8000/upload -F "file=@your_video.mp4"
 ```
-Never commit `.env` to repo.
-
-
-# Video Upload
-''' bash
-curl.exe POST http://127.0.0.1:8000/upload -F "file=@video_name.mp4" ---- Make sure to execute the command on the same folder than the video file.
-Once uploaded it will be shown in the uploads folder.
+Make sure to execute the command from the same folder where your video file is located. Once uploaded, the raw video will be saved in the `backend/uploads` directory.

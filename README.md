@@ -1,82 +1,74 @@
 # Kinetic AI Form Coach
 
-Kinetic AI Form Coach is a local web application for uploading Goblet Squat workout videos, running real-time biomechanical analysis, and viewing training feedback. 
-
-This repository is structured as a monorepo containing:
-* `backend/`: FastAPI Python server (MediaPipe and OpenCV data layer).
-* `frontend/`: Vite React application (Light-themed coaching dashboard).
-* `mediapipe_code/`: Core landmarks tracking algorithms and prompts.
+Kinetic AI Form Coach is a local web application for uploading Goblet Squat workout videos, running biomechanical analysis, and viewing training feedback.
 
 ---
 
 ## Prerequisites
 
-Ensure you have the following installed on your machine:
+Ensure you have the following installed:
 * Python 3.10+
 * Node.js 18+ and npm
 
 ---
 
-## 1. Quickstart (Zero-Config Setup with Local SQLite)
+## Quickstart Setup
 
-This application runs completely locally on your system using a built-in, lightweight SQLite database. There is **no need** to install PostgreSQL, run Docker, or configure cloud databases.
+This application runs completely locally using SQLite.
 
-### Step 1: Clone and Configure Environment
-1. Clone the repository and navigate into the folder:
-   ```bash
-   git clone <your-repository-url>
-   cd kinetic-ai-form-coach
-   ```
-2. Create your `.env` configuration file from the template:
-   ```bash
-   cp .env.example .env
-   ```
-3. Open the `.env` file and insert your Anthropic API Key:
-   ```env
-   ANTHROPIC_API_KEY=your_key_here
-   ```
+### 1. Create env file and add Anthropic key
 
-### Step 2: Start the Python Backend
-1. Initialize a Python virtual environment and activate it:
-   ```bash
-   python -m venv venv
-   source venv/bin/activate
-   ```
-2. Install dependencies:
-   ```bash
-   pip install -r requirements.txt
-   ```
-3. Initialize the local database:
-   ```bash
-   python backend/init_db.py
-   ```
-   *This automatically generates a local SQLite database (`backend/kinetic.db`) with all correct tables and seeds a Demo User profile to get you started immediately.*
-4. Run the FastAPI backend:
-   ```bash
-   cd backend
-   uvicorn main:app --host 0.0.0.0 --port 8000 --reload
-   ```
-   * *Verify Health*: Visit `http://localhost:8000/health` (should return `{"status":"ok"}`).
+Create your env file from the template:
+```bash
+cp .env.example .env
+```
 
-### Step 3: Start the React Frontend
-1. Open a new terminal tab and navigate to the frontend directory:
-   ```bash
-   cd frontend
-   ```
-2. Install dependencies:
-   ```bash
-   npm install
-   ```
-3. Start the dev server:
-   ```bash
-   npm run dev
-   ```
-4. Open `http://localhost:5173` in your browser. You can view the Timeline, upload a squat video, and inspect live feedback dashboards!
+Open the `.env` file and add your Anthropic API Key:
+```env
+ANTHROPIC_API_KEY=your-api-key
+```
+
+### 2. Backend setup
+
+Initialize a Python virtual environment, install the backend dependencies, and initialize the database:
+
+```bash
+python -m venv venv
+source venv/bin/activate
+pip install -r backend/requirements.txt
+python backend/init_db.py
+```
+
+Run the server:
+
+```bash
+cd backend
+uvicorn main:app --host 0.0.0.0 --port 8000 --reload
+```
+
+*Troubleshooting*: 
+* If you get a `ModuleNotFoundError: No module named 'utils.config'` error, run from the root folder instead using:
+  ```bash
+  PYTHONPATH=backend uvicorn backend.main:app --host 0.0.0.0 --port 8000 --reload
+  ```
+* If running Python 3.13+ on macOS and the server crashes on start, append `--loop asyncio` to the command:
+  ```bash
+  uvicorn main:app --host 0.0.0.0 --port 8000 --reload --loop asyncio
+  ```
+
+### 3. Frontend setup (new terminal)
+
+From the project root:
+
+```bash
+cd frontend
+npm install
+npm run dev
+```
 
 ---
 
-## Database Management & Audits
+## Open through:
 
-### Local SQLite Database
-* The database is stored as a binary file at `backend/kinetic.db`. It is untracked by Git to keep your development runs lightweight.
-* If you ever want to reset the database and start fresh with empty tables, simply delete the file and run `python backend/init_db.py` again.
+Open your browser to:
+http://localhost:5173
