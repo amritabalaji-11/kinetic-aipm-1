@@ -1,11 +1,56 @@
+# System files
 .DS_Store
-.env
-secrets/
-*.json
-venv
-__pycache__
+Thumbs.db
 
-echo "backend/kinetic.db" >> .gitignore
-echo "__pycache__/" >> .gitignore
-echo "*.pyc" >> .gitignore
-backend/credentials/
+# Secrets
+.env
+.env.*
+!.env.example
+
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+.venv/
+venv/
+ENV/
+.env/
+pip-log.txt
+pip-delete-this-directory.txt
+
+# Node / Javascript
+node_modules/
+/frontend/node_modules/
+/frontend/dist/
+.npm
+.eslintcache
+
+# Project local media and outputs
+/backend/uploads/
+/backend/worst_frames/
+/worst_frames/
+*.mp4
+*.mov
+*.webm
+*.avi
+*.jpeg
+*.jpg
+*.png
+/mediapipe_code/results/
+
+# Editors and IDEs
+.vscode/
+.idea/
+*.suo
+*.ntvs*
+*.njsproj
+*.sln
+*.swp
+
+# Local directories/files to ignore
+MAIN/
+kinetic.db
+AB test videos/
+/database_schemas/
+/neon_export.json
+

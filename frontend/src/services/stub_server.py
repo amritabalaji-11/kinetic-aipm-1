@@ -46,6 +46,21 @@ async def pipeline_stream(analysis_id: str):
     
     await asyncio.sleep(0.5)
 
+    yield f"data: {json.dumps({'event': 'nemotron_started', 'analysis_id': analysis_id})}\n\n"
+    await asyncio.sleep(2.0)
+    
+
+    yield f"data: {json.dumps({'event': 'nemotron_complete', 'analysis_id': analysis_id, 'overall_score': 72})}\n\n"
+    
+    await asyncio.sleep(0.5)
+
+    yield f"data: {json.dumps({'event': 'rag_started', 'analysis_id': analysis_id})}\n\n"
+    await asyncio.sleep(1.0)
+    
+    yield f"data: {json.dumps({'event': 'rag_complete', 'analysis_id': analysis_id, 'passages_retrieved': 8})}\n\n"
+    
+    await asyncio.sleep(0.5)
+
     yield f"data: {json.dumps({'event': 'claude_started', 'analysis_id': analysis_id})}\n\n"
     await asyncio.sleep(1.5)
    

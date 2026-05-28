@@ -1,3 +1,10 @@
+/**
+ * ResultsPage — W5 fixture build
+ * Current tab:    uses form-analysis.clean.json / form-analysis.with-issues.json
+ * Comparison tab: uses form-comparison.json / form-comparison.empty.json
+ * Zero API calls — wired in W6.
+ */
+
 import { useState, useMemo, useEffect } from "react"
 import { useLocation, useNavigate } from "react-router-dom"
 
@@ -8,8 +15,8 @@ import FIXTURE_COMP_EMPTY   from "../../../fixtures/form-comparison.empty.json"
 
 // ─── Colour banding ───────────────────────────────────────────────────────────
 function ringColor(score) {
-  if (score >= 75) return { stroke: "#f59e0b", text: "#f59e0b" }
-  if (score >= 50) return { stroke: "#f59e0b", text: "#f59e0b" }
+  if (score >= 80) return { stroke: "#10b981", text: "#10b981" }
+  if (score >= 60) return { stroke: "#f59e0b", text: "#f59e0b" }
   return              { stroke: "#ef4444", text: "#ef4444" }
 }
 
@@ -153,10 +160,10 @@ function FramePlaceholder({ highlight = false, label, weight }) {
 
 // ─── Params config ────────────────────────────────────────────────────────────
 const PARAMS = [
-  { key: "posture",          summaryKey: "posture",          label: "Range of Motion", compKey: "posture"          },
+  { key: "posture",          summaryKey: "posture",          label: "Posture",         compKey: "posture"          },
   { key: "stability",        summaryKey: "stability",        label: "Stability",       compKey: "stability"        },
-  { key: "movement_quality", summaryKey: "movement_quality", label: "Joint Angle",     compKey: "movement_quality" },
-  { key: "velocity",         summaryKey: "tempo",            label: "Velocity",        compKey: "tempo"            },
+  { key: "movement_quality", summaryKey: "movement_quality", label: "Movement Quality", compKey: "movement_quality" },
+  { key: "tempo",            summaryKey: "tempo",            label: "Tempo & Rhythm",  compKey: "tempo"            },
 ]
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -165,42 +172,145 @@ export default function ResultsPage() {
   const { state } = useLocation()
   const navigate  = useNavigate()
 
-  const [tab,              setTab]              = useState("current")
-  const [devFixture,       setDevFixture]       = useState("clean")
-  const [devComp,          setDevComp]          = useState("with-data")
-  const [progressionData,  setProgressionData]  = useState(null)
-  const [progressionState, setProgressionState] = useState("idle") // idle | loading | ready | error
+  const [tab,        setTab]        = useState("current")
+  const [devFixture, setDevFixture] = useState("clean")
+  const [devComp,    setDevComp]    = useState("with-data") // "with-data" | "empty"
 
-  const analysisId = state?.analysisId
-  const BASE_URL   = import.meta.env.VITE_API_URL || "http://localhost:8000"
+  // Live DB session loading states
+  const [liveSessions,          setLiveSessions]          = useState([])
+  const [selectedLiveSessionId, setSelectedLiveSessionId] = useState("")
+  const [selectedLiveSessionData, setSelectedLiveSessionData] = useState(null)
+  const [liveCompData,          setLiveCompData]          = useState(null)
 
-  // Fetch progression data when comparison tab is opened (if real session)
+  const BASE_URL = import.meta.env.VITE_API_URL || "http://localhost:8000"
+
+  // Fetch completed sessions from DB
   useEffect(() => {
-    if (tab !== "comparison" || !analysisId || progressionData) return
+    async function fetchSessions() {
+      try {
+        const localUserId = localStorage.getItem("user_id")
+        const batchUserId = "00000000-0000-0000-0000-000000000001"
+        
+        let allSessions = []
+        
+        // Fetch batch user sessions
+        const r1 = await fetch(`${BASE_URL}/history/${batchUserId}`)
+        if (r1.ok) {
+          const list = await r1.json()
+          if (Array.isArray(list)) allSessions.push(...list)
+        }
+        
+        // Fetch local user sessions if they exist
+        if (localUserId && localUserId !== batchUserId) {
+          const r2 = await fetch(`${BASE_URL}/history/${localUserId}`)
+          if (r2.ok) {
+            const list = await r2.json()
+            if (Array.isArray(list)) allSessions.push(...list)
+          }
+        }
+        
+        // Filter unique by session_id
+        const unique = []
+        const seen = new Set()
+        for (const s of allSessions) {
+          if (!seen.has(s.session_id)) {
+            seen.add(s.session_id)
+            unique.push(s)
+          }
+        }
+        
+        // Sort by created_at descending
+        unique.sort((a, b) => new Date(b.created_at) - new Date(a.created_at))
+        setLiveSessions(unique)
+      } catch (err) {
+        console.error("Failed to fetch live history sessions:", err)
+      }
+    }
+    fetchSessions()
+  }, [BASE_URL])
 
-    setProgressionState("loading")
-    fetch(`${BASE_URL}/analysis/${analysisId}/progression`)
-      .then(r => {
-        if (r.status === 202) throw new Error("still_processing")
-        if (!r.ok)            throw new Error("not_available")
-        return r.json()
-      })
-      .then(d => {
-        setProgressionData(d)
-        setProgressionState("ready")
-      })
-      .catch(() => setProgressionState("error"))
-  }, [tab, analysisId, progressionData])
+  // Handle analysisId passed in location state (e.g. from Timeline navigation)
+  useEffect(() => {
+    if (state?.analysisId) {
+      handleLoadLiveSession(state.analysisId)
+    }
+  }, [state?.analysisId])
+
+  // Load a session from the backend
+  async function handleLoadLiveSession(sessionId) {
+    if (!sessionId) {
+      setSelectedLiveSessionId("")
+      setSelectedLiveSessionData(null)
+      setLiveCompData(null)
+      return
+    }
+    
+    try {
+      const response = await fetch(`${BASE_URL}/analysis/${sessionId}`)
+      if (response.ok) {
+        const record = await response.json()
+        const biomechanics = record.biomechanics_json
+          ? JSON.parse(record.biomechanics_json)
+          : {}
+          
+        const parsedResult = {
+          ...biomechanics,
+          analysis_id: record.analysis_id,
+          session_id: record.session_id,
+          exercise_id: record.exercise_id,
+          exercise_name: record.exercise_name,
+          weight_value: record.weight_value,
+          weight_unit: record.weight_unit,
+          status: record.status,
+          video_url: record.video_url,
+          annotated_frame_url: record.annotated_frame_url,
+          
+          // Include v3.0 columns directly if not inside biomechanics
+          issue_tags: record.issue_tags || biomechanics.issue_tags || [],
+          faults_detected: record.faults_detected || biomechanics.faults_detected || {},
+          fault_confidence: record.fault_confidence || biomechanics.fault_confidence || {},
+          causal_chains: record.causal_chains || biomechanics.causal_chains || [],
+          fault_detail: record.fault_detail || biomechanics.fault_detail || {},
+          trends: record.trends || biomechanics.trends || {},
+        }
+        
+        setSelectedLiveSessionId(sessionId)
+        setSelectedLiveSessionData(parsedResult)
+        
+        if (record.haiku_call_2_output) {
+          setLiveCompData(safeJsonLoad(record.haiku_call_2_output))
+        } else {
+          setLiveCompData(null)
+        }
+      }
+    } catch (err) {
+      console.error("Failed to load live session details:", err)
+    }
+  }
+
+  function safeJsonLoad(val) {
+    if (!val) return null
+    if (typeof val === "object") return val
+    try {
+      return JSON.parse(val)
+    } catch {
+      return val
+    }
+  }
 
   // Current session data
   const data = useMemo(() => {
+    if (selectedLiveSessionData) return selectedLiveSessionData
     if (state?.analysisResult) return state.analysisResult
     return devFixture === "clean" ? FIXTURE_CLEAN : FIXTURE_WITH_ISSUES
-  }, [state?.analysisResult, devFixture])
+  }, [selectedLiveSessionData, state?.analysisResult, devFixture])
 
-  // Comparison data — real API when available, fixture fallback in dev
-  const compData = progressionData
-    ?? (devComp === "with-data" ? FIXTURE_COMPARISON : FIXTURE_COMP_EMPTY)
+  // Comparison fixture
+  const compData = useMemo(() => {
+    if (liveCompData) return liveCompData
+    if (data.haiku_call_2_output) return safeJsonLoad(data.haiku_call_2_output)
+    return devComp === "with-data" ? FIXTURE_COMPARISON : FIXTURE_COMP_EMPTY
+  }, [liveCompData, data.haiku_call_2_output, devComp])
 
   const isDevMode    = !state?.analysisResult
   const isComparison = tab === "comparison"
@@ -211,6 +321,9 @@ export default function ResultsPage() {
   const params   = coaching.parameters || {}
   const reps     = data.reps   || []
   const issues   = data.issues || []
+
+  // Fallback to server H.264 video if local blob URL is not present in state
+  const videoSrc = state?.videoPreviewUrl || (data.video_url ? `${BASE_URL}/${data.video_url}` : null)
 
   const overall   = summary.overall_form_score ?? 0
   const repScores = reps.map((r) => r.form_score ?? 0)
@@ -268,14 +381,7 @@ export default function ResultsPage() {
         {/* ════════════════════════════════════════════════════════════════
             COMPARISON TAB
         ════════════════════════════════════════════════════════════════ */}
-        {isComparison && progressionState === "loading" && (
-          <div className="mx-4 mt-6 flex flex-col items-center gap-3 text-gray-400">
-            <div className="w-6 h-6 rounded-full border-2 border-gray-200 border-t-teal-400 animate-spin" />
-            <p className="text-sm">Loading comparison...</p>
-          </div>
-        )}
-
-        {isComparison && progressionState !== "loading" && (
+        {isComparison && (
           <>
             {!hasComparison ? (
               // ── Empty state ──────────────────────────────────────────
@@ -368,9 +474,9 @@ export default function ResultsPage() {
               <div className="text-center py-2 text-xs text-gray-500">
                 {today.toLocaleDateString("en-US", { month: "long", day: "numeric" })} · {headerWeight}
               </div>
-              {state?.videoPreviewUrl ? (
+              {videoSrc ? (
                 <video
-                  src={state.videoPreviewUrl}
+                  src={videoSrc}
                   className="w-full aspect-video object-cover"
                   muted playsInline controls
                 />
@@ -459,25 +565,55 @@ export default function ResultsPage() {
 
         {/* ── Dev toggles ───────────────────────────────────────────────── */}
         {isDevMode && (
-          <div className="mt-6 mx-4 text-center text-xs text-gray-400 space-y-3 pt-4 border-t border-gray-100">
+          <div className="mt-6 mx-4 text-center text-xs text-gray-400 space-y-4 pt-4 border-t border-gray-100 bg-white rounded-2xl p-4 shadow-sm border border-gray-100">
+            {liveSessions.length > 0 && (
+              <div className="space-y-1.5 text-left">
+                <div className="font-semibold text-gray-700 text-xs flex items-center justify-between">
+                  <span>⚡ Load Live Session from Neon Postgres:</span>
+                  <span className="text-[10px] text-teal-600 bg-teal-50 px-1.5 py-0.5 rounded-full font-medium">v3.0 DB</span>
+                </div>
+                <select
+                  value={selectedLiveSessionId}
+                  onChange={(e) => handleLoadLiveSession(e.target.value)}
+                  className="w-full text-xs text-gray-600 bg-gray-50 border border-gray-200 rounded-lg p-2 focus:outline-none focus:ring-1 focus:ring-teal-500 font-medium"
+                >
+                  <option value="">-- Select from DB or use Local Fixtures --</option>
+                  {liveSessions.map((s) => {
+                    const dateStr = new Date(s.created_at).toLocaleDateString("en-US", {
+                      month: "short",
+                      day: "numeric",
+                      hour: "2-digit",
+                      minute: "2-digit"
+                    })
+                    return (
+                      <option key={s.session_id} value={s.session_id}>
+                        {s.exercise_name?.toUpperCase().replace("-", " ").replace("_", " ")} ({s.overall_score}%) - {dateStr}
+                      </option>
+                    )
+                  })}
+                </select>
+              </div>
+            )}
+
             <div className="space-y-1">
-              <div className="font-medium">Current fixture</div>
+              <div className="font-semibold text-gray-500 text-[10px] uppercase tracking-wider">Static Dev Fixtures</div>
               <div className="flex justify-center gap-4">
                 {["clean", "issues"].map((f) => (
-                  <button key={f} type="button" onClick={() => setDevFixture(f)}
-                    className={`underline ${devFixture === f ? "text-teal-600 font-semibold" : "text-gray-400"}`}>
-                    {f === "clean" ? "no issues" : "with issues"}
+                  <button key={f} type="button" onClick={() => { handleLoadLiveSession(""); setDevFixture(f); }}
+                    className={`underline text-xs ${devFixture === f && !selectedLiveSessionId ? "text-teal-600 font-semibold" : "text-gray-400"}`}>
+                    {f === "clean" ? "No Issues" : "With Issues"}
                   </button>
                 ))}
               </div>
             </div>
+            
             <div className="space-y-1">
-              <div className="font-medium">Comparison fixture</div>
+              <div className="font-semibold text-gray-500 text-[10px] uppercase tracking-wider">Static Comparison Fixtures</div>
               <div className="flex justify-center gap-4">
                 {["with-data", "empty"].map((f) => (
-                  <button key={f} type="button" onClick={() => setDevComp(f)}
-                    className={`underline ${devComp === f ? "text-teal-600 font-semibold" : "text-gray-400"}`}>
-                    {f === "with-data" ? "with data" : "empty state"}
+                  <button key={f} type="button" onClick={() => { handleLoadLiveSession(""); setDevComp(f); }}
+                    className={`underline text-xs ${devComp === f && !selectedLiveSessionId ? "text-teal-600 font-semibold" : "text-gray-400"}`}>
+                    {f === "with-data" ? "With Data" : "Empty State"}
                   </button>
                 ))}
               </div>

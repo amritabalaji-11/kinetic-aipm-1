@@ -1,14 +1,22 @@
+import os
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
-from db.database import db
-
+from fastapi.staticfiles import StaticFiles
+from contextlib import asynccontextmanager
 from utils.config import FRONTEND_ORIGIN
+from utils.database import db
 from routes.health import router as health_router
+from routes import upload, stream
 
-from routes.analysis_haiku_integration_example import router as haiku_router
-from routes import upload, stream, analysis, progression
+@asynccontextmanager
+async def lifespan(app: FastAPI):
+    # Startup: Initialize DB Pool
+    await db.connect()
+    yield
+    # Shutdown: Close DB Pool
+    await db.disconnect()
 
-app = FastAPI()
+app = FastAPI(lifespan=lifespan)
 
 # CORS config
 app.add_middleware(
@@ -23,17 +31,9 @@ app.add_middleware(
 app.include_router(health_router)
 app.include_router(upload.router)
 app.include_router(stream.router)
-app.include_router(analysis.router)
-app.include_router(haiku_router) 
 
-app.include_router(progression.router)
-
-#DB connection management
-@app.on_event("startup")
-async def startup():
-    await db.connect()
-
-
-@app.on_event("shutdown")
-async def shutdown():
-    await db.disconnect()
+# Static file serving
+os.makedirs("worst_frames", exist_ok=True)
+os.makedirs("uploads", exist_ok=True)
+app.mount("/worst_frames", StaticFiles(directory="worst_frames"), name="worst_frames")
+app.mount("/uploads", StaticFiles(directory="uploads"), name="uploads")
