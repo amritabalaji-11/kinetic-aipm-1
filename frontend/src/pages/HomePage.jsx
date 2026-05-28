@@ -1,6 +1,6 @@
 import { useState } from "react"
 import { Navigate, useNavigate } from "react-router-dom"
-import { Bell, CalendarDays, ChevronRight, Dumbbell, List, LayoutGrid, Target } from "lucide-react"
+import { Bell, CalendarDays, ChevronRight, Dumbbell, List, LayoutGrid, Target, Droplet } from "lucide-react"
 import { useUser } from "../context/UserContext"
 import { WEEKLY_CALENDAR, PROGRESS_LADDER, FORM_HISTORY_DETAILED } from "../data/dummyData"
 
@@ -12,65 +12,58 @@ function scoreBadgeStyle(score) {
   return { bg: "#fee2e2", color: "#991b1b" }
 }
 
-const DAY_LABELS = ["S", "M", "T", "W", "T", "F", "S"]
-const WEEK_DAYS = [24, 25, 26, 27, 28, 29, 30] // May 24–30
+const DAY_LABELS = ["S", "M", "T", "W", "Th", "F", "S"]
+const WEEK_DATES = [24, 25, 26, 27, 28, 29, 30]
 
 // ─── Week Calendar ────────────────────────────────────────────────────────────
 
 function WeekCalendar({ userId }) {
-  const cal = WEEKLY_CALENDAR[userId] || { weekLabel: "May 24 to 30", workoutDays: [], streak: 0 }
-  const todayIdx = 3 // Wednesday = index 3 (Sun=0)
+  const cal = WEEKLY_CALENDAR[userId] || { weekLabel: "May 24 – 30", workoutDays: [], streak: 0 }
+  const todayIdx = 3 // Wednesday
 
   return (
-    <div className="mx-4 mb-4 rounded-2xl overflow-hidden" style={{ background: "#f0eeff" }}>
-      <div className="flex items-center justify-between px-4 pt-4 pb-2">
+    <div className="mx-4 mb-4 rounded-2xl p-4" style={{ background: "#f0eeff" }}>
+      {/* Header */}
+      <div className="flex items-center justify-between mb-3">
         <div>
-          <p className="text-xs font-semibold" style={{ color: "#8b8ba7" }}>
-            This week
-          </p>
-          <p className="text-sm font-bold" style={{ color: "#1a1a2e" }}>
-            {cal.weekLabel}
-          </p>
+          <p className="text-xs" style={{ color: "#8b8ba7" }}>This week</p>
+          <p className="text-base font-black" style={{ color: "#1a1a2e" }}>May 24 – 30</p>
         </div>
         <div
-          className="flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-bold"
-          style={{ background: "white", color: "#f59e0b" }}
+          className="flex items-center gap-1.5 px-3 py-1.5 rounded-full"
+          style={{ background: "white" }}
         >
-          {cal.streak} Day Streak
+          <Droplet size={15} color="#6C5CE7" fill="#6C5CE7" />
+          <span className="text-sm font-black" style={{ color: "#6C5CE7" }}>{cal.streak}</span>
+          <span className="text-sm font-semibold" style={{ color: "#1a1a2e" }}>Day Streak</span>
         </div>
       </div>
 
-      <div className="grid grid-cols-7 gap-1 px-3 pb-4">
-        {DAY_LABELS.map((d, i) => {
+      {/* Day tiles */}
+      <div className="grid grid-cols-7 gap-1">
+        {DAY_LABELS.map((label, i) => {
           const hasWorkout = cal.workoutDays.includes(i)
           const isToday = i === todayIdx
           return (
-            <div key={i} className="flex flex-col items-center gap-1">
-              <span className="text-xs font-semibold" style={{ color: "#8b8ba7" }}>
-                {d}
+            <div
+              key={i}
+              className="flex flex-col items-center gap-1 py-2 rounded-xl"
+              style={{
+                background: isToday ? "white" : "transparent",
+                border: isToday ? "2px solid #6C5CE7" : "1.5px dashed #c4b9ff",
+              }}
+            >
+              <span className="text-xs font-semibold" style={{ color: isToday ? "#6C5CE7" : "#9ca3af" }}>
+                {label}
               </span>
-              <div
-                className="w-9 h-9 rounded-xl flex items-center justify-center"
-                style={{
-                  background: hasWorkout
-                    ? "#6C5CE7"
-                    : isToday
-                    ? "white"
-                    : "transparent",
-                  border: isToday && !hasWorkout ? "1.5px solid #6C5CE7" : "none",
-                }}
-              >
-                {hasWorkout ? (
-                  <Dumbbell size={14} color="white" />
-                ) : (
-                  <span
-                    className="text-xs font-semibold"
-                    style={{ color: isToday ? "#6C5CE7" : "#c4b9ff" }}
-                  >
-                    {WEEK_DAYS[i]}
-                  </span>
-                )}
-              </div>
+              <span className="text-xs font-bold" style={{ color: isToday ? "#1a1a2e" : "#6b7280" }}>
+                {WEEK_DATES[i]}
+              </span>
+              {hasWorkout ? (
+                <Dumbbell size={13} color={isToday ? "#6C5CE7" : "#374151"} />
+              ) : (
+                <div className="rounded-full" style={{ width: 6, height: 6, background: "#9ca3af" }} />
+              )}
             </div>
           )
         })}
@@ -85,30 +78,30 @@ function ReadyCTA() {
   const navigate = useNavigate()
   return (
     <div className="px-4 mb-5">
-      <p className="text-xs font-bold uppercase tracking-widest mb-2" style={{ color: "#8b8ba7" }}>
+      <p className="text-xs font-bold uppercase tracking-widest mb-0.5" style={{ color: "#8b8ba7" }}>
         Next Up
       </p>
-      <p className="text-lg font-black mb-3" style={{ color: "#1a1a2e" }}>
+      <p className="text-lg font-black mb-2" style={{ color: "#1a1a2e" }}>
         Ready to work out?
       </p>
       <div
         className="rounded-2xl p-5"
-        style={{ background: "linear-gradient(135deg, #1E1B4B 0%, #312e81 100%)" }}
+        style={{ background: "#F4F2FA", border: "1.5px solid #a5b4fc" }}
       >
         {/* Top row: heading + figure */}
         <div className="flex items-start justify-between mb-2">
-          <h3 className="text-xl font-black text-white leading-snug" style={{ maxWidth: "55%" }}>
+          <h3 className="text-xl font-black leading-snug" style={{ maxWidth: "55%", color: "#1a1a2e" }}>
             Let's get you to work.
           </h3>
           <img
             src="/workout_hero.png"
             alt=""
             className="h-20 w-24 object-contain pointer-events-none select-none flex-shrink-0"
-            style={{ mixBlendMode: "multiply", marginTop: "-6px", marginRight: "-6px" }}
+            style={{ marginTop: "-6px", marginRight: "-6px" }}
           />
         </div>
 
-        <p className="text-xs mb-4" style={{ color: "rgba(255,255,255,0.55)" }}>
+        <p className="text-xs mb-4" style={{ color: "#8b8ba7" }}>
           Build your sessions in seconds, then log every set as you crush it.
         </p>
 
@@ -138,36 +131,49 @@ function ReadyCTA() {
         {/* Log Your Workout */}
         <button
           className="w-full flex items-center justify-between px-4 py-3 rounded-xl mb-4"
-          style={{ background: "rgba(255,255,255,0.1)" }}
+          style={{ background: "#e8e4ff" }}
         >
           <div className="flex items-center gap-3">
             <div
               className="w-7 h-7 rounded-lg flex items-center justify-center flex-shrink-0"
-              style={{ background: "rgba(255,255,255,0.1)" }}
+              style={{ background: "#d4ccff" }}
             >
-              <LayoutGrid size={13} color="rgba(255,255,255,0.7)" />
+              <LayoutGrid size={13} color="#6C5CE7" />
             </div>
             <div className="text-left">
-              <p className="text-sm font-bold text-white">Log Your Workout</p>
-              <p className="text-xs" style={{ color: "rgba(255,255,255,0.6)" }}>
+              <p className="text-sm font-bold" style={{ color: "#1a1a2e" }}>Log Your Workout</p>
+              <p className="text-xs" style={{ color: "#8b8ba7" }}>
                 Track sets, reps, and weights
               </p>
             </div>
           </div>
-          <ChevronRight size={16} color="rgba(255,255,255,0.5)" />
+          <ChevronRight size={16} color="#8b8ba7" />
         </button>
 
-        {/* When in doubt */}
-        <button
-          onClick={() => navigate("/upload")}
-          className="text-xs text-left"
-          style={{ color: "rgba(255,255,255,0.6)" }}
-        >
-          When in doubt?{" "}
-          <span className="underline font-semibold" style={{ color: "#a29bfe" }}>
-            Upload your video to get your form analyzed
-          </span>
-        </button>
+        {/* When in doubt + lifter icon */}
+        <div className="flex items-center gap-4">
+          <div
+            className="flex-shrink-0 pointer-events-none select-none"
+            style={{
+              width: 48,
+              height: 48,
+              borderRadius: "50%",
+              backgroundImage: "url('/lifter_icon.png')",
+              backgroundSize: "132%",
+              backgroundPosition: "55% center",
+            }}
+          />
+          <button
+            onClick={() => navigate("/upload")}
+            className="text-xs text-left"
+            style={{ color: "#8b8ba7" }}
+          >
+            When in doubt?{" "}
+            <span className="underline font-semibold" style={{ color: "#6C5CE7" }}>
+              Upload your video to get your form analyzed
+            </span>
+          </button>
+        </div>
       </div>
     </div>
   )
@@ -175,7 +181,7 @@ function ReadyCTA() {
 
 // ─── Progress Ladder ──────────────────────────────────────────────────────────
 
-function ProgressLadder({ userId }) {
+function ProgressLadder({ userId, user }) {
   const data = PROGRESS_LADDER[userId]
   if (!data) return null
   const [activeTab, setActiveTab] = useState(0)
@@ -327,38 +333,29 @@ function ProgressLadder({ userId }) {
             )
           })}
         </div>
-      </div>
-    </div>
-  )
-}
 
-// ─── Focus This Week ──────────────────────────────────────────────────────────
-
-function FocusSection({ user }) {
-  if (!user?.focus) return null
-  return (
-    <div className="px-4 mb-5">
-      <div
-        className="rounded-2xl p-4"
-        style={{ background: "#f0eeff", border: "1px solid #e0d9ff" }}
-      >
-        <div className="flex items-center gap-2.5 mb-3">
-          <div
-            className="w-8 h-8 rounded-full flex items-center justify-center flex-shrink-0"
-            style={{ background: "linear-gradient(135deg, #10b981, #34d399)" }}
-          >
-            <Target size={15} color="white" />
+        {/* Focus This Week — inside the same card, no box */}
+        {user?.focus && (
+          <div className="mt-3 pt-3" style={{ borderTop: "1px solid #e0d9ff" }}>
+            <div className="flex items-center gap-2.5 mb-2">
+              <div
+                className="w-7 h-7 rounded-full flex items-center justify-center flex-shrink-0"
+                style={{ background: "linear-gradient(135deg, #10b981, #34d399)" }}
+              >
+                <Target size={13} color="white" />
+              </div>
+              <p className="text-sm font-black" style={{ color: "#1a1a2e" }}>
+                {user.focus.title}
+              </p>
+            </div>
+            <p className="text-xs mb-1.5" style={{ color: "#1a1a2e" }}>
+              {user.focus.advice}
+            </p>
+            <p className="text-xs italic" style={{ color: "#8b8ba7" }}>
+              {user.focus.tips}
+            </p>
           </div>
-          <p className="text-sm font-black" style={{ color: "#1a1a2e" }}>
-            {user.focus.title}
-          </p>
-        </div>
-        <p className="text-xs mb-1.5" style={{ color: "#1a1a2e" }}>
-          {user.focus.advice}
-        </p>
-        <p className="text-xs italic" style={{ color: "#8b8ba7" }}>
-          {user.focus.tips}
-        </p>
+        )}
       </div>
     </div>
   )
@@ -448,9 +445,9 @@ function HomePage() {
   if (!activeUser) return <Navigate to="/login" replace />
 
   return (
-    <div className="min-h-screen" style={{ background: "white" }}>
+    <div className="min-h-screen" style={{ background: "#F4F2FA" }}>
       {/* Header */}
-      <div className="flex items-start justify-between px-4 pt-6 pb-3 bg-white">
+      <div className="flex items-start justify-between px-4 pt-6 pb-3" style={{ background: "#F4F2FA" }}>
         <div>
           <h1 className="text-2xl font-black" style={{ color: "#1a1a2e" }}>
             Hey {activeUser.name}
@@ -478,8 +475,7 @@ function HomePage() {
 
       <WeekCalendar userId={activeUserId} />
       <ReadyCTA />
-      <ProgressLadder userId={activeUserId} />
-      <FocusSection user={activeUser} />
+      <ProgressLadder userId={activeUserId} user={activeUser} />
       <FormHistory userId={activeUserId} />
     </div>
   )
