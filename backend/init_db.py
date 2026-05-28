@@ -78,7 +78,7 @@ CREATE TABLE IF NOT EXISTS form_analysis_results (
 CREATE_PROGRESSION_RESULTS_SQL = """
 CREATE TABLE IF NOT EXISTS progression_results (
 
-    analysis_id TEXT NOT NULL,
+    analysis_id TEXT NOT NULL PRIMARY KEY,
 
     user_id TEXT NOT NULL,
 
@@ -106,14 +106,14 @@ CREATE TABLE IF NOT EXISTS progression_results (
 )
 """
 
-CREATE_USER_PROFILES_SQL = """
-CREATE TABLE IF NOT EXISTS user_profiles (
+CREATE_USER_PROFILE_SQL = """
+CREATE TABLE IF NOT EXISTS user_profile (
 
     user_id TEXT PRIMARY KEY,
 
-    progress_ladder_image_url TEXT,
+    progress_ladder_image_url TEXT DEFAULT NULL,
 
-    annotated_frame_url TEXT,
+    annotated_frame_url TEXT DEFAULT NULL,
 
     age INTEGER,
 
@@ -146,37 +146,67 @@ CREATE TABLE IF NOT EXISTS workout_sessions_log (
 
     weight_use REAL,
 
-    rep_count INTEGER,
+    rep_count INTEGER
 )
 """
 
 def init_db():
     conn = sqlite3.connect(DATABASE_PATH)
+
     cursor = conn.cursor()
+
+    # =====================================================
+    # CREATE TABLES
+    # =====================================================
 
     cursor.execute(CREATE_FORM_ANALYSES_SQL)
 
     cursor.execute(CREATE_WORKOUT_SESSIONS_LOG_SQL)
 
-    cursor.execute(CREATE_USER_PROFILES_SQL)
-
-
-    for col, definition in [
-        ("progression_output", "TEXT"),
-        ("filename", "TEXT"),
-        ("size_mb", "REAL"),
-    ]:
-        try:
-            cursor.execute(f"ALTER TABLE form_analyses ADD COLUMN {col} {definition}")
-            conn.commit()
-            print(f"Migrated: added {col} column.")
-        except sqlite3.OperationalError:
-            pass  # column already exists
+    cursor.execute(CREATE_USER_PROFILE_SQL)
 
     cursor.execute(CREATE_FORM_ANALYSIS_RESULTS_SQL)
+
     cursor.execute(CREATE_PROGRESSION_RESULTS_SQL)
+
+    # =====================================================
+    # SAFE MIGRATIONS
+    # =====================================================
+
+    migrations = [
+
+        # form_analyses
+        ("form_analyses", "progression_output", "TEXT"),
+        ("form_analyses", "filename", "TEXT"),
+        ("form_analyses", "size_mb", "REAL"),
+
+        # user_profile
+        ("user_profile", "annotated_frame_url", "TEXT"),
+        ("user_profile", "progress_ladder_image_url", "TEXT"),
+
+        # form_analysis_results
+        ("form_analysis_results", "annotated_frame_url", "TEXT"),
+    ]
+
+    for table, column, definition in migrations:
+        try:
+            cursor.execute(
+                f"""
+                ALTER TABLE {table}
+                ADD COLUMN {column} {definition}
+                """
+            )
+            conn.commit()
+
+            print(f"[migration] added {column} to {table}")
+
+        except sqlite3.OperationalError:
+            pass
+
     conn.commit()
+
     conn.close()
+
     print("Database initialized.")
 
 if __name__ == "__main__":
