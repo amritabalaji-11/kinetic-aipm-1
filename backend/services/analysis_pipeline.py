@@ -32,13 +32,13 @@ async def run_analysis(session_id: str, file_location: str):
         
         async with db.connection() as conn:
             await conn.execute(
-                "UPDATE public.form_analyses SET status = 'processing' WHERE session_id = $1",
+                "UPDATE form_analyses SET status = 'processing' WHERE session_id = ?",
                 session_id
             )
             
             # Fetch weight and user info for comparison later
             session_row = await conn.fetchrow(
-                "SELECT user_id, weight_value, weight_unit, weight_kg FROM public.form_analyses WHERE session_id = $1",
+                "SELECT user_id, weight_value, weight_unit, weight_kg FROM form_analyses WHERE session_id = ?",
                 session_id
             )
         
@@ -73,11 +73,11 @@ async def run_analysis(session_id: str, file_location: str):
             async with db.connection() as conn:
                 await conn.execute(
                     """
-                    UPDATE public.form_analyses 
-                    SET status = 'error', quality_gate_status = $2 
-                    WHERE session_id = $1
+                    UPDATE form_analyses 
+                    SET status = 'error', quality_gate_status = ? 
+                    WHERE session_id = ?
                     """,
-                    session_id, error_code
+                    error_code, session_id
                 )
             
             await SSEManager().send_event(
@@ -105,11 +105,11 @@ async def run_analysis(session_id: str, file_location: str):
         async with db.connection() as conn:
             await conn.execute(
                 """
-                UPDATE public.form_analyses 
-                SET quality_gate_status = $2, video_score = $3 
-                WHERE session_id = $1
+                UPDATE form_analyses 
+                SET quality_gate_status = ?, video_score = ? 
+                WHERE session_id = ?
                 """,
-                session_id, q_status, v_score
+                q_status, v_score, session_id
             )
 
         # ------ Step 3: Claude AI Analysis (Call 1) ------
@@ -204,7 +204,7 @@ async def run_analysis(session_id: str, file_location: str):
         async with db.connection() as conn:
             await conn.execute(
                 """
-                INSERT INTO public.form_analysis_results (
+                INSERT INTO form_analysis_results (
                     analysis_id, session_id, user_id, overall_score, range_of_motion_score, 
                     posture_score, stability_score, movement_quality_score, tempo_score,
                     coaching_output, rep_scores, rep_count,
@@ -212,7 +212,7 @@ async def run_analysis(session_id: str, file_location: str):
                     progression_recommendation, worst_frame_index, model_version, created_at,
                     issue_tags, faults_detected, fault_confidence, causal_chains, fault_detail, trends,
                     camera_angle
-                ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17, $18, $19, $20, $21, $22, $23, $24, $25, $26)
+                ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
                 """,
                 str(analysis_id), str(session_id), str(user_id), overall_score, rom_score,
                 posture_score, stability_score, movement_quality_score, tempo_score,
@@ -228,19 +228,19 @@ async def run_analysis(session_id: str, file_location: str):
             # Update session complete status and link analysis
             await conn.execute(
                 """
-                UPDATE public.form_analyses 
-                SET status = 'completed', analysis_id = $2 
-                WHERE session_id = $1
+                UPDATE form_analyses 
+                SET status = 'completed', analysis_id = ? 
+                WHERE session_id = ?
                 """,
-                str(session_id), str(analysis_id)
+                str(analysis_id), str(session_id)
             )
             
             # Initialize a pending progression_results record for the 4-table comparative run (S2)
             await conn.execute(
                 """
-                INSERT INTO public.progression_results (
+                INSERT INTO progression_results (
                     analysis_id, session_id, user_id, exercise_id, available
-                ) VALUES ($1, $2, $3, $4, 0)
+                ) VALUES (?, ?, ?, ?, 0)
                 """,
                 str(analysis_id), str(session_id), str(user_id), "goblet-squat"
             )
@@ -268,8 +268,8 @@ async def run_analysis(session_id: str, file_location: str):
             # Update database
             async with db.connection() as conn:
                 await conn.execute(
-                    "UPDATE public.form_analysis_results SET annotated_frame_urls = $2 WHERE analysis_id = $1",
-                    str(analysis_id), json.dumps([worst_frame_url])
+                    "UPDATE form_analysis_results SET annotated_frame_urls = ? WHERE analysis_id = ?",
+                    json.dumps([worst_frame_url]), str(analysis_id)
                 )
             
             # Clean up temp analysis path
@@ -292,9 +292,9 @@ async def run_analysis(session_id: str, file_location: str):
                            r.movement_quality_score, r.tempo_score,
                            r.annotated_frame_urls, r.created_at,
                            a.weight_value, a.weight_unit, a.exercise_name
-                    FROM public.form_analysis_results r
-                    JOIN public.form_analyses a ON a.session_id = r.session_id
-                    WHERE r.user_id = $1 AND r.session_id != $2
+                    FROM form_analysis_results r
+                    JOIN form_analyses a ON a.session_id = r.session_id
+                    WHERE r.user_id = ? AND r.session_id != ?
                     ORDER BY r.created_at DESC
                     LIMIT 5
                 ) sub
@@ -349,14 +349,13 @@ async def run_analysis(session_id: str, file_location: str):
                 async with db.connection() as conn:
                     await conn.execute(
                         """
-                        UPDATE public.progression_results 
-                        SET progress_direction = $2, weight_recommendation = $3, progression_verdict = $4,
-                            focus_this_week = $5, posture_trend = $6, stability_trend = $7,
-                            range_of_motion_trend = $8, movement_quality_trend = $9, coaching_reasoning = $10,
-                            available = 1, error = NULL, created_at = $11
-                        WHERE analysis_id = $1
+                        UPDATE progression_results 
+                        SET progress_direction = ?, weight_recommendation = ?, progression_verdict = ?,
+                            focus_this_week = ?, posture_trend = ?, stability_trend = ?,
+                            range_of_motion_trend = ?, movement_quality_trend = ?, coaching_reasoning = ?,
+                            available = 1, error = NULL, created_at = ?
+                        WHERE analysis_id = ?
                         """,
-                        str(analysis_id),
                         comparison_response.get("progress_direction"),
                         comparison_response.get("weight_recommendation"),
                         comparison_response.get("progression_verdict"),
@@ -366,14 +365,15 @@ async def run_analysis(session_id: str, file_location: str):
                         comparison_response.get("range_of_motion_trend"),
                         comparison_response.get("movement_quality_trend"),
                         comparison_response.get("coaching_reasoning"),
-                        datetime.datetime.now(datetime.UTC).isoformat()
+                        datetime.datetime.now(datetime.UTC).isoformat(),
+                        str(analysis_id)
                     )
             except Exception as comp_err:
                 print(f"Progression comparison failed: {str(comp_err)}")
                 async with db.connection() as conn:
                     await conn.execute(
-                        "UPDATE public.progression_results SET available = 0, error = $2 WHERE analysis_id = $1",
-                        str(analysis_id), str(comp_err)
+                        "UPDATE progression_results SET available = 0, error = ? WHERE analysis_id = ?",
+                        str(comp_err), str(analysis_id)
                     )
         else:
             # First workout session
@@ -395,14 +395,13 @@ async def run_analysis(session_id: str, file_location: str):
             async with db.connection() as conn:
                 await conn.execute(
                     """
-                    UPDATE public.progression_results 
-                    SET progress_direction = $2, weight_recommendation = $3, progression_verdict = $4,
-                        focus_this_week = $5, posture_trend = $6, stability_trend = $7,
-                        range_of_motion_trend = $8, movement_quality_trend = $9, coaching_reasoning = $10,
+                    UPDATE progression_results 
+                    SET progress_direction = ?, weight_recommendation = ?, progression_verdict = ?,
+                        focus_this_week = ?, posture_trend = ?, stability_trend = ?,
+                        range_of_motion_trend = ?, movement_quality_trend = ?, coaching_reasoning = ?,
                         available = 1, error = NULL
-                    WHERE analysis_id = $1
+                    WHERE analysis_id = ?
                     """,
-                    str(analysis_id),
                     first_progression_placeholder["progress_direction"],
                     first_progression_placeholder["weight_recommendation"],
                     first_progression_placeholder["progression_verdict"],
@@ -411,7 +410,8 @@ async def run_analysis(session_id: str, file_location: str):
                     first_progression_placeholder["stability_trend"],
                     first_progression_placeholder["range_of_motion_trend"],
                     first_progression_placeholder["movement_quality_trend"],
-                    first_progression_placeholder["coaching_reasoning"]
+                    first_progression_placeholder["coaching_reasoning"],
+                    str(analysis_id)
                 )
 
         # ------ Step 7: Re-encode Annotated Video with H.264 & Original Audio ------
@@ -473,7 +473,7 @@ async def run_analysis(session_id: str, file_location: str):
         try:
             async with db.connection() as conn:
                 await conn.execute(
-                    "UPDATE public.form_analyses SET status = 'error' WHERE session_id = $1",
+                    "UPDATE form_analyses SET status = 'error' WHERE session_id = ?",
                     session_id
                 )
         except:

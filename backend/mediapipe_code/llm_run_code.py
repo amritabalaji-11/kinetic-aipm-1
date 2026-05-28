@@ -13,7 +13,7 @@ from prompts.progression_prompt import COMPARISON_SYSTEM, build_comparison_promp
 load_dotenv(find_dotenv(), override=True)
 
 ANTHROPIC_API_KEY = os.getenv("ANTHROPIC_API_KEY")
-HAIKU_MODEL  = os.getenv("HAIKU_MODEL")
+HAIKU_MODEL = os.getenv("HAIKU_MODEL", "claude-haiku-4-5-20251001")
 
 
 def extract_json(raw: str) -> dict:
@@ -44,8 +44,9 @@ def run_llm_analysis(mp_json: dict, image_base64, debug = False) -> tuple[dict, 
         ]}],
     )
     
+    # Check truncation BEFORE parsing — a truncated response gives JSONDecodeError otherwise
     if resp.stop_reason == "max_tokens":
-        raise ValueError("Haiku truncated — increase max_tokens")
+        raise ValueError("Haiku Call 1 truncated — increase max_tokens")
     
     lat = (time.time() - start) * 1000
 
@@ -94,10 +95,11 @@ def run_llm_comparison(current_json: dict, previous_json, debug=False):
         ]}],
     )
 
-    resp_json = extract_json(resp.content[0].text)
-    
+    # Check truncation BEFORE parsing — a truncated response gives JSONDecodeError otherwise
     if resp.stop_reason == "max_tokens":
-        raise ValueError("Haiku truncated — increase max_tokens")
+        raise ValueError("Haiku Call 2 truncated — increase max_tokens")
+
+    resp_json = extract_json(resp.content[0].text)
     
     lat = (time.time() - start) * 1000
 

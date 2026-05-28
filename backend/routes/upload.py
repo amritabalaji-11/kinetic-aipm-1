@@ -51,8 +51,8 @@ async def upload_video(
     try:
         async with db.connection() as conn:
             row = await conn.fetchrow(
-                "SELECT user_id FROM public.user_profiles WHERE user_id = $1", 
-                user_uuid
+                "SELECT user_id FROM user_profiles WHERE user_id = ?",
+                str(user_uuid)
             )
             if not row:
                 print(f"[upload] WARNING: user_id '{user_id_str}' not found in user_profiles. Falling back to Demo User.")
@@ -68,9 +68,9 @@ async def upload_video(
         async with db.connection() as conn:
             await conn.execute(
                 """
-                INSERT INTO public.form_analyses (
+                INSERT INTO form_analyses (
                     session_id, user_id, exercise_name, weight_value, weight_unit, weight_kg, video_url, status
-                ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8)
+                ) VALUES (?, ?, ?, ?, ?, ?, ?, ?)
                 """,
                 str(session_id_val), str(user_uuid), exercise_val, weight_val, weight_unit_val, weight_kg, file_location, "queued"
             )
@@ -109,10 +109,10 @@ async def get_results(session_id: str):
                     p.focus_this_week, p.posture_trend, p.stability_trend,
                     p.range_of_motion_trend, p.movement_quality_trend, p.coaching_reasoning,
                     p.available, p.error AS progression_error
-                FROM public.form_analyses a
-                LEFT JOIN public.form_analysis_results r ON a.analysis_id = r.analysis_id
-                LEFT JOIN public.progression_results p ON a.analysis_id = p.analysis_id
-                WHERE a.session_id = $1
+                FROM form_analyses a
+                LEFT JOIN form_analysis_results r ON a.analysis_id = r.analysis_id
+                LEFT JOIN progression_results p ON a.analysis_id = p.analysis_id
+                WHERE a.session_id = ?
                 """,
                 session_id
             )
@@ -193,9 +193,9 @@ async def get_history(user_id: str):
                     a.session_id, a.user_id, a.weight_value, a.weight_unit, a.video_url, 
                     a.status, a.quality_gate_status, a.video_score, a.created_at,
                     r.analysis_id, r.overall_score, r.rep_count
-                FROM public.form_analyses a
-                LEFT JOIN public.form_analysis_results r ON a.analysis_id = r.analysis_id
-                WHERE a.user_id = $1 AND a.status = 'completed'
+                FROM form_analyses a
+                LEFT JOIN form_analysis_results r ON a.analysis_id = r.analysis_id
+                WHERE a.user_id = ? AND a.status = 'completed'
                 ORDER BY a.created_at DESC
                 """,
                 user_id
@@ -209,7 +209,8 @@ async def get_history(user_id: str):
 async def get_analysis_results(analysis_id: str):
     # Fetch flat dictionary using standard results getter
     data = await get_results(analysis_id)
-    if "error" in data:
+    # Only bail on a real error string — data["error"] is always present (set to None for no-error)
+    if data.get("error") and not data.get("overall_score"):
         return data
         
     coaching_output = data.get("coaching_output") or {}
@@ -244,22 +245,42 @@ async def get_analysis_results(analysis_id: str):
     }
     
     # Parse and append any raw issue tags if present
-    issues_json = data.get("issues_json") or {}
+    issues_json = data.get("issues_json") or []
     if isinstance(issues_json, str):
         try:
             issues_json = json.loads(issues_json)
         except:
-            issues_json = {}
+            issues_json = []
     
-    issues_list = issues_json.get("issues", [])
+    # issues_json may be a flat list OR {"issues": [...]}
+    if isinstance(issues_json, dict):
+        issues_list = issues_json.get("issues", [])
+    elif isinstance(issues_json, list):
+        issues_list = issues_json
+    else:
+        issues_list = []
     biomechanics["issues"] = issues_list
     
     # Return payload to match LoadingPage contract
     return {
         "analysis_id": data.get("analysis_id") or analysis_id,
+        "session_id": data.get("session_id") or analysis_id,
         "exercise_id": data.get("exercise_name") or "goblet-squat",
+        "exercise_name": data.get("exercise_name"),
         "weight_value": data.get("weight_value"),
         "weight_unit": data.get("weight_unit"),
         "status": data.get("status"),
-        "biomechanics_json": json.dumps(biomechanics)
+        "video_url": data.get("video_url"),
+        "annotated_frame_url": data.get("annotated_frame_url"),
+        "biomechanics_json": json.dumps(biomechanics),
+        # Pass progression data directly so ResultsPage can read it
+        "progression_results": data.get("progression_results"),
+        "haiku_call_2_output": data.get("haiku_call_2_output"),
+        # v3.0 diagnostic fields
+        "issue_tags": data.get("issue_tags"),
+        "faults_detected": data.get("faults_detected"),
+        "fault_confidence": data.get("fault_confidence"),
+        "causal_chains": data.get("causal_chains"),
+        "fault_detail": data.get("fault_detail"),
+        "trends": data.get("trends"),
     }
