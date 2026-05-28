@@ -10,19 +10,21 @@ CREATE TABLE IF NOT EXISTS form_analyses (
     session_id TEXT NOT NULL,
     user_id TEXT NOT NULL,
     exercise_id TEXT NOT NULL,
+    
     weight_value REAL NOT NULL,
     weight_unit TEXT NOT NULL,
     weight_kg_normalised REAL NOT NULL,
+    
     video_url TEXT NOT NULL,
+    
     status TEXT NOT NULL,
+    
     overlay_video_url TEXT,
     biomechanics_json TEXT,
+    
     error_code TEXT,
+    
     rep_count INTEGER,
-
-    -- Video metadata stored at upload time — used in upload_received SSE payload
-    filename TEXT,
-    size_mb REAL,
 
     -- Haiku Call 2 output (Step 9) — longitudinal coaching for Tab 2
     progression_output TEXT,
@@ -34,38 +36,61 @@ CREATE TABLE IF NOT EXISTS form_analyses (
 CREATE_FORM_ANALYSIS_RESULTS_SQL = """
 CREATE TABLE IF NOT EXISTS form_analysis_results (
     analysis_id TEXT PRIMARY KEY,
+
     session_id TEXT NOT NULL,
     user_id TEXT NOT NULL,
     exercise_id TEXT NOT NULL,
+    
     weight_value REAL,
     weight_unit TEXT,
     weight_kg_normalised REAL,
+    
     overall_form_score INTEGER,
+    
     posture_score INTEGER,
+    
     stability_score INTEGER,
+    
     movement_quality_score INTEGER,
+    
     tempo_score INTEGER,
+    
     rep_count INTEGER,
+    
     rep_scores TEXT,
+    
     issue_tags TEXT,
+    
     coaching_output TEXT,
+    
     session_tags TEXT,
+    
     comparison_coaching_output TEXT,
+    
     fault_detail TEXT,
+    
     causal_chain TEXT,
+    
     annotated_frame_url TEXT
 )
 """
 
 CREATE_PROGRESSION_RESULTS_SQL = """
 CREATE TABLE IF NOT EXISTS progression_results (
-    id INTEGER PRIMARY KEY AUTOINCREMENT,
 
     analysis_id TEXT NOT NULL,
 
+    user_id TEXT NOT NULL,
+
+    session_id TEXT NOT NULL,
+    exercise_id TEXT NOT NULL,
     available INTEGER DEFAULT 1,
 
-    progress_direction TEXT,
+    error_code TEXT,
+
+    progress_direction TEXT
+        CHECK (progress_direction IN ('up', 'down', 'stable')),
+    
     progression_verdict TEXT,
 
     weight_recommendation TEXT,
@@ -81,11 +106,60 @@ CREATE TABLE IF NOT EXISTS progression_results (
 )
 """
 
+CREATE_USER_PROFILES_SQL = """
+CREATE TABLE IF NOT EXISTS user_profiles (
+
+    user_id TEXT PRIMARY KEY,
+
+    progress_ladder_image_url TEXT,
+
+    annotated_frame_url TEXT,
+
+    age INTEGER,
+
+    gender TEXT,
+
+    level TEXT,
+
+    injury_report INTEGER DEFAULT 0,
+
+    injury_details TEXT,
+
+    created_at TEXT DEFAULT CURRENT_TIMESTAMP
+)
+"""
+
+CREATE_WORKOUT_SESSIONS_LOG_SQL = """
+CREATE TABLE IF NOT EXISTS workout_sessions_log (
+    
+    log_id INTEGER PRIMARY KEY AUTOINCREMENT,
+
+    user_id TEXT NOT NULL,
+
+    exercise_id TEXT NOT NULL,
+    
+    session_id TEXT NOT NULL,
+    
+    logged_at TEXT DEFAULT CURRENT_TIMESTAMP,
+
+    set_number INTEGER,
+
+    weight_use REAL,
+
+    rep_count INTEGER,
+)
+"""
+
 def init_db():
     conn = sqlite3.connect(DATABASE_PATH)
     cursor = conn.cursor()
 
     cursor.execute(CREATE_FORM_ANALYSES_SQL)
+
+    cursor.execute(CREATE_WORKOUT_SESSIONS_LOG_SQL)
+
+    cursor.execute(CREATE_USER_PROFILES_SQL)
+
 
     for col, definition in [
         ("progression_output", "TEXT"),
