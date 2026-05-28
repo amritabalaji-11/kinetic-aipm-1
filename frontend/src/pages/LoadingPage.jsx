@@ -104,6 +104,7 @@ function LoadingPage() {
             : {}
           analysisResult = {
             ...biomechanics,
+            ...record,
             analysis_id:  record.analysis_id,
             exercise_id:  record.exercise_id,
             weight_value: record.weight_value,

@@ -169,8 +169,23 @@ async def run_analysis(session_id: str, file_location: str):
             stability_score = safe_int(parameters.get("stability", {}).get("score"), 70)
         if not db_output.get("movement_quality_score") and "movement_quality" in parameters:
             movement_quality_score = safe_int(parameters.get("movement_quality", {}).get("score"), 70)
+        if not db_output.get("range_of_motion_score") and "range_of_motion" in parameters:
+            rom_score = safe_int(parameters.get("range_of_motion", {}).get("score"), 70)
             
         tempo_score = safe_int(db_output.get("tempo_score") or parameters.get("tempo", {}).get("score") or parameters.get("range_of_motion", {}).get("score"), 70)
+        
+        # Enforce mathematical score alignment to resolve LLM float arithmetic anomalies
+        recalculated_overall = int(
+            round(
+                (rom_score * 0.35)
+                + (stability_score * 0.25)
+                + (posture_score * 0.25)
+                + (movement_quality_score * 0.15)
+            )
+        )
+        if abs(overall_score - recalculated_overall) <= 2:
+            overall_score = recalculated_overall
+
         progression_rec = db_output.get("progression_recommendation") or db_output.get("progression_recommendation", "hold")
         
         reps = db_output.get("rep_scores") or db_output.get("reps", [])

@@ -90,7 +90,7 @@ ALL TARGET RANGES IN THIS PROMPT ARE IN MEDIAPIPE CONVENTION.
 
 [REASONING APPROACH — fill this first]
 Before computing any score, fill the `reasoning` field in your output.
-Your reasoning must be extremely concise (MAXIMUM 2 sentences, under 250 characters total).
+Your reasoning must be extremely concise (MAXIMUM 1 sentence, under 120 characters total).
 Identify key root causes, scoring rationale, and clamp penalties.
 CRITICAL: Keep reasoning very short to ensure you have ample output budget to reliably output EVERY single section in the JSON payload (including summary_paragraph, feedback, next_session_focus, and parameters). Never truncate the JSON!
 
@@ -224,7 +224,7 @@ CRITICAL RULE — NO RAW ANGLES IN USER-FACING TEXT:
     GOOD: "Your depth was solid through reps 1–5, but by reps 6–8 you stopped going as low."
     BAD:  "Knee angle was 78° in reps 1–5 and 105° in reps 6–8."
 
-TONE: Direct, specific, motivating. Not clinical. Not generic.
+TONE: Warm, highly user-friendly, empathetic, encouraging, and motivating. Lead with positive observations before addressing faults. Not clinical. Not generic.
 AFFIRMATION: Must name something genuinely working.
   GOOD: "Depth is solid — your hips are dropping well below your knees on every rep."
   BAD:  "Good effort today." / "Nice work."
@@ -275,14 +275,14 @@ ANALYSIS_SCHEMA = """
 Output schema:
 
 {
-  "reasoning": "<string. Fill this FIRST. Extremely concise (MAXIMUM 2 sentences, under 250 characters total). Identify key root cause and scoring rationale. You MAY reference raw angles here.>",
+  "reasoning": "<string. Fill this FIRST. Extremely concise (MAXIMUM 1 sentence, under 120 characters total). Identify key root cause.>",
   "overall_score": <integer 0-100>,
   "progression_recommendation": "<hold|progress|drop|null>",
   "annotated_frame_url": "<string or null>",
   "worse_rep": <integer or null>,
   "critical_problem": "<hip_angle|knee_angle|back_angle_value|knee_valgus_distance|null>",
   "coaching": {
-    "summary_paragraph": "<max 400 chars. 2-4 sentences. Second person. NO raw angle numbers — use plain body-position language. Start with the most important finding. Mention rep numbers and trends.>",
+    "summary_paragraph": "<max 200 chars. MAXIMUM 1-2 sentences. Second person. Keep it very punchy and direct. NO angles.>",
     "feedback": "<string. One plain-language in-set cue for the very next set. NO angle numbers.>",
     "next_session_focus": ["<string: specific drill/warmup/mobility for next training day>", "<string>"],
     "parameters": {
@@ -407,16 +407,15 @@ Rules:
   - Return null if there is not enough evidence.
 
 - coaching.summary_paragraph:
-  - maximum 400 characters.
-  - 2-4 sentences in second person.
+  - maximum 200 characters.
+  - 1-2 sentences in second person.
   - NO raw angle numbers. Use body-position language.
-  - Lead with the most important finding.
-  - Mention rep numbers and trends when relevant.
+  - Lead with the most important finding. Keep it extremely punchy and direct.
 
 - coaching.feedback:
-  - One concrete in-set cue the user can try on the VERY NEXT set.
+  - One concrete, ultra-short in-set cue (MAXIMUM 80 characters/12 words) the user can try on the VERY NEXT set.
   - Plain language, no angles.
-  - Example: "Next set: actively push knees out over your pinky toe on every ascent."
+  - Example: "Next set: actively push knees out over pinky toes on ascent."
 
 - coaching.next_session_focus:
   - Array of exactly 2-3 strings.
@@ -430,7 +429,7 @@ Rules:
   - If a parameter is good, put a short positive affirmation and keep "observation" null.
   - If a parameter has a fault, put the specific issue in "observation" (plain language, NO angles)
     and a concrete cue or drill in "correction".
-  - Keep corrections short, actionable, and specific.
+  - Keep observations, affirmations, and corrections extremely short, direct, and concise (MAXIMUM 80 characters or 12 words per field).
   - "correction" should be null only when there is nothing meaningful to correct.
 
 - reps:

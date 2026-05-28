@@ -13,10 +13,10 @@ export default function TimelinePage() {
   const BASE_URL = import.meta.env.VITE_API_URL || "http://localhost:8000"
   
   const localUserId = localStorage.getItem("user_id")
-  const batchUserId = "00000000-0000-0000-0000-000000000001"
+  const batchUserId = "00000000-0000-0000-0000-000000000000"
   const activeUserId = profileFilter === "batch" ? batchUserId : localUserId
 
-  // Fetch session history from Neon DB
+  // Fetch session history from SQLite DB
   useEffect(() => {
     async function fetchHistory() {
       if (!activeUserId) {
@@ -212,7 +212,7 @@ export default function TimelinePage() {
             // Loading skeleton spinner
             <div className="flex flex-col items-center justify-center py-20 gap-4 text-center">
               <div className="w-8 h-8 border-4 border-teal border-t-transparent rounded-full animate-spin" />
-              <p className="text-xs font-medium text-gray-400">Syncing progression history from Neon DB...</p>
+              <p className="text-xs font-medium text-gray-400">Syncing progression history from SQLite DB...</p>
             </div>
           ) : sessions.length === 0 ? (
             // Empty state
@@ -221,7 +221,7 @@ export default function TimelinePage() {
               <h3 className="text-sm font-bold text-gray-700 dark:text-white mb-1">No completed runs found</h3>
               <p className="text-xs text-gray-400 dark:text-gray-500 max-w-xs mx-auto leading-relaxed mb-4">
                 {profileFilter === "batch"
-                  ? "There are no batch workouts in the Neon DB right now."
+                  ? "There are no batch workouts in the SQLite DB right now."
                   : "Upload your first squat video inside the scanner tab to launch real-time coaching!"}
               </p>
               <button

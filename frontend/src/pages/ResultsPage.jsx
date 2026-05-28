@@ -166,6 +166,13 @@ const PARAMS = [
   { key: "tempo",            summaryKey: "tempo",            label: "Tempo & Rhythm",  compKey: "tempo"            },
 ]
 
+const DEFAULT_NOTES = {
+  posture: "Maintain a neutral spine and upright chest position throughout all reps of the movement.",
+  stability: "Control your balance, plant your feet firmly, and avoid swaying or shifting weight excessively.",
+  movement_quality: "Focus on smooth, controlled eccentric and concentric phases to ensure high movement efficiency.",
+  tempo: "Keep a steady rhythm and full range of motion. Avoid rushing or pausing excessively between repetitions."
+}
+
 // ─────────────────────────────────────────────────────────────────────────────
 
 export default function ResultsPage() {
@@ -189,7 +196,7 @@ export default function ResultsPage() {
     async function fetchSessions() {
       try {
         const localUserId = localStorage.getItem("user_id")
-        const batchUserId = "00000000-0000-0000-0000-000000000001"
+        const batchUserId = "00000000-0000-0000-0000-000000000000"
         
         let allSessions = []
         
@@ -338,9 +345,58 @@ export default function ResultsPage() {
     data.status === "failed" || (overall === 0 && reps.length === 0 && issues.length > 0)
 
   // ── Comparison fields ─────────────────────────────────────────────────────
-  const hasComparison  = compData.has_comparison
-  const compCurrent    = compData.current    || {}
-  const compPrevious   = compData.previous   || {}
+  // Derive previous session dynamically from liveSessions history
+  const previousSession = useMemo(() => {
+    if (!liveSessions || liveSessions.length < 2) return null
+    const currId = data.session_id || data.analysis_id
+    if (!currId) return null
+    const idx = liveSessions.findIndex((s) => s.session_id === currId || s.analysis_id === currId)
+    if (idx !== -1 && idx < liveSessions.length - 1) {
+      return liveSessions[idx + 1]
+    }
+    return null
+  }, [liveSessions, data.session_id, data.analysis_id])
+
+  const hasComparison = !!(
+    compData.has_comparison ||
+    compData.progression_verdict ||
+    compData.progress_direction ||
+    compData.coaching_reasoning
+  )
+
+  const compCurrent = useMemo(() => {
+    if (compData.current) return compData.current
+    return {
+      date_label: data.created_at ? new Date(data.created_at).toLocaleDateString("en-US", { month: "short", day: "numeric" }) : "Current",
+      weight_value: data.weight_value ?? 0,
+      weight_unit: data.weight_unit ?? "lbs",
+      overall_form_score: overall,
+      posture_score: summary.posture_score ?? 0,
+      stability_score: summary.stability_score ?? 0,
+      movement_quality_score: summary.movement_quality_score ?? 0,
+      tempo_score: summary.tempo_score ?? 0,
+      reps: reps
+    }
+  }, [compData.current, data, overall, summary, reps])
+
+  const compPrevious = useMemo(() => {
+    if (compData.previous) return compData.previous
+    if (previousSession) {
+      return {
+        date_label: new Date(previousSession.created_at).toLocaleDateString("en-US", { month: "short", day: "numeric" }),
+        weight_value: previousSession.weight_value ?? 0,
+        weight_unit: previousSession.weight_unit ?? "lbs",
+        overall_form_score: previousSession.overall_score ?? 0,
+        posture_score: previousSession.posture_score ?? null,
+        stability_score: previousSession.stability_score ?? null,
+        movement_quality_score: previousSession.movement_quality_score ?? null,
+        tempo_score: previousSession.tempo_score ?? null,
+        reps: []
+      }
+    }
+    return {}
+  }, [compData.previous, previousSession])
+
   const compCoaching   = compData.comparison_coaching || {}
   const compParams     = compCoaching.parameters || {}
 
@@ -426,7 +482,7 @@ export default function ResultsPage() {
                     </div>
                   )}
                   <p className="text-sm text-gray-500 leading-relaxed">
-                    {compCoaching.summary_paragraph || ""}
+                    {compCoaching.summary_paragraph || compData.progression_verdict || (compData.weight_recommendation ? `Recommended progression: ${compData.weight_recommendation}.` : "")}
                   </p>
                 </div>
 
@@ -439,7 +495,14 @@ export default function ResultsPage() {
                       const score  = cp.score ?? compCurrent[`${p.summaryKey}_score`] ?? 0
                       const prev   = compPrevious[`${p.summaryKey}_score`] ?? null
                       const d      = delta(score, prev)
-                      const note   = cp.observation_action ?? "No additional notes."
+                      
+                      const rawNote = cp.observation_action 
+                        || cp.observation 
+                        || cp.affirmation 
+                        || cp.correction 
+                        || compData[`${p.key}_trend`] 
+                        || (p.key === "tempo" ? (compData.range_of_motion_trend || compData.tempo_trend) : null);
+                      const note = (rawNote && rawNote.trim()) ? rawNote : (DEFAULT_NOTES[p.key] || "Maintain solid form and consistent execution across all reps.");
 
                       return (
                         <div key={p.key} className="flex items-start gap-4 py-4">
@@ -516,7 +579,10 @@ export default function ResultsPage() {
                 {PARAMS.map((p) => {
                   const d     = params[p.key] || {}
                   const score = Math.round(d.score ?? summary?.[`${p.summaryKey}_score`] ?? 0)
-                  const note  = d.observation ?? d.affirmation ?? d.correction ?? "No additional notes."
+                  
+                  const rawNote = d.observation_action ?? d.observation ?? d.affirmation ?? d.correction;
+                  const note = (rawNote && rawNote.trim()) ? rawNote : (DEFAULT_NOTES[p.key] || "Maintain solid form and consistent execution across all reps.");
+                  
                   return (
                     <div key={p.key} className="flex items-start gap-4 py-4">
                       <ScoreRing score={score} size={80} strokeW={8} label={p.label} />
@@ -569,7 +635,7 @@ export default function ResultsPage() {
             {liveSessions.length > 0 && (
               <div className="space-y-1.5 text-left">
                 <div className="font-semibold text-gray-700 text-xs flex items-center justify-between">
-                  <span>⚡ Load Live Session from Neon Postgres:</span>
+                  <span>⚡ Load Live Session from SQLite DB:</span>
                   <span className="text-[10px] text-teal-600 bg-teal-50 px-1.5 py-0.5 rounded-full font-medium">v3.0 DB</span>
                 </div>
                 <select

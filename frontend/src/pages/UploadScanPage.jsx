@@ -20,8 +20,8 @@ const MUSCLE_GROUPS = [
     glow: { top: "23%", left: "31%", translateX: "0", w: "w-6", h: "h-6" },
     marker: { x: 120, y: 60 },
     exercises: [
-      { id: "ohp",           name: "OVERHEAD PRESS",  enabled: false },
-      { id: "lateral-raise", name: "LATERAL RAISE",   enabled: false },
+      { id: "ohp", name: "OVERHEAD PRESS", enabled: false },
+      { id: "lateral-raise", name: "LATERAL RAISE", enabled: false },
     ],
   },
   {
@@ -31,8 +31,8 @@ const MUSCLE_GROUPS = [
     glow: { top: "28%", left: "29%", translateX: "0", w: "w-5", h: "h-12", rotate: "10deg" },
     marker: { x: 28, y: 100 },
     exercises: [
-      { id: "barbell-curl",  name: "BARBELL CURL",    enabled: false },
-      { id: "hammer-curl",   name: "HAMMER CURL",     enabled: false },
+      { id: "barbell-curl", name: "BARBELL CURL", enabled: false },
+      { id: "hammer-curl", name: "HAMMER CURL", enabled: false },
     ],
   },
   {
@@ -42,8 +42,8 @@ const MUSCLE_GROUPS = [
     glow: { top: "35%", left: "27%", translateX: "0", w: "w-5", h: "h-12", rotate: "10deg" },
     marker: { x: 36, y: 140 },
     exercises: [
-      { id: "wrist-curl",    name: "WRIST CURL",      enabled: false },
-      { id: "reverse-curl",  name: "REVERSE CURL",    enabled: false },
+      { id: "wrist-curl", name: "WRIST CURL", enabled: false },
+      { id: "reverse-curl", name: "REVERSE CURL", enabled: false },
     ],
   },
   {
@@ -53,8 +53,8 @@ const MUSCLE_GROUPS = [
     glow: { top: "26%", left: "48%", translateX: "-50%", w: "w-14", h: "h-10" },
     marker: { x: 152, y: 120 },
     exercises: [
-      { id: "bench-press",   name: "BENCH PRESS",     enabled: false },
-      { id: "incline-press", name: "INCLINE PRESS",   enabled: false },
+      { id: "bench-press", name: "BENCH PRESS", enabled: false },
+      { id: "incline-press", name: "INCLINE PRESS", enabled: false },
     ],
   },
   {
@@ -64,8 +64,8 @@ const MUSCLE_GROUPS = [
     glow: { top: "34%", left: "48%", translateX: "-50%", w: "w-16", h: "h-12" },
     marker: { x: 152, y: 130 },
     exercises: [
-      { id: "plank",         name: "PLANK",           enabled: false },
-      { id: "crunch",        name: "CRUNCH",          enabled: false },
+      { id: "plank", name: "PLANK", enabled: false },
+      { id: "crunch", name: "CRUNCH", enabled: false },
       { id: "hanging-raise", name: "HANGING LEG RAISE", enabled: false },
     ],
   },
@@ -76,43 +76,50 @@ const MUSCLE_GROUPS = [
     glow: { top: "47%", left: "47%", translateX: "-50%", w: "w-20", h: "h-16" },
     marker: { x: 132, y: 182 },
     exercises: [
-      { id: "goblet-squat",  name: "GOBLET SQUAT",   enabled: true  },
-      { id: "barbell-squat", name: "BARBELL SQUAT",  enabled: false },
-      { id: "leg-press",     name: "LEG PRESS",      enabled: false },
+      { id: "goblet-squat", name: "GOBLET SQUAT", enabled: true },
+      { id: "barbell-squat", name: "BARBELL SQUAT", enabled: false },
+      { id: "leg-press", name: "LEG PRESS", enabled: false },
     ],
   },
 ]
 
-const MAX_FILE_SIZE_MB    = 500
-const ACCEPTED_FORMATS    = ["video/mp4", "video/quicktime", "video/webm"]
+const MAX_FILE_SIZE_MB = 500
+const ACCEPTED_FORMATS = ["video/mp4", "video/quicktime", "video/webm"]
 const ACCEPTED_EXTENSIONS = ".mp4, .mov, .webm"
-const MIN_WEIGHT          = 0
-const MAX_WEIGHT          = 200
-const WEIGHT_STEP         = 0.5
+const MIN_WEIGHT = 0
+const MAX_WEIGHT = 200
+const WEIGHT_STEP = 0.5
 
 function UploadScanPage() {
   const navigate = useNavigate()
 
-  const [selectedGroup,   setSelectedGroup]   = useState(null)
-  const [exercise,        setExercise]        = useState("")
-  const [weight,          setWeight]          = useState(0)
-  const [videoFile,       setVideoFile]       = useState(null)
+  const [activeUserId, setActiveUserId] = useState(() => localStorage.getItem("user_id") || "00000000-0000-0000-0000-000000000000")
+  const [selectedGroup, setSelectedGroup] = useState(null)
+  const [exercise, setExercise] = useState("")
+  const [weight, setWeight] = useState(0)
+  const [videoFile, setVideoFile] = useState(null)
   const [videoPreviewUrl, setVideoPreviewUrl] = useState(null)
-  const [weightTouched,   setWeightTouched]   = useState(false)
-  const [fileError,       setFileError]       = useState("")
-  const [tipsExpanded,    setTipsExpanded]    = useState(true)
-  const [unit,            setUnit]            = useState("kg")
-  const [formAlert,       setFormAlert]       = useState("")
-  const [isUploading,     setIsUploading]     = useState(false)
-  const [uploadError,     setUploadError]     = useState("")
+  const [weightTouched, setWeightTouched] = useState(false)
+  const [fileError, setFileError] = useState("")
+  const [tipsExpanded, setTipsExpanded] = useState(true)
+  const [unit, setUnit] = useState("kg")
+  const [formAlert, setFormAlert] = useState("")
+  const [isUploading, setIsUploading] = useState(false)
+  const [uploadError, setUploadError] = useState("")
+
+  function handleUserChange(e) {
+    const val = e.target.value
+    setActiveUserId(val)
+    localStorage.setItem("user_id", val)
+  }
 
   const maxWeightForUnit = unit === "kg" ? MAX_WEIGHT : 440
-  const isWeightValid    = weight > 0
-  const isFormValid      = exercise && isWeightValid && videoFile && !fileError
-  const showWeightError  = weightTouched && !isWeightValid
+  const isWeightValid = weight > 0
+  const isFormValid = exercise && isWeightValid && videoFile && !fileError
+  const showWeightError = weightTouched && !isWeightValid
 
-  const activeGroup       = MUSCLE_GROUPS.find((g) => g.id === selectedGroup)
-  const visibleExercises  = activeGroup?.exercises ?? []
+  const activeGroup = MUSCLE_GROUPS.find((g) => g.id === selectedGroup)
+  const visibleExercises = activeGroup?.exercises ?? []
 
   const highlightedMuscle = selectedGroup === "legs" || exercise === "goblet-squat" || exercise === "barbell-squat"
     ? "quads"
@@ -164,10 +171,10 @@ function UploadScanPage() {
   async function handleSubmit() {
     if (!isFormValid) {
       const parts = []
-      if (!exercise)      parts.push("select an exercise")
-      if (!videoFile)     parts.push("upload a video")
+      if (!exercise) parts.push("select an exercise")
+      if (!videoFile) parts.push("upload a video")
       if (!isWeightValid) parts.push("set weight greater than 0")
-      if (fileError)      parts.push("fix the file error above")
+      if (fileError) parts.push("fix the file error above")
       setFormAlert(`Before starting: ${parts.join(", ")}.`)
       setWeightTouched(true)
       return
@@ -189,6 +196,24 @@ function UploadScanPage() {
   return (
     <div className="min-h-screen bg-light-bg text-text-primary p-4">
       <div className="max-w-md mx-auto space-y-4">
+
+        {/* Active Profile Selector */}
+        <section className="border border-border-color rounded-xl p-4 bg-light-card shadow-sm">
+          <div className="flex items-center gap-2 mb-2">
+            <span className="w-5 h-5 text-cyan-glow">👥</span>
+            <span className="text-xs font-bold tracking-wider text-text-secondary uppercase">Active Athlete Profile</span>
+          </div>
+          <select
+            value={activeUserId}
+            onChange={handleUserChange}
+            className="w-full bg-light-bg border border-border-color rounded-lg px-3 py-2 text-xs font-semibold text-text-primary focus:outline-none focus:ring-1 focus:ring-cyan-glow"
+          >
+            <option value="00000000-0000-0000-0000-000000000000">Demo Athlete (Default)</option>
+            <option value="00000000-0000-0000-0000-000000000002">Anusha (Squat Focus)</option>
+            <option value="00000000-0000-0000-0000-000000000003">Nicole (Progressive Load)</option>
+            <option value="00000000-0000-0000-0000-000000000004">Coach Dave (Form Test)</option>
+          </select>
+        </section>
 
         <section className="border-2 border-dashed border-cyan-glow/60 rounded-xl p-4 bg-light-card shadow-sm">
 
@@ -309,13 +334,12 @@ function UploadScanPage() {
                     type="button"
                     onClick={() => ex.enabled && setExercise(ex.id)}
                     disabled={!ex.enabled}
-                    className={`w-full flex items-center justify-between px-4 py-3 rounded-lg border text-sm font-medium tracking-wide transition-colors ${
-                      isSelected
+                    className={`w-full flex items-center justify-between px-4 py-3 rounded-lg border text-sm font-medium tracking-wide transition-colors ${isSelected
                         ? "border-cyan-glow text-text-primary bg-cyan-glow/15"
                         : ex.enabled
-                        ? "border-gray-200 text-text-primary hover:border-gray-300 bg-white"
-                        : "border-gray-100 text-text-disabled cursor-not-allowed bg-white"
-                    }`}
+                          ? "border-gray-200 text-text-primary hover:border-gray-300 bg-white"
+                          : "border-gray-100 text-text-disabled cursor-not-allowed bg-white"
+                      }`}
                   >
                     <span className="flex items-center gap-2">
                       <span className="w-4 h-4 rounded-sm bg-gray-100" />
@@ -439,9 +463,8 @@ function UploadScanPage() {
                   key={u}
                   type="button"
                   onClick={() => { setUnit(u); setWeight(0); setWeightTouched(false) }}
-                  className={`px-2 py-0.5 rounded transition-colors uppercase ${
-                    unit === u ? "bg-cyan-glow text-text-primary font-semibold" : "text-text-teritary"
-                  }`}
+                  className={`px-2 py-0.5 rounded transition-colors uppercase ${unit === u ? "bg-cyan-glow text-text-primary font-semibold" : "text-text-teritary"
+                    }`}
                 >
                   {u}
                 </button>
@@ -490,11 +513,10 @@ function UploadScanPage() {
           type="button"
           onClick={handleSubmit}
           disabled={isUploading}
-          className={`w-full h-14 rounded-xl font-semibold tracking-wide transition-all ${
-            isFormValid && !isUploading
+          className={`w-full h-14 rounded-xl font-semibold tracking-wide transition-all ${isFormValid && !isUploading
               ? "bg-gradient-to-r from-teal to-cyan-glow text-text-primary hover:brightness-105 shadow-md"
               : "bg-gray-100 text-text-secondary border border-gray-200"
-          }`}
+            }`}
         >
           {isUploading ? "UPLOADING..." : "START ANALYSIS →"}
         </button>
@@ -526,9 +548,9 @@ function UploadScanPage() {
             onClick={() =>
               navigate("/upload/loading", {
                 state: {
-                  fixtureMode:    true,
-                  exercise:       exercise || "goblet-squat",
-                  weight:         weight || 20,
+                  fixtureMode: true,
+                  exercise: exercise || "goblet-squat",
+                  weight: weight || 20,
                   unit,
                   videoPreviewUrl,
                   queuedFileSize: videoFile?.size ?? 55 * 1024 * 1024,

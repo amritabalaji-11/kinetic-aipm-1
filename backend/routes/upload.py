@@ -40,7 +40,7 @@ async def upload_video(
         weight_unit_val = "lbs"
         weight_kg = weight_val * 0.45359237
     
-    # Reconcile user_id. Fallback to Demo User UUID if it doesn't exist in live database.
+    # Reconcile user_id. Automatically register new profiles to enable local history/timeline.
     try:
         user_uuid = uuid.UUID(str(user_id).strip())
     except:
@@ -52,14 +52,19 @@ async def upload_video(
         async with db.connection() as conn:
             row = await conn.fetchrow(
                 "SELECT user_id FROM user_profiles WHERE user_id = ?",
-                str(user_uuid)
+                user_id_str
             )
             if not row:
-                print(f"[upload] WARNING: user_id '{user_id_str}' not found in user_profiles. Falling back to Demo User.")
-                user_id_str = "00000000-0000-0000-0000-000000000000"
-                user_uuid = uuid.UUID(user_id_str)
+                print(f"[upload] Registering new user profile in database for user_id: {user_id_str}")
+                await conn.execute(
+                    """
+                    INSERT INTO user_profiles (profile_id, user_id, display_name, experience_level)
+                    VALUES (?, ?, ?, ?)
+                    """,
+                    user_id_str, user_id_str, "Local Athlete", "Intermediate"
+                )
     except Exception as check_err:
-        print(f"[upload] Database check error: {str(check_err)}. Defaulting to Demo User.")
+        print(f"[upload] Database check/registration error: {str(check_err)}. Defaulting to Demo User.")
         user_id_str = "00000000-0000-0000-0000-000000000000"
         user_uuid = uuid.UUID(user_id_str)
 
