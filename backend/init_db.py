@@ -85,7 +85,7 @@ def init_db():
         worst_frame_index INTEGER NULL,
         haiku_call_2_status TEXT NOT NULL DEFAULT 'pending',
         haiku_call_2_completed_at TEXT NULL,
-        haiku_call_2_output TEXT NULL,
+        progression_results TEXT NULL,
         haiku_call_2_error TEXT NULL
     )
     """)

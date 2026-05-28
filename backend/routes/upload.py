@@ -72,7 +72,7 @@ async def upload_video(
                     session_id, user_id, exercise_name, weight_value, weight_unit, weight_kg, video_url, status
                 ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8)
                 """,
-                uuid.UUID(session_id_val), user_uuid, exercise_val, weight_val, weight_unit_val, weight_kg, file_location, "queued"
+                str(session_id_val), str(user_uuid), exercise_val, weight_val, weight_unit_val, weight_kg, file_location, "queued"
             )
     except Exception as e:
         print(f"Database error during upload insert: {str(e)}")
@@ -103,7 +103,7 @@ async def get_results(session_id: str):
                     r.movement_quality_score, r.tempo_score, r.coaching_output, 
                     r.rep_scores, r.rep_count, r.issues_json, r.chain_of_thought, 
                     r.progression_recommendation, r.worst_frame_index, r.annotated_frame_urls,
-                    r.haiku_call_2_status, r.haiku_call_2_output,
+                    r.haiku_call_2_status, r.progression_results,
                     r.range_of_motion_score, r.issue_tags, r.faults_detected,
                     r.fault_confidence, r.causal_chains, r.fault_detail, r.trends
                 FROM public.form_analyses a
@@ -133,7 +133,7 @@ async def get_results(session_id: str):
             data["coaching_output"] = safe_json_load(data.get("coaching_output"))
             data["rep_scores"] = safe_json_load(data.get("rep_scores"))
             data["issues_json"] = safe_json_load(data.get("issues_json"))
-            data["haiku_call_2_output"] = safe_json_load(data.get("haiku_call_2_output"))
+            data["progression_results"] = safe_json_load(data.get("progression_results"))
             data["faults_detected"] = safe_json_load(data.get("faults_detected"))
             data["fault_confidence"] = safe_json_load(data.get("fault_confidence"))
             data["causal_chains"] = safe_json_load(data.get("causal_chains"))

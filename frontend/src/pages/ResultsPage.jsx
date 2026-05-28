@@ -277,8 +277,8 @@ export default function ResultsPage() {
         setSelectedLiveSessionId(sessionId)
         setSelectedLiveSessionData(parsedResult)
         
-        if (record.haiku_call_2_output) {
-          setLiveCompData(safeJsonLoad(record.haiku_call_2_output))
+        if (record.progression_results || record.haiku_call_2_output) {
+          setLiveCompData(safeJsonLoad(record.progression_results || record.haiku_call_2_output))
         } else {
           setLiveCompData(null)
         }
@@ -308,9 +308,9 @@ export default function ResultsPage() {
   // Comparison fixture
   const compData = useMemo(() => {
     if (liveCompData) return liveCompData
-    if (data.haiku_call_2_output) return safeJsonLoad(data.haiku_call_2_output)
+    if (data.progression_results || data.haiku_call_2_output) return safeJsonLoad(data.progression_results || data.haiku_call_2_output)
     return devComp === "with-data" ? FIXTURE_COMPARISON : FIXTURE_COMP_EMPTY
-  }, [liveCompData, data.haiku_call_2_output, devComp])
+  }, [liveCompData, data.progression_results, data.haiku_call_2_output, devComp])
 
   const isDevMode    = !state?.analysisResult
   const isComparison = tab === "comparison"

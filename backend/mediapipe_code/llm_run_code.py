@@ -73,105 +73,16 @@ def run_llm_analysis(mp_json: dict, image_base64, debug = False) -> tuple[dict, 
     return extract_json(resp.content[0].text)
 
 
-def run_llm_comparison(current_json: dict, previous_json: dict, debug=False):
+def run_llm_comparison(current_json: dict, previous_json, debug=False):
     client = anthropic.Anthropic(api_key=ANTHROPIC_API_KEY)
 
-    def get_coaching_params(data_json):
-        coaching = data_json.get("coaching", {}) or {}
-        params = coaching.get("parameters", {}) or {}
-        
-        def get_score(p_name):
-            p = params.get(p_name)
-            if isinstance(p, dict):
-                try:
-                    return int(float(str(p.get("score", 80)).strip()))
-                except:
-                    return 80
-            elif isinstance(p, (int, float, str)):
-                try:
-                    return int(float(str(p).strip()))
-                except:
-                    return 80
-            return 80
-            
-        rom_val = get_score("range_of_motion") if params.get("range_of_motion") is not None else get_score("tempo")
-        tempo_val = get_score("tempo") if params.get("tempo") is not None else get_score("range_of_motion")
-        return {
-            "posture": get_score("posture"),
-            "stability": get_score("stability"),
-            "movement_quality": get_score("movement_quality"),
-            "range_of_motion": rom_val,
-            "tempo": tempo_val
-        }
+    # Reconcile if history list or single dictionary is passed
+    if isinstance(previous_json, list):
+        history_list = previous_json
+    else:
+        history_list = [previous_json] if previous_json else []
 
-    current_reps = current_json.get("reps") or []
-    current_rep_scores = []
-    if isinstance(current_reps, list):
-        for rep in current_reps:
-            if isinstance(rep, dict) and "form_score" in rep:
-                try:
-                    current_rep_scores.append(int(float(str(rep["form_score"]).strip())))
-                except:
-                    current_rep_scores.append(80)
-            elif isinstance(rep, (int, float, str)):
-                try:
-                    current_rep_scores.append(int(float(str(rep).strip())))
-                except:
-                    current_rep_scores.append(80)
-
-    previous_reps = previous_json.get("reps") or []
-    previous_rep_scores = []
-    if isinstance(previous_reps, list):
-        for rep in previous_reps:
-            if isinstance(rep, dict) and "form_score" in rep:
-                try:
-                    previous_rep_scores.append(int(float(str(rep["form_score"]).strip())))
-                except:
-                    previous_rep_scores.append(80)
-            elif isinstance(rep, (int, float, str)):
-                try:
-                    previous_rep_scores.append(int(float(str(rep).strip())))
-                except:
-                    previous_rep_scores.append(80)
-
-    def safe_float(val):
-        try:
-            if val is None:
-                return 0.0
-            return float(str(val).strip())
-        except:
-            return 0.0
-
-    comparison_dict = {
-        "has_comparison": True,
-        "empty_state_message": None,
-
-        "current": {
-            "analysis_id": current_json.get("analysis_id"),
-            "date": current_json.get("created_at"),
-            "exercise": current_json.get("exercise"),
-            "weight_value": safe_float(current_json.get("weight_value")),
-            "weight_unit": current_json.get("weight_unit"),
-            "overall_score": int(float(str(current_json.get("overall_score", 70)).strip())) if current_json.get("overall_score") is not None else 70,
-            "annotated_frame_url": current_json.get("annotated_frame_url") or (current_json.get("annotated_frame_urls")[0] if current_json.get("annotated_frame_urls") else None),
-            "rep_scores": current_rep_scores,
-            "parameters": get_coaching_params(current_json)
-        },
-
-        "previous": {
-            "analysis_id": previous_json.get("analysis_id"),
-            "date": previous_json.get("created_at"),
-            "exercise": previous_json.get("exercise"),
-            "weight_value": safe_float(previous_json.get("weight_value")),
-            "weight_unit": previous_json.get("weight_unit"),
-            "overall_score": int(float(str(previous_json.get("overall_score", 70)).strip())) if previous_json.get("overall_score") is not None else 70,
-            "annotated_frame_url": previous_json.get("annotated_frame_url") or (previous_json.get("annotated_frame_urls")[0] if previous_json.get("annotated_frame_urls") else None),
-            "rep_scores": previous_rep_scores,
-            "parameters": get_coaching_params(previous_json)
-        }
-    }
-    
-    prompt = build_comparison_prompt(current_json, previous_json)
+    prompt = build_comparison_prompt(current_json, history_list)
 
     max_tokens_reminder = "\n\nMake sure your response not exceed 2000 tokens"
     
@@ -184,8 +95,6 @@ def run_llm_comparison(current_json: dict, previous_json: dict, debug=False):
     )
 
     resp_json = extract_json(resp.content[0].text)
-
-    comparison_dict["comparison_coaching"] = resp_json["comparison_coaching"]
     
     if resp.stop_reason == "max_tokens":
         raise ValueError("Haiku truncated — increase max_tokens")
@@ -213,4 +122,4 @@ def run_llm_comparison(current_json: dict, previous_json: dict, debug=False):
       print(f"Total cost:  ${total_cost:.8f}")
       print("=" * 20)
 
-    return comparison_dict
+    return resp_json

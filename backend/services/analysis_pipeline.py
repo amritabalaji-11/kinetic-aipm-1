@@ -214,13 +214,13 @@ async def run_analysis(session_id: str, file_location: str):
                     camera_angle
                 ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17, $18, $19, $20, $21, $22, $23, $24, $25, $26)
                 """,
-                analysis_id, session_id, user_id, overall_score, rom_score,
+                str(analysis_id), str(session_id), str(user_id), overall_score, rom_score,
                 posture_score, stability_score, movement_quality_score, tempo_score,
                 json.dumps(coaching_out), json.dumps(reps), rep_count,
                 json.dumps(issues_only), json.dumps(db_output),
                 reasoning, progression_rec, worst_frame_idx,
-                HAIKU_MODEL_ENV, datetime.datetime.now(datetime.UTC),
-                issue_tags, json.dumps(faults_detected), json.dumps(fault_confidence),
+                HAIKU_MODEL_ENV, datetime.datetime.now(datetime.UTC).isoformat(),
+                json.dumps(issue_tags), json.dumps(faults_detected), json.dumps(fault_confidence),
                 json.dumps(causal_chains), json.dumps(fault_detail), json.dumps(trends),
                 camera_angle
             )
@@ -232,7 +232,7 @@ async def run_analysis(session_id: str, file_location: str):
                 SET status = 'completed', analysis_id = $2 
                 WHERE session_id = $1
                 """,
-                session_id, analysis_id
+                str(session_id), str(analysis_id)
             )
 
         # ------ Step 5: OpenCV Worst Frame Annotation ------
@@ -259,7 +259,7 @@ async def run_analysis(session_id: str, file_location: str):
             async with db.connection() as conn:
                 await conn.execute(
                     "UPDATE public.form_analysis_results SET annotated_frame_urls = $2 WHERE analysis_id = $1",
-                    analysis_id, [worst_frame_url]
+                    str(analysis_id), json.dumps([worst_frame_url])
                 )
             
             # Clean up temp analysis path
@@ -273,22 +273,36 @@ async def run_analysis(session_id: str, file_location: str):
         await SSEManager().send_event(session_id, "progression_ready", 95)
         
         async with db.connection() as conn:
-            # Find the latest previously completed analysis for this user
-            prev_row = await conn.fetchrow(
+            # Find the last 5 previously completed analyses for this user (ordered DESC, then sorted ASC by created_at)
+            prev_rows = await conn.fetch(
                 """
-                SELECT r.analysis_id, r.overall_score, r.rep_scores, r.coaching_output,
-                       r.annotated_frame_urls, r.created_at,
-                       a.weight_value, a.weight_unit, a.exercise_name
-                FROM public.form_analysis_results r
-                JOIN public.form_analyses a ON a.session_id = r.session_id
-                WHERE r.user_id = $1 AND r.session_id != $2
-                ORDER BY r.created_at DESC LIMIT 1
+                SELECT * FROM (
+                    SELECT r.analysis_id, r.overall_score, r.rep_scores, r.coaching_output,
+                           r.range_of_motion_score, r.posture_score, r.stability_score,
+                           r.movement_quality_score, r.tempo_score,
+                           r.annotated_frame_urls, r.created_at,
+                           a.weight_value, a.weight_unit, a.exercise_name
+                    FROM public.form_analysis_results r
+                    JOIN public.form_analyses a ON a.session_id = r.session_id
+                    WHERE r.user_id = $1 AND r.session_id != $2
+                    ORDER BY r.created_at DESC
+                    LIMIT 5
+                ) sub
+                ORDER BY created_at ASC
                 """,
                 user_id, session_id
             )
             
-        if prev_row:
+        if prev_rows:
             try:
+                # Helper to safely parse dates from SQLite strings or PG datetimes
+                def parse_date(date_val):
+                    if not date_val:
+                        return str(datetime.date.today())
+                    if isinstance(date_val, (datetime.datetime, datetime.date)):
+                        return str(date_val.date())
+                    return str(date_val)[:10]
+
                 # Compile comparison models
                 current_session_info = {
                     "analysis_id": analysis_id,
@@ -302,21 +316,23 @@ async def run_analysis(session_id: str, file_location: str):
                     "coaching": coaching_out
                 }
                 
-                previous_session_info = {
-                    "analysis_id": str(prev_row["analysis_id"]),
-                    "created_at": str(prev_row["created_at"].date()),
-                    "exercise": prev_row["exercise_name"] or "Goblet Squat",
-                    "weight_value": float(prev_row["weight_value"]) if prev_row["weight_value"] else 0.0,
-                    "weight_unit": prev_row["weight_unit"] or "lbs",
-                    "overall_score": float(prev_row["overall_score"]),
-                    "annotated_frame_url": prev_row["annotated_frame_urls"][0] if prev_row["annotated_frame_urls"] else None,
-                    "reps": json.loads(prev_row["rep_scores"]) if prev_row["rep_scores"] else [],
-                    "coaching": json.loads(prev_row["coaching_output"]) if prev_row["coaching_output"] else {}
-                }
+                history_list = []
+                for row in prev_rows:
+                    history_list.append({
+                        "analysis_id": str(row["analysis_id"]),
+                        "created_at": parse_date(row["created_at"]),
+                        "exercise": row["exercise_name"] or "Goblet Squat",
+                        "weight_value": float(row["weight_value"]) if row["weight_value"] else 0.0,
+                        "weight_unit": row["weight_unit"] or "lbs",
+                        "overall_score": float(row["overall_score"]),
+                        "annotated_frame_url": row["annotated_frame_urls"][0] if row["annotated_frame_urls"] else None,
+                        "reps": json.loads(row["rep_scores"]) if row["rep_scores"] else [],
+                        "coaching": json.loads(row["coaching_output"]) if row["coaching_output"] else {}
+                    })
                 
-                # Execute comparison comparison call
+                # Execute comparison comparison call (passes the full historical sequence)
                 comparison_response = await loop.run_in_executor(
-                    None, run_llm_comparison, current_session_info, previous_session_info
+                    None, run_llm_comparison, current_session_info, history_list
                 )
                 
                 # Save to database
@@ -325,34 +341,45 @@ async def run_analysis(session_id: str, file_location: str):
                         """
                         UPDATE public.form_analysis_results 
                         SET haiku_call_2_status = 'completed', 
-                            haiku_call_2_output = $2,
+                            progression_results = $2,
                             haiku_call_2_completed_at = $3
                         WHERE analysis_id = $1
                         """,
-                        analysis_id, json.dumps(comparison_response), datetime.datetime.now(datetime.UTC)
+                        str(analysis_id), json.dumps(comparison_response), datetime.datetime.now(datetime.UTC).isoformat()
                     )
             except Exception as comp_err:
                 print(f"Progression comparison failed: {str(comp_err)}")
                 async with db.connection() as conn:
                     await conn.execute(
                         "UPDATE public.form_analysis_results SET haiku_call_2_status = 'error', haiku_call_2_error = $2 WHERE analysis_id = $1",
-                        analysis_id, str(comp_err)
+                        str(analysis_id), str(comp_err)
                     )
         else:
             # First workout session
             first_progression_placeholder = {
-                "has_comparison": False,
-                "empty_state_message": "Awesome job completing your first session! Your progression dashboard will be active next set as we gather form history."
+                "analysis_id": analysis_id,
+                "user_id": user_id,
+                "session_id": session_id,
+                "exercise_id": "goblet-squat",
+                "progress_direction": "maintain",
+                "weight_recommendation": f"Maintain at {weight}kg" if weight_unit == "kg" else f"Maintain at {weight}lbs",
+                "progression_verdict": "First session complete. Complete another set to unlock progression cues.",
+                "focus_this_week": "Establish baseline squat depth and posture stability.",
+                "posture_trend": "Establishing baseline posture.",
+                "stability_trend": "Establishing baseline stability.",
+                "range_of_motion_trend": "Establishing baseline range of motion.",
+                "movement_quality_trend": "Establishing baseline movement quality.",
+                "coaching_reasoning": "First session. No historical data is available to determine comparative trends."
             }
             async with db.connection() as conn:
                 await conn.execute(
                     """
                     UPDATE public.form_analysis_results 
                     SET haiku_call_2_status = 'completed', 
-                        haiku_call_2_output = $2
+                        progression_results = $2
                     WHERE analysis_id = $1
                     """,
-                    analysis_id, json.dumps(first_progression_placeholder)
+                    str(analysis_id), json.dumps(first_progression_placeholder)
                 )
 
         # ------ Step 7: Re-encode Annotated Video with H.264 & Original Audio ------
