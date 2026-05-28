@@ -61,7 +61,7 @@ async def upload_video(
                     INSERT INTO user_profiles (profile_id, user_id, display_name, experience_level)
                     VALUES (?, ?, ?, ?)
                     """,
-                    user_id_str, user_id_str, "Local Athlete", "Intermediate"
+                    user_id_str, user_id_str, "user", "Intermediate"
                 )
     except Exception as check_err:
         print(f"[upload] Database check/registration error: {str(check_err)}. Defaulting to Demo User.")

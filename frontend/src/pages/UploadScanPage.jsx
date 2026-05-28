@@ -208,10 +208,10 @@ function UploadScanPage() {
             onChange={handleUserChange}
             className="w-full bg-light-bg border border-border-color rounded-lg px-3 py-2 text-xs font-semibold text-text-primary focus:outline-none focus:ring-1 focus:ring-cyan-glow"
           >
-            <option value="00000000-0000-0000-0000-000000000000">Demo Athlete (Default)</option>
-            <option value="00000000-0000-0000-0000-000000000002">Anusha (Squat Focus)</option>
-            <option value="00000000-0000-0000-0000-000000000003">Nicole (Progressive Load)</option>
-            <option value="00000000-0000-0000-0000-000000000004">Coach Dave (Form Test)</option>
+            <option value="00000000-0000-0000-0000-000000000000">demo (Default)</option>
+            <option value="00000000-0000-0000-0000-000000000002">user1 (Squat Focus)</option>
+            <option value="00000000-0000-0000-0000-000000000003">user2 (Progressive Load)</option>
+            <option value="00000000-0000-0000-0000-000000000004">user3 (Form Test)</option>
           </select>
         </section>
 

@@ -196,7 +196,7 @@ CRITICAL RULE — NO RAW ANGLES IN USER-FACING TEXT:
   The ONLY field where raw angles are allowed is `reasoning` (internal, not shown to user).
 
   All user-facing fields (summary_paragraph, feedback, next_session_focus,
-  affirmation, observation, correction) MUST translate angles into
+  affirmation, observation, correction, and issues.detail) MUST translate angles into
   plain body-position language the user can feel and see:
 
   TRANSLATION EXAMPLES:
@@ -323,7 +323,7 @@ Output schema:
       "id": "<string>",
       "title": "<string: e.g. Knee Valgus, Forward Trunk Lean, Depth Fault>",
       "severity": "<string: High|Medium|Low>",
-      "detail": "<string: brief, plain-language description of when and where the fault occurred (e.g. rep 2 ascent)>"
+      "detail": "<string: brief, plain-language description of when and where the fault occurred without any raw degrees/angles/metrics (e.g., 'Knees caved slightly inward during the ascent of rep 2')>"
     }
   ],
   "issue_tags": ["<string: vocabulary: insufficient_depth, knee_valgus, excessive_forward_lean>"],
@@ -440,7 +440,7 @@ Rules:
 - issues:
   - Return a list of specific faults detected during the squat set.
   - If form was clean and no significant faults occurred, return an empty array `[]`.
-  - For each issue, specify a unique `id` (e.g. "1"), a `title` (e.g. "Knee Valgus"), a `severity` (e.g. "Medium" or "High"), and a user-friendly `detail` explaining which reps were affected and what occurred.
+  - For each issue, specify a unique `id` (e.g. "1"), a `title` (e.g. "Knee Valgus"), a `severity` (e.g. "Medium" or "High"), and a user-friendly `detail` explaining which reps were affected and what occurred. Crucially, the `detail` field must NEVER contain raw degree angles or numeric measurements (e.g., do NOT write "137°", "10.8°", "0.14" valgus). Describe the movement fault qualitatively (e.g. "knee cave", "hips stopping above knees", "ankle stiffness") in a warm, encouraging, and user-friendly way.
 
 - issue_tags:
   - List of searchable biomechanics tags.

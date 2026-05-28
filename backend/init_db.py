@@ -114,7 +114,7 @@ def init_db():
     INSERT OR IGNORE INTO user_profiles (
         profile_id, user_id, display_name, experience_level
     ) VALUES (?, ?, ?, ?)
-    """, (demo_user_id, demo_user_id, "Demo User", "Intermediate"))
+    """, (demo_user_id, demo_user_id, "demo", "Intermediate"))
     
     conn.commit()
     conn.close()
