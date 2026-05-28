@@ -22,7 +22,7 @@ function WeekCalendar({ userId }) {
   const todayIdx = 3 // Wednesday
 
   return (
-    <div className="mx-4 mb-4 rounded-2xl p-4" style={{ background: "#f0eeff" }}>
+    <div className="mx-4 mb-4 rounded-2xl p-4" style={{ background: "linear-gradient(165deg, rgba(255,255,255,0.25) 0%, rgba(196,181,253,0.55) 12%, rgba(167,139,250,0.48) 65%, rgba(147,197,253,0.52) 100%)" }}>
       {/* Header */}
       <div className="flex items-center justify-between mb-3">
         <div>
@@ -49,20 +49,26 @@ function WeekCalendar({ userId }) {
               key={i}
               className="flex flex-col items-center gap-1 py-2 rounded-xl"
               style={{
-                background: isToday ? "white" : "transparent",
-                border: isToday ? "2px solid #6C5CE7" : "1.5px dashed #c4b9ff",
+                background: isToday
+                  ? "linear-gradient(white, white) padding-box, linear-gradient(165deg, #a78bfa 0%, #6C5CE7 55%, #4f8ef7 100%) border-box"
+                  : hasWorkout
+                  ? "white"
+                  : "transparent",
+                border: isToday
+                  ? "2px solid transparent"
+                  : "1.5px dashed rgba(255,255,255,0.4)",
               }}
             >
-              <span className="text-xs font-semibold" style={{ color: isToday ? "#6C5CE7" : "#9ca3af" }}>
+              <span className="text-xs font-semibold" style={{ color: isToday ? "#6C5CE7" : hasWorkout ? "#6C5CE7" : "rgba(255,255,255,0.75)" }}>
                 {label}
               </span>
-              <span className="text-xs font-bold" style={{ color: isToday ? "#1a1a2e" : "#6b7280" }}>
+              <span className="text-xs font-bold" style={{ color: isToday ? "#1a1a2e" : hasWorkout ? "#1a1a2e" : "white" }}>
                 {WEEK_DATES[i]}
               </span>
               {hasWorkout ? (
-                <Dumbbell size={13} color={isToday ? "#6C5CE7" : "#374151"} />
+                <Dumbbell size={13} color={isToday ? "#6C5CE7" : "#6C5CE7"} />
               ) : (
-                <div className="rounded-full" style={{ width: 6, height: 6, background: "#9ca3af" }} />
+                <div className="rounded-full" style={{ width: 6, height: 6, background: "rgba(255,255,255,0.4)" }} />
               )}
             </div>
           )
@@ -109,7 +115,7 @@ function ReadyCTA() {
         <button
           onClick={() => navigate("/upload")}
           className="w-full flex items-center justify-between px-4 py-3 rounded-xl mb-2"
-          style={{ background: "#6C5CE7" }}
+          style={{ background: "linear-gradient(90deg, #60c8f8 0%, #3b8ef8 30%, #6C5CE7 65%, #a78bfa 100%)" }}
         >
           <div className="flex items-center gap-3">
             <div
@@ -206,8 +212,8 @@ function ProgressLadder({ userId, user }) {
             className="px-4 py-1.5 rounded-full text-xs font-semibold whitespace-nowrap flex-shrink-0"
             style={
               i === activeTab
-                ? { background: "#6C5CE7", color: "white" }
-                : { background: "#f0eeff", color: "#6C5CE7" }
+                ? { background: "linear-gradient(180deg, rgba(96,200,248,0.62) 0%, rgba(59,142,248,0.65) 30%, rgba(108,92,231,0.65) 65%, rgba(167,139,250,0.62) 100%)", color: "white" }
+                : { background: "linear-gradient(#f0eeff, #f0eeff) padding-box, linear-gradient(165deg, #a78bfa 0%, #6C5CE7 55%, #4f8ef7 100%) border-box", border: "2px solid transparent", color: "#6C5CE7" }
             }
           >
             {tab}
@@ -218,7 +224,7 @@ function ProgressLadder({ userId, user }) {
       {/* Ladder card */}
       <div
         className="rounded-2xl p-4"
-        style={{ background: "#f0eeff", border: "1px solid #e0d9ff" }}
+        style={{ background: "linear-gradient(165deg, rgba(255,255,255,0.25) 0%, rgba(196,181,253,0.55) 12%, rgba(167,139,250,0.48) 65%, rgba(147,197,253,0.52) 100%)", border: "1px solid #e0d9ff" }}
       >
         <p className="text-xs font-bold mb-1" style={{ color: "#1a1a2e" }}>
           Progress ladder
@@ -371,19 +377,12 @@ function FormHistoryCard({ item }) {
       style={{ background: "#f8f7ff", border: "1px solid #e8e4ff" }}
     >
       {/* Thumbnail */}
-      <div
-        className="w-16 h-16 rounded-xl flex-shrink-0 overflow-hidden relative"
-        style={{ background: "linear-gradient(135deg, #c4b9ff, #a29bfe)" }}
-      >
+      <div className="w-16 h-16 rounded-xl flex-shrink-0 overflow-hidden" style={{ marginTop: 6 }}>
         <img
-          src="/muscular_light.png"
+          src="/pose_skeleton.png"
           alt=""
-          className="w-full h-full object-cover object-center"
-          style={{ filter: "brightness(0.45) saturate(0) contrast(1.2)", mixBlendMode: "multiply" }}
-        />
-        <div
-          className="absolute inset-0"
-          style={{ background: "linear-gradient(135deg, rgba(108,92,231,0.5), rgba(162,155,254,0.3))" }}
+          className="w-full h-full object-cover"
+          style={{ objectPosition: "40% 40%" }}
         />
       </div>
 
@@ -427,7 +426,7 @@ function FormHistory({ userId }) {
       <p className="text-xs mb-3" style={{ color: "#8b8ba7" }}>
         Your last 3 Analyses
       </p>
-      <div className="space-y-3">
+      <div className="rounded-2xl p-4 space-y-3" style={{ background: "linear-gradient(165deg, rgba(255,255,255,0.25) 0%, rgba(196,181,253,0.55) 12%, rgba(167,139,250,0.48) 65%, rgba(147,197,253,0.52) 100%)", border: "1px solid #e0d9ff" }}>
         {history.map((item) => (
           <FormHistoryCard key={item.id} item={item} />
         ))}
