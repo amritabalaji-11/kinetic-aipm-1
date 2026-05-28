@@ -234,6 +234,16 @@ async def run_analysis(session_id: str, file_location: str):
                 """,
                 str(session_id), str(analysis_id)
             )
+            
+            # Initialize a pending progression_results record for the 4-table comparative run (S2)
+            await conn.execute(
+                """
+                INSERT INTO public.progression_results (
+                    analysis_id, session_id, user_id, exercise_id, available
+                ) VALUES ($1, $2, $3, $4, 0)
+                """,
+                str(analysis_id), str(session_id), str(user_id), "goblet-squat"
+            )
 
         # ------ Step 5: OpenCV Worst Frame Annotation ------
         worst_frame_url = None
@@ -339,19 +349,30 @@ async def run_analysis(session_id: str, file_location: str):
                 async with db.connection() as conn:
                     await conn.execute(
                         """
-                        UPDATE public.form_analysis_results 
-                        SET haiku_call_2_status = 'completed', 
-                            progression_results = $2,
-                            haiku_call_2_completed_at = $3
+                        UPDATE public.progression_results 
+                        SET progress_direction = $2, weight_recommendation = $3, progression_verdict = $4,
+                            focus_this_week = $5, posture_trend = $6, stability_trend = $7,
+                            range_of_motion_trend = $8, movement_quality_trend = $9, coaching_reasoning = $10,
+                            available = 1, error = NULL, created_at = $11
                         WHERE analysis_id = $1
                         """,
-                        str(analysis_id), json.dumps(comparison_response), datetime.datetime.now(datetime.UTC).isoformat()
+                        str(analysis_id),
+                        comparison_response.get("progress_direction"),
+                        comparison_response.get("weight_recommendation"),
+                        comparison_response.get("progression_verdict"),
+                        comparison_response.get("focus_this_week"),
+                        comparison_response.get("posture_trend"),
+                        comparison_response.get("stability_trend"),
+                        comparison_response.get("range_of_motion_trend"),
+                        comparison_response.get("movement_quality_trend"),
+                        comparison_response.get("coaching_reasoning"),
+                        datetime.datetime.now(datetime.UTC).isoformat()
                     )
             except Exception as comp_err:
                 print(f"Progression comparison failed: {str(comp_err)}")
                 async with db.connection() as conn:
                     await conn.execute(
-                        "UPDATE public.form_analysis_results SET haiku_call_2_status = 'error', haiku_call_2_error = $2 WHERE analysis_id = $1",
+                        "UPDATE public.progression_results SET available = 0, error = $2 WHERE analysis_id = $1",
                         str(analysis_id), str(comp_err)
                     )
         else:
@@ -374,12 +395,23 @@ async def run_analysis(session_id: str, file_location: str):
             async with db.connection() as conn:
                 await conn.execute(
                     """
-                    UPDATE public.form_analysis_results 
-                    SET haiku_call_2_status = 'completed', 
-                        progression_results = $2
+                    UPDATE public.progression_results 
+                    SET progress_direction = $2, weight_recommendation = $3, progression_verdict = $4,
+                        focus_this_week = $5, posture_trend = $6, stability_trend = $7,
+                        range_of_motion_trend = $8, movement_quality_trend = $9, coaching_reasoning = $10,
+                        available = 1, error = NULL
                     WHERE analysis_id = $1
                     """,
-                    str(analysis_id), json.dumps(first_progression_placeholder)
+                    str(analysis_id),
+                    first_progression_placeholder["progress_direction"],
+                    first_progression_placeholder["weight_recommendation"],
+                    first_progression_placeholder["progression_verdict"],
+                    first_progression_placeholder["focus_this_week"],
+                    first_progression_placeholder["posture_trend"],
+                    first_progression_placeholder["stability_trend"],
+                    first_progression_placeholder["range_of_motion_trend"],
+                    first_progression_placeholder["movement_quality_trend"],
+                    first_progression_placeholder["coaching_reasoning"]
                 )
 
         # ------ Step 7: Re-encode Annotated Video with H.264 & Original Audio ------

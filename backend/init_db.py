@@ -53,7 +53,7 @@ def init_db():
     )
     """)
     
-    # 3. Form Analysis Results Table
+    # 3. Form Analysis Results Table (Call 1)
     cursor.execute("""
     CREATE TABLE IF NOT EXISTS form_analysis_results (
         analysis_id TEXT PRIMARY KEY,
@@ -82,11 +82,29 @@ def init_db():
         issues_json TEXT NULL,
         raw_llm_response TEXT NULL,
         chain_of_thought TEXT NULL,
-        worst_frame_index INTEGER NULL,
-        haiku_call_2_status TEXT NOT NULL DEFAULT 'pending',
-        haiku_call_2_completed_at TEXT NULL,
-        progression_results TEXT NULL,
-        haiku_call_2_error TEXT NULL
+        worst_frame_index INTEGER NULL
+    )
+    """)
+
+    # 4. Progression Results Table (Call 2)
+    cursor.execute("""
+    CREATE TABLE IF NOT EXISTS progression_results (
+        analysis_id TEXT PRIMARY KEY REFERENCES form_analysis_results(analysis_id) ON DELETE CASCADE,
+        session_id TEXT UNIQUE NOT NULL REFERENCES form_analyses(session_id) ON DELETE CASCADE,
+        user_id TEXT NOT NULL REFERENCES user_profiles(user_id) ON DELETE CASCADE,
+        exercise_id TEXT NOT NULL DEFAULT 'goblet-squat',
+        progress_direction TEXT NULL,
+        weight_recommendation TEXT NULL,
+        progression_verdict TEXT NULL,
+        focus_this_week TEXT NULL,
+        posture_trend TEXT NULL,
+        stability_trend TEXT NULL,
+        range_of_motion_trend TEXT NULL,
+        movement_quality_trend TEXT NULL,
+        coaching_reasoning TEXT NULL,
+        available INTEGER NOT NULL DEFAULT 0,
+        error TEXT NULL,
+        created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP
     )
     """)
     
@@ -100,7 +118,7 @@ def init_db():
     
     conn.commit()
     conn.close()
-    print("Local SQLite database initialized successfully.")
+    print("Local SQLite database initialized with 4 tables successfully.")
 
 if __name__ == "__main__":
     init_db()
