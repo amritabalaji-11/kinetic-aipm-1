@@ -27,9 +27,36 @@ def safe_int(val, default=70):
 
 async def run_analysis(session_id: str, file_location: str):
     try:
-        # ------ Step 0: Initialization ------
+        # ------ Step 0: Initialization & Dynamic Resolution Downscaling ------
         print(f"Starting pipeline analysis for session {session_id} using {file_location}")
         
+        # Scale video to max height 540p dynamically to save pipeline time by up to 5x
+        try:
+            scaled_file_location = file_location + ".scaled.mp4"
+            import sys
+            use_h264_vt = (sys.platform == "darwin")
+            scale_cmd = [
+                "ffmpeg", "-y",
+                "-i", file_location,
+                "-vf", "scale=-2:'min(540,ih)'",
+                "-c:v", "h264_videotoolbox" if use_h264_vt else "libx264",
+                "-b:v", "2M",
+                "-pix_fmt", "yuv420p",
+                "-c:a", "copy",
+                scaled_file_location
+            ]
+            def run_scale():
+                import subprocess
+                subprocess.run(scale_cmd, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
+            
+            loop = asyncio.get_running_loop()
+            await loop.run_in_executor(None, run_scale)
+            if os.path.exists(scaled_file_location) and os.path.getsize(scaled_file_location) > 0:
+                os.replace(scaled_file_location, file_location)
+                print(f"Successfully downscaled uploaded video to 540p maximum height: {file_location}")
+        except Exception as scale_err:
+            print(f"Failed to downscale video, proceeding with original resolution: {str(scale_err)}")
+
         async with db.connection() as conn:
             await conn.execute(
                 "UPDATE form_analyses SET status = 'processing' WHERE session_id = ?",
@@ -446,56 +473,70 @@ async def run_analysis(session_id: str, file_location: str):
                     str(analysis_id)
                 )
 
-        # ------ Step 7: Re-encode Annotated Video with H.264 & Original Audio ------
-        try:
-            temp_annotated_path = file_location + ".annotated_temp.mp4"
-            if os.path.exists(temp_annotated_path):
-                await SSEManager().send_event(session_id, "Rendering and compressing annotated video overlay...", 98)
-                print(f"Re-encoding annotated video for session {session_id}...")
-                
-                # We will output to a temp file and then overwrite the original file_location
-                output_reencoded_path = file_location + ".annotated.mp4"
-                
-                # ffmpeg command: take temp_annotated_path and file_location (original), map video from 0 and audio from 1 (optional)
-                # compress with x264, use yuv420p for maximum device compatibility!
-                import subprocess
-                cmd = [
-                    "ffmpeg", "-y",
-                    "-i", temp_annotated_path,
-                    "-i", file_location,
-                    "-map", "0:v",
-                    "-map", "1:a?",
-                    "-c:v", "libx264",
-                    "-preset", "fast",
-                    "-crf", "23",
-                    "-pix_fmt", "yuv420p",
-                    "-c:a", "aac",
-                    "-shortest",
-                    output_reencoded_path
-                ]
-                
-                # Run the command in executor to prevent blocking the event loop
-                def run_ffmpeg():
-                    subprocess.run(cmd, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
-                
-                await loop.run_in_executor(None, run_ffmpeg)
-                
-                # Overwrite original video with the annotated H.264 version
-                if os.path.exists(output_reencoded_path):
-                    os.replace(output_reencoded_path, file_location)
-                    print(f"Successfully annotated and overwrote original video: {file_location}")
-                
-                # Clean up the raw temp file if it still exists
-                if os.path.exists(temp_annotated_path):
-                    try:
-                        os.remove(temp_annotated_path)
-                    except:
-                        pass
-        except Exception as video_err:
-            print(f"Failed to re-encode annotated video: {str(video_err)}")
-
+        # Send complete SSE ready event to the user IMMEDIATELY before encoding
         await SSEManager().send_event(session_id, "analysis_ready", 100, status="complete")
-        print(f"Analysis {session_id} completed successfully.")
+        print(f"Analysis {session_id} completed successfully. Results delivered to user.")
+
+        # ------ Step 7: Re-encode Annotated Video with H.264 & Original Audio (Async Background task) ------
+        async def background_video_encode():
+            try:
+                temp_annotated_path = file_location + ".annotated_temp.mp4"
+                if os.path.exists(temp_annotated_path):
+                    print(f"Background re-encoding annotated video for session {session_id}...")
+                    
+                    # We will output to a temp file and then overwrite the original file_location
+                    output_reencoded_path = file_location + ".annotated.mp4"
+                    
+                    # Hardware accelerated Videotoolbox encoder for Mac, otherwise libx264 fallback
+                    use_h264_vt = (sys.platform == "darwin")
+                    import subprocess
+                    cmd = [
+                        "ffmpeg", "-y",
+                        "-i", temp_annotated_path,
+                        "-i", file_location,
+                        "-map", "0:v",
+                        "-map", "1:a?"
+                    ]
+                    if use_h264_vt:
+                        cmd.extend([
+                            "-c:v", "h264_videotoolbox",
+                            "-b:v", "2M"
+                        ])
+                    else:
+                        cmd.extend([
+                            "-c:v", "libx264",
+                            "-preset", "fast",
+                            "-crf", "23"
+                        ])
+                    cmd.extend([
+                        "-pix_fmt", "yuv420p",
+                        "-c:a", "aac",
+                        "-shortest",
+                        output_reencoded_path
+                    ])
+                    
+                    # Run the command in executor to prevent blocking the event loop
+                    def run_ffmpeg():
+                        subprocess.run(cmd, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
+                    
+                    await loop.run_in_executor(None, run_ffmpeg)
+                    
+                    # Overwrite original video with the annotated H.264 version
+                    if os.path.exists(output_reencoded_path):
+                        os.replace(output_reencoded_path, file_location)
+                        print(f"Successfully annotated and overwrote original video: {file_location} in background.")
+                    
+                    # Clean up the raw temp file if it still exists
+                    if os.path.exists(temp_annotated_path):
+                        try:
+                            os.remove(temp_annotated_path)
+                        except:
+                            pass
+            except Exception as video_err:
+                print(f"Failed to re-encode annotated video: {str(video_err)}")
+
+        # Launch the video re-encoding completely in the background without blocking the pipeline return
+        asyncio.create_task(background_video_encode())
         
     except Exception as e:
         print(f"Analysis {session_id} failed with critical exception: {str(e)}")
