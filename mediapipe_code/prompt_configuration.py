@@ -60,7 +60,7 @@ Output schema:
   "overall_score": <integer 0-100>,
   "progression_recommendation": "<hold|progress|drop|null>",
   "annotated_frame_url": "<string or null>",
-  "worse_rep": <integer or null>,
+  "worse_rep": <integer>,
   "critical_problem": "<hip_angle|knee_angle|back_angle_value|knee_valgus_distance|null>",
   "coaching": {
     "summary_paragraph": "<max 400 chars. 2-4 sentences. Second person. Start with the most important finding. Mention the strongest pattern in the session and any worsening trend. Explain causal chains clearly when present.>",
@@ -127,7 +127,6 @@ Rules:
 - worse_rep:
   - Return the rep number of the worst rep by score.
   - Use the "reps" list to extract the rep number.
-  - Return null if there is no critical_problem.
 
 - critical_problem:
   - Select the single main issue that best explains the largest quality degradation across the full session.
@@ -643,80 +642,4 @@ Analysis ID: {analysis_id}
   torso_lean_max, ankle_dorsiflexion)
 
 {bio_json}
-
- [FAULT FLAGS  (biomechanics script — treat as ground truth)]
-insufficient_depth:     {True if "insufficient" in bio_json["consolidated"]["movement_quality"]["depth_distribution"] else False}  |  knee_angle_min: {bio_json["consolidated"]["movement_quality"]["knee_angle_min_mean"]}°
-excessive_forward_lean: {True if "WARNING" in bio_json["consolidated"]["posture"]["status_distribution"] else False}  |  torso_lean_max: {bio_json["consolidated"]["posture"]["back_angle_max_mean"]}°
-ankle_dorsiflexion:     {bio_json["consolidated"]["movement_quality"]["ankle_dorsiflexion_mean"]}°  (target ≥20°)
-knee_valgus (session):  {bio_json["consolidated"]["stability_data"]["valgus_phase_distribution"]}  |  mean_distance: {bio_json["consolidated"]["stability_data"]["knee_valgus_mean"]}  |  reps: {bio_json["consolidated"]["stability_data"]["valgus_flag_reps"]}
- 
-  [TASK]
-Check user_pain_level first and apply the pain protocol if needed.
-Fill the `reasoning` field before scoring.
-Return ONLY the JSON — no preamble, no text outside the JSON.
-
-[EXAMPLE JSON OUTPUT]
-{json.dumps(response, indent=2, ensure_ascii=False)}
 """
-
-
-response = {
-    "reasoning": (
-        "Ankle dorsiflexion at 13° (target ≥20°) is the primary root cause. "
-        "This explains forward lean (peak 58°) and depth deficit (knee avg 104°) — "
-        "one root cause, not two independent penalties. Late-rep valgus (reps 6–8) "
-        "correlates with ankle restriction worsening under fatigue, so I attribute "
-        "to RC1 not RC2. Set is 1st set per user report. Weighted score: reps 1–4 "
-        "avg 74, reps 5–8 avg 61. Weighted = 74×0.65 + 61×0.35 = 69.3. "
-        "8 reps but spread = 22pts, no consistency bonus. One moderate penalty −15. "
-        "Final: max(25, min(100, 69 + 0 − 15)) = 54."
-    ),
-    "total_score": 54,
-    "range_of_motion_score": 48,
-    "stability_score": 60,
-    "posture_score": 55,
-    "movement_quality_score": 72,
-    "causal_chains": [
-        {
-            "root_cause": "ankle_restriction",
-            "chain": (
-                "ankle restriction → forward lean → "
-                "depth deficit → late-rep valgus"
-            ),
-            "explanation": (
-                "Limited dorsiflexion prevents the shin tracking forward. "
-                "The torso compensates with a forward lean, which prevents "
-                "achieving full depth."
-            ),
-        }
-    ],
-    "coaching_output": {
-        "verdict": (
-            "Descent control is excellent across all 8 reps — "
-            "1.9s average is textbook. Depth and upright posture "
-            "are both limited by ankle dorsiflexion "
-            "(13°, target ≥20°)."
-        ),
-        "range_of_motion_affirmation": None,
-        "range_of_motion_observation": (
-            "Hip crease stayed above knee level across all 8 reps. "
-            "Knee angle averaged 104° — target is ≤90°."
-        ),
-        "range_of_motion_feedback": (
-            "Heel-elevated goblet squats (3×8) at your current weight — "
-            "elevate heels 2–3cm to work around the ankle restriction "
-            "while building the depth pattern."
-        ),
-        "next_session_focus": [
-            "Before every set: banded ankle circles, 20 reps each foot.",
-            (
-                "Heel-elevated goblet squats (3×8) at 20kg — "
-                "focus on sitting into depth, not just reaching it."
-            ),
-            (
-                "On rep 1 of each set, pause 2 seconds "
-                "at the bottom to build the position."
-            ),
-        ],
-    },
-}

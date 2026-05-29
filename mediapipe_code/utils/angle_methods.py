@@ -21,7 +21,7 @@ def detect_camera_view(norm_pose):
     # SIDE
     if shoulder_width < 0.10:
         # determinar lado
-        if left_shoulder.x < right_shoulder.x:
+        if left_shoulder.x > right_shoulder.x:
             return "side_left"
         return "side_right"
 

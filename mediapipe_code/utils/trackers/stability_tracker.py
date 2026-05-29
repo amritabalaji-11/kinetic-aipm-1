@@ -243,8 +243,8 @@ class StabilityTracker:
                 elif ratio >= 0.72:   valgus_severity = 'mild'
                 else:                 valgus_severity = 'none'
 
-                knee_gap_hip_gap_ratio = ratio                                   # new
-                valgus_label           = 'Good' if valgus_severity == 'none' else 'Warning'  # new
+                knee_gap_hip_gap_ratio = ratio
+                valgus_label           = 'Good' if valgus_severity == 'none' else 'Warning'
 
                 stability_data = {
                     "knee_valgus_distance": knee_valgus_distance,
