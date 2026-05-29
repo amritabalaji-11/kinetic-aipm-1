@@ -20,6 +20,7 @@ import re
 
 import anthropic
 
+from services.haiku_call_2_progression import run_haiku_call_2
 from mediapipe_code.landmark_framework import LandmarkQualityFramework
 from utils.sse_manager import sse_manager
 from mediapipe_code.llm_run_code import run_llm
@@ -344,6 +345,9 @@ async def run_mediapipe_analysis(analysis_id: str, file_location: str):
         # -------------------------------------------------
         # STEP 8 —  progression_ready: Haiku Call 2 (async, does not block analysis_ready)
         # -------------------------------------------------
+
+        asyncio.create_task(run_haiku_call_2(analysis_id)
+        )
 
         async def fire_progression_ready():
             # Step 9 — Haiku Call 2: longitudinal coaching (Tab 2)
