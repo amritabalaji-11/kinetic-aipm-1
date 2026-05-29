@@ -83,7 +83,7 @@ function LineChart({ repScores, color = "#6366f1", gradientColor = "#818cf8" }) 
 
   const diff       = repScores[repScores.length - 1] - repScores[0]
   const trendLabel = diff < 0 ? `${diff}% Dip` : `+${diff}`
-  const trendBg    = "#22c55e"
+  const trendBg    = diff >= 0 ? "#22c55e" : "#ef4444"
 
   return (
     <div>
@@ -122,11 +122,24 @@ function LineChart({ repScores, color = "#6366f1", gradientColor = "#818cf8" }) 
 }
 
 // ─── Issue card ───────────────────────────────────────────────────────────────
-function IssueCard({ issue }) {
+function IssueCard({ issue, faultDetail }) {
   const cls =
     issue.severity === "High"   ? "bg-red-50 border-red-100 text-red-700"
   : issue.severity === "Medium" ? "bg-amber-50 border-amber-100 text-amber-700"
   : "bg-gray-50 border-gray-100 text-gray-600"
+
+  // Try to match fault_detail by issue tag
+  const tagMap = {
+    "Knee Valgus": "knee_valgus",
+    "Forward Trunk Lean": "excessive_forward_lean",
+    "Excessive Forward Lean": "excessive_forward_lean",
+    "Excessive Forward Trunk Lean": "excessive_forward_lean",
+    "Depth Fault": "insufficient_depth",
+    "Insufficient Depth": "insufficient_depth",
+  }
+  const detailKey = Object.keys(tagMap).find(k => issue.title?.includes(k))
+  const detail = detailKey && faultDetail ? faultDetail[tagMap[detailKey]] : null
+
   return (
     <div className={`rounded-xl p-3 border ${cls}`}>
       <div className="flex items-center justify-between mb-1">
@@ -134,6 +147,25 @@ function IssueCard({ issue }) {
         <span className="text-[10px] uppercase tracking-wide font-medium opacity-70">{issue.severity}</span>
       </div>
       <p className="text-xs leading-snug opacity-80">{issue.detail}</p>
+      {detail && (
+        <div className="flex gap-3 mt-2 pt-2 border-t border-current/10">
+          {detail.reps_affected && (
+            <span className="text-[10px] font-semibold opacity-60">
+              {detail.reps_affected.length} rep{detail.reps_affected.length !== 1 ? "s" : ""} affected
+            </span>
+          )}
+          {detail.severity && (
+            <span className="text-[10px] font-semibold opacity-60 capitalize">
+              {detail.severity} severity
+            </span>
+          )}
+          {detail.intra_set_trend && (
+            <span className="text-[10px] font-semibold opacity-60 capitalize">
+              {detail.intra_set_trend}
+            </span>
+          )}
+        </div>
+      )}
     </div>
   )
 }
@@ -160,17 +192,17 @@ function FramePlaceholder({ highlight = false, label, weight }) {
 
 // ─── Params config ────────────────────────────────────────────────────────────
 const PARAMS = [
-  { key: "posture",          summaryKey: "posture",          label: "Posture",         compKey: "posture"          },
-  { key: "stability",        summaryKey: "stability",        label: "Stability",       compKey: "stability"        },
+  { key: "posture",          summaryKey: "posture",          label: "Posture",          compKey: "posture"          },
+  { key: "stability",        summaryKey: "stability",        label: "Stability",        compKey: "stability"        },
   { key: "movement_quality", summaryKey: "movement_quality", label: "Movement Quality", compKey: "movement_quality" },
-  { key: "tempo",            summaryKey: "tempo",            label: "Tempo & Rhythm",  compKey: "tempo"            },
+  { key: "range_of_motion",  summaryKey: "range_of_motion", label: "Range of Motion",  compKey: "range_of_motion"  },
 ]
 
 const DEFAULT_NOTES = {
   posture: "Maintain a neutral spine and upright chest position throughout all reps of the movement.",
   stability: "Control your balance, plant your feet firmly, and avoid swaying or shifting weight excessively.",
   movement_quality: "Focus on smooth, controlled eccentric and concentric phases to ensure high movement efficiency.",
-  tempo: "Keep a steady rhythm and full range of motion. Avoid rushing or pausing excessively between repetitions."
+  range_of_motion: "Achieve full depth on every rep — hips below knees — while maintaining control and balance."
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -374,7 +406,7 @@ export default function ResultsPage() {
       posture_score: summary.posture_score ?? 0,
       stability_score: summary.stability_score ?? 0,
       movement_quality_score: summary.movement_quality_score ?? 0,
-      tempo_score: summary.tempo_score ?? 0,
+      range_of_motion_score: summary.range_of_motion_score ?? summary.tempo_score ?? 0,
       reps: reps
     }
   }, [compData.current, data, overall, summary, reps])
@@ -390,7 +422,7 @@ export default function ResultsPage() {
         posture_score: previousSession.posture_score ?? null,
         stability_score: previousSession.stability_score ?? null,
         movement_quality_score: previousSession.movement_quality_score ?? null,
-        tempo_score: previousSession.tempo_score ?? null,
+        range_of_motion_score: previousSession.range_of_motion_score ?? previousSession.tempo_score ?? null,
         reps: []
       }
     }
@@ -500,8 +532,7 @@ export default function ResultsPage() {
                         || cp.observation 
                         || cp.affirmation 
                         || cp.correction 
-                        || compData[`${p.key}_trend`] 
-                        || (p.key === "tempo" ? (compData.range_of_motion_trend || compData.tempo_trend) : null);
+                        || compData[`${p.key}_trend`];
                       const note = (rawNote && rawNote.trim()) ? rawNote : (DEFAULT_NOTES[p.key] || "Maintain solid form and consistent execution across all reps.");
 
                       return (
@@ -572,6 +603,14 @@ export default function ResultsPage() {
               </p>
             </div>
 
+            {/* Next-Set Cue */}
+            {coaching.feedback && (
+              <div className="mx-4 mb-4 bg-indigo-50 rounded-2xl p-4 border border-indigo-100">
+                <div className="text-[10px] font-bold text-indigo-400 uppercase tracking-widest mb-1">💡 Next Set Cue</div>
+                <p className="text-sm text-indigo-700 font-medium leading-relaxed">{coaching.feedback}</p>
+              </div>
+            )}
+
             {/* Key Insights */}
             <div className="mx-4 mb-4">
               <h2 className="text-base font-bold text-gray-900 mb-3">Key Insights</h2>
@@ -580,26 +619,98 @@ export default function ResultsPage() {
                   const d     = params[p.key] || {}
                   const score = Math.round(d.score ?? summary?.[`${p.summaryKey}_score`] ?? 0)
                   
-                  const rawNote = d.observation_action ?? d.observation ?? d.affirmation ?? d.correction;
-                  const note = (rawNote && rawNote.trim()) ? rawNote : (DEFAULT_NOTES[p.key] || "Maintain solid form and consistent execution across all reps.");
-                  
                   return (
                     <div key={p.key} className="flex items-start gap-4 py-4">
                       <ScoreRing score={score} size={80} strokeW={8} label={p.label} />
-                      <p className="text-sm text-gray-600 leading-relaxed pt-2 flex-1">{note}</p>
+                      <div className="flex-1 pt-1 space-y-1.5">
+                        {d.affirmation && (
+                          <p className="text-xs text-emerald-600 leading-snug">✓ {d.affirmation}</p>
+                        )}
+                        {d.observation && (
+                          <p className="text-xs text-amber-700 leading-snug">{d.observation}</p>
+                        )}
+                        {(d.correction || d.feedback) && (
+                          <p className="text-xs text-indigo-600 leading-snug">→ {d.correction || d.feedback}</p>
+                        )}
+                        {!d.affirmation && !d.observation && !d.correction && !d.feedback && (
+                          <p className="text-xs text-gray-400 leading-snug">{DEFAULT_NOTES[p.key]}</p>
+                        )}
+                      </div>
                     </div>
                   )
                 })}
               </div>
             </div>
 
+            {/* Root Cause Analysis */}
+            {data.causal_chains && data.causal_chains.length > 0 && (
+              <div className="mx-4 mb-4">
+                <h2 className="text-base font-bold text-gray-900 mb-3">Root Cause</h2>
+                <div className="space-y-2">
+                  {data.causal_chains.map((chain, idx) => (
+                    <div key={idx} className="bg-purple-50 rounded-xl p-3 border border-purple-100">
+                      <div className="text-xs font-bold text-purple-700 uppercase tracking-wide mb-1">
+                        {(chain.root_cause || "").replaceAll("_", " ")}
+                      </div>
+                      {chain.symptoms && chain.symptoms.length > 0 && (
+                        <div className="flex flex-wrap gap-1.5">
+                          {chain.symptoms.map((s, si) => (
+                            <span key={si} className="text-[10px] bg-purple-100 text-purple-600 px-2 py-0.5 rounded-full font-medium">
+                              {s.replaceAll("_", " ")}
+                            </span>
+                          ))}
+                        </div>
+                      )}
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
+
             {/* Issues */}
             {issues.length > 0 && (
               <div className="mx-4 mb-4 space-y-2">
                 <h2 className="text-base font-bold text-gray-900">Issues Detected</h2>
                 {issues.map((issue) => (
-                  <IssueCard key={issue.id || issue.title} issue={issue} />
+                  <IssueCard key={issue.id || issue.title} issue={issue} faultDetail={data.fault_detail} />
                 ))}
+              </div>
+            )}
+
+            {/* Next Session Focus */}
+            {coaching.next_session_focus && coaching.next_session_focus.length > 0 && (
+              <div className="mx-4 mb-4">
+                <h2 className="text-base font-bold text-gray-900 mb-3">Next Session Focus</h2>
+                <div className="bg-white rounded-2xl border border-gray-100 shadow-sm p-4 space-y-2.5">
+                  {coaching.next_session_focus.map((item, idx) => (
+                    <div key={idx} className="flex items-start gap-2.5">
+                      <span className="w-5 h-5 rounded-full bg-teal-50 border border-teal-200 flex items-center justify-center text-[10px] font-bold text-teal-600 shrink-0 mt-0.5">{idx + 1}</span>
+                      <p className="text-sm text-gray-600 leading-relaxed">{item}</p>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
+
+            {/* Session Trends */}
+            {data.trends && (data.trends.depth || data.trends.posture || data.trends.stability) && (
+              <div className="mx-4 mb-4">
+                <h2 className="text-base font-bold text-gray-900 mb-3">Session Trends</h2>
+                <div className="bg-white rounded-2xl border border-gray-100 shadow-sm p-4 flex justify-around">
+                  {["depth", "posture", "stability"].map((key) => {
+                    const val = data.trends[key]
+                    if (!val) return null
+                    const icon = val === "improving" ? "↑" : val === "worsening" ? "↓" : "→"
+                    const color = val === "improving" ? "text-emerald-600" : val === "worsening" ? "text-red-500" : "text-gray-500"
+                    return (
+                      <div key={key} className="flex flex-col items-center gap-1">
+                        <span className={`text-lg font-bold ${color}`}>{icon}</span>
+                        <span className="text-[10px] font-bold text-gray-500 uppercase tracking-wide">{key}</span>
+                        <span className={`text-[10px] font-semibold capitalize ${color}`}>{val}</span>
+                      </div>
+                    )
+                  })}
+                </div>
               </div>
             )}
 

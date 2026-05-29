@@ -90,7 +90,7 @@ ALL TARGET RANGES IN THIS PROMPT ARE IN MEDIAPIPE CONVENTION.
 
 [REASONING APPROACH — fill this first]
 Before computing any score, fill the `reasoning` field in your output.
-Your reasoning must be extremely concise (MAXIMUM 1 sentence, under 120 characters total).
+Your reasoning must be concise (1-2 sentences, under 200 characters total).
 Identify key root causes, scoring rationale, and clamp penalties.
 CRITICAL: Keep reasoning very short to ensure you have ample output budget to reliably output EVERY single section in the JSON payload (including summary_paragraph, feedback, next_session_focus, and parameters). Never truncate the JSON!
 
@@ -275,9 +275,8 @@ ANALYSIS_SCHEMA = """
 Output schema:
 
 {
-  "reasoning": "<string. Fill this FIRST. Extremely concise (MAXIMUM 1 sentence, under 120 characters total). Identify key root cause.>",
+  "reasoning": "<string. Fill this FIRST. 1-2 sentences, under 200 characters. Identify key root cause and scoring rationale.>",
   "overall_score": <integer 0-100>,
-  "progression_recommendation": "<hold|progress|drop|null>",
   "annotated_frame_url": "<string or null>",
   "worse_rep": <integer or null>,
   "critical_problem": "<hip_angle|knee_angle|back_angle_value|knee_valgus_distance|null>",
@@ -345,19 +344,30 @@ Output schema:
   ],
   "fault_detail": {
     "insufficient_depth": {
-      "severity": "<string: mild|moderate|severe>",
-      "reps_affected": [<integer>],
-      "intra_set_trend": "<string: stable|improving|worsening>"
+      "present": <boolean>,
+      "reps_affected": "<string: e.g. '0 of 8'>",
+      "which_reps": [<integer: rep numbers affected>],
+      "severity": "<string: e.g. 'knee_angle_min 88° — within range' or deviation details>",
+      "trend": "<string: stable | improving | worsening (+X/rep) or similar progression metric>",
+      "source": "<string: json | visual | both>"
     },
     "knee_valgus": {
-      "severity": "<string: mild|moderate|severe>",
-      "reps_affected": [<integer>],
-      "intra_set_trend": "<string: stable|improving|worsening>"
+      "present": <boolean>,
+      "reps_affected": "<string: e.g. '6 of 8'>",
+      "which_reps": [<integer: rep numbers affected>],
+      "severity": "<string: actual measured valgus values, e.g. 'knee_valgus_distance 0.18–0.22'>",
+      "valgus_phase": "<string or null: EARLY | MID | LATE — phase in the rep it occurs>",
+      "trend": "<string: stable | improving | worsening (+X/rep)>",
+      "source": "<string: json | visual | both>"
     },
     "excessive_forward_lean": {
-      "severity": "<string: mild|moderate|severe>",
-      "reps_affected": [<integer>],
-      "intra_set_trend": "<string: stable|improving|worsening>"
+      "present": <boolean>,
+      "reps_affected": "<string: e.g. '0 of 8'>",
+      "which_reps": [<integer: rep numbers affected>],
+      "severity": "<string: brief explanation with max back angle, e.g. 'back_angle_max 38° — within acceptable range'>",
+      "breakdown_timing": "<string or null: when in descent lean begins — null if not present>",
+      "trend": "<string: stable | improving | worsening (+X/rep)>",
+      "source": "<string: json | visual | both>"
     }
   },
   "trends": {
@@ -379,17 +389,11 @@ Rules:
   - State whether multiple symptoms share one root cause.
   - Describe your scoring rationale: weighted rep average, penalties applied.
   - This is the ONLY field where raw angle numbers are allowed.
-  - 2-4 sentences.
+  - 1-2 sentences, under 200 characters total.
 
 - overall_score is an integer from 0 to 100.
 - overall_score should reflect the whole session using the scoring methodology.
 - Use the calibration reference to sanity-check your score.
-
-- progression_recommendation:
-  - "progress" only if technique is stable and no major faults remain.
-  - "hold" if the athlete is usable as-is but still has issues to clean up.
-  - "drop" if form breaks down significantly or faults are likely to worsen with load.
-  - return null if the input does not support a recommendation.
 
 - annotated_frame_url:
   - return the URL of the worst representative frame if available.
@@ -453,7 +457,10 @@ Rules:
   - If faults share a common root cause (e.g. ankle tightness causing forward lean), chain them.
   - Otherwise return empty array `[]`.
 - fault_detail:
-  - Detailed breakdown of each vocabulary fault if detected (with severity, list of rep numbers affected, and the intra-set trend).
+  - Detailed breakdown of each vocabulary fault (insufficient_depth, knee_valgus, excessive_forward_lean).
+  - Include 'present' (boolean), 'reps_affected' (string e.g. '6 of 8'), 'which_reps' (list of rep number integers), 'severity' (string with measured angles/values), 'trend' (string: stable | improving | worsening (+X/rep) tracking fault trajectory), and 'source' (string: json | visual | both indicating how the fault was identified).
+  - Include 'valgus_phase' (EARLY | MID | LATE | null) only for the knee_valgus block to indicate when in the rep cave occurred.
+  - Include 'breakdown_timing' (string description or null) only for the excessive_forward_lean block to indicate when in the rep forward lean begins.
 - trends:
   - Session-level progression trend ("stable", "improving", or "worsening") for depth, posture, and stability.
 - rep_trend:

@@ -186,7 +186,7 @@ async def run_analysis(session_id: str, file_location: str):
         if abs(overall_score - recalculated_overall) <= 2:
             overall_score = recalculated_overall
 
-        progression_rec = db_output.get("progression_recommendation") or db_output.get("progression_recommendation", "hold")
+        progression_rec = db_output.get("progression_recommendation") or "hold"
         
         reps = db_output.get("rep_scores") or db_output.get("reps", [])
         # Ensure reps scores are integers
@@ -336,6 +336,10 @@ async def run_analysis(session_id: str, file_location: str):
                     "weight_value": weight,
                     "weight_unit": weight_unit,
                     "overall_score": overall_score,
+                    "range_of_motion_score": rom_score,
+                    "posture_score": posture_score,
+                    "stability_score": stability_score,
+                    "movement_quality_score": movement_quality_score,
                     "annotated_frame_url": worst_frame_url,
                     "reps": reps,
                     "coaching": coaching_out
@@ -343,6 +347,15 @@ async def run_analysis(session_id: str, file_location: str):
                 
                 history_list = []
                 for row in prev_rows:
+                    # Safely parse annotated_frame_urls (may be JSON string or list)
+                    frame_urls = row["annotated_frame_urls"]
+                    if isinstance(frame_urls, str):
+                        try:
+                            frame_urls = json.loads(frame_urls)
+                        except Exception:
+                            frame_urls = None
+                    annotated_url = frame_urls[0] if isinstance(frame_urls, list) and frame_urls else None
+
                     history_list.append({
                         "analysis_id": str(row["analysis_id"]),
                         "created_at": parse_date(row["created_at"]),
@@ -350,7 +363,11 @@ async def run_analysis(session_id: str, file_location: str):
                         "weight_value": float(row["weight_value"]) if row["weight_value"] else 0.0,
                         "weight_unit": row["weight_unit"] or "lbs",
                         "overall_score": float(row["overall_score"]),
-                        "annotated_frame_url": row["annotated_frame_urls"][0] if row["annotated_frame_urls"] else None,
+                        "range_of_motion_score": int(row["range_of_motion_score"] or 0),
+                        "posture_score": int(row["posture_score"] or 0),
+                        "stability_score": int(row["stability_score"] or 0),
+                        "movement_quality_score": int(row["movement_quality_score"] or 0),
+                        "annotated_frame_url": annotated_url,
                         "reps": json.loads(row["rep_scores"]) if row["rep_scores"] else [],
                         "coaching": json.loads(row["coaching_output"]) if row["coaching_output"] else {}
                     })

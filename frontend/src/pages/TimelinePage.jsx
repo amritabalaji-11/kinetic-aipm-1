@@ -251,8 +251,8 @@ export default function TimelinePage() {
                 // Formulate session subtitle
                 const exName = (s.exercise_name || "goblet-squat")
                   .toUpperCase()
-                  .replace("-", " ")
-                  .replace("_", " ")
+                  .replaceAll("-", " ")
+                  .replaceAll("_", " ")
                 const weightLabel = s.weight_value != null
                   ? `${s.weight_value} ${(s.weight_unit || "lbs").toUpperCase()}`
                   : "—"

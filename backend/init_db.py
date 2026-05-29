@@ -27,6 +27,8 @@ def init_db():
         injury_history TEXT NULL,
         training_frequency INTEGER NULL,
         experience_level TEXT NULL,
+        annotated_frame_url TEXT NULL,
+        progress_ladder_image_url TEXT NULL,
         created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
         updated_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP
     )
@@ -111,10 +113,15 @@ def init_db():
     # Seed the Demo User profile to prevent foreign key errors during upload fallbacks
     demo_user_id = "00000000-0000-0000-0000-000000000000"
     cursor.execute("""
-    INSERT OR IGNORE INTO user_profiles (
-        profile_id, user_id, display_name, experience_level
-    ) VALUES (?, ?, ?, ?)
-    """, (demo_user_id, demo_user_id, "demo", "Intermediate"))
+    INSERT INTO user_profiles (
+        profile_id, user_id, display_name, experience_level, annotated_frame_url, progress_ladder_image_url
+    ) VALUES (?, ?, ?, ?, ?, ?)
+    ON CONFLICT(user_id) DO UPDATE SET
+        display_name=excluded.display_name,
+        experience_level=excluded.experience_level,
+        annotated_frame_url=excluded.annotated_frame_url,
+        progress_ladder_image_url=excluded.progress_ladder_image_url
+    """, (demo_user_id, demo_user_id, "Demo User", "Intermediate", "for demo", "for demo"))
     
     conn.commit()
     conn.close()

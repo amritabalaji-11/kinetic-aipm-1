@@ -242,7 +242,8 @@ async def get_analysis_results(analysis_id: str):
             "posture_score": int(data.get("posture_score") or 70),
             "stability_score": int(data.get("stability_score") or 70),
             "movement_quality_score": int(data.get("movement_quality_score") or 70),
-            "tempo_score": int(data.get("tempo_score") or 70)
+            "tempo_score": int(data.get("tempo_score") or 70),
+            "range_of_motion_score": int(data.get("range_of_motion_score") or data.get("tempo_score") or 70)
         },
         "coaching": coaching_output,
         "reps": reps_list,
