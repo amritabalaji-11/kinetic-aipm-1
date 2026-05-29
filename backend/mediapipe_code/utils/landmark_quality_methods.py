@@ -1,4 +1,5 @@
 import base64
+import math
 import os
 import subprocess
 import cv2
@@ -18,9 +19,8 @@ LEFT_PREFIX = "LEFT_"
 RIGHT_PREFIX = "RIGHT_"
 CRITICAL_SIDE_JOINTS = ["HIP", "KNEE", "ANKLE", "FOOT", "SHOULDER", "ANKLE"]
 
-import shutil
+FFMPEG_PATH = "mediapipe_code/ffmpeg/ffmpeg.exe"
 
-FFMPEG_PATH = shutil.which("ffmpeg")
 
 def get_first_pose(result):
     """
@@ -270,7 +270,7 @@ def evaluate_quality_gate(
         left_vis, left_pres, left_joint = side_metrics("LEFT")
         right_vis, right_pres, right_joint = side_metrics("RIGHT")
 
-        if left_vis <= 0.60 and right_vis <= 0.60:
+        if left_vis <= 0.50 and right_vis <= 0.50:
             return {
                 "event": "error",
                 "error_stage": "quality_gate",
@@ -280,7 +280,7 @@ def evaluate_quality_gate(
                 "message": "We couldn't see your lower body clearly",
             }
 
-        if left_vis <= 0.60 and right_vis >= 0.60:
+        if left_vis <= 0.50 and right_vis >= 0.50:
             return {
                 "event": "error",
                 "error_stage": "quality_gate",
@@ -291,7 +291,7 @@ def evaluate_quality_gate(
                 "detail": f"Your left {left_joint} wasn't clearly visible.",
             }
 
-        if right_vis <= 0.60 and left_vis >= 0.60:
+        if right_vis <= 0.50 and left_vis >= 0.50:
             return {
                 "event": "error",
                 "error_stage": "quality_gate",
@@ -302,7 +302,7 @@ def evaluate_quality_gate(
                 "detail": f"Your right {right_joint} wasn't clearly visible.",
             }
 
-        if left_vis > 0.60 and left_pres <= 0.50:
+        if left_vis > 0.50 and left_pres <= 0.40:
             return {
                 "event": "error",
                 "error_stage": "quality_gate",
@@ -313,7 +313,7 @@ def evaluate_quality_gate(
                 "detail": f"Your left {left_joint} wasn't fully in frame throughout the video.",
             }
 
-        if right_vis > 0.60 and right_pres <= 0.50:
+        if right_vis > 0.50 and right_pres <= 0.40:
             return {
                 "event": "error",
                 "error_stage": "quality_gate",
@@ -327,7 +327,7 @@ def evaluate_quality_gate(
     elif dominant_view == "side_left":
         left_vis, left_pres, left_joint = side_metrics("LEFT")
 
-        if left_vis <= 0.60:
+        if left_vis <= 0.50:
             return {
                 "event": "error",
                 "error_stage": "quality_gate",
@@ -338,7 +338,7 @@ def evaluate_quality_gate(
                 "detail": f"Your left {left_joint} wasn't clearly visible.",
             }
 
-        if left_vis > 0.60 and left_pres <= 0.50:
+        if left_vis > 0.50 and left_pres <= 0.40:
             return {
                 "event": "error",
                 "error_stage": "quality_gate",
@@ -352,7 +352,7 @@ def evaluate_quality_gate(
     elif dominant_view == "side_right":
         right_vis, right_pres, right_joint = side_metrics("RIGHT")
 
-        if right_vis <= 0.60:
+        if right_vis <= 0.50:
             return {
                 "event": "error",
                 "error_stage": "quality_gate",
@@ -363,7 +363,7 @@ def evaluate_quality_gate(
                 "detail": f"Your right {right_joint} wasn't clearly visible.",
             }
 
-        if right_vis > 0.60 and right_pres <= 0.50:
+        if right_vis > 0.50 and right_pres <= 0.40:
             return {
                 "event": "error",
                 "error_stage": "quality_gate",
@@ -377,7 +377,7 @@ def evaluate_quality_gate(
     # ----------------------------
     # Gate 2 — Composite Score
     # ----------------------------
-    if video_score < 0.70:
+    if video_score < 0.60:
         return {
             "event": "error",
             "error_stage": "quality_gate",
@@ -514,54 +514,63 @@ def format_rep_data(rep_count, tempo_data, back_data, depth_data, stability_data
     data = {
         "rep_number": rep_count,
         "tempo_data": {
-            "tempo_notation": tempo_data["tempo_notation"],
-            "eccentric": tempo_data["eccentric"],
-            "pause": tempo_data["pause"],
-            "concentric": tempo_data["concentric"],
-            "total": tempo_data["total_time"],
+            "tempo_notation": tempo_data["tempo_notation"] if tempo_data else None,
+            "eccentric": tempo_data["eccentric"] if tempo_data else None,
+            "pause": tempo_data["pause"] if tempo_data else None,
+            "concentric": tempo_data["concentric"] if tempo_data else None,
+            "total": tempo_data["total_time"] if tempo_data else None,
         },
         "back_data": {
-            "back_angle_start": back_data["back_angle_start"],
-            "back_angle_max": back_data["back_angle_max"],
-            "back_angle_at_bottom": back_data["back_angle_at_bottom"],
-            "time_warning": back_data["time_warning"],
-            "time_excessive": back_data["time_excessive"],
-            "status": back_data["status"],
+            "back_angle_start": back_data["back_angle_start"] if back_data else None,
+            "back_angle_max": back_data["back_angle_max"] if back_data else None,
+            "back_angle_at_bottom": back_data["back_angle_at_bottom"] if back_data else None,
+            "time_warning": back_data["time_warning"] if back_data else None,
+            "time_excessive": back_data["time_excessive"] if back_data else None,
+            "back_label": back_data["back_label"] if back_data else None,
         },
         "depth_data": {
-            "knee_angle_start": depth_data["knee_angle_start"],
-            "knee_angle_at_bottom": depth_data["knee_angle_at_bottom"],
-            "knee_angle_min": depth_data["knee_angle_min"],
-            "hip_angle_start": depth_data["hip_angle_start"],
-            "hip_angle_at_bottom": depth_data["hip_angle_at_bottom"],
-            "hip_angle_min": depth_data["hip_angle_min"],
-            "depth_classification": depth_data["depth_classification"],
-            "depth_insufficient_flag": depth_data["depth_insufficient_flag"],
+            "knee_angle_start": depth_data["knee_angle_start"] if depth_data else None,
+            "knee_angle_at_bottom": depth_data["knee_angle_at_bottom"] if depth_data else None,
+            "knee_angle_min": depth_data["knee_angle_min"] if depth_data else None,
+            "hip_angle_start": depth_data["hip_angle_start"] if depth_data else None,
+            "hip_angle_at_bottom": depth_data["hip_angle_at_bottom"] if depth_data else None,
+            "hip_angle_min": depth_data["hip_angle_min"] if depth_data else None,
+            "depth_classification": depth_data["depth_classification"] if depth_data else None,
+            "depth_insufficient_flag": depth_data["depth_insufficient_flag"] if depth_data else None,
         },
-        "ankle_data": {},
+        "stability_data": {
+            "knee_valgus_distance": None,
+            "knee_gap_hip_gap_ratio": None,
+            "valgus_severity": None,
+            "valgus_label": None,
+            "valgus_flag": None,
+            "valgus_phase": None,
+        },
+        "ankle_data": {
+            "dorsiflexion_at_bottom": ankle_data["dorsiflexion_at_bottom"] if ankle_data else None,
+            "dorsiflexion_status": ankle_data["dorsiflexion_status"] if ankle_data else None,
+            "foot_turnout_left": None,
+            "foot_turnout_right": None,
+        },
     }
 
-    if camera_view in ("front", "angled"):
-        data["stability_data"] = {
-            "knee_valgus_distance": stability_data["knee_valgus_distance"],
-            "valgus_flag": stability_data["valgus_flag"]
-        }
-
-        if stability_data["valgus_flag"]:
-            data["stability_data"]["valgus_phase"] = stability_data["valgus_phase"]
-    else:
-        if ankle_data:
-            data["ankle_data"] = {
-                "dorsiflexion_at_bottom": ankle_data["dorsiflexion_at_bottom"],
-            }
+    if camera_view == "front":
+        data["stability_data"]["knee_valgus_distance"] = stability_data["knee_valgus_distance"] if stability_data else None
+        data["stability_data"]["valgus_flag"] = stability_data["valgus_flag"] if stability_data else None
+        data["stability_data"]["valgus_phase"] = (
+            stability_data["valgus_phase"] if stability_data else None
+        )
+        data["stability_data"]["knee_gap_hip_gap_ratio"] = stability_data["knee_gap_hip_gap_ratio"] if stability_data else None
+        data["stability_data"]["valgus_severity"] = stability_data["valgus_severity"] if stability_data else None
+        data["stability_data"]["valgus_label"] = stability_data["valgus_label"] if stability_data else None
 
     if camera_view == "front":
-        data["ankle_data"]["foot_turnout_left"] = ankle_data["foot_turnout_left"]
-        data["ankle_data"]["foot_turnout_right"] = ankle_data["foot_turnout_right"]
+        if ankle_data:
+            data["ankle_data"]["foot_turnout_left"] = ankle_data["foot_turnout_left"] if ankle_data else None
+            data["ankle_data"]["foot_turnout_right"] = ankle_data["foot_turnout_right"] if ankle_data else None
 
     return data
 
-import math
 
 def torso_vertical_angle(pose_world):
     """
@@ -706,11 +715,10 @@ def extract_frames_from_memory(
 
 def resize_video(video_path: str):
 
-        name = os.path.basename(video_path)
-        full_name = os.path.splitext(name)[0]
-        output_dir = os.path.join("./mediapipe_code/video_results")
-        os.makedirs(output_dir, exist_ok=True)
-        output_path = os.path.join(output_dir, f"{full_name}_resized.mp4")
+        name = video_path.split("/")[-1]
+        full_name = name.split(".")[0]
+        os.makedirs("./mediapipe_code/video_results", exist_ok=True)
+        output_path = f"./mediapipe_code/video_results/{full_name}_resized.mp4"
 
         command = [
             str(FFMPEG_PATH),
@@ -732,3 +740,13 @@ def resize_video(video_path: str):
         subprocess.run(command)
 
         return output_path
+
+
+def get_y(norm_pose, idx):
+    """
+    Get the y coordinate of the landmark at the given index, or None if it doesn't exist.
+    """
+    lm = safe_get_landmark(norm_pose, idx)
+    if lm is None:
+        return None
+    return lm.y

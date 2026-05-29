@@ -1,14 +1,12 @@
-import base64
 from collections import Counter
 import datetime
 import json
 import os
-import time
-# import uuid no need to generate a new analysis_id
+from fastapi import logger
 import mediapipe as mp
 import cv2
-from pathlib import Path
-from mediapipe_code.llm_run_code import run_llm
+
+from mediapipe_code.utils.pose_landmarks import LEFT_HIP, LEFT_KNEE, RIGHT_HIP, RIGHT_KNEE
 from mediapipe_code.utils.trackers.trend_analyzer import TrendAnalyzer
 from mediapipe_code.utils.trackers.ankle_tracker import AnkleTracker
 from mediapipe_code.utils.trackers.back_tracker import BackAngleTracker
@@ -30,21 +28,12 @@ from mediapipe_code.utils.landmark_quality_methods import (
     extract_frames_from_memory,
     format_rep_data,
     get_first_pose,
+    get_y,
     resize_video,
     safe_get_landmark, 
     select_landmarks_by_view,
     torso_vertical_angle)
 
-BASE_DIR = Path(__file__).resolve().parent
-
-import shutil
-
-FFMPEG_PATH = shutil.which("ffmpeg")
-
-if FFMPEG_PATH is None:
-    raise RuntimeError("ffmpeg is not installed. Run: brew install ffmpeg")
-
-#FFMPEG_PATH = BASE_DIR / "ffmpeg" / "ffmpeg.exe"
 
 CRITICAL_LANDMARKS = [
     name for name, data in LANDMARKS.items()
@@ -133,7 +122,6 @@ class LandmarkQualityFramework:
         exercise,
         weight_kg,
         analysis_id, # pass the analysis_id from the backend instead of re-creating a new one
-        save_video=True,
     ):
         
         """
@@ -148,11 +136,9 @@ class LandmarkQualityFramework:
             - final_json: dict - the final JSON result containing session info, reps data, and consolidated trends. None if the video doesn't pass quality gate.
             - quality_result: dict - the result of the quality evaluation, including pass/fail and scores
             - collage_b64: str or None - a base64-encoded string of the annotated collage image, or None if no frames were processed. None if the video doesn't pass quality gate.
+            - bottom_frames: List of frames of each rep.
         """
         resized_video_path = resize_video(video_path)
-
-        if not os.path.exists(resized_video_path):
-            raise ValueError(f"Resized video not found at path: {resized_video_path}")
 
         cap = cv2.VideoCapture(resized_video_path)
         if not cap.isOpened():
@@ -166,8 +152,8 @@ class LandmarkQualityFramework:
 
         raw_frames = []
         reps_json_info = []
-        frame_cache = []
         annotated_frames = []
+        bottom_frames = []
 
         frame_index = 0
         rep_count = 0
@@ -175,8 +161,8 @@ class LandmarkQualityFramework:
         # Local refs
         append_raw = raw_frames.append
         append_rep = reps_json_info.append
-        append_cache = frame_cache.append
         append_annotated = annotated_frames.append
+        append_bottom_frames = bottom_frames.append
 
         cvt_color = cv2.cvtColor
         read = cap.read
@@ -257,12 +243,6 @@ class LandmarkQualityFramework:
                     annotated = frame_bgr.copy()
                     
                     append_annotated(annotated)
-
-                    append_cache({
-                        "frame_index": frame_index,
-                        "timestamp_ms": timestamp_ms,
-                        "has_pose": False,
-                    })
 
                     frame_index += 1
                     continue
@@ -345,8 +325,6 @@ class LandmarkQualityFramework:
                     world_pose,
                     camera_view,
                 )
-                if world_pose is None:
-                 continue
 
                 hip_angle = metrics["hip_angle"]
                 knee_angle = metrics["knee_angle"]
@@ -357,6 +335,25 @@ class LandmarkQualityFramework:
 
                 torso_angle = torso_vertical_angle(world_pose)
 
+
+                if camera_view == "side_left":
+                    hip_y = get_y(norm_pose, LEFT_HIP)
+                    knee_y = get_y(norm_pose, LEFT_KNEE)
+                elif camera_view == "side_right":
+                    hip_y = get_y(norm_pose, RIGHT_HIP)
+                    knee_y = get_y(norm_pose, RIGHT_KNEE)
+                else:
+                    left_hip_y = get_y(norm_pose, LEFT_HIP)
+                    right_hip_y = get_y(norm_pose, RIGHT_HIP)
+                    left_knee_y = get_y(norm_pose, LEFT_KNEE)
+                    right_knee_y = get_y(norm_pose, RIGHT_KNEE)
+
+                    hip_vals = [v for v in (left_hip_y, right_hip_y) if v is not None]
+                    knee_vals = [v for v in (left_knee_y, right_knee_y) if v is not None]
+
+                    hip_y = sum(hip_vals) / len(hip_vals) if hip_vals else None
+                    knee_y = sum(knee_vals) / len(knee_vals) if knee_vals else None
+                    
                 rep_completed = None
                 if hip_angle is not None:
                     rep_completed, rep_count = rep_update(
@@ -388,6 +385,8 @@ class LandmarkQualityFramework:
                     hip_angle,
                     knee_angle,
                     camera_view,
+                    hip_y,
+                    knee_y,
                 )
 
                 stability_data = stability_update(
@@ -405,6 +404,23 @@ class LandmarkQualityFramework:
                     dorsiflexion,
                     world_pose,
                 )
+
+                # -------------------------------------------------
+                # BOTTOM FRAMES
+                # -------------------------------------------------
+                
+                
+                append_bottom_frames(
+                            {"frame_index": frame_index,
+                             "frame_bgr": frame_bgr,
+                             "camera_view":camera_view,
+                             "norm_pose":norm_pose,
+                             "width":width,
+                             "height":height,
+                             "hip_angle": hip_angle,
+                             "knee_angle":knee_angle,
+                             "rep_number":rep_counter.rep_count}
+                        )
 
                 # -------------------------------------------------
                 # REP COMPLETED
@@ -427,28 +443,11 @@ class LandmarkQualityFramework:
                             rep_counter.reduce_rep()
                         else:
                             rep_counter.rep_to_zero()
+
                     else:
                         rep_dict["rep_number"] = rep_count
                         rep_dict["camera_view"] = camera_view
                         append_rep(rep_dict)
-
-                # -------------------------------------------------
-                # CACHE
-                # -------------------------------------------------
-                append_cache({
-                    "frame_index": frame_index,
-                    "timestamp_ms": timestamp_ms,
-                    "has_pose": True,
-                    "camera_view": camera_view,
-                    "norm_pose": norm_pose,
-                    "hip_angle": hip_angle,
-                    "knee_angle": knee_angle,
-                    "back_angle_value": back_angle_value,
-                    "left_knee_valgus": left_knee_valgus,
-                    "right_knee_valgus": right_knee_valgus,
-                    "rep_count": rep_counter.rep_count,
-                    "tempo_state": tempo_tracker.state,
-                })
 
                 # -------------------------------------------------
                 # ANNOTATED FRAME FOR COLLAGE
@@ -493,16 +492,14 @@ class LandmarkQualityFramework:
         quality_result = evaluate_quality_gate(
             raw_frames,
             composite_score,
-            rep_count,
+            len(reps_json_info),
         )
-
-
-        
 
        # quality_result["analysis_id"] = str(uuid.uuid4())
         quality_result["analysis_id"] = analysis_id # pass the analysis_id generated from the backend instead of creating a new one
 
-        print(quality_result)
+        #print(quality_result)
+
 
         if quality_result["event"] != "mediapipe_complete":
             return None, quality_result, None
@@ -528,17 +525,18 @@ class LandmarkQualityFramework:
 
         final_json = {
             "session": {
-               # "analysis_id": str(uuid.uuid4()),
-                "analysis_id": analysis_id, # pass analysis_id from the backend 
+                "analysis_id": analysis_id, # pass analysis_id from the backend,
                 "exercise": exercise,
                 "weight_kg": weight_kg,
-                "rep_count": rep_count,
+                "rep_count": len(reps_json_info),
                 "camera_view": camera_view,
                 "date": str(datetime.date.today()),
             },
             "reps": reps_json_info,
             "consolidated": trend_results,
         }
+
+        final_json["reps"].pop()
 
         output_dir = "./mediapipe_code/results"
         os.makedirs(output_dir, exist_ok=True)
@@ -565,6 +563,7 @@ class LandmarkQualityFramework:
             )
 
         return final_json, quality_result, collage_b64
+    
     
     def _render_video_from_cache(
         self,
@@ -729,12 +728,29 @@ class LandmarkQualityFramework:
 
 # How to use it
 """framework = LandmarkQualityFramework(model_path=MEDIAPIPE_MODEL)
-input_dir = "./mediapipe_code/videos/good_form/v3_knee_fault.mp4"
+input_dir = "./mediapipe_code/videos/user_001_videos/user_001_side_17.5kg.mp4"
+analysis_path = "./mediapipe_code/results/call_1/user_001_side_17.5kg.json"
 
-start = time.time()
-final_json, _, collage_b64 = framework.process_video_once(input_dir, "goblet squat", 20)
-response = run_llm(final_json, collage_b64, debug=True)
+#start = time.time()
+final_json, quality_result, collage_b64, rep_frames_list = framework.process_video_once(input_dir, "goblet-squat", 17.5)
 
-print(response)
-end = time.time() - start
-print(end)"""
+frame, frame_data, dominant_camera_view, rep_data = extract_worst_frame(input_dir, analysis_path, rep_frames_list, final_json)
+
+print(rep_data)
+
+annotated_worst_frame = overlay_frame(frame, frame_data, dominant_camera_view, rep_data, output_filename="user_001_side_17.5kg")"""
+
+"""result = run_llm_analysis_test_haiku_v2(final_json, collage_b64, debug=True)
+
+output_dir = "./mediapipe_code/results/call_1"
+os.makedirs(output_dir, exist_ok=True)
+json_filename = os.path.join(output_dir, f"user_001_side_17.5kg.json")
+with open(json_filename, "w", encoding="utf-8") as f:
+        json.dump(
+            result,
+            f,
+            indent=4,
+            ensure_ascii=False,
+        )
+
+print("Total time:",time.time() - start)"""

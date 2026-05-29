@@ -4,7 +4,8 @@ secrets/
 *.json
 venv
 __pycache__
-
+*.mp4
+ffmpeg
 echo "backend/kinetic.db" >> .gitignore
 echo "__pycache__/" >> .gitignore
 echo "*.pyc" >> .gitignore

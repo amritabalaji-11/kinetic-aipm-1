@@ -69,6 +69,7 @@ class BackAngleTracker:
         torso_angle=None,
         debug=False,
     ):
+        """Update the back angle tracker state based on the current angles, camera view, and pose. Returns back angle data when a rep is completed."""
         if timestamp is None:
             timestamp = time.time()
 
@@ -187,12 +188,20 @@ class BackAngleTracker:
 
         max_back_angle = self.max_back_angle
 
-        if max_back_angle <= self.upright_threshold:
-            status = "GOOD"
-        elif max_back_angle <= self.warning_threshold:
-            status = "ACCEPTABLE"
+        if "side" in camera_view:
+            if self.back_angle_at_bottom <= 18:
+                status = "Excellent"
+            elif self.back_angle_at_bottom <= 28:
+                status = "Good"
+            else:
+                status = "Warning"
         else:
-            status = "WARNING"
+            if self.back_angle_at_bottom <= 20:
+                status = "Excellent"
+            elif self.back_angle_at_bottom <= 30:
+                status = "Good"
+            else:
+                status = "Warning"
 
         rep_data = {
             "back_angle_start": round(self.back_angle_start, 2),
@@ -201,7 +210,7 @@ class BackAngleTracker:
             "time_upright": round(self.time_upright, 2),
             "time_warning": round(self.time_warning, 2),
             "time_excessive": round(self.time_excessive, 2),
-            "status": status,
+            "back_label": status,
         }
 
         if debug:

@@ -94,7 +94,6 @@ class StabilityTracker:
 
         min_dist = None
         min_pos = None
-        min_ratio = None
 
         for i, frame in enumerate(self.rep_frames):
             dist = frame["knee_distance"]
@@ -105,7 +104,6 @@ class StabilityTracker:
 
             if min_dist is None or dist < min_dist:
                 min_dist = dist
-                min_ratio = ratio
                 min_pos = i
 
         if min_dist is None:
@@ -148,7 +146,7 @@ class StabilityTracker:
         timestamp: Optional[float] = None,
         debug: bool = False,
     ) -> Optional[Dict[str, Any]]:
-
+        """Update the stability tracker state based on the current angles, camera view, and pose. Returns stability data when a rep is completed."""
         if hip_angle is None or knee_angle is None:
             return None
 
@@ -223,11 +221,37 @@ class StabilityTracker:
                 valgus_flag,
             ) = self._classify_valgus_phase()
 
-            stability_data = {
-                "knee_valgus_distance": knee_valgus_distance,
-                "valgus_phase": valgus_phase,
-                "valgus_flag": valgus_flag,
-            }
+
+
+            if "side" in camera_view:
+                stability_data = {
+                    "knee_valgus_distance": None,
+                    "knee_gap_hip_gap_ratio": None,
+                    "valgus_severity": None,
+                    "valgus_label": None,
+                    "valgus_phase": None,
+                    "valgus_flag": None,
+                }
+            else:
+
+                ratio = 1 - knee_valgus_distance
+
+                if ratio >= 0.95:     valgus_severity = 'severe'
+                elif ratio >= 0.90:   valgus_severity = 'moderate'
+                elif ratio >= 0.80:   valgus_severity = 'mild'
+                else:                 valgus_severity = 'none'
+
+                knee_gap_hip_gap_ratio = ratio
+                valgus_label           = 'Good' if valgus_severity == 'none' else 'Warning'
+
+                stability_data = {
+                    "knee_valgus_distance": knee_valgus_distance,
+                    "knee_gap_hip_gap_ratio": knee_gap_hip_gap_ratio,
+                    "valgus_severity": valgus_severity,
+                    "valgus_label": valgus_label,
+                    "valgus_phase": valgus_phase,
+                    "valgus_flag": valgus_flag,
+                }
 
             self.current_stability_data = stability_data
 

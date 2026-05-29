@@ -7,6 +7,7 @@ from mediapipe_code.utils.pose_landmarks import (
 
 
 def detect_camera_view(norm_pose):
+    """Detect camera view (front, side_left, side_right, angled) based on shoulder width and visibility."""
     left_shoulder = norm_pose[LEFT_SHOULDER]
     right_shoulder = norm_pose[RIGHT_SHOULDER]
 
@@ -20,8 +21,8 @@ def detect_camera_view(norm_pose):
 
     # SIDE
     if shoulder_width < 0.10:
-        # determinar lado
-        if left_shoulder.x < right_shoulder.x:
+        # determine left vs right by which shoulder is more visible
+        if left_shoulder.x > right_shoulder.x:
             return "side_left"
         return "side_right"
 
@@ -30,6 +31,7 @@ def detect_camera_view(norm_pose):
 
 
 def femur_vertical_angle(hip, knee):
+    """Femur inclination from vertical."""
     dx = knee.x - hip.x
     dy = knee.y - hip.y
     dz = knee.z - hip.z
