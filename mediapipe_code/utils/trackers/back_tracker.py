@@ -69,6 +69,7 @@ class BackAngleTracker:
         torso_angle=None,
         debug=False,
     ):
+        """Update the back angle tracker state based on the current angles, camera view, and pose. Returns back angle data when a rep is completed."""
         if timestamp is None:
             timestamp = time.time()
 

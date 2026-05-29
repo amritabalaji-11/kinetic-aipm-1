@@ -48,6 +48,7 @@ class DepthTracker:
         knee_y,
         debug=False,
     ):
+        """Update the depth tracker state based on the current angles, camera view, and pose. Returns depth data when a rep is completed."""
         if hip_angle is None or knee_angle is None:
             return None
 

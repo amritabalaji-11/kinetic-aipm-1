@@ -18,6 +18,7 @@ class TempoTracker:
         self.current_rep_tempo = None
 
     def update(self, hip_angle, knee_angle, camera_view, timestamp=None, debug=False):
+        """Update the tempo tracker state based on the current angles and camera view. Returns tempo data when a rep is completed."""
         if timestamp is None:
             timestamp = time.time()
 

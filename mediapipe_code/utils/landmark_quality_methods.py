@@ -1,4 +1,5 @@
 import base64
+import math
 import os
 import subprocess
 import cv2
@@ -269,7 +270,7 @@ def evaluate_quality_gate(
         left_vis, left_pres, left_joint = side_metrics("LEFT")
         right_vis, right_pres, right_joint = side_metrics("RIGHT")
 
-        if left_vis <= 0.70 and right_vis <= 0.70:
+        if left_vis <= 0.60 and right_vis <= 0.60:
             return {
                 "event": "error",
                 "error_stage": "quality_gate",
@@ -279,7 +280,7 @@ def evaluate_quality_gate(
                 "message": "We couldn't see your lower body clearly",
             }
 
-        if left_vis <= 0.70 and right_vis >= 0.70:
+        if left_vis <= 0.60 and right_vis >= 0.60:
             return {
                 "event": "error",
                 "error_stage": "quality_gate",
@@ -290,7 +291,7 @@ def evaluate_quality_gate(
                 "detail": f"Your left {left_joint} wasn't clearly visible.",
             }
 
-        if right_vis <= 0.70 and left_vis >= 0.70:
+        if right_vis <= 0.60 and left_vis >= 0.60:
             return {
                 "event": "error",
                 "error_stage": "quality_gate",
@@ -301,7 +302,7 @@ def evaluate_quality_gate(
                 "detail": f"Your right {right_joint} wasn't clearly visible.",
             }
 
-        if left_vis > 0.70 and left_pres <= 0.60:
+        if left_vis > 0.60 and left_pres <= 0.50:
             return {
                 "event": "error",
                 "error_stage": "quality_gate",
@@ -312,7 +313,7 @@ def evaluate_quality_gate(
                 "detail": f"Your left {left_joint} wasn't fully in frame throughout the video.",
             }
 
-        if right_vis > 0.70 and right_pres <= 0.60:
+        if right_vis > 0.60 and right_pres <= 0.50:
             return {
                 "event": "error",
                 "error_stage": "quality_gate",
@@ -326,7 +327,7 @@ def evaluate_quality_gate(
     elif dominant_view == "side_left":
         left_vis, left_pres, left_joint = side_metrics("LEFT")
 
-        if left_vis <= 0.70:
+        if left_vis <= 0.60:
             return {
                 "event": "error",
                 "error_stage": "quality_gate",
@@ -337,7 +338,7 @@ def evaluate_quality_gate(
                 "detail": f"Your left {left_joint} wasn't clearly visible.",
             }
 
-        if left_vis > 0.70 and left_pres <= 0.60:
+        if left_vis > 0.60 and left_pres <= 0.50:
             return {
                 "event": "error",
                 "error_stage": "quality_gate",
@@ -351,7 +352,7 @@ def evaluate_quality_gate(
     elif dominant_view == "side_right":
         right_vis, right_pres, right_joint = side_metrics("RIGHT")
 
-        if right_vis <= 0.70:
+        if right_vis <= 0.60:
             return {
                 "event": "error",
                 "error_stage": "quality_gate",
@@ -362,7 +363,7 @@ def evaluate_quality_gate(
                 "detail": f"Your right {right_joint} wasn't clearly visible.",
             }
 
-        if right_vis > 0.70 and right_pres <= 0.60:
+        if right_vis > 0.60 and right_pres <= 0.50:
             return {
                 "event": "error",
                 "error_stage": "quality_gate",
@@ -570,7 +571,6 @@ def format_rep_data(rep_count, tempo_data, back_data, depth_data, stability_data
 
     return data
 
-import math
 
 def torso_vertical_angle(pose_world):
     """
@@ -743,31 +743,10 @@ def resize_video(video_path: str):
 
 
 def get_y(norm_pose, idx):
+    """
+    Get the y coordinate of the landmark at the given index, or None if it doesn't exist.
+    """
     lm = safe_get_landmark(norm_pose, idx)
     if lm is None:
         return None
     return lm.y
-
-def get_y_px(norm_pose, idx, height):
-    lm = safe_get_landmark(norm_pose, idx)
-    if lm is None:
-        return None
-    return int(lm.y * height)
-
-
-def apply_person_mask(frame_bgr, segmentation_mask, threshold=0.5):
-    mask = segmentation_mask.numpy_view()
-
-    if mask.shape[:2] != frame_bgr.shape[:2]:
-        mask = cv2.resize(
-            mask,
-            (frame_bgr.shape[1], frame_bgr.shape[0]),
-            interpolation=cv2.INTER_LINEAR,
-        )
-
-    if len(mask.shape) == 3:
-        mask = mask[:, :, 0]
-
-    binary = (mask > threshold).astype(np.uint8)
-
-    return frame_bgr * binary[:, :, None]

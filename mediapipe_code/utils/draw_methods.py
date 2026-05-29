@@ -1,5 +1,4 @@
 import json
-import math
 import os
 
 import cv2
@@ -12,6 +11,7 @@ from utils.landmark_quality_configuration import LEFT_SIDE, LEG_CONNECTIONS, LEG
 
 FONT_PATH = "segoeui.ttf"
 FONT_SIZE = 25
+LEFT_LABEL_X = 12
 BLUE = (255, 180, 30)
 GREEN = (0, 255, 0)
 ORANGE = (0, 140, 255)
@@ -35,6 +35,9 @@ def annotate_frame(
         rep_count,
         tempo_state,
     ):
+        """
+        Annotate the frame with pose landmarks and metrics.
+        """
         annotated = frame_bgr.copy()
 
         if camera_view == "side_left":
@@ -203,6 +206,9 @@ def draw_points_and_lines(
 
 
 def get_xy(norm_pose, idx, width, height):
+    """
+    Get the (x, y) coordinates of the landmark at the given index, or None if it doesn't exist.
+    """
     lm = safe_get_landmark(norm_pose, idx)
     if lm is None:
         return None
@@ -263,6 +269,9 @@ def draw_knee_valgus_overlay(annotated, norm_pose, width, height):
 
 
 def _load_font(size=FONT_SIZE):
+    """
+    Load a TTF font, or fall back to the default PIL font if it fails.
+    """
     try:
         return ImageFont.truetype(FONT_PATH, size)
     except OSError:
@@ -335,6 +344,9 @@ def add_text_lines(image, lines, start_x=10, start_y=30, dy=40):
 
 
 def bgr_to_rgb(color_bgr):
+    """
+    Convert a color from BGR to RGB format.
+    """
     return (color_bgr[2], color_bgr[1], color_bgr[0])
 
 
@@ -481,6 +493,9 @@ def annotate_frame_front(
     width,
     height,
 ):
+    """
+    Annotate the frame with pose landmarks, metrics, and fault labels for front/angled view.
+    """
     annotated = frame_bgr.copy()
 
     
@@ -514,7 +529,7 @@ def annotate_frame_front(
             "label": "Dorsiflexion",
             "pass": dorsiflexion_status.lower() in ("good", "excellent"),
             "text": f"{dorsiflexion_status.replace("_", " ").title()} - {_fmt_angle(dorsiflexion_angle)}" if dorsiflexion_status.lower() in ("good", "excellent") 
-            else f"{dorsiflexion_status.replace("_", " ").title()} - {_fmt_angle(dorsiflexion_angle)} (target >= 30°)",
+            else f"{dorsiflexion_status.replace("_", " ").title()} - {_fmt_angle(dorsiflexion_angle)} (target >= 25°)",
             "severity": 0.0 if dorsiflexion_status.lower() in ("good", "excellent") else 1.0,
             "color": (255, 220, 0),
         },
@@ -522,7 +537,7 @@ def annotate_frame_front(
             "label": "Depth",
             "pass": depth_classification.lower() in ("good", "excellent"),
             "text": f"{depth_classification.title()} - {_fmt_angle(depth_angle)}" if depth_classification.lower() in ("good", "excellent") 
-            else f"{depth_classification.title()} - {_fmt_angle(depth_angle)} (target <= 70°)",
+            else f"{depth_classification.title()} - {_fmt_angle(depth_angle)} (target <= 105°)",
             "severity": 0.0 if depth_classification.lower() in ("good", "excellent") else 1.0,
             "color": (0, 255, 0),
         },
@@ -530,15 +545,15 @@ def annotate_frame_front(
             "label": "Back",
             "pass": back_label.lower() in ("good", "excellent"),
             "text": f"{back_label.title()} - {_fmt_angle(back_angle_value)}" if back_label.lower() in ("good", "excellent") 
-            else f"{back_label.title()} - {_fmt_angle(back_angle_value)} (target <= 18°)",
+            else f"{back_label.title()} - {_fmt_angle(back_angle_value)} (target <= 30°)",
             "severity": 0.0 if back_label.lower() in ("good", "excellent") else 1.0,
             "color": (0, 255, 255),
         },
         {
             "label": "Knee Tracking",
             "pass": valgus_label.lower() == "good",
-            "text": f"{valgus_label.title()} - {int(valgus_distance*100)}cm" if valgus_label.lower() == "good" 
-            else f"{back_label.title()} - {int(valgus_distance*100)}cm (target > 28cm)",
+            "text": f"{valgus_label.title()} - {int(valgus_distance*100)}%" if valgus_label.lower() == "good" 
+            else f"{back_label.title()} - {int(valgus_distance*100)}% (target > 20%)",
             "severity": 0.0 if back_label.lower() in ("good", "excellent") else 1.0,
             "color": KNEE_POINT_COLOR,
         },
@@ -603,6 +618,9 @@ def annotate_frame_side(
     width,
     height,
 ):
+    """
+    Annotate the frame with pose landmarks, metrics, and fault labels for side view.
+    """
     annotated = frame_bgr.copy()
 
     if frame_info["camera_view"] == "side_left":
@@ -649,7 +667,7 @@ def annotate_frame_side(
             "label": "Depth",
             "pass": depth_classification.lower() in ("good", "excellent"),
             "text": f"{depth_classification.title()} - {_fmt_angle(depth_angle)}" if depth_classification.lower() in ("good", "excellent") 
-            else f"{depth_classification.title()} - {_fmt_angle(depth_angle)} (target <= 70°)",
+            else f"{depth_classification.title()} - {_fmt_angle(depth_angle)} (target <= 90°)",
             "severity": 0.0 if depth_classification.lower() in ("good", "excellent") else 1.0,
             "color": (0, 255, 0),
         },
@@ -657,7 +675,7 @@ def annotate_frame_side(
             "label": "Back",
             "pass": back_label.lower() in ("good", "excellent"),
             "text": f"{back_label.title()} - {_fmt_angle(back_angle_value)}" if back_label.lower() in ("good", "excellent") 
-            else f"{back_label.title()} - {_fmt_angle(back_angle_value)} (target <= 18°)",
+            else f"{back_label.title()} - {_fmt_angle(back_angle_value)} (target <= 28°)",
             "severity": 0.0 if back_label.lower() in ("good", "excellent") else 1.0,
             "color": (0, 255, 255),
         },
@@ -704,6 +722,7 @@ def annotate_frame_side(
 
 
 def overlay_frame(frame, frame_info, camera_view, rep_data, output_filename):
+    """Overlay the frame with annotations based on the camera view and rep data, then save it."""
     height, width = frame.shape[:2]
 
     if camera_view in ("front", "angled"):
@@ -797,6 +816,7 @@ def extract_worst_frame(video_url, analysis_path, rep_frames, bio_json):
             key=lambda x: x.get("hip_angle", float("inf"))
         )
 
+    
     cap = cv2.VideoCapture(video_url)
     cap.set(cv2.CAP_PROP_POS_FRAMES, filtered_frame_critical["frame_index"])
     ok, frame = cap.read()
@@ -822,6 +842,9 @@ def extract_worst_frame(video_url, analysis_path, rep_frames, bio_json):
 
 
 def get_dominant_camera_view_worst_frame(frames):
+    """
+    Get the dominant camera view among the frames of the worst rep, ignoring "unknown" or None values.
+    """
     counts = {}
 
     for frame in frames:
@@ -838,39 +861,6 @@ def get_dominant_camera_view_worst_frame(frames):
     return max(counts, key=counts.get)
 
 
-def _front_label_xy(anchor_points, width, label_box_w=340, x_gap=20, y_shift=-18, opposite=False):
-    """
-    Put the label on one side of the body.
-    If opposite=True, flip to the other side.
-    """
-    pts = [p for p in anchor_points if p is not None]
-    if not pts:
-        return None, None
-
-    anchor_x = int(sum(p[0] for p in pts) / len(pts))
-    anchor_y = int(sum(p[1] for p in pts) / len(pts))
-
-    # default side
-    if anchor_x < width / 2:
-        default_x = min(width - label_box_w - 12, anchor_x + x_gap)
-    else:
-        default_x = max(12, anchor_x - label_box_w - x_gap)
-
-    # opposite side
-    if anchor_x < width / 2:
-        opposite_x = max(12, anchor_x - label_box_w - x_gap)
-    else:
-        opposite_x = min(width - label_box_w - 12, anchor_x + x_gap)
-
-    text_x = opposite_x if opposite else default_x
-    text_y = max(30, anchor_y + y_shift)
-
-    return text_x, text_y
-
-
-LEFT_LABEL_X = 12
-
-
 def draw_dorsiflexion_status_label(
     annotated,
     norm_pose,
@@ -879,15 +869,14 @@ def draw_dorsiflexion_status_label(
     camera_view,
     dorsiflexion_status=None,
 ):
+    """Draw the dorsiflexion status label near the ankle/knee area, with a warning chip if not good/excellent."""
     if camera_view == "side_left":
         ankle = get_xy(norm_pose, LEFT_ANKLE, width, height)
         knee = get_xy(norm_pose, LEFT_KNEE, width, height)
-        side_sign = 1
 
     elif camera_view == "side_right":
         ankle = get_xy(norm_pose, RIGHT_ANKLE, width, height)
         knee = get_xy(norm_pose, RIGHT_KNEE, width, height)
-        side_sign = -1
 
     else:
         ankle = get_xy(norm_pose, LEFT_ANKLE, width, height)
@@ -904,8 +893,8 @@ def draw_dorsiflexion_status_label(
         status = status.title()
 
 
-    ax, ay = ankle
-    kx, ky = knee
+    _, ay = ankle
+    _, ky = knee
     
     text_x = LEFT_LABEL_X
     text_y = int((ay + ky) / 2)
@@ -936,15 +925,14 @@ def draw_depth_status_label(
     camera_view,
     depth_classification=None,
 ):
+    """Draw the depth status label near the hip/knee area, with a warning chip if not good/excellent."""
     if camera_view == "side_left":
         hip = get_xy(norm_pose, LEFT_HIP, width, height)
         knee = get_xy(norm_pose, LEFT_KNEE, width, height)
-        side_sign = 1
 
     elif camera_view == "side_right":
         hip = get_xy(norm_pose, RIGHT_HIP, width, height)
         knee = get_xy(norm_pose, RIGHT_KNEE, width, height)
-        side_sign = -1
 
     else:
         left_hip = get_xy(norm_pose, LEFT_HIP, width, height)
@@ -969,15 +957,13 @@ def draw_depth_status_label(
             int(sum(p[1] for p in knee_vals) / len(knee_vals)),
         )
 
-        side_sign = 0
 
     if hip is None or knee is None:
         return annotated
 
     status = str(depth_classification or "").strip()
 
-    hx, hy = hip
-    kx, ky = knee
+    _, ky = knee
 
     text_x = LEFT_LABEL_X
     text_y = ky - 35
@@ -1008,15 +994,14 @@ def draw_back_status_label(
     camera_view,
     back_label=None,
 ):
+    """Draw the back status label near the shoulder/hip area, with a warning chip if not good/excellent."""
     if camera_view == "side_left":
         hip = get_xy(norm_pose, LEFT_HIP, width, height)
         shoulder = get_xy(norm_pose, LEFT_SHOULDER, width, height)
-        side_sign = 1
 
     elif camera_view == "side_right":
         hip = get_xy(norm_pose, RIGHT_HIP, width, height)
         shoulder = get_xy(norm_pose, RIGHT_SHOULDER, width, height)
-        side_sign = -1
 
     else:
         left_shoulder = get_xy(norm_pose, LEFT_SHOULDER, width, height)
@@ -1044,15 +1029,14 @@ def draw_back_status_label(
         hip = (x, y)
         shoulder = (x, y - 80)
 
-        side_sign = 0
 
     if hip is None or shoulder is None:
         return annotated
 
     status = str(back_label or "").strip()
 
-    hx, hy = hip
-    sx, sy = shoulder
+    _, hy = hip
+    _, sy = shoulder
 
     text_x = LEFT_LABEL_X
     text_y = int((hy + sy) / 2) - 100
@@ -1084,6 +1068,7 @@ def draw_valgus_status_label(
     camera_view,
     valgus_label=None,
 ):
+    """Draw the knee tracking status label near the knee area, with a warning chip if not good."""
     if camera_view not in ("front", "angled"):
         return annotated
 
@@ -1128,6 +1113,7 @@ def draw_label_with_warning_chip(
     color=None,
     camera_view=None
 ):
+    """Draw a label with a warning chip if the status is not good/excellent."""
     pil_img = Image.fromarray(cv2.cvtColor(annotated, cv2.COLOR_BGR2RGB))
     draw = ImageDraw.Draw(pil_img)
     font = _load_font(font_size)
@@ -1178,9 +1164,7 @@ def draw_label_with_warning_chip(
     prefix_fill = black_rgb
     prefix_text_color = white_rgb
     status_fill = red_rgb if status_lower == "warning" else black_rgb
-    status_text_color = white_rgb if status_lower == "warning" else (
-            green_rgb if status_lower in ("good", "excellent") else white_rgb
-        )
+    status_text_color = white_rgb
 
     box_w = 170
     box_h = 40
@@ -1190,7 +1174,7 @@ def draw_label_with_warning_chip(
     status_text = "Warning" if status_lower == "warning" else status_clean
 
     prefix_fill = black_rgb
-    prefix_text_color = green_rgb if status_lower in ("good", "excellent") else white_rgb
+    prefix_text_color = white_rgb
     status_fill = red_rgb if status_lower == "warning" else black_rgb
     status_text_color = white_rgb if status_lower == "warning" else (
         green_rgb if status_lower in ("good", "excellent") else white_rgb

@@ -47,6 +47,7 @@ class AnkleTracker:
         pose_world,
         debug=False,
     ):
+        """Update the ankle tracker state based on the current angles, camera view, and pose. Returns ankle data when a rep is completed."""
         if hip_angle is None:
             return None
 

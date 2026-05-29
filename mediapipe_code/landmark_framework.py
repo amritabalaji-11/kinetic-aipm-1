@@ -32,7 +32,6 @@ from utils.landmark_quality_methods import (
     format_rep_data,
     get_first_pose,
     get_y,
-    get_y_px,
     resize_video,
     safe_get_landmark, 
     select_landmarks_by_view,
@@ -498,12 +497,7 @@ class LandmarkQualityFramework:
             len(reps_json_info),
         )
 
-        quality_result["analysis_id"] = str(uuid.uuid4())
-
-        quality_result["event"] = "mediapipe_complete"
-
-        print(quality_result)
-        
+        quality_result["analysis_id"] = str(uuid.uuid4())        
 
         if quality_result["event"] != "mediapipe_complete":
             return None, quality_result, None, None
@@ -731,18 +725,18 @@ class LandmarkQualityFramework:
 
 
 # How to use it
-framework = LandmarkQualityFramework(model_path=MEDIAPIPE_MODEL)
-input_dir = "./mediapipe_code/videos/user_001_videos/user_001_side_12.5kg.mp4"
-analysis_path = "./mediapipe_code/results/call_1/user_001_side_12.5kg.json"
+"""framework = LandmarkQualityFramework(model_path=MEDIAPIPE_MODEL)
+input_dir = "./mediapipe_code/videos/user_001_videos/user_001_side_17.5kg.mp4"
+analysis_path = "./mediapipe_code/results/call_1/user_001_side_17.5kg.json"
 
-start = time.time()
-final_json, quality_result, collage_b64, rep_frames_list = framework.process_video_once(input_dir, "goblet-squat", 12.5)
+#start = time.time()
+final_json, quality_result, collage_b64, rep_frames_list = framework.process_video_once(input_dir, "goblet-squat", 17.5)
 
 frame, frame_data, dominant_camera_view, rep_data = extract_worst_frame(input_dir, analysis_path, rep_frames_list, final_json)
 
 print(rep_data)
 
-annotated_worst_frame = overlay_frame(frame, frame_data, dominant_camera_view, rep_data, output_filename="user_001_side_12.5kg")
+annotated_worst_frame = overlay_frame(frame, frame_data, dominant_camera_view, rep_data, output_filename="user_001_side_17.5kg")"""
 
 """result = run_llm_analysis_test_haiku_v2(final_json, collage_b64, debug=True)
 
