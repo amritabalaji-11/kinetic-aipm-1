@@ -71,7 +71,32 @@ CREATE TABLE IF NOT EXISTS form_analysis_results (
     
     causal_chain TEXT,
     
-    annotated_frame_url TEXT
+    annotated_frame_url TEXT,
+
+    -- ===================================================== 
+    -- ASYNC HAIKU CALL 2 JOB TRACKING 
+    -- ===================================================== 
+    
+    job_status TEXT DEFAULT 'queued' 
+    CHECK ( 
+        job_status IN ( 
+            'queued', 
+            'running', 
+            'complete', 
+            'failed', 
+            'timeout' 
+        ) 
+    ), 
+    
+    queued_at TEXT, 
+    
+    started_at TEXT, 
+    
+    completed_at TEXT, 
+    
+    haiku_call_2_output TEXT, 
+    
+    haiku_call_2_error TEXT
 )
 """
 
@@ -91,7 +116,7 @@ CREATE TABLE IF NOT EXISTS progression_results (
     progress_direction TEXT
         CHECK (progress_direction IN ('up', 'down', 'stable')),
     
-    progression_verdict TEXT,
+    coaching_reasoning TEXT,
 
     weight_recommendation TEXT,
 
@@ -102,7 +127,7 @@ CREATE TABLE IF NOT EXISTS progression_results (
     range_of_motion_trend TEXT,
     movement_quality_trend TEXT,
 
-    created_at TEXT DEFAULT CURRENT_TIMESTAMP
+    computed_at TEXT DEFAULT CURRENT_TIMESTAMP
 )
 """
 
@@ -186,6 +211,14 @@ def init_db():
 
         # form_analysis_results
         ("form_analysis_results", "annotated_frame_url", "TEXT"),
+
+        #Async Haiku Call 2 job tracking 
+        ("form_analysis_results", "job_status", "TEXT DEFAULT 'queued'"),
+        ("form_analysis_results", "queued_at", "TEXT"),
+        ("form_analysis_results", "started_at", "TEXT"),
+        ("form_analysis_results", "completed_at", "TEXT"),
+        ("form_analysis_results", "haiku_call_2_output", "TEXT"),
+        ("form_analysis_results", "haiku_call_2_error", "TEXT")
     ]
 
     for table, column, definition in migrations:
