@@ -20,6 +20,7 @@ async def get_progression(analysis_id: str):
     """
     record = await db.fetch_one(
         "SELECT * FROM progression_results WHERE analysis_id = $1",
+        analysis_id,
     )
 
     if record and record["available"] is False:
