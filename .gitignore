@@ -4,14 +4,10 @@ secrets/
 *.json
 venv
 __pycache__
-
-echo "backend/kinetic.db" >> .gitignore
-echo "__pycache__/" >> .gitignore
-echo "*.pyc" >> .gitignore
-backend/credentials/"backend/kinetic.db" 
-"backend/mediapipe_code/videos/" 
-"backend/mediapipe_code/video_results/" 
+backend/credentials/
+backend/kinetic.db
+backend/mediapipe_code/videos/
+backend/mediapipe_code/video_results/
 backend/credentials/__pycache__/
 *.pyc
 *.db
-
