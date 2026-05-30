@@ -5,8 +5,8 @@ import subprocess
 import cv2
 import numpy as np
 from typing import Any, Dict, List
-from mediapipe_code.utils.angle_methods import angle_between, ankle_dorsiflexion, back_angle, femur_vertical_angle
-from mediapipe_code.utils.landmark_quality_configuration import (
+from mediapipe_code.mp_utils.angle_methods import angle_between, ankle_dorsiflexion, back_angle, femur_vertical_angle
+from mediapipe_code.mp_utils.landmark_quality_configuration import (
     PRESENCE_THRESHOLD, VISIBILITY_THRESHOLD, FrameAssessment, FrameLandmarkData)
 
 VIEW_SIDES = {

@@ -1,7 +1,7 @@
 import math
 import time
 from typing import Any, Dict, Optional
-from mediapipe_code.utils.trackers.traker_configuration import THRESHOLD_DOWN, THRESHOLD_UP, MIN_BOTTOM_HOLD, THRESHOLD_DEEP
+from mediapipe_code.mp_utils.trackers.traker_configuration import THRESHOLD_DOWN, THRESHOLD_UP, MIN_BOTTOM_HOLD, THRESHOLD_DEEP
 
 
 class StabilityTracker:

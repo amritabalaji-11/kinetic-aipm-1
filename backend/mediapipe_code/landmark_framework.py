@@ -6,21 +6,21 @@ from fastapi import logger
 import mediapipe as mp
 import cv2
 
-from mediapipe_code.utils.pose_landmarks import LEFT_HIP, LEFT_KNEE, RIGHT_HIP, RIGHT_KNEE
-from mediapipe_code.utils.trackers.trend_analyzer import TrendAnalyzer
-from mediapipe_code.utils.trackers.ankle_tracker import AnkleTracker
-from mediapipe_code.utils.trackers.back_tracker import BackAngleTracker
-from mediapipe_code.utils.trackers.depth_tracker import DepthTracker
-from mediapipe_code.utils.trackers.rep_counter import RepCounter
-from mediapipe_code.utils.trackers.stability_tracker import StabilityTracker
-from mediapipe_code.utils.trackers.tempo_tracker import TempoTracker
-from mediapipe_code.utils.draw_methods import add_text_lines, annotate_frame, draw_points_and_lines
-from mediapipe_code.utils.angle_methods import detect_camera_view
-from mediapipe_code.utils.landmark_quality_configuration import (
+from mediapipe_code.mp_utils.pose_landmarks import LEFT_HIP, LEFT_KNEE, RIGHT_HIP, RIGHT_KNEE
+from mediapipe_code.mp_utils.trackers.trend_analyzer import TrendAnalyzer
+from mediapipe_code.mp_utils.trackers.ankle_tracker import AnkleTracker
+from mediapipe_code.mp_utils.trackers.back_tracker import BackAngleTracker
+from mediapipe_code.mp_utils.trackers.depth_tracker import DepthTracker
+from mediapipe_code.mp_utils.trackers.rep_counter import RepCounter
+from mediapipe_code.mp_utils.trackers.stability_tracker import StabilityTracker
+from mediapipe_code.mp_utils.trackers.tempo_tracker import TempoTracker
+from mediapipe_code.mp_utils.draw_methods import add_text_lines, annotate_frame, draw_points_and_lines
+from mediapipe_code.mp_utils.angle_methods import detect_camera_view
+from mediapipe_code.mp_utils.landmark_quality_configuration import (
     LANDMARKS, LEFT_SIDE, LEG_CONNECTIONS, LEG_CONNECTIONS_LEFT_SIDE, LEG_CONNECTIONS_RIGHT_SIDE, LEG_TARGET_LANDMARKS, MEDIAPIPE_MODEL, 
     PRESENCE_THRESHOLD, RIGHT_SIDE, 
     VISIBILITY_THRESHOLD, FrameAssessment )
-from mediapipe_code.utils.landmark_quality_methods import (
+from mediapipe_code.mp_utils.landmark_quality_methods import (
     build_composite_from_frames,
     compute_composite_score, 
     compute_frame_reliability, compute_reliability,

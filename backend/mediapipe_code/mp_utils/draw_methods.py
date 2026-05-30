@@ -5,9 +5,9 @@ import cv2
 from PIL import Image, ImageDraw, ImageFont
 import numpy as np
 
-from mediapipe_code.utils.pose_landmarks import LEFT_ANKLE, LEFT_HIP, LEFT_KNEE, LEFT_SHOULDER, RIGHT_ANKLE, RIGHT_HIP, RIGHT_KNEE, RIGHT_SHOULDER
-from mediapipe_code.utils.landmark_quality_methods import safe_get_landmark
-from mediapipe_code.utils.landmark_quality_configuration import LEFT_SIDE, LEG_CONNECTIONS, LEG_CONNECTIONS_LEFT_SIDE, LEG_CONNECTIONS_RIGHT_SIDE, LEG_TARGET_LANDMARKS, RIGHT_SIDE
+from mediapipe_code.mp_utils.pose_landmarks import LEFT_ANKLE, LEFT_HIP, LEFT_KNEE, LEFT_SHOULDER, RIGHT_ANKLE, RIGHT_HIP, RIGHT_KNEE, RIGHT_SHOULDER
+from mediapipe_code.mp_utils.landmark_quality_methods import safe_get_landmark
+from mediapipe_code.mp_utils.landmark_quality_configuration import LEFT_SIDE, LEG_CONNECTIONS, LEG_CONNECTIONS_LEFT_SIDE, LEG_CONNECTIONS_RIGHT_SIDE, LEG_TARGET_LANDMARKS, RIGHT_SIDE
 
 FONT_PATH = "segoeui.ttf"
 FONT_SIZE = 25
