@@ -1,22 +1,51 @@
 import asyncio
 import uuid
-from pipeline.process_video import run_mediapipe_analysis
 import os
+from db.database import db
+from pipeline.process_video import run_mediapipe_analysis
 
 
 async def main():
+
+    analysis_id = str(uuid.uuid4())
     session_id = str(uuid.uuid4())
-    
-    BASE_DIR = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+    user_id = "1ea9434e-6ad4-4bc1-bdf9-04a41db64e57"
 
-    # 👇 point this to a real local video file
-    file_location = "./backend/mediapipe_code/videos/good_form/goblet_squats_1.mp4"
+    # -------------------------------------------------
+    # INSERT TEST ROW
+    # -------------------------------------------------
+    await db.execute("""
+        INSERT INTO form_analyses (
+            analysis_id,
+            session_id,
+            user_id,
+            exercise_name,
+            video_url,
+            status
+        )
+        VALUES (
+            :analysis_id,
+            :session_id,
+            :user_id,
+            'goblet_squat',
+            :video_url,
+            'processing'
+        )
+    """, {
+        "analysis_id": analysis_id,
+        "session_id": session_id,
+        "user_id": user_id,
+        "video_url": "./backend/mediapipe_code/videos/good_form/goblet_squats_3.mp4"
+    })
 
-    print(f"Starting test: {session_id}")
+    # -------------------------------------------------
+    # RUN PIPELINE
+    # -------------------------------------------------
+    print(f"Starting test: {analysis_id}")
 
     await run_mediapipe_analysis(
-        analysis_id=session_id,
-        file_location=file_location
+        analysis_id=analysis_id,
+        file_location="./backend/mediapipe_code/videos/good_form/goblet_squats_3.mp4"
     )
 
     print("Done test run")

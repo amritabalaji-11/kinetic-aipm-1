@@ -144,7 +144,7 @@ async def run_mediapipe_analysis(analysis_id: str, file_location: str):
     # Fetch all context fields needed for SSE payloads and Haiku Call 1
     record = await db.fetch_one(
         """
-        SELECT session_id, user_id, exercise_id, video_url, filename, size_mb, created_at
+        SELECT session_id, user_id, exercise_name, video_url, filename, size_mb, created_at
         FROM form_analyses
         WHERE analysis_id = :aid
         """,
@@ -287,7 +287,7 @@ async def run_mediapipe_analysis(analysis_id: str, file_location: str):
 
         # Build session metadata for Haiku Call 1
         session_data = {
-            "exercise":     record["exercise_id"] if record else "goblet_squat",
+            "exercise":     record["exercise_name"] if record else "goblet_squat",
             "camera_angle": "side_right",
             "set_number":   1,
             "rep_count":    rep_count,
@@ -318,6 +318,7 @@ async def run_mediapipe_analysis(analysis_id: str, file_location: str):
         await _store_analysis_results(analysis_id, user_id, record, mp_result, coaching_output)
 
         overall_score = coaching_output.get("overall_form_score", 0)
+        
 
         await sse_manager.send_event(analysis_id, "analysis_ready", 80, extra={
             **ctx,
@@ -330,134 +331,10 @@ async def run_mediapipe_analysis(analysis_id: str, file_location: str):
         # Emits haiku_call_2_complete or haiku_call_2_no_history
         # -------------------------------------------------
 
-        await run_haiku_call_2(analysis_id)
-
-        async def fire_progression_ready():
-            # Step 9 — Haiku Call 2: longitudinal coaching (Tab 2)
-            # Runs async after analysis_ready. Does not block Tab 1.
-            from db.database import db as _db
-
-            try:
-                # ── Fetch current session ────────────────────────────────
-                current_row = await _db.fetch_one(
-                    "SELECT * FROM form_analyses WHERE analysis_id = :aid",
-                    {"aid": analysis_id}
-                )
-                current_bio = json.loads(current_row["biomechanics_json"] or "{}")
-                current_summary = current_bio.get("summary", {})
-                current_reps = current_bio.get("reps", [])
-
-                def _fmt_date(iso):
-                    # "2026-05-22T..." → "May 22"
-                    try:
-                        from datetime import datetime
-                        dt = datetime.fromisoformat(iso[:10])
-                        return dt.strftime("%b %-d")
-                    except Exception:
-                        return iso[:10]
-
-                def _row_to_session(row):
-                    bio = json.loads(row["biomechanics_json"] or "{}")
-                    s = bio.get("summary", {})
-                    reps = bio.get("reps", [])
-                    return {
-                        "date_label":            _fmt_date(row["created_at"]),
-                        "weight_value":          row["weight_value"],
-                        "weight_unit":           row["weight_unit"],
-                        "overall_form_score":    s.get("overall_form_score", 0),
-                        "posture_score":         s.get("posture_score", 0),
-                        "stability_score":       s.get("stability_score", 0),
-                        "movement_quality_score": s.get("movement_quality_score", 0),
-                        "tempo_score":           s.get("tempo_score", 0),
-                        "reps": [
-                            {"rep_number": r.get("rep_number", i + 1), "form_score": r.get("form_score", 0)}
-                            for i, r in enumerate(reps)
-                        ],
-                    }
-
-                current_session_data = _row_to_session(current_row)
-
-                # ── Fetch last 5 sessions (same user + exercise) ─────────
-                prev_rows = await _db.fetch_all(
-                    """
-                    SELECT * FROM form_analyses
-                    WHERE user_id    = :uid
-                      AND exercise_id = :eid
-                      AND analysis_id != :aid
-                      AND status      = 'complete'
-                      AND biomechanics_json IS NOT NULL
-                    ORDER BY created_at DESC
-                    LIMIT 5
-                    """,
-                    {"uid": user_id, "eid": current_row["exercise_id"], "aid": analysis_id}
-                )
-                previous_sessions_data = [_row_to_session(r) for r in prev_rows]
-
-                # ── Call Haiku ───────────────────────────────────────────
-                haiku = anthropic.AsyncAnthropic(api_key=os.getenv("ANTHROPIC_API_KEY"))
-                response = await haiku.messages.create(
-                    model="claude-haiku-4-5-20251001",
-                    max_tokens=1500,
-                    system=HAIKU_CALL_2_SYSTEM,
-                    messages=[{
-                        "role": "user",
-                        "content": json.dumps({
-                            "current_session":    current_session_data,
-                            "previous_sessions":  previous_sessions_data,
-                        })
-                    }]
-                )
-
-                response_text = (response.content[0].text if response.content else "").strip()
-                
-                if not response_text.strip():
-                    raise ValueError("Empty response from Haiku Call 2")
-                    
-                # ── Clean + extract JSON safely ───────────────────────────
-                cleaned = re.sub(r"```json", "", response_text)
-                cleaned = cleaned.replace("```", "").strip()
-                start = cleaned.find("{")
-                end = cleaned.rfind("}")
-                    
-                if start == -1 or end == -1:
-                        print("[pipeline] RAW RESPONSE:")
-                        print(response_text[:2000])
-                        raise ValueError("No JSON found in Haiku response")                        
-                
-                cleaned_json = cleaned[start:end + 1]
-                
-                try:
-                    progression_output = json.loads(cleaned_json)
-                except json.JSONDecodeError as e:
-                    print("[pipeline] RAW RESPONSE:")
-                    print(response_text[:2000])
-                    raise ValueError(f"Invalid JSON from Haiku Call 2: {e}")
-                print(f"[pipeline] Haiku Call 2 complete for analysis_id={analysis_id}")
-
-                # ── Store to DB ──────────────────────────────────────────
-                await _db.execute(
-                    """
-                    UPDATE form_analyses
-                    SET progression_output = :prog,
-                        status = 'complete'
-                    WHERE analysis_id = :aid
-                    """,
-                    {"prog": json.dumps(progression_output), "aid": analysis_id}
-                )
-
-            except Exception as e:
-                # Haiku Call 2 failure must not block the SSE stream —
-                # fire progression_ready without data so Tab 2 shows empty state.
-                print(f"[pipeline] Haiku Call 2 failed: {e}")
-
-            await sse_manager.send_event(
-                analysis_id, "progression_ready", 100,
-                status="completed",
-                extra=ctx,
-            )
-
        # asyncio.create_task(fire_progression_ready()) #progression_ready runs async and does NOT block analysis_ready
+        print("[PIPELINE] scheduling haiku call 2")
         asyncio.create_task(run_haiku_call_2(analysis_id))
+        print("[PIPELINE] scheduled haiku call 2")
 
         print(f"[pipeline] Completed analysis_id={analysis_id}, reps={rep_count}")
         return mp_result
@@ -600,7 +477,8 @@ async def _store_analysis_results(
             "analysis_id":            analysis_id,
             "session_id":             record["session_id"] if record else "",
             "user_id":                user_id,
-            "exercise_id":            record["exercise_id"] if record else "goblet_squat",
+            # "exercise_id":            record["exercise_id"] if record else "goblet_squat",
+            "exercise_id":            mp_result.get("exercise_name", "goblet_squat"),
             "weight_kg_normalised":   mp_result.get("weight_kg_normalised", 0.0),
             "overall_form_score":     coaching_output.get("overall_form_score"),
             "posture_score":          param_scores.get("posture"),

@@ -18,7 +18,7 @@ CREATE TABLE IF NOT EXISTS user_profiles (
         annotated_frame_url TEXT NULL,
         progress_ladder_image_url TEXT NULL,
         created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
-        updated_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP
+        updated_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
 
         age INTEGER,
         gender TEXT,
@@ -56,7 +56,6 @@ CREATE TABLE IF NOT EXISTS form_analysis_results (
         analysis_id TEXT PRIMARY KEY,
         session_id TEXT UNIQUE NOT NULL REFERENCES form_analyses(session_id) ON DELETE CASCADE,
         user_id TEXT NULL REFERENCES user_profiles(user_id) ON DELETE CASCADE,
-        overall_score REAL NOT NULL,
         range_of_motion_score INTEGER NULL,
         posture_score INTEGER NULL,
         stability_score INTEGER NULL,
@@ -79,7 +78,7 @@ CREATE TABLE IF NOT EXISTS form_analysis_results (
         issues_json TEXT NULL,
         raw_llm_response TEXT NULL,
         chain_of_thought TEXT NULL,
-        worst_frame_index INTEGER NULL
+        worst_frame_index INTEGER NULL,
 
         exercise_id TEXT NOT NULL,
         weight_value REAL,
@@ -88,7 +87,6 @@ CREATE TABLE IF NOT EXISTS form_analysis_results (
         overall_form_score INTEGER,
         session_tags TEXT, 
         comparison_coaching_output TEXT,
-        fault_detail TEXT,
         annotated_frame_url TEXT
     )
     """
@@ -99,7 +97,6 @@ CREATE TABLE IF NOT EXISTS progression_results (
         session_id TEXT UNIQUE NOT NULL REFERENCES form_analyses(session_id) ON DELETE CASCADE,
         user_id TEXT NOT NULL REFERENCES user_profiles(user_id) ON DELETE CASCADE,
         exercise_id TEXT NOT NULL DEFAULT 'goblet-squat',
-        progress_direction TEXT NULL,
         weight_recommendation TEXT NULL,
         progression_verdict TEXT NULL,
         focus_this_week TEXT NULL,
@@ -110,11 +107,9 @@ CREATE TABLE IF NOT EXISTS progression_results (
         coaching_reasoning TEXT NULL,
         available INTEGER NOT NULL DEFAULT 0,
         error TEXT NULL,
-        created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP
+        created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
 
 
-
-        available INTEGER DEFAULT 1,
         error_code TEXT,
         progress_direction TEXT
             CHECK (progress_direction IN ('up', 'down', 'stable'))
