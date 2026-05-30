@@ -152,6 +152,8 @@ async def run_haiku_call_2(analysis_id: str):
             # Same user_id + exercise_id, immediately prior by created_at
             # Fetch coaching_output so we can extract next_session_focus
             # -----------------------------------------
+            exercise_id = current.get("exercise_id") or "goblet_squat"
+
             previous = await db.fetch_one(
                 """
                 SELECT
@@ -176,7 +178,7 @@ async def run_haiku_call_2(analysis_id: str):
                 """,
                 values={
                     "user_id": current["user_id"],
-                    "exercise_id": current["exercise_id"],
+                    "exercise_id": exercise_id,
                     "analysis_id": analysis_id
                 }
             )
