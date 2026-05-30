@@ -19,8 +19,14 @@ CREATE TABLE IF NOT EXISTS user_profiles (
         progress_ladder_image_url TEXT NULL,
         created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
         updated_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP
-    )
-    """
+
+        age INTEGER,
+        gender TEXT,
+        level TEXT,
+        injury_report INTEGER DEFAULT 0,
+        injury_details TEXT
+        )
+        """
     
 CREATE_FORM_ANALYSES_SQL = """ 
 CREATE TABLE IF NOT EXISTS form_analyses (
@@ -74,8 +80,18 @@ CREATE TABLE IF NOT EXISTS form_analysis_results (
         raw_llm_response TEXT NULL,
         chain_of_thought TEXT NULL,
         worst_frame_index INTEGER NULL
-)
-"""
+
+        exercise_id TEXT NOT NULL,
+        weight_value REAL,
+        weight_unit TEXT,
+        weight_kg_normalised REAL, 
+        overall_form_score INTEGER,
+        session_tags TEXT, 
+        comparison_coaching_output TEXT,
+        fault_detail TEXT,
+        annotated_frame_url TEXT
+    )
+    """
 
 CREATE_PROGRESSION_RESULTS_SQL = """
 CREATE TABLE IF NOT EXISTS progression_results (
@@ -95,11 +111,36 @@ CREATE TABLE IF NOT EXISTS progression_results (
         available INTEGER NOT NULL DEFAULT 0,
         error TEXT NULL,
         created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP
+
+
+
+        available INTEGER DEFAULT 1,
+        error_code TEXT,
+        progress_direction TEXT
+            CHECK (progress_direction IN ('up', 'down', 'stable'))
+
+    )
+    """
+    
+
+
+CREATE_WORKOUT_SESSIONS_LOG_SQL = """
+CREATE TABLE IF NOT EXISTS workout_sessions_log (
+    
+    log_id INTEGER PRIMARY KEY AUTOINCREMENT,
+    user_id TEXT NOT NULL,
+    exercise_id TEXT NOT NULL,
+    session_id TEXT NOT NULL,
+    logged_at TEXT DEFAULT CURRENT_TIMESTAMP,
+    set_number INTEGER,
+    weight_use REAL,
+    rep_count INTEGER
 )
 """
-    
+
 def init_db():
     conn = sqlite3.connect(DATABASE_PATH)
+
     cursor = conn.cursor()
     
     cursor.execute("PRAGMA foreign_keys = ON;")
@@ -122,6 +163,10 @@ def init_db():
     conn.commit()
     print("Local SQLite database initialized with 4 tables successfully.")
 
+    # =====================================================
+    # CREATE TABLES
+    # =====================================================
+
     cursor.execute(CREATE_FORM_ANALYSES_SQL)
     for col, definition in [
         ("progression_output", "TEXT"),
@@ -135,11 +180,52 @@ def init_db():
         except sqlite3.OperationalError:
             pass  # column already exists
 
+    cursor.execute(CREATE_WORKOUT_SESSIONS_LOG_SQL)
+
+    cursor.execute(CREATE_USER_PROFILE_SQL)
+
     cursor.execute(CREATE_FORM_ANALYSIS_RESULTS_SQL)
+
     cursor.execute(CREATE_PROGRESSION_RESULTS_SQL)
 
+    # =====================================================
+    # SAFE MIGRATIONS
+    # =====================================================
+
+    migrations = [
+
+        # form_analyses
+        ("form_analyses", "progression_output", "TEXT"),
+        ("form_analyses", "filename", "TEXT"),
+        ("form_analyses", "size_mb", "REAL"),
+
+        # user_profile
+        ("user_profile", "annotated_frame_url", "TEXT"),
+        ("user_profile", "progress_ladder_image_url", "TEXT"),
+
+        # form_analysis_results
+        ("form_analysis_results", "annotated_frame_url", "TEXT"),
+    ]
+
+    for table, column, definition in migrations:
+        try:
+            cursor.execute(
+                f"""
+                ALTER TABLE {table}
+                ADD COLUMN {column} {definition}
+                """
+            )
+            conn.commit()
+
+            print(f"[migration] added {column} to {table}")
+
+        except sqlite3.OperationalError:
+            pass
+
     conn.commit()
+
     conn.close()
+
     print("Database initialized.")
 
 if __name__ == "__main__":

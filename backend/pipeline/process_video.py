@@ -1,24 +1,17 @@
 # backend/pipeline/process_video.py
 #
-# This is the main video analysis pipeline.
-# It runs in the background after a user uploads a video.
-# Flow:
-#   1. Acknowledge the upload
-#   2. Download the video from GCS (if needed)
-#   3. Run MediaPipe — this checks quality gate AND calculates biomechanics
-#   4. If the video fails quality gate → send error SSE, stop
-#   5. If computation crashes → send error SSE, stop
-#   6. If everything is fine → store results, send remaining pipeline events
+# Main video analysis pipeline — runs in background after upload.
+#
+# Event sequence:
+#   upload_received → mediapipe_started → mediapipe_complete → biomechanics_complete
+#   → haiku_started → analysis_ready  (Tab 1 unlocks)
+#   → haiku_call_2_complete OR haiku_call_2_no_history  (Tab 2 unlocks / locks)
 
 import asyncio
 import os
 import json
-import re
 import shutil
 from concurrent.futures import ThreadPoolExecutor
-import re
-
-import anthropic
 
 from services.haiku_call_2_progression import run_haiku_call_2
 from mediapipe_code.landmark_framework import LandmarkQualityFramework
@@ -82,29 +75,23 @@ Rules:
 - All scores are integers 0–100. date_label format: "Mon DD" e.g. "May 22".
 - progression_timeline.sessions lists all sessions newest-first (include current as index 0).
 """
+from services.haiku_call_1_integration import HaikuCall1
 
 
 # =========================================================
-# HELPERS
+# MODULE-LEVEL SINGLETONS
 # =========================================================
 
-def _gcs_uri_to_https(gcs_uri: str) -> str:
-    """Convert gs://bucket/path → https://storage.googleapis.com/bucket/path"""
-    if not gcs_uri or not gcs_uri.startswith("gs://"):
-        return gcs_uri
-    return "https://storage.googleapis.com/" + gcs_uri[5:]
+# Cached system prompt — loaded once at startup, reused for every request
+_haiku_call_1 = HaikuCall1(exercise="goblet_squat")
 
-
-# =========================================================
-# CONFIG
-# =========================================================
-
+# MediaPipe framework
 framework = LandmarkQualityFramework(
     model_path="backend/mediapipe_code/model/pose_landmarker_heavy.task"
 )
 
-# We run MediaPipe in a thread pool because it's CPU-heavy.
-# Running it directly in async would freeze the whole server.
+# Thread pool for CPU-heavy work (MediaPipe, sync Haiku client)
+# so the async event loop stays responsive for other requests
 _executor = ThreadPoolExecutor(max_workers=2)
 
 BUCKET_NAME = os.getenv("GCS_BUCKET_NAME")
@@ -115,12 +102,7 @@ BUCKET_NAME = os.getenv("GCS_BUCKET_NAME")
 # =========================================================
 
 def _download_from_gcs(gcs_path: str, session_id: str) -> str:
-    """
-    Downloads a video from Google Cloud Storage into a local temp folder.
-    Returns the local file path.
-    """
-    # Load credentials the same way gcs.py does for uploads —
-    # directly from the service account JSON file so it works locally too.
+    """Download a video from GCS into a local temp folder. Returns local path."""
     from google.cloud import storage
     from google.oauth2 import service_account
 
@@ -128,15 +110,9 @@ def _download_from_gcs(gcs_path: str, session_id: str) -> str:
     credentials_path = os.path.join(
         base_dir, "credentials", "kinetic-backend-495415-8cc8d53e4cd0.json"
     )
-    credentials = service_account.Credentials.from_service_account_file(
-        credentials_path
-    )
-    storage_client = storage.Client(
-        credentials=credentials,
-        project=credentials.project_id
-    )
+    credentials = service_account.Credentials.from_service_account_file(credentials_path)
+    storage_client = storage.Client(credentials=credentials, project=credentials.project_id)
 
-    # Strip the gs:// prefix so we can split into bucket + blob path
     path = gcs_path.replace("gs://", "")
     bucket_name, blob_path = path.split("/", 1)
 
@@ -149,27 +125,10 @@ def _download_from_gcs(gcs_path: str, session_id: str) -> str:
 
     filename = os.path.basename(blob_path)
     local_path = os.path.join(temp_dir, filename)
-
     blob.download_to_filename(local_path)
+
     print(f"[GCS] Downloaded → {local_path}")
-
     return local_path
-
-
-# =========================================================
-# OPTIONAL WRAPPERS (kept for future use)
-# =========================================================
-
-def _run_quality_gate(video_path: str) -> dict:
-    return framework.get_quality_result(video_path)
-
-
-def _run_biomechanics(video_path: str, exercise: str, weight_kg: float) -> dict:
-    return framework.get_biomechanics_output(
-        video_path=video_path,
-        exercise=exercise,
-        weight_kg=weight_kg,
-    )
 
 
 # =========================================================
@@ -177,24 +136,21 @@ def _run_biomechanics(video_path: str, exercise: str, weight_kg: float) -> dict:
 # =========================================================
 
 async def run_mediapipe_analysis(analysis_id: str, file_location: str):
-    """
-    Full async pipeline — Haiku edition.
-
-    Event sequence:
-      upload_received → mediapipe_started → mediapipe_complete → biomechanics_complete
-      → haiku_started → analysis_ready (Tab 1 unlocks)
-      → progression_ready (async, after Haiku Call 2) — closes stream
-    """
     from db.database import db
 
     loop = asyncio.get_event_loop()
     local_path = None
 
-    # Fetch context fields needed for SSE payloads
+    # Fetch all context fields needed for SSE payloads and Haiku Call 1
     record = await db.fetch_one(
-        "SELECT session_id, user_id, video_url, filename, size_mb, created_at FROM form_analyses WHERE analysis_id = :aid",
+        """
+        SELECT session_id, user_id, exercise_id, video_url, filename, size_mb, created_at
+        FROM form_analyses
+        WHERE analysis_id = :aid
+        """,
         {"aid": analysis_id}
     )
+
     session_id = record["session_id"] if record else None
     user_id    = record["user_id"]    if record else None
     video_url  = record["video_url"]  if record else file_location
@@ -216,7 +172,7 @@ async def run_mediapipe_analysis(analysis_id: str, file_location: str):
         })
 
         # -------------------------------------------------
-        # STEP 1 — get the video onto local disk
+        # STEP 1 — get video onto local disk
         # -------------------------------------------------
         if file_location.startswith("gs://"):
             local_path = _download_from_gcs(file_location, analysis_id)
@@ -245,9 +201,10 @@ async def run_mediapipe_analysis(analysis_id: str, file_location: str):
             analysis_id,
         )
 
+        # Quality gate failure
         if final_json is None:
-            error_code = quality_result.get("error_code", "BIOMECHANICS_COMPUTE_ERROR")
-            error_stage = quality_result.get("error_stage", "quality_gate")
+            error_code    = quality_result.get("error_code", "BIOMECHANICS_COMPUTE_ERROR")
+            error_stage   = quality_result.get("error_stage", "quality_gate")
             retryable_str = "true" if quality_result.get("retryable", False) else "false"
 
             await _store_failed(analysis_id, error_code, quality_result)
@@ -263,23 +220,18 @@ async def run_mediapipe_analysis(analysis_id: str, file_location: str):
             )
             return
 
-        mp_result = {
-            **final_json,
-            **quality_result,
-        }
-
+        mp_result = {**final_json, **quality_result}
         if collage_b64 is not None:
             mp_result["collage_b64"] = collage_b64
 
         # -------------------------------------------------
-        # STEP 3 — check what came back
+        # STEP 3 — check for error event from MediaPipe
         # -------------------------------------------------
         if mp_result.get("event") == "error":
-            error_code  = mp_result.get("error_code",  "SYSTEM_ERROR")
-            error_stage = mp_result.get("error_stage", "quality_gate")
-            message     = mp_result.get("message",     "Something went wrong with your video.")
-            retryable_raw = mp_result.get("retryable", False)
-            retryable_str = "true" if retryable_raw is True else "false"
+            error_code    = mp_result.get("error_code",  "SYSTEM_ERROR")
+            error_stage   = mp_result.get("error_stage", "quality_gate")
+            message       = mp_result.get("message",     "Something went wrong with your video.")
+            retryable_str = "true" if mp_result.get("retryable", False) is True else "false"
 
             await _store_failed(analysis_id, error_code, mp_result)
             await sse_manager.send_error_event(
@@ -292,7 +244,6 @@ async def run_mediapipe_analysis(analysis_id: str, file_location: str):
                 session_id=session_id,
                 user_id=user_id,
             )
-
             return
 
         # -------------------------------------------------
@@ -312,19 +263,19 @@ async def run_mediapipe_analysis(analysis_id: str, file_location: str):
         })
 
         # -------------------------------------------------
-        # STEP 5 — store biomechanics, then biomechanics_complete (silent)
+        # STEP 5 — store biomechanics → biomechanics_complete
         # -------------------------------------------------
         await _store_biomechanics(analysis_id, mp_result)
 
         await sse_manager.send_event(analysis_id, "biomechanics_complete", 55, extra={
             **ctx,
-            "rep_count":      rep_count,
+            "rep_count":       rep_count,
             "joints_computed": mp_result.get("joints_computed", 0),
             "avg_confidence":  mp_result.get("avg_confidence", 0.0),
         })
 
         # -------------------------------------------------
-        # STEP 6 — clean up temp file
+        # STEP 6 — clean up temp video file
         # -------------------------------------------------
         if local_path and "incoming" in local_path:
             shutil.rmtree(os.path.dirname(local_path), ignore_errors=True)
@@ -334,10 +285,39 @@ async def run_mediapipe_analysis(analysis_id: str, file_location: str):
         # -------------------------------------------------
         await sse_manager.send_event(analysis_id, "haiku_started", 65, extra=ctx)
 
-        # TODO: replace sleep with real Haiku Call 1 and DB write
-        await asyncio.sleep(2)
+        # Build session metadata for Haiku Call 1
+        session_data = {
+            "exercise":     record["exercise_id"] if record else "goblet_squat",
+            "camera_angle": "side_right",
+            "set_number":   1,
+            "rep_count":    rep_count,
+            "load_kg":      mp_result.get("weight_kg_normalised", 0.0),
+            "pain_level":   0,
+            "user_id":      user_id,
+        }
 
-        overall_score = mp_result.get("session", {}).get("overall_form_score", 0)
+        # Slim biomechanics payload — session summary + per-rep data only
+        # (excludes raw frame-by-frame data to stay within TPM limits)
+        biomechanics_slim = {
+            "session": mp_result.get("session", {}),
+            "reps":    mp_result.get("reps", []),
+        }
+
+        # Run Haiku Call 1 in thread pool (uses sync Anthropic client)
+        coaching_output = await loop.run_in_executor(
+            _executor,
+            lambda: _haiku_call_1.analyze_form(
+                session_data=session_data,
+                biomechanics_json=biomechanics_slim,
+                frame_images=None,
+                max_tokens=4096,
+            )
+        )
+
+        # Write to form_analysis_results — required for Haiku Call 2 to find this session
+        await _store_analysis_results(analysis_id, user_id, record, mp_result, coaching_output)
+
+        overall_score = coaching_output.get("overall_form_score", 0)
 
         await sse_manager.send_event(analysis_id, "analysis_ready", 80, extra={
             **ctx,
@@ -345,7 +325,9 @@ async def run_mediapipe_analysis(analysis_id: str, file_location: str):
         })
 
         # -------------------------------------------------
-        # STEP 8 —  progression_ready: Haiku Call 2 (async, does not block analysis_ready)
+        # STEP 8 — Haiku Call 2 fires async after analysis_ready
+        # Does NOT block Tab 1 from unlocking
+        # Emits haiku_call_2_complete or haiku_call_2_no_history
         # -------------------------------------------------
 
         await run_haiku_call_2(analysis_id)
@@ -474,7 +456,8 @@ async def run_mediapipe_analysis(analysis_id: str, file_location: str):
                 extra=ctx,
             )
 
-        asyncio.create_task(fire_progression_ready()) #progression_ready runs async and does NOT block analysis_ready
+       # asyncio.create_task(fire_progression_ready()) #progression_ready runs async and does NOT block analysis_ready
+        asyncio.create_task(run_haiku_call_2(analysis_id))
 
         print(f"[pipeline] Completed analysis_id={analysis_id}, reps={rep_count}")
         return mp_result
@@ -511,7 +494,7 @@ async def run_mediapipe_analysis(analysis_id: str, file_location: str):
 # =========================================================
 
 async def _store_biomechanics(analysis_id: str, data: dict):
-    """Saves successful biomechanics results to the database."""
+    """Store full biomechanics JSON and mark analysis complete."""
     from db.database import db
 
     # 1. Store full ML output + pipeline status
@@ -543,7 +526,7 @@ async def _store_biomechanics(analysis_id: str, data: dict):
 
 
 async def _store_failed(analysis_id: str, reason: str, detail=None):
-    """Marks the analysis as failed in the database with the error reason."""
+    """Mark analysis as failed with error reason."""
     from db.database import db
 
     await db.execute(
@@ -559,20 +542,74 @@ async def _store_failed(analysis_id: str, reason: str, detail=None):
         },
     )
 
-async def _store_llm_result(session_id: str, llm_result: dict):
-    """Saves Claude Haiku coaching output to the database."""
+
+async def _store_analysis_results(
+    analysis_id: str,
+    user_id: str,
+    record: dict,
+    mp_result: dict,
+    coaching_output: dict,
+):
+    """
+    Write Haiku Call 1 output to form_analysis_results.
+    This row is the prerequisite for Haiku Call 2 — it must exist before
+    run_haiku_call_2 is called.
+
+    Parameter scores are extracted from coaching_output['parameter_scores'].
+    Key names must match what haiku_call_1_system.txt produces — verify against
+    a real response if scores are storing as None.
+    """
     from db.database import db
+
+    session        = mp_result.get("session", {})
+    param_scores   = coaching_output.get("parameter_scores", {})
 
     await db.execute(
         """
-        UPDATE form_analyses
-        SET llm_json    = :llm,
-            total_score = :score
-        WHERE session_id = :sid
+        INSERT OR REPLACE INTO form_analysis_results (
+            analysis_id,
+            session_id,
+            user_id,
+            exercise_id,
+            weight_kg_normalised,
+            overall_form_score,
+            posture_score,
+            stability_score,
+            movement_quality_score,
+            tempo_score,
+            rep_count,
+            rep_scores,
+            coaching_output
+        ) VALUES (
+            :analysis_id,
+            :session_id,
+            :user_id,
+            :exercise_id,
+            :weight_kg_normalised,
+            :overall_form_score,
+            :posture_score,
+            :stability_score,
+            :movement_quality_score,
+            :tempo_score,
+            :rep_count,
+            :rep_scores,
+            :coaching_output
+        )
         """,
         values={
-            "sid":   session_id,
-            "llm":   json.dumps(llm_result),
-            "score": llm_result.get("total_score"),
+            "analysis_id":            analysis_id,
+            "session_id":             record["session_id"] if record else "",
+            "user_id":                user_id,
+            "exercise_id":            record["exercise_id"] if record else "goblet_squat",
+            "weight_kg_normalised":   mp_result.get("weight_kg_normalised", 0.0),
+            "overall_form_score":     coaching_output.get("overall_form_score"),
+            "posture_score":          param_scores.get("posture"),
+            "stability_score":        param_scores.get("stability"),
+            "movement_quality_score": param_scores.get("movement_quality"),
+            "tempo_score":            param_scores.get("ROM"),
+            "rep_count":              session.get("rep_count"),
+            "rep_scores":             json.dumps(coaching_output.get("rep_scores", [])),
+            "coaching_output":        json.dumps(coaching_output),
         },
     )
+    print(f"[Haiku Call 1] Stored form_analysis_results for {analysis_id}")

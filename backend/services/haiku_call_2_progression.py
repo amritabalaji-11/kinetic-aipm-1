@@ -9,7 +9,6 @@ import asyncio
 import random
 import re
 
-
 # =========================================================
 # ANTHROPIC CLIENT
 # =========================================================
@@ -17,6 +16,33 @@ import re
 client = AsyncAnthropic(
     api_key=os.getenv("ANTHROPIC_API_KEY")
 )
+
+# -------------------------------------------------
+# GLOBAL RATE LIMIT CONTROL
+# -------------------------------------------------
+HAIKU_CALL_2_SEMAPHORE = asyncio.Semaphore(1)  # increase to 2 later if stable
+
+
+def safe_json_load(raw: str):
+    """Robust JSON parser for Claude output."""
+    raw = raw.strip()
+    raw = re.sub(r"^```json", "", raw)
+    raw = re.sub(r"^```", "", raw)
+    raw = re.sub(r"```$", "", raw)
+    raw = raw.strip()
+    return json.loads(raw)
+
+
+async def call_haiku_with_retry(payload, retries=3):
+    """Prevents transient 429 failures from killing pipeline."""
+    for attempt in range(retries):
+        try:
+            return await client.messages.create(**payload)
+        except Exception as e:
+            wait = (2 ** attempt) + random.uniform(0, 0.5)
+            print(f"[Haiku Call 2] retry {attempt+1} in {wait:.2f}s due to {e}")
+            await asyncio.sleep(wait)
+    raise RuntimeError("Haiku Call 2 failed after retries")
 
 
 # =========================================================
@@ -81,128 +107,71 @@ async def call_haiku_with_retry(payload, retries=3):
 # =========================================================
 
 async def run_haiku_call_2(analysis_id: str):
-
     async with HAIKU_CALL_2_SEMAPHORE:
 
-        # -------------------------------------------------
-        # Small delay so Haiku Call 1 clears TPM window
-        # -------------------------------------------------
+        # Small delay to let TPM window clear after Haiku Call 1
         await asyncio.sleep(10)
 
         print(f"[Haiku Call 2] START analysis_id={analysis_id}")
 
         try:
-
-            # =====================================================
-            # JOB STATUS → RUNNING
-            # =====================================================
-
-            await db.execute(
-                """
-                UPDATE form_analysis_results
-                SET
-                    job_status = :job_status,
-                    started_at = CURRENT_TIMESTAMP
-                WHERE analysis_id = :analysis_id
-                """,
-                values={
-                    "job_status": "running",
-                    "analysis_id": analysis_id
-                }
-            )
-
-            print("[Haiku Call 2] job_status=running")
-
-            # =====================================================
+            # -----------------------------------------
             # CURRENT SESSION
-            # =====================================================
-
+            # Fetch all 4 parameter scores + overall + weight
+            # -----------------------------------------
             current = await db.fetch_one(
                 """
                 SELECT
                     far.analysis_id,
-                    far.session_id,
                     far.user_id,
                     far.exercise_id,
-
                     far.overall_form_score,
                     far.posture_score,
                     far.stability_score,
                     far.tempo_score,
                     far.movement_quality_score,
-
                     far.rep_scores,
-                    far.coaching_output,
-
                     fa.weight_kg_normalised,
                     fa.created_at
-
                 FROM form_analysis_results far
-
                 JOIN form_analyses fa
                     ON far.analysis_id = fa.analysis_id
-
                 WHERE far.analysis_id = :analysis_id
                 """,
                 values={"analysis_id": analysis_id}
             )
 
             if not current:
-
-                print("[Haiku Call 2] No current session found")
-
-                await db.execute(
-                    """
-                    UPDATE form_analysis_results
-                    SET
-                        job_status = :job_status,
-                        haiku_call_2_error = :error,
-                        completed_at = CURRENT_TIMESTAMP
-                    WHERE analysis_id = :analysis_id
-                    """,
-                    values={
-                        "job_status": "failed",
-                        "error": "Current session not found",
-                        "analysis_id": analysis_id
-                    }
-                )
-
+                print("[Haiku Call 2] No current session found — skipping")
                 return
 
             print("[Haiku Call 2] Current session loaded")
 
-            # =====================================================
+            # -----------------------------------------
             # PREVIOUS SESSION
-            # =====================================================
-
+            # Same user_id + exercise_id, immediately prior by created_at
+            # Fetch coaching_output so we can extract next_session_focus
+            # -----------------------------------------
             previous = await db.fetch_one(
                 """
                 SELECT
                     far.analysis_id,
-
                     far.overall_form_score,
                     far.posture_score,
                     far.stability_score,
                     far.tempo_score,
                     far.movement_quality_score,
-
                     far.rep_scores,
                     far.coaching_output,
-
                     fa.weight_kg_normalised,
                     fa.created_at
-
                 FROM form_analysis_results far
-
                 JOIN form_analyses fa
                     ON far.analysis_id = fa.analysis_id
-
                 WHERE far.user_id = :user_id
                   AND far.exercise_id = :exercise_id
                   AND far.analysis_id != :analysis_id
-
                 ORDER BY fa.created_at DESC
-
                 LIMIT 1
                 """,
                 values={
@@ -212,127 +181,55 @@ async def run_haiku_call_2(analysis_id: str):
                 }
             )
 
-            print("[Haiku Call 2] Previous session query complete")
+            print("[Haiku Call 2] Previous session loaded")
 
-            # =====================================================
-            # NO HISTORY
-            # =====================================================
-
+            # -----------------------------------------
+            # NO HISTORY — write available=false, emit SSE, exit cleanly
+            # -----------------------------------------
             if not previous:
-
-                print("[Haiku Call 2] No previous session")
-
-                # ---------------------------------------------
-                # progression_results
-                # ---------------------------------------------
-
                 await db.execute(
                     """
                     INSERT INTO progression_results (
                         analysis_id,
-                        user_id,
-                        session_id,
-                        exercise_id,
-
-                        available,
-                        error_code,
-
-                        computed_at
+                        available
                     )
-                    VALUES (
-                        :analysis_id,
-                        :user_id,
-                        :session_id,
-                        :exercise_id,
-
-                        :available,
-                        :error_code,
-
-                        CURRENT_TIMESTAMP
-                    )
+                    VALUES (:analysis_id, :available)
                     """,
                     values={
-                        "analysis_id": current["analysis_id"],
-                        "user_id": current["user_id"],
-                        "session_id": current["session_id"],
-                        "exercise_id": current["exercise_id"],
-
-                        "available": False,
-                        "error_code": "NO_PREVIOUS_SESSION"
+                        "analysis_id": analysis_id,
+                        "available": False
                     }
                 )
-
-                # ---------------------------------------------
-                # form_analysis_results
-                # ---------------------------------------------
-
-                no_history_payload = {
-                    "available": False,
-                    "message": (
-                        "Complete a second session "
-                        "to unlock progression insights."
-                    )
-                }
-
-                await db.execute(
-                    """
-                    UPDATE form_analysis_results
-                    SET
-                        job_status = :job_status,
-                        completed_at = CURRENT_TIMESTAMP,
-                        haiku_call_2_output = :output
-                    WHERE analysis_id = :analysis_id
-                    """,
-                    values={
-                        "job_status": "complete",
-                        "output": json.dumps(no_history_payload),
-                        "analysis_id": analysis_id
-                    }
-                )
-
-                # ---------------------------------------------
-                # SSE
-                # ---------------------------------------------
 
                 await sse_manager.send_event(
                     analysis_id,
                     "haiku_call_2_no_history",
-                    90,
-                    "in_progress",
-                    no_history_payload
+                    100,
+                    "complete"
                 )
-
-                print("[Haiku Call 2] no_history SSE emitted")
-
+                print("[Haiku Call 2] No previous session — emitted no_history SSE")
                 return
 
-            # =====================================================
-            # EXTRACT PREVIOUS FOCUS
-            # =====================================================
-
+            # -----------------------------------------
+            # EXTRACT next_session_focus FROM PREVIOUS COACHING OUTPUT
+            # Used as "We've Told You" context in the prompt
+            # -----------------------------------------
             previous_coaching = {}
-
             if previous["coaching_output"]:
-
                 if isinstance(previous["coaching_output"], str):
-                    previous_coaching = json.loads(
-                        previous["coaching_output"]
-                    )
-
+                    previous_coaching = json.loads(previous["coaching_output"])
                 else:
                     previous_coaching = previous["coaching_output"]
 
-            previous_focus = previous_coaching.get(
-                "next_session_focus",
-                []
-            )
+            previous_focus = previous_coaching.get("next_session_focus", [])
 
-            # =====================================================
+            # -----------------------------------------
             # PROMPT
-            # =====================================================
-
-            prompt = f"""
-You are a strength progression coach.
+            # Includes both sessions' 4 parameter scores + overall + weight
+            # + previous next_session_focus for "We've Told You" context
+            # Weight progression reasoning is inline — no external MD files
+            # -----------------------------------------
+            prompt = f"""You are a strength progression coach.
 
 Compare these two training sessions and return a JSON coaching comparison.
 
@@ -359,32 +256,15 @@ Rep Scores: {previous['rep_scores']}
 WHAT YOU TOLD THEM TO FOCUS ON LAST SESSION
 {json.dumps(previous_focus, indent=2)}
 
-
 WEIGHT PROGRESSION RULES
+- hold: overall score < 75, or score dropped vs previous session
+- increase: overall score >= 80 AND score is stable or improving
+- decrease: overall score dropped significantly (8+ points vs previous)
+- target_weight_kg: suggest next logical increment (typically +2kg for increase, -2kg for decrease, same for hold)
 
-- hold:
-  overall score < 75,
-  OR score dropped vs previous session
-
-- increase:
-  overall score >= 80
-  AND score stable or improving
-
-- decrease:
-  overall score dropped significantly
-  (8+ points vs previous)
-
-- target_weight_kg:
-  +2kg for increase,
-  -2kg for decrease,
-  same for hold
-
-
-Return ONLY valid JSON matching this schema:
-
+Return ONLY valid JSON matching this exact schema:
 {{
-  "progression_verdict": "2-3 sentence comparison",
-
+  "progression_verdict": "2-3 sentence comparison of current vs previous session",
   "progress_direction": "up | down | stable",
 
   "weight_recommendation": {{
@@ -392,271 +272,98 @@ Return ONLY valid JSON matching this schema:
     "target_weight_kg": 0,
     "reason": "1 sentence explanation"
   }},
+  "focus_this_week": "Single actionable recommendation for next training day",
+  "posture_trend": "1 sentence describing posture change vs previous session",
+  "stability_trend": "1 sentence describing stability change vs previous session",
+  "range_of_motion_trend": "1 sentence describing ROM change vs previous session",
+  "movement_quality_trend": "1 sentence describing movement quality change vs previous session"
+}}"""
 
-  "focus_this_week":
-    "Single actionable recommendation",
+            print("[Haiku Call 2] Calling Haiku...")
 
-  "posture_trend":
-    "1 sentence posture trend",
-
-  "stability_trend":
-    "1 sentence stability trend",
-
-  "range_of_motion_trend":
-    "1 sentence ROM trend",
-
-  "movement_quality_trend":
-    "1 sentence movement quality trend"
-}}
-"""
-
-            print("[Haiku Call 2] Calling Haiku")
-
-            # =====================================================
-            # HAIKU CALL
-            # =====================================================
-
+            # -----------------------------------------
+            # HAIKU CALL (RATE SAFE + RETRY)
+            # -----------------------------------------
             response = await call_haiku_with_retry({
                 "model": "claude-haiku-4-5-20251001",
                 "max_tokens": 800,
                 "messages": [
-                    {
-                        "role": "user",
-                        "content": prompt
-                    }
+                    {"role": "user", "content": prompt}
                 ]
             })
 
-            result = safe_json_load(
-                response.content[0].text
-            )
+            result = safe_json_load(response.content[0].text)
 
             print("[Haiku Call 2] Response received")
 
-            # =====================================================
+            # -----------------------------------------
             # VALIDATION
-            # =====================================================
+            # -----------------------------------------
+            if result["weight_recommendation"]["action"] not in ["hold", "increase", "decrease"]:
+                raise ValueError(f"Invalid weight action: {result['weight_recommendation']['action']}")
 
-            if (
-                result["weight_recommendation"]["action"]
-                not in ["hold", "increase", "decrease"]
-            ):
-                raise ValueError(
-                    f"Invalid weight action: "
-                    f"{result['weight_recommendation']['action']}"
-                )
+            if result["progress_direction"] not in ["up", "down", "stable"]:
+                raise ValueError(f"Invalid progress_direction: {result['progress_direction']}")
 
-            if (
-                result["progress_direction"]
-                not in ["up", "down", "stable"]
-            ):
-                raise ValueError(
-                    f"Invalid progress_direction: "
-                    f"{result['progress_direction']}"
-                )
-
-            print("[Haiku Call 2] Validation passed")
-
-            # =====================================================
-            # SAVE progression_results
-            # =====================================================
-
+            # -----------------------------------------
+            # SAVE RESULT TO progression_results
+            # -----------------------------------------
             await db.execute(
                 """
                 INSERT INTO progression_results (
-
                     analysis_id,
-                    user_id,
-                    session_id,
-                    exercise_id,
-
                     available,
-
                     progress_direction,
                     progression_verdict,
-
-                    coaching_reasoning,
-
+                    weight_recommendation,
                     focus_this_week,
-
                     posture_trend,
                     stability_trend,
                     range_of_motion_trend,
-                    movement_quality_trend,
-
-                    weight_recommendation,
-
-                    computed_at
-
+                    movement_quality_trend
                 )
                 VALUES (
-
                     :analysis_id,
-                    :user_id,
-                    :session_id,
-                    :exercise_id,
-
                     :available,
-
                     :progress_direction,
                     :progression_verdict,
-
-                    :coaching_reasoning,
-
+                    :weight_recommendation,
                     :focus_this_week,
-
                     :posture_trend,
                     :stability_trend,
                     :range_of_motion_trend,
-                    :movement_quality_trend,
-
-                    :weight_recommendation,
-
-                    CURRENT_TIMESTAMP
+                    :movement_quality_trend
                 )
                 """,
                 values={
-
-                    "analysis_id": current["analysis_id"],
-                    "user_id": current["user_id"],
-                    "session_id": current["session_id"],
-                    "exercise_id": current["exercise_id"],
-
-                    "available": True,
-
-                    "progress_direction":
-                        result["progress_direction"],
-
-                    "progression_verdict":
-                        result["progression_verdict"],
-
-                    "coaching_reasoning":
-                        result["weight_recommendation"]["reason"],
-
-                    "focus_this_week":
-                        result["focus_this_week"],
-
-                    "posture_trend":
-                        result["posture_trend"],
-
-                    "stability_trend":
-                        result["stability_trend"],
-
-                    "range_of_motion_trend":
-                        result["range_of_motion_trend"],
-
-                    "movement_quality_trend":
-                        result["movement_quality_trend"],
-
-                    "weight_recommendation":
-                        json.dumps(
-                            result["weight_recommendation"]
-                        )
+                    "analysis_id":          analysis_id,
+                    "available":            True,
+                    "progress_direction":   result["progress_direction"],
+                    "progression_verdict":  result["progression_verdict"],
+                    "weight_recommendation": json.dumps(result["weight_recommendation"]),
+                    "focus_this_week":      result["focus_this_week"],
+                    "posture_trend":        result["posture_trend"],
+                    "stability_trend":      result["stability_trend"],
+                    "range_of_motion_trend": result["range_of_motion_trend"],
+                    "movement_quality_trend": result["movement_quality_trend"]
                 }
             )
 
-            print("[Haiku Call 2] progression_results saved")
+            print("[Haiku Call 2] Saved to progression_results")
 
-            # =====================================================
-            # UPDATE form_analysis_results
-            # =====================================================
-
-            await db.execute(
-                """
-                UPDATE form_analysis_results
-                SET
-                    job_status = :job_status,
-
-                    completed_at = CURRENT_TIMESTAMP,
-
-                    haiku_call_2_output = :output,
-
-                    haiku_call_2_error = NULL
-
-                WHERE analysis_id = :analysis_id
-                """,
-                values={
-                    "job_status": "complete",
-                    "output": json.dumps(result),
-                    "analysis_id": analysis_id
-                }
-            )
-
-            print("[Haiku Call 2] form_analysis_results updated")
-
-            # =====================================================
-            # SSE COMPLETE
-            # =====================================================
-
+            # -----------------------------------------
+            # SSE COMPLETE — emit haiku_call_2_complete with full payload
+            # -----------------------------------------
             await sse_manager.send_event(
                 analysis_id,
                 "haiku_call_2_complete",
-                90,
-                "in_progress",
-                {
-                    "progression_output": result
-                }
+                100,
+                "complete",
+                {"progression_output": result}
             )
 
             print("[Haiku Call 2] SUCCESS")
 
         except Exception as e:
-
             print(f"[Haiku Call 2] FAILED: {e}")
-
             traceback.print_exc()
-
-            # =====================================================
-            # JOB STATUS → FAILED
-            # =====================================================
-
-            try:
-
-                await db.execute(
-                    """
-                    UPDATE form_analysis_results
-                    SET
-                        job_status = :job_status,
-
-                        completed_at = CURRENT_TIMESTAMP,
-
-                        haiku_call_2_error = :error
-
-                    WHERE analysis_id = :analysis_id
-                    """,
-                    values={
-                        "job_status": "failed",
-                        "error": str(e),
-                        "analysis_id": analysis_id
-                    }
-                )
-
-            except Exception as inner_error:
-
-                print(
-                    "[Haiku Call 2] "
-                    f"Failed updating DB status: {inner_error}"
-                )
-
-            # =====================================================
-            # SSE FAILED
-            # =====================================================
-
-            try:
-
-                await sse_manager.send_event(
-                    analysis_id,
-                    "haiku_call_2_failed",
-                    90,
-                    "partial_failure",
-                    {
-                        "error": str(e)
-                    }
-                )
-
-            except Exception as sse_error:
-
-                print(
-                    "[Haiku Call 2] "
-                    f"Failed sending SSE: {sse_error}"
-                )
