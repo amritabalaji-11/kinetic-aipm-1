@@ -23,7 +23,9 @@ import anthropic
 from services.haiku_call_2_progression import run_haiku_call_2
 from mediapipe_code.landmark_framework import LandmarkQualityFramework
 from utils.sse_manager import sse_manager
-from mediapipe_code.llm_run_code import run_llm
+from mediapipe_code.llm_run_code import run_llm_analysis
+from mediapipe_code.llm_run_code import run_llm_comparison
+
 
 
 
@@ -98,7 +100,7 @@ def _gcs_uri_to_https(gcs_uri: str) -> str:
 # =========================================================
 
 framework = LandmarkQualityFramework(
-    model_path="mediapipe_code/model/pose_landmarker_heavy.task"
+    model_path="backend/mediapipe_code/model/pose_landmarker_heavy.task"
 )
 
 # We run MediaPipe in a thread pool because it's CPU-heavy.
@@ -142,7 +144,7 @@ def _download_from_gcs(gcs_path: str, session_id: str) -> str:
     blob = bucket.blob(blob_path)
 
     # Each session gets its own subfolder so parallel uploads don't clash
-    temp_dir = os.path.join("./mediapipe_code/videos/incoming", session_id)
+    temp_dir = os.path.join("./backend/mediapipe_code/videos/incoming", session_id)
     os.makedirs(temp_dir, exist_ok=True)
 
     filename = os.path.basename(blob_path)
@@ -234,7 +236,7 @@ async def run_mediapipe_analysis(analysis_id: str, file_location: str):
 
         # run_in_executor moves the CPU-heavy MediaPipe work into a thread
         # so the async event loop stays responsive for other requests
-        final_json, quality_result, collage_b64 = await loop.run_in_executor(
+        final_json, quality_result, collage_b64, bottom_frames = await loop.run_in_executor(
             _executor,
             framework.process_video_once,
             local_path,
@@ -346,8 +348,7 @@ async def run_mediapipe_analysis(analysis_id: str, file_location: str):
         # STEP 8 —  progression_ready: Haiku Call 2 (async, does not block analysis_ready)
         # -------------------------------------------------
 
-        asyncio.create_task(run_haiku_call_2(analysis_id)
-        )
+        await run_haiku_call_2(analysis_id)
 
         async def fire_progression_ready():
             # Step 9 — Haiku Call 2: longitudinal coaching (Tab 2)
@@ -513,17 +514,29 @@ async def _store_biomechanics(analysis_id: str, data: dict):
     """Saves successful biomechanics results to the database."""
     from db.database import db
 
+    # 1. Store full ML output + pipeline status
     await db.execute(
         """
         UPDATE form_analyses
         SET status = 'complete',
-            biomechanics_json = :bio,
-            rep_count = :reps
+            biomechanics_json = :bio
         WHERE analysis_id = :aid
         """,
         values={
             "aid": analysis_id,
             "bio": json.dumps(data),
+        },
+    )
+
+    # 2. Store derived metrics separately
+    await db.execute(
+        """
+        UPDATE form_analysis_results
+        SET rep_count = :reps
+        WHERE analysis_id = :aid
+        """,
+        values={
+            "aid": analysis_id,
             "reps": data["session"]["rep_count"],
         },
     )

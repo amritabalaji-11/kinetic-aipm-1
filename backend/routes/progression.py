@@ -19,13 +19,9 @@ async def get_progression(analysis_id: str):
     404 — analysis not found, or progression data unavailable after completion
     """
     record = await db.fetch_one(
-        "SELECT * FROM progression_results WHERE analysis_id = $1",
-        analysis_id,
+        "SELECT status, progression_output FROM form_analyses WHERE analysis_id = :aid",
+        {"aid": analysis_id}
     )
-
-    if record and record["available"] is False:
-        return {"available": False, 
-                "message": "Progression analysis completed but no progression data available (e.g. first-ever session)"}
 
     if not record:
         raise HTTPException(status_code=404, detail="Analysis not found")
@@ -33,7 +29,8 @@ async def get_progression(analysis_id: str):
     if not record["progression_output"]:
         if record["status"] in ("uploaded", "processing"):
             raise HTTPException(status_code=202, detail="Progression analysis still processing")
-        # completed/failed but no progression data (e.g. first-ever session)
+            # completed/failed but no progression data (e.g. first-ever session)
         raise HTTPException(status_code=404, detail="Progression data not available")
+ 
 
     return json.loads(record["progression_output"])
