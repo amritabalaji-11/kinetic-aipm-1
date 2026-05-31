@@ -25,7 +25,7 @@ async function uploadVideo(videoFile, exercise, weight, weightUnit = "kg"){
     const normalizedUnit = weightUnit === "lbs" ? "lb" : weightUnit
 
     formData.append("file", videoFile)
-    formData.append("exercise_id", exercise)
+    formData.append("exercise_name", exercise)
     formData.append("weight_value", String(weight))
     formData.append("weight_unit", normalizedUnit)
     formData.append("user_id", userId)

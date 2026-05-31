@@ -315,8 +315,8 @@ Return ONLY valid JSON matching this exact schema:
             await db.execute(
                 """
                 INSERT INTO progression_results (
-                    session_id,
                     user_id,
+                    session_id,
                     analysis_id,
                     available,
                     progress_direction,
@@ -366,7 +366,7 @@ Return ONLY valid JSON matching this exact schema:
             # -----------------------------------------
             await sse_manager.send_event(
                 analysis_id,
-                "haiku_call_2_complete",
+                "progression_ready",
                 100,
                 "complete",
                 {"progression_output": result}

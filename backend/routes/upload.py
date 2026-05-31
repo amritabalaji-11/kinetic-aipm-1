@@ -31,13 +31,22 @@ ALLOWED_MIME_TYPES = {
 
 @router.post("/upload")
 async def upload(
-    background_tasks: BackgroundTasks,
     file: UploadFile = File(...),
-    exercise_name: str = Form(...),
-    weight_value: float = Form(...),
-    weight_unit: str = Form(...),
-    user_id: str = Form(...),
-    session_id: str = Form(...)
+    exercise: str = Form(None),
+    exercise_name: str = Form(None),
+    weight: float = Form(None),
+    weight_value: float = Form(None),
+    weight_unit: str = Form("lbs"),
+    user_id: str = Form("00000000-0000-0000-0000-000000000000"),
+    session_id: str = Form(None),
+    background_tasks: BackgroundTasks = BackgroundTasks()
+  #  background_tasks: BackgroundTasks,
+  #  file: UploadFile = File(...),
+  #  exercise_name: str = Form(...),
+  #  weight_value: float = Form(...),
+  #  weight_unit: str = Form(...),
+  #  user_id: str = Form(...),
+  #  session_id: str = Form(...)
 ):
 
     # =========================================================
