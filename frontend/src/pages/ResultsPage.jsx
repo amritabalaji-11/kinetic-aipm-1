@@ -267,20 +267,28 @@ export default function ResultsPage() {
   const glowRef    = useRef(null)
   const videoPreviewUrl = state?.videoPreviewUrl ?? null
 
-  // ── Tab state (kept from HEAD: "analysis" | "progression") ──────────────
   const [tab, setTab] = useState("analysis")
 
-  // ── Progression fetch state (merged from origin/main) ───────────────────
   const [progressionData,  setProgressionData]  = useState(null)
-  const [progressionState, setProgressionState] = useState("idle") // idle | loading | ready | error
+  const [progressionState, setProgressionState] = useState("idle")
+
+  const [profileImages,  setProfileImages]  = useState(null)
+  const [profileLoading, setProfileLoading] = useState(true)
 
   const analysisId = state?.analysisId
+  const userId     = state?.analysisResult?.user_id ?? "dev-user"
   const BASE_URL   = import.meta.env.VITE_API_URL || "http://localhost:8000"
 
-  // Fetch progression data when the progression tab is opened (real sessions only)
+  useEffect(() => {
+    if (!userId) return
+    fetch(`${BASE_URL}/users/${userId}/profile-images`)
+      .then(r => r.ok ? r.json() : null)
+      .then(d => { setProfileImages(d); setProfileLoading(false) })
+      .catch(() => setProfileLoading(false))
+  }, [userId])
+
   useEffect(() => {
     if (tab !== "progression" || !analysisId || progressionData) return
-
     setProgressionState("loading")
     fetch(`${BASE_URL}/analysis/${analysisId}/progression`)
       .then(r => {
@@ -295,7 +303,6 @@ export default function ResultsPage() {
       .catch(() => setProgressionState("error"))
   }, [tab, analysisId, progressionData])
 
-  // ── Current session data ─────────────────────────────────────────────────
   const data = useMemo(() => {
     const real = state?.analysisResult
     if (!real) return MOCK
@@ -419,7 +426,6 @@ export default function ResultsPage() {
   const reps       = data.reps ?? []
   const params     = data.parameters ?? {}
   const verdict    = Array.isArray(data.verdict) ? data.verdict.join(" ") : (data.verdict ?? "")
-  const frameUrl   = data.annotated_frame_url ?? null
   const createdAt  = data.created_at
     ? new Date(data.created_at).toLocaleDateString("en-GB", { day: "numeric", month: "short" })
     : ""
@@ -429,12 +435,10 @@ export default function ResultsPage() {
     <div className="min-h-screen" style={{ backgroundColor: "#F0EFFE" }}>
       <div className="max-w-sm mx-auto pb-24">
 
-        {/* Header */}
         <div className="pt-6 pb-3 px-4 text-center">
           <h1 className="text-base font-bold text-gray-900">{exercise}</h1>
         </div>
 
-        {/* Tab toggle */}
         <div className="mx-4 mb-4 flex rounded-2xl p-1" style={{ background: "#EDE9FE" }}>
           {[["analysis", "Analysis"], ["progression", "Progression"]].map(([key, label]) => (
             <button
@@ -453,37 +457,30 @@ export default function ResultsPage() {
           ))}
         </div>
 
-        {/* ════════════════════════════════════════════════════════════════
-            ANALYSIS TAB
-        ════════════════════════════════════════════════════════════════ */}
         {tab === "analysis" && (
           <>
-            {/* Video / annotated frame */}
             <div className="mx-4 mb-4 bg-white rounded-2xl overflow-hidden border border-gray-100 shadow-sm" style={{ minHeight: 200 }}>
               {videoPreviewUrl ? (
                 <video src={videoPreviewUrl} className="w-full" style={{ display: "block", maxHeight: 300, objectFit: "cover" }} controls playsInline />
-              ) : frameUrl ? (
-                <img src={frameUrl} alt="Annotated frame" className="w-full object-cover" />
+              ) : profileLoading ? (
+                <div className="w-full h-52 animate-pulse" style={{ background: "#e0e7ff" }} />
+              ) : profileImages?.annotated_frame_url ? (
+                <div>
+                  <p className="text-xs text-gray-500 text-center pt-3 pb-1">Your worst rep — bottom position</p>
+                  <img
+                    src={profileImages.annotated_frame_url}
+                    alt="Annotated frame"
+                    className="w-full object-cover"
+                    onError={e => { e.target.style.display = "none" }}
+                  />
+                </div>
               ) : (
-                <div className="h-52 flex items-center justify-center relative" style={{ background: "#f8f7ff" }}>
-                  <div className="relative flex items-center justify-center">
-                    <div className="w-20 h-36 bg-gray-200 rounded-full opacity-40" />
-                    <div className="absolute top-4  left-0  w-4 h-4 rounded-full shadow-lg" style={{ background: "#ef4444", boxShadow: "0 0 8px #ef4444" }} />
-                    <div className="absolute top-16 left-8 w-4 h-4 rounded-full shadow-lg" style={{ background: "#f59e0b", boxShadow: "0 0 8px #f59e0b" }} />
-                    <div className="absolute bottom-2 left-12 w-4 h-4 rounded-full shadow-lg" style={{ background: "#fbbf24", boxShadow: "0 0 8px #fbbf24" }} />
-                  </div>
-                  <div className="absolute inset-0 flex items-center justify-center">
-                    <div className="w-12 h-12 rounded-full bg-gray-800 bg-opacity-50 flex items-center justify-center">
-                      <svg className="w-5 h-5 text-white ml-1" fill="currentColor" viewBox="0 0 24 24">
-                        <path d="M8 5v14l11-7z" />
-                      </svg>
-                    </div>
-                  </div>
+                <div className="h-52 flex items-center justify-center text-xs text-gray-400">
+                  Frame not available
                 </div>
               )}
             </div>
 
-            {/* AI Verdict card */}
             <div
               ref={glowRef}
               className="mx-4 mb-4 rounded-2xl p-4 shadow-lg"
@@ -529,7 +526,6 @@ export default function ResultsPage() {
               </div>
             </div>
 
-            {/* Key Insights */}
             <div className="mx-4 mb-4">
               <div className="flex items-center gap-2 mb-3">
                 <svg className="w-4 h-4" style={{ color: "#F97316" }} fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
@@ -544,7 +540,6 @@ export default function ResultsPage() {
               ))}
             </div>
 
-            {/* Performance over reps */}
             <div className="mx-4 mb-4 bg-white rounded-2xl p-4 shadow-sm">
               <div className="flex items-center gap-2 mb-2">
                 <svg className="w-4 h-4 text-indigo-500" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
@@ -555,7 +550,6 @@ export default function ResultsPage() {
               <RepChart reps={reps} />
             </div>
 
-            {/* Tips for next workout */}
             <div className="mx-4 mb-6 bg-white rounded-2xl p-4 shadow-sm border border-gray-100">
               <div className="flex items-center gap-2 mb-3">
                 <svg className="w-5 h-5 text-indigo-400" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
@@ -572,34 +566,69 @@ export default function ResultsPage() {
           </>
         )}
 
-        {/* ════════════════════════════════════════════════════════════════
-            PROGRESSION TAB
-        ════════════════════════════════════════════════════════════════ */}
         {tab === "progression" && progressionState === "loading" && (
           <div className="mx-4 mt-6 flex flex-col items-center gap-3 text-gray-400">
-            <div className="w-6 h-6 rounded-full border-2 border-gray-200 border-t-teal-400 animate-spin" />
+            <div className="w-6 h-6 rounded-full border-2 border-gray-200 border-t-indigo-400 animate-spin" />
             <p className="text-sm">Loading comparison...</p>
           </div>
         )}
 
         {tab === "progression" && progressionState !== "loading" && (
-          <div className="mx-4 bg-white rounded-2xl p-6 text-center shadow-sm">
-            {progressionState === "ready" && progressionData ? (
-              // TODO: render progressionData here
-              <p className="text-sm text-gray-500 leading-relaxed">Progression data loaded.</p>
+          <div className="mx-4 bg-white rounded-2xl p-5 shadow-sm">
+            {progressionState === "ready" && progressionData?.available ? (
+              <div className="text-left">
+                <p className="text-sm font-semibold text-gray-800 mb-3 leading-relaxed">{progressionData.progression_verdict}</p>
+                {progressionData.weight_recommendation && (
+                  <div className="rounded-xl px-3 py-2 mb-3" style={{ background: "#EDE9FE" }}>
+                    <p className="text-xs font-bold text-indigo-600 uppercase mb-0.5">Weight Recommendation</p>
+                    <p className="text-xs text-gray-700 capitalize">{progressionData.weight_recommendation.action} — {progressionData.weight_recommendation.reason}</p>
+                  </div>
+                )}
+                {progressionData.focus_this_week && (
+                  <div className="mb-3">
+                    <p className="text-xs font-bold text-gray-500 uppercase mb-1">Focus This Week</p>
+                    <p className="text-xs text-gray-700 leading-relaxed">{progressionData.focus_this_week}</p>
+                  </div>
+                )}
+                <div className="grid grid-cols-2 gap-2 mb-3">
+                  {[
+                    ["Posture", progressionData.posture_trend],
+                    ["Stability", progressionData.stability_trend],
+                    ["Range of Motion", progressionData.range_of_motion_trend],
+                    ["Movement Quality", progressionData.movement_quality_trend],
+                  ].filter(([, v]) => v).map(([label, value]) => (
+                    <div key={label} className="rounded-xl px-3 py-2 border border-gray-100">
+                      <p className="text-xs font-bold text-gray-400 uppercase mb-0.5">{label}</p>
+                      <p className="text-xs text-gray-700 leading-snug">{value}</p>
+                    </div>
+                  ))}
+                </div>
+                {profileLoading ? (
+                  <div className="w-full h-32 rounded-xl animate-pulse" style={{ background: "#e0e7ff" }} />
+                ) : profileImages?.progress_ladder_image_url ? (
+                  <div className="mt-2">
+                    <p className="text-xs font-bold text-gray-500 uppercase mb-2">Progress Ladder</p>
+                    <img
+                      src={profileImages.progress_ladder_image_url}
+                      alt="Progress ladder"
+                      className="w-full rounded-xl"
+                      onError={e => { e.target.style.display = "none" }}
+                    />
+                  </div>
+                ) : null}
+              </div>
             ) : (
-              <>
+              <div className="text-center py-4">
                 <div className="text-2xl mb-3">📈</div>
                 <p className="text-sm text-gray-500 leading-relaxed">
                   You haven't done a previous session for this exercise yet. Upload another session to unlock comparison.
                 </p>
-              </>
+              </div>
             )}
           </div>
         )}
 
-        {/* CTAs */}
-        <div className="mx-4 flex flex-col gap-3">
+        <div className="mx-4 mt-4 flex flex-col gap-3">
           <button
             type="button"
             onClick={() => navigate("/upload")}
@@ -619,7 +648,6 @@ export default function ResultsPage() {
         </div>
       </div>
 
-      {/* Bottom nav */}
       <div className="fixed bottom-0 left-0 right-0 bg-white border-t border-gray-100 flex justify-around items-center py-2 px-4">
         {[
           { label: "Home",     icon: "M3 12l2-2m0 0l7-7 7 7M5 10v10a1 1 0 001 1h3m10-11l2 2m-2-2v10a1 1 0 01-1 1h-3m-6 0a1 1 0 001-1v-4a1 1 0 011-1h2a1 1 0 011 1v4a1 1 0 001 1m-6 0h6", path: "/" },
