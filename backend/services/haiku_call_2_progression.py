@@ -122,6 +122,7 @@ async def run_haiku_call_2(analysis_id: str):
             current = await db.fetch_one(
                 """
                 SELECT
+                    far.session_id,
                     far.analysis_id,
                     far.user_id,
                     far.exercise_id,
@@ -131,7 +132,7 @@ async def run_haiku_call_2(analysis_id: str):
                     far.tempo_score,
                     far.movement_quality_score,
                     far.rep_scores,
-                    fa.weight_kg_normalised,
+                    far.weight_kg_normalised,
                     fa.created_at
                 FROM form_analysis_results far
                 JOIN form_analyses fa
@@ -146,17 +147,19 @@ async def run_haiku_call_2(analysis_id: str):
                 return
 
             print("[Haiku Call 2] Current session loaded")
+            session_id = current["session_id"]
+            user_id = current["user_id"]
 
             # -----------------------------------------
             # PREVIOUS SESSION
             # Same user_id + exercise_id, immediately prior by created_at
             # Fetch coaching_output so we can extract next_session_focus
             # -----------------------------------------
-            exercise_id = current.get("exercise_id") or "goblet_squat"
-
+            exercise_id = current["exercise_id"] if current else "goblet_squat"
             previous = await db.fetch_one(
                 """
                 SELECT
+                    far.session_id,
                     far.analysis_id,
                     far.overall_form_score,
                     far.posture_score,
@@ -165,7 +168,7 @@ async def run_haiku_call_2(analysis_id: str):
                     far.movement_quality_score,
                     far.rep_scores,
                     far.coaching_output,
-                    fa.weight_kg_normalised,
+                    far.weight_kg_normalised,
                     fa.created_at
                 FROM form_analysis_results far
                 JOIN form_analyses fa
@@ -223,8 +226,7 @@ async def run_haiku_call_2(analysis_id: str):
                 else:
                     previous_coaching = previous["coaching_output"]
 
-            previous_focus = previous_coaching.get("next_session_focus", [])
-
+            previous_focus = previous_coaching["next_session_focus"] if previous_coaching else []
             # -----------------------------------------
             # PROMPT
             # Includes both sessions' 4 parameter scores + overall + weight
@@ -313,6 +315,8 @@ Return ONLY valid JSON matching this exact schema:
             await db.execute(
                 """
                 INSERT INTO progression_results (
+                    session_id,
+                    user_id,
                     analysis_id,
                     available,
                     progress_direction,
@@ -324,7 +328,9 @@ Return ONLY valid JSON matching this exact schema:
                     range_of_motion_trend,
                     movement_quality_trend
                 )
-                VALUES (
+                VALUES (                    
+                    :user_id,
+                    :session_id,
                     :analysis_id,
                     :available,
                     :progress_direction,
@@ -338,6 +344,8 @@ Return ONLY valid JSON matching this exact schema:
                 )
                 """,
                 values={
+                    "user_id":              user_id,
+                    "session_id":           session_id,
                     "analysis_id":          analysis_id,
                     "available":            True,
                     "progress_direction":   result["progress_direction"],
