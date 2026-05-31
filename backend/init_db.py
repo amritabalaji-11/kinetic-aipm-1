@@ -28,27 +28,34 @@ CREATE TABLE IF NOT EXISTS user_profiles (
         )
         """
     
-CREATE_FORM_ANALYSES_SQL = """ 
+CREATE_FORM_ANALYSES_SQL = """
 CREATE TABLE IF NOT EXISTS form_analyses (
-        session_id TEXT PRIMARY KEY,
-        user_id TEXT NOT NULL REFERENCES user_profiles(user_id) ON DELETE CASCADE,
-        exercise_name TEXT NOT NULL DEFAULT 'goblet_squat',
-        weight_value REAL NULL,
-        weight_unit TEXT NULL DEFAULT 'kg',
-        weight_kg REAL NULL,
-        video_url TEXT NOT NULL,
-        status TEXT NOT NULL DEFAULT 'queued',
-        quality_gate_status TEXT NULL,
-        video_score REAL NULL,
-        analysis_id TEXT NULL,
-        filename TEXT NULL,
-        size_mb REAL NULL,
-        progression_output TEXT NULL,
-        created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
-        
-        biomechanics_json TEXT,
-        error_code TEXT,
-        llm_json TEXT
+    analysis_id TEXT PRIMARY KEY,
+    session_id TEXT NOT NULL,
+    user_id TEXT NOT NULL,
+    exercise_id TEXT NOT NULL,
+    weight_value REAL NOT NULL,
+    weight_unit TEXT NOT NULL,
+    weight_kg_normalised REAL NOT NULL,
+    video_url TEXT NOT NULL,
+    status TEXT NOT NULL,
+    overlay_video_url TEXT,
+    biomechanics_json TEXT,
+    error_code TEXT,
+    rep_count INTEGER,
+
+    filename TEXT,
+    size_mb REAL,
+    progression_output TEXT,
+
+    -- S2-W8-01: Haiku Call 2 async job tracking fields
+    haiku_call_2_status TEXT DEFAULT 'queued',
+    haiku_call_2_queued_at TEXT,
+    haiku_call_2_started_at TEXT,
+    haiku_call_2_completed_at TEXT,
+    haiku_call_2_error TEXT,
+
+    created_at TEXT NOT NULL
 )
 """
 
@@ -165,9 +172,15 @@ def init_db():
 
     cursor.execute(CREATE_FORM_ANALYSES_SQL)
     for col, definition in [
-        ("progression_output", "TEXT"),
-        ("filename", "TEXT"),
-        ("size_mb", "REAL"),
+        ("progression_output",       "TEXT"),
+        ("filename",                 "TEXT"),
+        ("size_mb",                  "REAL"),
+        # S2-W8-01: Haiku Call 2 async job tracking fields
+        ("haiku_call_2_status",      "TEXT DEFAULT 'queued'"),
+        ("haiku_call_2_queued_at",   "TEXT"),
+        ("haiku_call_2_started_at",  "TEXT"),
+        ("haiku_call_2_completed_at","TEXT"),
+        ("haiku_call_2_error",       "TEXT"),
     ]:
         try:
             cursor.execute(f"ALTER TABLE form_analyses ADD COLUMN {col} {definition}")
