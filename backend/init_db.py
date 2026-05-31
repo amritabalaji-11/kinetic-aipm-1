@@ -45,6 +45,7 @@ CREATE TABLE IF NOT EXISTS form_analyses (
         size_mb REAL NULL,
         progression_output TEXT NULL,
         created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
+        
         biomechanics_json TEXT,
         error_code TEXT,
         llm_json TEXT
