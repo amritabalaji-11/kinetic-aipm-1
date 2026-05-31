@@ -343,8 +343,21 @@ async def run_mediapipe_analysis(analysis_id: str, file_location: str):
         })
 
         # -------------------------------------------------
-        # STEP 8 —  progression_ready: Haiku Call 2 (async, does not block analysis_ready)
+        # STEP 8 — progression_ready: Haiku Call 2 (async, does not block analysis_ready)
+        # S2-W8-01: stamp queued_at before firing so the status endpoint
+        # can return accurate timing even before the job starts running.
         # -------------------------------------------------
+        from datetime import datetime, timezone
+        from db.database import db as _pipeline_db
+        await _pipeline_db.execute(
+            """
+            UPDATE form_analyses
+            SET haiku_call_2_status    = 'queued',
+                haiku_call_2_queued_at  = :ts
+            WHERE analysis_id = :aid
+            """,
+            values={"ts": datetime.now(timezone.utc).isoformat(), "aid": analysis_id},
+        )
 
         asyncio.create_task(run_haiku_call_2(analysis_id)
         )

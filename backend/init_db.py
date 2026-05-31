@@ -27,6 +27,13 @@ CREATE TABLE IF NOT EXISTS form_analyses (
     -- Haiku Call 2 output (Step 9) — longitudinal coaching for Tab 2
     progression_output TEXT,
 
+    -- S2-W8-01: Haiku Call 2 async job tracking fields
+    haiku_call_2_status TEXT DEFAULT 'queued',
+    haiku_call_2_queued_at TEXT,
+    haiku_call_2_started_at TEXT,
+    haiku_call_2_completed_at TEXT,
+    haiku_call_2_error TEXT,
+
     created_at TEXT NOT NULL
 )
 """
@@ -88,9 +95,15 @@ def init_db():
     cursor.execute(CREATE_FORM_ANALYSES_SQL)
 
     for col, definition in [
-        ("progression_output", "TEXT"),
-        ("filename", "TEXT"),
-        ("size_mb", "REAL"),
+        ("progression_output",       "TEXT"),
+        ("filename",                 "TEXT"),
+        ("size_mb",                  "REAL"),
+        # S2-W8-01: Haiku Call 2 async job tracking fields
+        ("haiku_call_2_status",      "TEXT DEFAULT 'queued'"),
+        ("haiku_call_2_queued_at",   "TEXT"),
+        ("haiku_call_2_started_at",  "TEXT"),
+        ("haiku_call_2_completed_at","TEXT"),
+        ("haiku_call_2_error",       "TEXT"),
     ]:
         try:
             cursor.execute(f"ALTER TABLE form_analyses ADD COLUMN {col} {definition}")
