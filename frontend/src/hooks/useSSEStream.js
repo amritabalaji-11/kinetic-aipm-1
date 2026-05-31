@@ -115,7 +115,7 @@ function useSSEStream(analysisId) {
       }
 
       // --- Final event ---
-      if (eventName === "progression_ready") {
+      if (eventName === "progression_ready" || eventName === "haiku_call_2_no_history" || eventName === "haiku_call_2_complete") {
         const lastIndex = PIPELINE_STEPS.findIndex(s => s.completeOn === "progression_ready")
         if (lastIndex !== -1) updateStep(lastIndex, "complete")
 
