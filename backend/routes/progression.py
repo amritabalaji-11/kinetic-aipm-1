@@ -13,7 +13,7 @@ async def get_progression(analysis_id: str):
     Returns progression coaching + progression assets
     for the requested analysis_id.
     """
-<<<<<<< HEAD
+ 
 
     # =====================================================
     # FETCH PROGRESSION RESULT
@@ -28,11 +28,6 @@ async def get_progression(analysis_id: str):
         {
             "aid": analysis_id
         }
-=======
-    record = await db.fetch_one(
-        "SELECT * FROM progression_results WHERE analysis_id = $1",
-        analysis_id,
->>>>>>> main
     )
 
     # -----------------------------------------------------
