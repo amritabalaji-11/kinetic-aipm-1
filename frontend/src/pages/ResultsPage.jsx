@@ -280,19 +280,39 @@ export default function ResultsPage() {
   // Fetch progression data when the progression tab is opened (real sessions only)
   useEffect(() => {
     if (tab !== "progression" || !analysisId || progressionData) return
-
+  
     setProgressionState("loading")
+  
     fetch(`${BASE_URL}/analysis/${analysisId}/progression`)
-      .then(r => {
-        if (r.status === 202) throw new Error("still_processing")
-        if (!r.ok)            throw new Error("not_available")
+      .then(async (r) => {
+        // still processing → keep loading, DO NOT treat as error
+        if (r.status === 202) {
+          setProgressionState("loading")
+          return null
+        }
+  
+        if (!r.ok) {
+          throw new Error("not_available")
+        }
+  
         return r.json()
       })
-      .then(d => {
-        setProgressionData(d)
-        setProgressionState("ready")
+      .then((d) => {
+        if (!d) return
+  
+        // backend might return wrapped or flat
+        const normalized = d?.progression_output ?? d
+  
+        setProgressionData(normalized)
+        if (normalized?.available === false) {
+          setProgressionState("empty")
+        } else {
+          setProgressionState("ready")
+        }
       })
-      .catch(() => setProgressionState("error"))
+      .catch(() => {
+        setProgressionState("error")
+      })
   }, [tab, analysisId, progressionData])
 
   // ── Current session data ─────────────────────────────────────────────────
@@ -575,28 +595,33 @@ export default function ResultsPage() {
         {/* ════════════════════════════════════════════════════════════════
             PROGRESSION TAB
         ════════════════════════════════════════════════════════════════ */}
-        {tab === "progression" && progressionState === "loading" && (
-          <div className="mx-4 mt-6 flex flex-col items-center gap-3 text-gray-400">
-            <div className="w-6 h-6 rounded-full border-2 border-gray-200 border-t-teal-400 animate-spin" />
-            <p className="text-sm">Loading comparison...</p>
-          </div>
-        )}
+{tab === "progression" && progressionState === "loading" && (
+  <div className="mx-4 mt-6 flex flex-col items-center gap-3 text-gray-400">
+    <div className="w-6 h-6 rounded-full border-2 border-gray-200 border-t-teal-400 animate-spin" />
+    <p className="text-sm">Loading comparison...</p>
+  </div>
+)}
 
-        {tab === "progression" && progressionState !== "loading" && (
-          <div className="mx-4 bg-white rounded-2xl p-6 text-center shadow-sm">
-            {progressionState === "ready" && progressionData ? (
-              // TODO: render progressionData here
-              <p className="text-sm text-gray-500 leading-relaxed">Progression data loaded.</p>
-            ) : (
-              <>
-                <div className="text-2xl mb-3">📈</div>
-                <p className="text-sm text-gray-500 leading-relaxed">
-                  You haven't done a previous session for this exercise yet. Upload another session to unlock comparison.
-                </p>
-              </>
-            )}
-          </div>
-        )}
+{tab === "progression" && progressionState === "ready" && progressionData?.available && (
+  <div className="mx-4 bg-white rounded-2xl p-6 shadow-sm">
+    <p className="text-sm font-semibold mb-2">
+      {progressionData.progression_verdict}
+    </p>
+
+    <p className="text-xs text-gray-500">
+      {progressionData.focus_this_week}
+    </p>
+  </div>
+)}
+
+{tab === "progression" && (progressionState === "error" || progressionState === "empty" || !progressionData?.available) && (
+  <div className="mx-4 bg-white rounded-2xl p-6 text-center shadow-sm">
+    <div className="text-2xl mb-3">📈</div>
+    <p className="text-sm text-gray-500">
+      You haven't done a previous session for this exercise yet. Upload another session to unlock comparison.
+    </p>
+  </div>
+)}
 
         {/* CTAs */}
         <div className="mx-4 flex flex-col gap-3">

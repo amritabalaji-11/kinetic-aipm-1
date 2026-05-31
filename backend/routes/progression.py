@@ -70,7 +70,7 @@ async def get_progression(analysis_id: str):
             level,
             injury_report,
             injury_details
-        FROM user_profile
+        FROM user_profiles
         WHERE user_id = :uid
         """,
         {
@@ -140,7 +140,7 @@ async def get_progression(analysis_id: str):
             weight_recommendation,
 
         "computed_at":
-            progression["computed_at"],
+            progression["created_at"],
 
         # =================================================
         # USER PROFILE ASSETS
