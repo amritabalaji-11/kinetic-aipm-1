@@ -178,3 +178,18 @@ async def get_progression(analysis_id: str):
                 if profile else None,
         }
     }
+
+@router.get("/users/{user_id}/profile-images")
+async def get_profile_images(user_id: str):
+    profile = await db.fetch_one(
+        """
+        SELECT annotated_frame_url, progress_ladder_image_url
+        FROM user_profile
+        WHERE user_id = :uid
+        """,
+        {"uid": user_id}
+    )
+    return {
+        "annotated_frame_url": profile["annotated_frame_url"] if profile else None,
+        "progress_ladder_image_url": profile["progress_ladder_image_url"] if profile else None,
+    }
