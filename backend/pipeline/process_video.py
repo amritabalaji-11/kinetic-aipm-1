@@ -315,7 +315,7 @@ async def run_mediapipe_analysis(analysis_id: str, file_location: str):
         )
 
         # Write to form_analysis_results — required for Haiku Call 2 to find this session
-        await _store_analysis_results(analysis_id, user_id, record, mp_result, coaching_output)
+        await _store_analysis_results(analysis_id, user_id, session_id, record, mp_result, coaching_output)
 
         overall_score = coaching_output.get("overall_form_score", 0)
         
@@ -423,6 +423,7 @@ async def _store_failed(analysis_id: str, reason: str, detail=None):
 async def _store_analysis_results(
     analysis_id: str,
     user_id: str,
+    session_id: str,
     record: dict,
     mp_result: dict,
     coaching_output: dict,
@@ -475,7 +476,7 @@ async def _store_analysis_results(
         """,
         values={
             "analysis_id":            analysis_id,
-            "session_id":             record["session_id"] if record else "",
+            "session_id":             session_id or "00000000-0000-0000-0000-000000000000",
             "user_id":                user_id,
             # "exercise_id":            record["exercise_id"] if record else "goblet_squat",
             "exercise_id":            mp_result.get("exercise_name", "goblet_squat"),
