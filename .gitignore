@@ -10,3 +10,5 @@ backend/mediapipe_code/videos/
 backend/mediapipe_code/video_results/
 *.pyc
 *.db
+*.mp4
+ffmpeg

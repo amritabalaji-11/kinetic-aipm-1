@@ -1,9 +1,6 @@
 from collections import Counter
 import datetime
-import json
 import os
-import time
-import uuid
 import mediapipe as mp
 import cv2
 from mediapipe_code.mp_utils.pose.pose_landmarks import LEFT_HIP, LEFT_KNEE, RIGHT_HIP, RIGHT_KNEE
@@ -16,11 +13,11 @@ from mediapipe_code.mp_utils.trackers.exercise_trackers import (
     PassiveStabilityTracker,
     PassiveTempoTracker,
 )
-from mediapipe_code.mp_utils.visualization.draw_methods import add_text_lines, annotate_frame, draw_points_and_lines, extract_worst_frame
+from mediapipe_code.mp_utils.visualization.draw_methods import annotate_frame, extract_worst_frame, overlay_frame
 from mediapipe_code.mp_utils.geometry.angle_methods import detect_camera_view
 from mediapipe_code.mp_utils.quality.landmark_quality_configuration import (
-    LANDMARKS, LEFT_SIDE, LEG_CONNECTIONS, LEG_CONNECTIONS_LEFT_SIDE, LEG_CONNECTIONS_RIGHT_SIDE, LEG_TARGET_LANDMARKS, MEDIAPIPE_MODEL, 
-    PRESENCE_THRESHOLD, RIGHT_SIDE, 
+    LANDMARKS, MEDIAPIPE_MODEL, 
+    PRESENCE_THRESHOLD, 
     VISIBILITY_THRESHOLD, FrameAssessment )
 from mediapipe_code.mp_utils.quality.landmark_quality_methods import (
     build_composite_from_frames,
@@ -31,7 +28,6 @@ from mediapipe_code.mp_utils.quality.landmark_quality_methods import (
     format_rep_data,
     get_first_pose,
     get_y,
-    get_y_px,
     resize_video,
     safe_get_landmark, 
     select_landmarks_by_view,
@@ -446,25 +442,17 @@ class LandmarkQualityFramework:
                     active_rep_number = 0
 
                 if active_rep_number > 0:
-                    append_bottom_frames(
-                        {
-                            "frame_index": frame_index,
-                            "frame_bgr": frame_bgr,
-                            "camera_view": camera_view,
-                            "norm_pose": norm_pose,
-                            "width": width,
-                            "height": height,
-                            "hip_angle": hip_angle,
-                            "knee_angle": knee_angle,
-                            "back_angle_value": back_angle_value,
-                            "back_label": "Excellent" if back_tracker.back_angle_at_bottom is not None and back_tracker.back_angle_at_bottom <= (18 if "side" in camera_view else 20) else "Good" if back_tracker.back_angle_at_bottom is not None and back_tracker.back_angle_at_bottom <= (28 if "side" in camera_view else 30) else "Warning",
-                            "valgus_label": "Warning" if (stability_tracker.rep_frames and min((f["knee_distance"] for f in stability_tracker.rep_frames if f["knee_distance"] is not None), default=1.0) < 0.22) else "Good",
-                            "depth_classification": "Excellent" if (depth_tracker.knee_angle_at_bottom <= (70 if "side" in camera_view else 90)) else "Good" if (depth_tracker.knee_angle_at_bottom <= (90 if "side" in camera_view else 105)) else "Warning",
-                            "dorsiflexion_status": "good" if (ankle_tracker.dorsiflexion_at_bottom >= (30 if "side" in camera_view else 25)) else "restricted",
-                            "dorsiflexion_at_bottom": ankle_tracker.dorsiflexion_at_bottom,
-                            "rep_number": active_rep_number
-                        }
-                    )
+                     append_bottom_frames(
+                            {"frame_index": frame_index,
+                             "frame_bgr": frame_bgr,
+                             "camera_view":camera_view,
+                             "norm_pose":norm_pose,
+                             "width":width,
+                             "height":height,
+                             "hip_angle": hip_angle,
+                             "knee_angle":knee_angle,
+                             "rep_number":rep_counter.rep_count}
+                        )
 
                 # -------------------------------------------------
                 # REP COMPLETED
@@ -542,9 +530,9 @@ class LandmarkQualityFramework:
 
         quality_result["analysis_id"] = analysis_id
 
-        quality_result["event"] = "mediapipe_complete"
+        #quality_result["event"] = "mediapipe_complete"
 
-        print(quality_result)
+        #print(quality_result)
         
 
         if quality_result["event"] != "mediapipe_complete":
@@ -625,6 +613,7 @@ if __name__ == "__main__":
 
     if final_json and os.path.exists(analysis_path):
         try:
-            frame = extract_worst_frame(input_dir, analysis_path, rep_frames_list, "v1_fault")
+            frame, frame_data, dominant_camera_view, rep_data = extract_worst_frame(input_dir, analysis_path, rep_frames_list, final_json)
+            annotated_worst_frame = overlay_frame(frame, frame_data, dominant_camera_view, rep_data, output_filename="user_001_side_17.5kg")
         except Exception as e:
             print("Could not extract worst frame:", e)
