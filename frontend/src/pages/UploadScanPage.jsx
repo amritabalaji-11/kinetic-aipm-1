@@ -370,7 +370,7 @@ function UploadScanPage() {
               </ul>
             </>
           )}
-        </section>}}
+        </section>}
 
         <section>
           <h2 className="text-base font-semibold text-text-primary mb-3">Upload Session Video</h2>
