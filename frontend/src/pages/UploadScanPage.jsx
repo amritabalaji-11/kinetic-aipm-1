@@ -126,16 +126,6 @@ function UploadScanPage() {
     setSelectedGroup((prev) => prev === groupId ? null : groupId)
   }
 
-  useEffect(() => {
-    if (!selectedGroup) return
-    const ids = activeGroup?.exercises.map((e) => e.id) || []
-    if (exercise && !ids.includes(exercise)) setExercise("")
-  }, [selectedGroup])
-
-  function handleMuscleGroupClick(groupId) {
-    setSelectedGroup((prev) => prev === groupId ? null : groupId)
-  }
-
   function handleFileChange(e) {
     const file = e.target.files[0]
     if (!file) return
