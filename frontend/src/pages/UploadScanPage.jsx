@@ -1,7 +1,8 @@
 import { useState, useEffect } from "react"
 import { useNavigate } from "react-router-dom"
-import { Upload, CheckCircle, AlertCircle, RotateCw, Check, ChevronDown, Play } from "lucide-react"
+import { Upload, CheckCircle, AlertCircle, RotateCw, Check, ChevronDown, Play, X } from "lucide-react"
 import { uploadVideo } from "../services/uploadService"
+import { validateVideoFile } from "../utils/validateVideo"
 
 // ─── Muscle groups ────────────────────────────────────────────────────────────
 // Hit zones are invisible overlays — positioned to match the anatomy image.
@@ -78,11 +79,20 @@ const MUSCLE_GROUPS = [
 ]
 
 const MAX_FILE_SIZE_MB    = 500
-const ACCEPTED_FORMATS    = ["video/mp4", "video/quicktime", "video/webm"]
-const ACCEPTED_EXTENSIONS = ".mp4, .mov, .webm"
-const MIN_WEIGHT          = 0
-const MAX_WEIGHT          = 200
-const WEIGHT_STEP         = 0.5
+const ACCEPTED_FORMATS    = [
+  "video/mp4",
+  "video/quicktime",
+  "video/x-msvideo",
+  "video/avi",
+  "video/msvideo",
+  "video/webm",
+]
+const ACCEPTED_EXTENSIONS = ".mp4, .mov, .avi, .webm"
+
+const MIN_WEIGHT  = 0
+const MAX_WEIGHT  = 200
+const WEIGHT_STEP = 0.5
+
 
 function UploadScanPage() {
   const navigate = useNavigate()
@@ -93,22 +103,26 @@ function UploadScanPage() {
   const [videoFile,       setVideoFile]       = useState(null)
   const [videoPreviewUrl, setVideoPreviewUrl] = useState(null)
   const [weightTouched,   setWeightTouched]   = useState(false)
-  const [fileError,       setFileError]       = useState("")
+  const [validationError, setValidationError] = useState(null)
+  const [isValidating,    setIsValidating]    = useState(false)
   const [tipsExpanded,    setTipsExpanded]    = useState(true)
   const [unit,            setUnit]            = useState("kg")
   const [formAlert,       setFormAlert]       = useState("")
   const [isUploading,     setIsUploading]     = useState(false)
-  const [uploadError,     setUploadError]     = useState("")
+  const [uploadError,     setUploadError]     = useState(null)
 
-  const maxWeightForUnit = unit === "kg" ? MAX_WEIGHT : 440
-  const isWeightValid    = weight > 0
-  const isFormValid      = exercise && isWeightValid && videoFile && !fileError
-  const showWeightError  = weightTouched && !isWeightValid
+const maxWeightForUnit  = unit === "kg" ? MAX_WEIGHT : 440
+const isWeightValid     = weight > 0
+const isFormValid       = exercise && isWeightValid && videoFile && !validationError && !isValidating
+const showWeightError   = weightTouched && !isWeightValid
 
-  const activeGroup       = MUSCLE_GROUPS.find((g) => g.id === selectedGroup)
-  const visibleExercises  = activeGroup?.exercises ?? []
+const activeGroup      = MUSCLE_GROUPS.find((g) => g.id === selectedGroup)
+const visibleExercises = activeGroup?.exercises ?? []
 
-  const highlightedMuscle = selectedGroup === "legs" || exercise === "goblet-squat" || exercise === "barbell-squat"
+const highlightedMuscle =
+  selectedGroup === "legs" ||
+  exercise === "goblet-squat" ||
+  exercise === "barbell-squat"
     ? "quads"
     : selectedGroup ?? null
 
@@ -118,27 +132,36 @@ function UploadScanPage() {
 
   useEffect(() => {
     if (!selectedGroup) return
+  
     const ids = activeGroup?.exercises.map((e) => e.id) || []
-    if (exercise && !ids.includes(exercise)) setExercise("")
+  
+    if (exercise && !ids.includes(exercise)) {
+      setExercise("")
+    }
   }, [selectedGroup])
-
+  
   function handleMuscleGroupClick(groupId) {
-    setSelectedGroup((prev) => prev === groupId ? null : groupId)
+    setSelectedGroup((prev) => (prev === groupId ? null : groupId))
   }
-
-  function handleFileChange(e) {
+  
+  async function handleFileChange(e) {
     const file = e.target.files[0]
     if (!file) return
-    setFileError("")
-    if (!ACCEPTED_FORMATS.includes(file.type)) {
-      setFileError(`Unsupported format. Please upload ${ACCEPTED_EXTENSIONS}.`)
-      setVideoFile(null); setVideoPreviewUrl(null); return
+  
+    setValidationError(null)
+    setVideoFile(null)
+    setVideoPreviewUrl(null)
+    setIsValidating(true)
+  
+    const error = await validateVideoFile(file)
+  
+    setIsValidating(false)
+  
+    if (error) {
+      setValidationError(error)
+      return
     }
-    const fileSizeMB = file.size / (1024 * 1024)
-    if (fileSizeMB > MAX_FILE_SIZE_MB) {
-      setFileError(`File too large (${fileSizeMB.toFixed(1)} MB). Max ${MAX_FILE_SIZE_MB} MB. Try trimming the clip to the working set only.`)
-      setVideoFile(null); setVideoPreviewUrl(null); return
-    }
+  
     setVideoFile(file)
     setVideoPreviewUrl(URL.createObjectURL(file))
   }
@@ -158,17 +181,17 @@ function UploadScanPage() {
   async function handleSubmit() {
     if (!isFormValid) {
       const parts = []
-      if (!exercise)      parts.push("select an exercise")
-      if (!videoFile)     parts.push("upload a video")
-      if (!isWeightValid) parts.push("set weight greater than 0")
-      if (fileError)      parts.push("fix the file error above")
+      if (!exercise)        parts.push("select an exercise")
+      if (!videoFile)       parts.push("upload a video")
+      if (!isWeightValid)   parts.push("set weight greater than 0")
+      if (validationError)  parts.push("fix the file error above")
       setFormAlert(`Before starting: ${parts.join(", ")}.`)
       setWeightTouched(true)
       return
     }
 
     setFormAlert("")
-    setUploadError("")
+    setUploadError(null)
     setIsUploading(true)
 
     try {
@@ -177,7 +200,10 @@ function UploadScanPage() {
         state: { analysisId, videoPreviewUrl },
       })
     } catch (err) {
-      setUploadError(err.message || "Upload failed. Please try again.")
+      setUploadError({
+        type: err.code === "UPLOAD_TIMEOUT" ? "UPLOAD_TIMEOUT" : "UPLOAD_FAILED",
+        message: err.message || "Upload failed. Please try again.",
+      })
       setIsUploading(false)
     }
   }
@@ -393,7 +419,7 @@ function UploadScanPage() {
             <div className="border-2 border-dashed border-cyan-glow/60 rounded-xl p-6 bg-light-card text-center shadow-sm">
               <Upload size={36} className="text-text-teritary mx-auto mb-3" />
               <p className="text-sm font-medium text-text-primary mb-1">Upload Video</p>
-              <p className="text-xs text-text-teritary mb-4">MP4, MOV or WebM · max {MAX_FILE_SIZE_MB} MB</p>
+              <p className="text-xs text-text-teritary mb-4">MP4, MOV or AVI · max {MAX_FILE_SIZE_MB} MB</p>
               <button
                 type="button"
                 onClick={() => document.getElementById("video-upload").click()}
@@ -407,22 +433,62 @@ function UploadScanPage() {
           <input
             id="video-upload"
             type="file"
-            accept="video/mp4,video/quicktime,video/webm"
+            accept="video/mp4,video/quicktime,video/x-msvideo,video/avi,.mp4,.mov,.avi"
             onChange={handleFileChange}
             className="hidden"
           />
 
-          {videoFile && !fileError && (
+          {videoFile && !validationError && (
             <p className="text-xs text-text-teritary mt-2 flex items-center gap-1">
               <CheckCircle size={12} className="text-success" />
               {videoFile.name} · {(videoFile.size / (1024 * 1024)).toFixed(1)} MB
             </p>
           )}
-          {fileError && (
-            <p className="text-xs text-error mt-2 flex items-start gap-1">
-              <AlertCircle size={14} className="mt-0.5 flex-shrink-0" />
-              <span>{fileError}</span>
-            </p>
+
+{isValidating && (
+  <p className="text-xs text-text-teritary mt-2 flex items-center gap-1">
+    <span className="inline-block w-3 h-3 rounded-full border-2 border-cyan-glow border-t-transparent animate-spin" />
+    Checking file…
+  </p>
+)}
+
+          {validationError && (
+            <div role="alert" className="mt-2 rounded-lg border border-red-200 bg-red-50 p-3">
+              <div className="flex items-start gap-2">
+                <AlertCircle size={14} className="mt-0.5 shrink-0 text-error" />
+                <p className="flex-1 text-xs text-error leading-relaxed">{validationError.message}</p>
+                <button
+                  type="button"
+                  aria-label="Dismiss"
+                  onClick={() => { setValidationError(null); setVideoFile(null); setVideoPreviewUrl(null) }}
+                  className="shrink-0 text-error hover:text-red-700"
+                >
+                  <X size={14} />
+                </button>
+              </div>
+              <div className="mt-2 flex gap-3">
+                <button
+                  type="button"
+                  onClick={() => { setValidationError(null); setVideoFile(null); setVideoPreviewUrl(null) }}
+                  className="text-xs text-text-teritary underline hover:text-text-primary"
+                >
+                  Dismiss
+                </button>
+                {(validationError.type === "FILE_TOO_LARGE" || validationError.type === "FORMAT_UNSUPPORTED") && (
+                  <button
+                    type="button"
+                    onClick={() => {
+                      const input = document.getElementById("video-upload")
+                      input.value = ""
+                      input.click()
+                    }}
+                    className="text-xs font-medium text-cyan-glow underline hover:brightness-90"
+                  >
+                    Re-select file
+                  </button>
+                )}
+              </div>
+            </div>
           )}
         </section>
 
@@ -485,14 +551,14 @@ function UploadScanPage() {
         <button
           type="button"
           onClick={handleSubmit}
-          disabled={isUploading}
+          disabled={isUploading || isValidating}
           className={`w-full h-14 rounded-xl font-semibold tracking-wide transition-all ${
-            isFormValid && !isUploading
+            isFormValid && !isUploading && !isValidating
               ? "bg-gradient-to-r from-teal to-cyan-glow text-text-primary hover:brightness-105 shadow-md"
               : "bg-gray-100 text-text-secondary border border-gray-200"
           }`}
         >
-          {isUploading ? "UPLOADING..." : "START ANALYSIS →"}
+          {isUploading ? "UPLOADING..." : isValidating ? "VALIDATING..." : "START ANALYSIS →"}
         </button>
 
         {!isFormValid && !isUploading && (
@@ -509,10 +575,29 @@ function UploadScanPage() {
         )}
 
         {uploadError && (
-          <p className="text-xs text-error text-center flex items-start justify-center gap-1">
-            <AlertCircle size={14} className="mt-0.5 flex-shrink-0" />
-            <span>{uploadError}</span>
-          </p>
+          <div role="alert" className="rounded-lg border border-red-200 bg-red-50 p-3">
+            <div className="flex items-start gap-2">
+              <AlertCircle size={14} className="mt-0.5 shrink-0 text-error" />
+              <p className="flex-1 text-xs text-error leading-relaxed">{uploadError.message}</p>
+            </div>
+            {uploadError.type === "UPLOAD_TIMEOUT" ? (
+              <button
+                type="button"
+                onClick={handleSubmit}
+                className="mt-2 text-xs font-medium text-cyan-glow underline hover:brightness-90"
+              >
+                Try again
+              </button>
+            ) : (
+              <button
+                type="button"
+                onClick={() => setUploadError(null)}
+                className="mt-2 text-xs text-text-teritary underline hover:text-text-primary"
+              >
+                Dismiss
+              </button>
+            )}
+          </div>
         )}
 
         {import.meta.env.DEV && (
@@ -542,3 +627,4 @@ function UploadScanPage() {
 }
 
 export default UploadScanPage
+
