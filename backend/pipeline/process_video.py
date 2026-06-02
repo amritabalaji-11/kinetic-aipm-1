@@ -120,7 +120,7 @@ def _download_from_gcs(gcs_path: str, session_id: str) -> str:
     blob = bucket.blob(blob_path)
 
     # Each session gets its own subfolder so parallel uploads don't clash
-    temp_dir = os.path.join("./backend/mediapipe_code/videos/incoming", session_id)
+    temp_dir = os.path.join(".\\backend\\mediapipe_code\\videos\\incoming", session_id)
     os.makedirs(temp_dir, exist_ok=True)
 
     filename = os.path.basename(blob_path)
