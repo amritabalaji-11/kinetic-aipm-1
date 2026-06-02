@@ -332,10 +332,36 @@ async def run_mediapipe_analysis(analysis_id: str, file_location: str):
         # -------------------------------------------------
 
        # asyncio.create_task(fire_progression_ready()) #progression_ready runs async and does NOT block analysis_ready
-        print("[PIPELINE] scheduling haiku call 2")
-        asyncio.create_task(run_haiku_call_2(analysis_id))
-        print("[PIPELINE] scheduled haiku call 2")
+        print("[PIPELINE] checking eligibility for haiku call 2")
+        previous_session_exists = await db.fetch_one(
+            """
+            SELECT 1
+            FROM form_analysis_results far
+            JOIN form_analyses fa ON fa.analysis_id = far.analysis_id
+            WHERE far.user_id = :user_id
+            AND far.exercise_id = :exercise_id
+            AND far.analysis_id != :analysis_id
+            LIMIT 1
+            """,
+            values={
+                "user_id": user_id,
+                "exercise_id": mp_result.get("exercise_name", "goblet_squat"),
+                "analysis_id": analysis_id
+            }
+        )
 
+        if previous_session_exists:
+            print("[PIPELINE] scheduling haiku call 2")
+            asyncio.create_task(run_haiku_call_2(analysis_id))
+            print("[PIPELINE] scheduled haiku call 2")
+        else:
+            print("[PIPELINE] skipping haiku call 2 (no history)")
+            await sse_manager.send_event(
+                analysis_id,
+                "haiku_call_2_no_history",
+                100,
+                "complete"
+            )
         print(f"[pipeline] Completed analysis_id={analysis_id}, reps={rep_count}")
         return mp_result
 
@@ -468,7 +494,7 @@ async def _store_analysis_results(
             :posture_score,
             :stability_score,
             :movement_quality_score,
-            :tempo_score,
+            :range_of_motion_score,
             :rep_count,
             :rep_scores,
             :coaching_output
@@ -485,7 +511,8 @@ async def _store_analysis_results(
             "posture_score":          param_scores.get("posture"),
             "stability_score":        param_scores.get("stability"),
             "movement_quality_score": param_scores.get("movement_quality"),
-            "tempo_score":            param_scores.get("ROM"),
+            #"tempo_score":            param_scores.get("ROM"),
+            "range_of_motion_score": param_scores.get("range_of_motion"),
             "rep_count":              session.get("rep_count"),
             "rep_scores":             json.dumps(coaching_output.get("rep_scores", [])),
             "coaching_output":        json.dumps(coaching_output),
