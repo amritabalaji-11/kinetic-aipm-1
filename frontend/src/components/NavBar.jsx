@@ -1,73 +1,103 @@
 import { Link, useLocation } from "react-router-dom"
 import { Home, BookOpen, TrendingUp, User } from "lucide-react"
 
+const scanStyle = `
+  @keyframes scanLine {
+    0%   { top: 22%; }
+    50%  { top: 78%; }
+    100% { top: 22%; }
+  }
+`
+
 function NavBar() {
   const location = useLocation()
   const path = location.pathname
 
+  const isActive = (to) => path === to
+
   return (
     <>
-      {/* Mobile bottom nav */}
-      <nav className="md:hidden fixed bottom-0 left-0 right-0 bg-white border-t border-gray-200 flex items-center justify-around py-3 z-50">
-        <Link to="/" className={`flex flex-col items-center gap-1 ${path === "/" ? "text-teal" : "text-gray-400"}`}>
-          <Home size={20} />
-          <span className="text-xs">Home</span>
-        </Link>
+    <style>{scanStyle}</style>
+    <nav
+      className="fixed bottom-0 z-50 flex items-center justify-around px-2"
+      style={{
+        background: "white",
+        borderTop: "1px solid #f0eeff",
+        boxShadow: "0 -2px 16px rgba(108,92,231,0.07)",
+        width: "100%",
+        maxWidth: 430,
+        left: "50%",
+        transform: "translateX(-50%)",
+        height: 96,
+      }}
+    >
+      <Link
+        to="/"
+        className="flex flex-col items-center gap-0.5 py-1 px-3"
+        style={{ color: isActive("/") ? "#6C5CE7" : "#9ca3af" }}
+      >
+        <Home size={20} />
+        <span className="text-xs">Home</span>
+      </Link>
 
-        <Link to="/plan" className={`flex flex-col items-center gap-1 ${path === "/plan" ? "text-teal" : "text-gray-400"}`}>
-          <BookOpen size={20} />
-          <span className="text-xs">Plan</span>
-        </Link>
+      <Link
+        to="/plan"
+        className="flex flex-col items-center gap-0.5 py-1 px-3"
+        style={{ color: isActive("/plan") ? "#6C5CE7" : "#9ca3af" }}
+      >
+        <BookOpen size={20} />
+        <span className="text-xs">Plan</span>
+      </Link>
 
-        <Link to="/upload" className="-mt-4">
-          <div className="bg-blue-600 w-14 h-14 rounded-full flex items-center justify-center shadow-md">
-            <span className="text-white text-2xl">+</span>
-          </div>
-        </Link>
-
-        <Link to="/timeline" className={`flex flex-col items-center gap-1 ${path === "/timeline" ? "text-teal" : "text-gray-400"}`}>
-          <TrendingUp size={20} />
-          <span className="text-xs">Timeline</span>
-        </Link>
-
-        <Link to="/profile" className={`flex flex-col items-center gap-1 ${path === "/profile" ? "text-teal" : "text-gray-400"}`}>
-          <User size={20} />
-          <span className="text-xs">Profile</span>
-        </Link>
-      </nav>
-
-      {/* Desktop side nav */}
-      <nav className="hidden md:flex flex-col fixed left-0 top-0 h-full w-52 bg-white border-r border-gray-200 px-4 py-6 z-50">
-        <div className="mb-8">
-          <h1 className="font-bold text-lg text-text-primary">Kinetic</h1>
-          <p className="text-xs text-gray-400">AI Form Coach</p>
+      {/* Analysis — circle clipped tightly to just the gradient circle */}
+      <Link to="/upload" className="flex flex-col items-center gap-0.5">
+        <div
+          style={{
+            width: 56,
+            height: 56,
+            borderRadius: "50%",
+            backgroundImage: "url('/lifter_icon.png')",
+            backgroundSize: "132%",
+            backgroundPosition: "55% center",
+            position: "relative",
+            overflow: "hidden",
+          }}
+        >
+          {/* Scan line */}
+          <div style={{
+            position: "absolute",
+            left: "28%",
+            right: "28%",
+            height: 2,
+            borderRadius: 1,
+            background: "linear-gradient(90deg, transparent, rgba(96,200,248,0.9), transparent)",
+            animation: "scanLine 1.8s ease-in-out infinite",
+            top: "8%",
+          }} />
         </div>
+        <span className="text-xs" style={{ color: "#6C5CE7", fontWeight: 600 }}>
+          Analysis
+        </span>
+      </Link>
 
-        <Link to="/" className={`flex items-center gap-3 px-3 py-2.5 rounded-lg mb-1 ${path === "/" ? "bg-teal text-text-primary font-medium" : "text-gray-500 hover:bg-gray-100"}`}>
-          <Home size={18} />
-          <span className="text-sm">Home</span>
-        </Link>
+      <Link
+        to="/timeline"
+        className="flex flex-col items-center gap-0.5 py-1 px-3"
+        style={{ color: isActive("/timeline") ? "#6C5CE7" : "#9ca3af" }}
+      >
+        <TrendingUp size={20} />
+        <span className="text-xs">Timeline</span>
+      </Link>
 
-        <Link to="/plan" className={`flex items-center gap-3 px-3 py-2.5 rounded-lg mb-1 ${path === "/plan" ? "bg-teal text-text-primary font-medium" : "text-gray-500 hover:bg-gray-100"}`}>
-          <BookOpen size={18} />
-          <span className="text-sm">Plan</span>
-        </Link>
-
-        <Link to="/timeline" className={`flex items-center gap-3 px-3 py-2.5 rounded-lg mb-1 ${path === "/timeline" ? "bg-teal text-text-primary font-medium" : "text-gray-500 hover:bg-gray-100"}`}>
-          <TrendingUp size={18} />
-          <span className="text-sm">Timeline</span>
-        </Link>
-
-        <Link to="/profile" className={`flex items-center gap-3 px-3 py-2.5 rounded-lg mb-1 ${path === "/profile" ? "bg-teal text-text-primary font-medium" : "text-gray-500 hover:bg-gray-100"}`}>
-          <User size={18} />
-          <span className="text-sm">Profile</span>
-        </Link>
-
-        <Link to="/upload" className="mt-4 flex items-center gap-3 px-3 py-2.5 bg-blue-600 text-white rounded-lg">
-          <span className="text-lg">+</span>
-          <span className="text-sm font-medium">New Upload</span>
-        </Link>
-      </nav>
+      <Link
+        to="/profile"
+        className="flex flex-col items-center gap-0.5 py-1 px-3"
+        style={{ color: isActive("/profile") ? "#6C5CE7" : "#9ca3af" }}
+      >
+        <User size={20} />
+        <span className="text-xs">Profile</span>
+      </Link>
+    </nav>
     </>
   )
 }
