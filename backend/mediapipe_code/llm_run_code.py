@@ -7,8 +7,8 @@ import uuid
 import anthropic
 from dotenv import load_dotenv, find_dotenv
 
-from prompts.coaching_prompt import COACHING_SYSTEM, build_analysis_prompt
-from prompts.progression_prompt import COMPARISON_SYSTEM, build_comparison_prompt
+from mediapipe_code.prompts.coaching_prompt import COACHING_SYSTEM, build_analysis_prompt
+from mediapipe_code.prompts.progression_prompt import COMPARISON_SYSTEM, build_comparison_prompt
 
 load_dotenv(find_dotenv(), override=True)
 

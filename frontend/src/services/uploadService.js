@@ -1,4 +1,4 @@
-const BASE_URL = import.meta.env.VITE_API_URL || "http://localhost:8000"
+const BASE_URL = import.meta.env.VITE_API_URL || ""
 
 // Generate a UUID v4
 function generateUUID() {
@@ -25,7 +25,7 @@ async function uploadVideo(videoFile, exercise, weight, weightUnit = "kg"){
     const normalizedUnit = weightUnit === "lbs" ? "lb" : weightUnit
 
     formData.append("file", videoFile)
-    formData.append("exercise_id", exercise)
+    formData.append("exercise_name", exercise)
     formData.append("weight_value", String(weight))
     formData.append("weight_unit", normalizedUnit)
     formData.append("user_id", userId)
@@ -39,10 +39,16 @@ async function uploadVideo(videoFile, exercise, weight, weightUnit = "kg"){
 
     if(!response.ok){
         const errorData = await response.json().catch(()=>{})
-
-
-        const message = errorData.detail || errorData.message || "Upload failed"
-
+        let message = "Upload failed"
+        if (errorData) {
+            if (typeof errorData.detail === "string") {
+                message = errorData.detail
+            } else if (errorData.detail && typeof errorData.detail === "object") {
+                message = errorData.detail.error || errorData.detail.message || JSON.stringify(errorData.detail)
+            } else if (typeof errorData.message === "string") {
+                message = errorData.message
+            }
+        }
         throw new Error(message)
     }
 

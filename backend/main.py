@@ -1,26 +1,15 @@
-import os
-import sys
-# Dynamic path injection: guarantee the backend directory is in python search path
-sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
-
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
-from fastapi.staticfiles import StaticFiles
-from contextlib import asynccontextmanager
+from db.database import db
+
 from utils.config import FRONTEND_ORIGIN
-from utils.database import db
 from routes.health import router as health_router
-from routes import upload, stream
+from init_db import init_db
 
-@asynccontextmanager
-async def lifespan(app: FastAPI):
-    # Startup: Initialize DB Pool
-    await db.connect()
-    yield
-    # Shutdown: Close DB Pool
-    await db.disconnect()
+from routes.analysis_haiku_integration_example import router as haiku_router
+from routes import upload, stream, analysis, progression, history, stream
 
-app = FastAPI(lifespan=lifespan)
+app = FastAPI()
 
 # CORS config
 app.add_middleware(
@@ -35,9 +24,18 @@ app.add_middleware(
 app.include_router(health_router)
 app.include_router(upload.router)
 app.include_router(stream.router)
+app.include_router(history.router) 
+app.include_router(analysis.router)
+app.include_router(haiku_router) 
+app.include_router(progression.router)
 
-# Static file serving
-os.makedirs("worst_frames", exist_ok=True)
-os.makedirs("uploads", exist_ok=True)
-app.mount("/worst_frames", StaticFiles(directory="worst_frames"), name="worst_frames")
-app.mount("/uploads", StaticFiles(directory="uploads"), name="uploads")
+#DB connection management
+@app.on_event("startup")
+async def startup():
+    init_db()
+    await db.connect()
+
+
+@app.on_event("shutdown")
+async def shutdown():
+    await db.disconnect()

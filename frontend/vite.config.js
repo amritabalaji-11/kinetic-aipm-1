@@ -5,9 +5,10 @@ export default defineConfig({
   plugins: [react()],
   server: {
     proxy: {
-      '/upload':   'http://localhost:8000',
-      '/analysis': 'http://localhost:8000',
-      '/health':   'http://localhost:8000',
+      '/upload':   'http://localhost:8002',
+      '/analysis': 'http://localhost:8002',
+      '/health':   'http://localhost:8002',
     },
+    // /analysis already covers /analysis/{id}/progression and /analysis/{id}/stream
   },
 })

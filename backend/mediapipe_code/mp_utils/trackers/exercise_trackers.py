@@ -1,6 +1,6 @@
 import math
 import time
-from mp_utils.quality.landmark_quality_methods import foot_turnout_relative
+from mediapipe_code.mp_utils.quality.landmark_quality_methods import foot_turnout_relative
 
 
 class PassiveAnkleTracker:

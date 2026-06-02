@@ -89,39 +89,74 @@ function LoadingPage() {
   const { steps, isDone, error, partialWarning, cancel, resultUrl } =
     useSSEStream(fixtureMode ? null : analysisId)
 
-  const BASE_URL = import.meta.env.VITE_API_URL || "http://localhost:8000"
+  const BASE_URL = import.meta.env.VITE_API_URL || ""
 
   useEffect(() => {
     if (fixtureMode || !isDone) return
+  
     const timer = setTimeout(async () => {
       let analysisResult = null
+  
       try {
         const response = await fetch(`${BASE_URL}/analysis/${analysisId}`)
-        if (response.ok) {
-          const record = await response.json()
-          const biomechanics = record.biomechanics_json
-            ? JSON.parse(record.biomechanics_json)
-            : {}
-          analysisResult = {
-            ...biomechanics,
-            ...record,
-            analysis_id:  record.analysis_id,
-            exercise_id:  record.exercise_id,
-            weight_value: record.weight_value,
-            weight_unit:  record.weight_unit,
-            status:       record.status,
-          }
+        if (!response.ok) throw new Error("Fetch failed")
+  
+        const record = await response.json()
+  
+        const biomechanics = record.biomechanics_json
+          ? JSON.parse(record.biomechanics_json)
+          : {}
+  
+        const haikuCall1 = record.haiku_call_1 || {}
+        const haikuCall2 = record.haiku_call_2 || {}
+  
+        // ── BUILD RESULTS PAGE SHAPE ─────────────────────────────
+        analysisResult = {
+          // base
+          analysis_id: record.analysis_id,
+          session_id: record.session_id,
+          exercise_id: record.exercise_id,
+          exercise_name: record.exercise_name,
+          display_name: record.exercise_name?.toUpperCase(),
+  
+          weight_value: record.weight_value,
+          weight_unit: record.weight_unit,
+          status: record.status,
+          video_url: record.video_url,
+          created_at: record.created_at,
+  
+          // IMPORTANT: ResultsPage expects THIS shape
+          summary: {
+            overall_form_score: haikuCall1.overall_form_score || 0,
+            posture_score: haikuCall1.posture_score || 0,
+            stability_score: haikuCall1.stability_score || 0,
+            movement_quality_score: haikuCall1.movement_quality_score || 0,
+            range_of_motion_score: haikuCall1.range_of_motion_score || 0,
+            tempo_score: haikuCall1.tempo_score || 0,
+          },
+  
+          coaching: haikuCall1.coaching_output || {},
+          reps: biomechanics.reps || [],
+          issues: biomechanics.issue_tags || [],
+  
+          causal_chains: haikuCall1.root_cause_analysis || [],
         }
-      } catch {
-        // Fall through — ResultsPage will show fixtures if analysisResult is null
+      } catch (err) {
+        console.error("Failed to load analysis:", err)
       }
+  
       navigate(resultUrl || "/upload/results", {
-        state: { analysisId, analysisResult, videoPreviewUrl },
+        state: {
+          analysisId,
+          analysisResult,
+          videoPreviewUrl,
+        },
       })
     }, 1500)
+  
     return () => clearTimeout(timer)
   }, [fixtureMode, isDone, analysisId, navigate, resultUrl, videoPreviewUrl])
-
+  
   // ── GUARD — no analysis in progress (real mode only) ─────────────────────
   if (!fixtureMode && !analysisId) {
     return (

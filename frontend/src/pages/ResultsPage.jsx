@@ -1,8 +1,7 @@
 /**
  * ResultsPage — W5 fixture build
- * Current tab:    uses form-analysis.clean.json / form-analysis.with-issues.json
- * Comparison tab: uses form-comparison.json / form-comparison.empty.json
- * Zero API calls — wired in W6.
+ * Current tab:    haiku_call_1 → form analysis of current session
+ * Comparison tab: haiku_call_2 → progression results vs previous session
  */
 
 import { useState, useMemo, useEffect } from "react"
@@ -128,7 +127,6 @@ function IssueCard({ issue, faultDetail }) {
   : issue.severity === "Medium" ? "bg-amber-50 border-amber-100 text-amber-700"
   : "bg-gray-50 border-gray-100 text-gray-600"
 
-  // Try to match fault_detail by issue tag
   const tagMap = {
     "Knee Valgus": "knee_valgus",
     "Forward Trunk Lean": "excessive_forward_lean",
@@ -195,7 +193,7 @@ const PARAMS = [
   { key: "posture",          summaryKey: "posture",          label: "Posture",          compKey: "posture"          },
   { key: "stability",        summaryKey: "stability",        label: "Stability",        compKey: "stability"        },
   { key: "movement_quality", summaryKey: "movement_quality", label: "Movement Quality", compKey: "movement_quality" },
-  { key: "range_of_motion",  summaryKey: "range_of_motion", label: "Range of Motion",  compKey: "range_of_motion"  },
+  { key: "range_of_motion",  summaryKey: "range_of_motion",  label: "Range of Motion",  compKey: "range_of_motion"  },
 ]
 
 const DEFAULT_NOTES = {
@@ -213,15 +211,16 @@ export default function ResultsPage() {
 
   const [tab,        setTab]        = useState("current")
   const [devFixture, setDevFixture] = useState("clean")
-  const [devComp,    setDevComp]    = useState("with-data") // "with-data" | "empty"
+  const [devComp,    setDevComp]    = useState("with-data")
 
-  // Live DB session loading states
-  const [liveSessions,          setLiveSessions]          = useState([])
-  const [selectedLiveSessionId, setSelectedLiveSessionId] = useState("")
+  const [liveSessions,            setLiveSessions]            = useState([])
+  const [selectedLiveSessionId,   setSelectedLiveSessionId]   = useState("")
   const [selectedLiveSessionData, setSelectedLiveSessionData] = useState(null)
-  const [liveCompData,          setLiveCompData]          = useState(null)
+  // ── Separate state for comparison (haiku_call_2) and current (haiku_call_1) ──
+  const [liveCurrentData,  setLiveCurrentData]  = useState(null)  // haiku_call_1 shape
+  const [liveCompData,     setLiveCompData]      = useState(null)  // haiku_call_2 shape
 
-  const BASE_URL = import.meta.env.VITE_API_URL || "http://localhost:8000"
+  const BASE_URL = import.meta.env.VITE_API_URL || ""
 
   // Fetch completed sessions from DB
   useEffect(() => {
@@ -229,17 +228,15 @@ export default function ResultsPage() {
       try {
         const localUserId = localStorage.getItem("user_id")
         const batchUserId = "00000000-0000-0000-0000-000000000000"
-        
+
         let allSessions = []
-        
-        // Fetch batch user sessions
+
         const r1 = await fetch(`${BASE_URL}/history/${batchUserId}`)
         if (r1.ok) {
           const list = await r1.json()
           if (Array.isArray(list)) allSessions.push(...list)
         }
-        
-        // Fetch local user sessions if they exist
+
         if (localUserId && localUserId !== batchUserId) {
           const r2 = await fetch(`${BASE_URL}/history/${localUserId}`)
           if (r2.ok) {
@@ -247,8 +244,7 @@ export default function ResultsPage() {
             if (Array.isArray(list)) allSessions.push(...list)
           }
         }
-        
-        // Filter unique by session_id
+
         const unique = []
         const seen = new Set()
         for (const s of allSessions) {
@@ -257,8 +253,6 @@ export default function ResultsPage() {
             unique.push(s)
           }
         }
-        
-        // Sort by created_at descending
         unique.sort((a, b) => new Date(b.created_at) - new Date(a.created_at))
         setLiveSessions(unique)
       } catch (err) {
@@ -268,60 +262,237 @@ export default function ResultsPage() {
     fetchSessions()
   }, [BASE_URL])
 
-  // Handle analysisId passed in location state (e.g. from Timeline navigation)
   useEffect(() => {
     if (state?.analysisId) {
       handleLoadLiveSession(state.analysisId)
     }
   }, [state?.analysisId])
 
-  // Load a session from the backend
+  // ─────────────────────────────────────────────────────────────────────────
+  // handleLoadLiveSession
+  // Strictly separates haiku_call_1 (current tab) from haiku_call_2 (comparison tab)
+  // ─────────────────────────────────────────────────────────────────────────
   async function handleLoadLiveSession(sessionId) {
     if (!sessionId) {
       setSelectedLiveSessionId("")
       setSelectedLiveSessionData(null)
+      setLiveCurrentData(null)
       setLiveCompData(null)
       return
     }
-    
+
     try {
       const response = await fetch(`${BASE_URL}/analysis/${sessionId}`)
-      if (response.ok) {
-        const record = await response.json()
-        const biomechanics = record.biomechanics_json
-          ? JSON.parse(record.biomechanics_json)
-          : {}
-          
-        const parsedResult = {
-          ...biomechanics,
-          analysis_id: record.analysis_id,
-          session_id: record.session_id,
-          exercise_id: record.exercise_id,
-          exercise_name: record.exercise_name,
-          weight_value: record.weight_value,
-          weight_unit: record.weight_unit,
-          status: record.status,
-          video_url: record.video_url,
-          annotated_frame_url: record.annotated_frame_url,
-          
-          // Include v3.0 columns directly if not inside biomechanics
-          issue_tags: record.issue_tags || biomechanics.issue_tags || [],
-          faults_detected: record.faults_detected || biomechanics.faults_detected || {},
-          fault_confidence: record.fault_confidence || biomechanics.fault_confidence || {},
-          causal_chains: record.causal_chains || biomechanics.causal_chains || [],
-          fault_detail: record.fault_detail || biomechanics.fault_detail || {},
-          trends: record.trends || biomechanics.trends || {},
-        }
-        
-        setSelectedLiveSessionId(sessionId)
-        setSelectedLiveSessionData(parsedResult)
-        
-        if (record.progression_results || record.haiku_call_2_output) {
-          setLiveCompData(safeJsonLoad(record.progression_results || record.haiku_call_2_output))
-        } else {
-          setLiveCompData(null)
-        }
+      if (!response.ok) return
+
+      const record = await response.json()
+      console.log("📦 Full API response:", record)
+
+      const baseAnalysis  = record.analysis      || {}
+      const haikuCall1    = record.haiku_call_1  || {}  // current session analysis
+      const haikuCall2    = record.haiku_call_2  || {}  // progression vs previous
+
+      // ── CURRENT TAB — built exclusively from haiku_call_1 ─────────────────
+      const coachingOutput1   = haikuCall1.coaching_output   || {}
+      const paramScores1      = coachingOutput1.parameter_scores || {}
+
+      const currentSummary = {
+        overall_form_score:       haikuCall1.overall_form_score        || 0,
+        posture_score:            haikuCall1.posture_score             || paramScores1.posture          || 0,
+        stability_score:          haikuCall1.stability_score           || paramScores1.stability        || 0,
+        movement_quality_score:   haikuCall1.movement_quality_score    || paramScores1.movement_quality || 0,
+        range_of_motion_score:    haikuCall1.range_of_motion_score     || paramScores1.range_of_motion  || 0,
+        tempo_score:              haikuCall1.tempo_score               || 0,
+        summary_paragraph:
+          coachingOutput1.verdict_summary   ||
+          coachingOutput1.summary_paragraph ||
+          record.summary_paragraph          ||
+          "",
       }
+
+      // Parameter-level coaching nodes (affirmation / observation / correction)
+      // sourced from haiku_call_1 only
+      const currentParameters = {
+        posture: {
+          score:       currentSummary.posture_score,
+          affirmation: coachingOutput1.affirm?.[0]           || null,
+          observation: null,
+          correction:  coachingOutput1.correct?.[0]?.cue     || null,
+        },
+        stability: {
+          score: currentSummary.stability_score,
+        },
+        movement_quality: {
+          score: currentSummary.movement_quality_score,
+        },
+        range_of_motion: {
+          score: currentSummary.range_of_motion_score,
+        },
+      }
+
+      const currentCoaching = {
+        summary_paragraph:   currentSummary.summary_paragraph,
+        feedback:            coachingOutput1.correct?.[0]?.cue || "",
+        next_session_focus:  coachingOutput1.next_session_focus || [],
+        parameters:          currentParameters,
+      }
+
+      // Biomechanics / rep data (shared physical data, not score data)
+      let parsedReps = []
+      try {
+        const biomech = baseAnalysis.biomechanics_json
+          ? JSON.parse(baseAnalysis.biomechanics_json)
+          : null
+
+        if (biomech?.reps?.length) {
+          parsedReps = biomech.reps.map((rep) => {
+            let formScore = 100
+            if (rep.depth_data?.depth_classification === "Warning") formScore -= 20
+            if (rep.depth_data?.depth_insufficient_flag)             formScore -= 15
+            if (rep.back_data?.back_label === "Warning")             formScore -= 15
+            if (rep.back_data?.back_angle_at_bottom > 30)           formScore -= 20
+            if (rep.back_data?.back_angle_at_bottom > 45)           formScore -= 25
+            return {
+              rep_number: rep.rep_number,
+              form_score: Math.max(0, Math.min(100, formScore)),
+            }
+          })
+        }
+      } catch (e) {
+        console.warn("Failed to parse biomechanics_json:", e)
+      }
+
+      const parsedCurrentResult = {
+        analysis_id:   baseAnalysis.analysis_id  || haikuCall1.analysis_id,
+        session_id:    baseAnalysis.session_id   || haikuCall1.session_id,
+        exercise_id:   baseAnalysis.exercise_id  || haikuCall1.exercise_id,
+        exercise_name: baseAnalysis.exercise_name || haikuCall1.exercise_id,
+        display_name:  (baseAnalysis.exercise_name || haikuCall1.exercise_id)?.toUpperCase(),
+        weight_value:  baseAnalysis.weight_value,
+        weight_unit:   baseAnalysis.weight_unit,
+        status:        baseAnalysis.status,
+        video_url:     baseAnalysis.video_url,
+        created_at:    baseAnalysis.created_at,
+        summary:       currentSummary,
+        coaching:      currentCoaching,
+        reps:          parsedReps,
+        issues:        [],
+        causal_chains: coachingOutput1.root_cause_analysis || haikuCall1.root_cause_analysis || [],
+      }
+
+      // ── COMPARISON TAB — built exclusively from haiku_call_2 ──────────────
+      // haiku_call_2 contains progression data: scores for current + previous
+      // sessions and coaching that compares them.
+      const coachingOutput2    = haikuCall2.coaching_output    || haikuCall2 // some APIs nest, some don't
+      const compParamScores2   = coachingOutput2.parameter_scores || {}
+
+      // Current session scores as reported by haiku_call_2 (may differ slightly)
+      const comp2CurrentScores = haikuCall2.current_session    || {}
+      // Previous session scores as reported by haiku_call_2
+      const comp2PreviousScores = haikuCall2.previous_session  || {}
+
+      // Resolve per-parameter scores for comparison current side:
+      // prefer explicit current_session block, fall back to haikuCall2 top-level scores
+      const compCurrentOverall = comp2CurrentScores.overall_form_score
+        ?? haikuCall2.current_overall_form_score
+        ?? currentSummary.overall_form_score    // last resort: same as current tab
+      const compCurrentPosture = comp2CurrentScores.posture_score
+        ?? haikuCall2.current_posture_score
+        ?? currentSummary.posture_score
+      const compCurrentStability = comp2CurrentScores.stability_score
+        ?? haikuCall2.current_stability_score
+        ?? currentSummary.stability_score
+      const compCurrentMQ = comp2CurrentScores.movement_quality_score
+        ?? haikuCall2.current_movement_quality_score
+        ?? currentSummary.movement_quality_score
+      const compCurrentROM = comp2CurrentScores.range_of_motion_score
+        ?? haikuCall2.current_range_of_motion_score
+        ?? currentSummary.range_of_motion_score
+
+      // Previous session scores — exclusively from haiku_call_2
+      const compPrevOverall    = comp2PreviousScores.overall_form_score    ?? haikuCall2.previous_overall_form_score    ?? null
+      const compPrevPosture    = comp2PreviousScores.posture_score          ?? haikuCall2.previous_posture_score          ?? null
+      const compPrevStability  = comp2PreviousScores.stability_score        ?? haikuCall2.previous_stability_score        ?? null
+      const compPrevMQ         = comp2PreviousScores.movement_quality_score ?? haikuCall2.previous_movement_quality_score ?? null
+      const compPrevROM        = comp2PreviousScores.range_of_motion_score  ?? haikuCall2.previous_range_of_motion_score  ?? null
+
+      // Comparison-tab parameter coaching notes come from haiku_call_2
+      const compParameters2 = {
+        posture: {
+          score:              compCurrentPosture,
+          observation_action: coachingOutput2.posture_note          || compParamScores2.posture?.observation_action || null,
+          affirmation:        coachingOutput2.posture_affirmation    || compParamScores2.posture?.affirmation        || null,
+          correction:         coachingOutput2.posture_correction     || compParamScores2.posture?.correction         || null,
+        },
+        stability: {
+          score:              compCurrentStability,
+          observation_action: coachingOutput2.stability_note         || compParamScores2.stability?.observation_action || null,
+          affirmation:        coachingOutput2.stability_affirmation  || compParamScores2.stability?.affirmation        || null,
+        },
+        movement_quality: {
+          score:              compCurrentMQ,
+          observation_action: coachingOutput2.movement_quality_note  || compParamScores2.movement_quality?.observation_action || null,
+          affirmation:        coachingOutput2.movement_quality_affirmation || compParamScores2.movement_quality?.affirmation  || null,
+        },
+        range_of_motion: {
+          score:              compCurrentROM,
+          observation_action: coachingOutput2.range_of_motion_note   || compParamScores2.range_of_motion?.observation_action || null,
+          affirmation:        coachingOutput2.range_of_motion_affirmation || compParamScores2.range_of_motion?.affirmation   || null,
+        },
+      }
+
+      const comparisonData = {
+        has_comparison:        !!(haikuCall2 && Object.keys(haikuCall2).length > 0),
+        progression_verdict:   haikuCall2.progression_verdict   || null,
+        progress_direction:    haikuCall2.progress_direction     || null,
+        weight_recommendation: haikuCall2.weight_recommendation  || null,
+
+        // Current side of comparison (haiku_call_2's view of this session)
+        current: {
+          date_label: baseAnalysis.created_at
+            ? new Date(baseAnalysis.created_at).toLocaleDateString("en-US", { month: "short", day: "numeric" })
+            : "Current",
+          weight_value:              baseAnalysis.weight_value    ?? 0,
+          weight_unit:               baseAnalysis.weight_unit     ?? "lbs",
+          overall_form_score:        compCurrentOverall,
+          posture_score:             compCurrentPosture,
+          stability_score:           compCurrentStability,
+          movement_quality_score:    compCurrentMQ,
+          range_of_motion_score:     compCurrentROM,
+          reps:                      parsedReps,
+        },
+
+        // Previous side of comparison (haiku_call_2 only — never falls back to current)
+        previous: {
+          date_label:              haikuCall2.previous_session_date
+            ? new Date(haikuCall2.previous_session_date).toLocaleDateString("en-US", { month: "short", day: "numeric" })
+            : comp2PreviousScores.date_label || "Previous",
+          weight_value:            comp2PreviousScores.weight_value   ?? haikuCall2.previous_weight_value   ?? null,
+          weight_unit:             comp2PreviousScores.weight_unit    ?? haikuCall2.previous_weight_unit    ?? "lbs",
+          overall_form_score:      compPrevOverall,
+          posture_score:           compPrevPosture,
+          stability_score:         compPrevStability,
+          movement_quality_score:  compPrevMQ,
+          range_of_motion_score:   compPrevROM,
+          reps:                    [],
+        },
+
+        // Coaching text and per-parameter notes sourced from haiku_call_2
+        comparison_coaching: {
+          summary_paragraph:
+            haikuCall2.progression_verdict        ||
+            coachingOutput2.summary_paragraph     ||
+            coachingOutput2.verdict_summary       ||
+            "",
+          parameters: compParameters2,
+        },
+      }
+
+      setSelectedLiveSessionId(sessionId)
+      setSelectedLiveSessionData(parsedCurrentResult)
+      setLiveCurrentData(parsedCurrentResult)
+      setLiveCompData(comparisonData)
+
     } catch (err) {
       console.error("Failed to load live session details:", err)
     }
@@ -330,38 +501,35 @@ export default function ResultsPage() {
   function safeJsonLoad(val) {
     if (!val) return null
     if (typeof val === "object") return val
-    try {
-      return JSON.parse(val)
-    } catch {
-      return val
-    }
+    try { return JSON.parse(val) } catch { return val }
   }
 
-  // Current session data
+  // ── Data selectors ─────────────────────────────────────────────────────────
+  // Current tab always uses liveCurrentData (haiku_call_1) or fixture
   const data = useMemo(() => {
-    if (selectedLiveSessionData) return selectedLiveSessionData
-    if (state?.analysisResult) return state.analysisResult
+    if (liveCurrentData)        return liveCurrentData
+    if (state?.analysisResult)  return state.analysisResult
     return devFixture === "clean" ? FIXTURE_CLEAN : FIXTURE_WITH_ISSUES
-  }, [selectedLiveSessionData, state?.analysisResult, devFixture])
+  }, [liveCurrentData, state?.analysisResult, devFixture])
 
-  // Comparison fixture
+  // Comparison tab always uses liveCompData (haiku_call_2) or fixture
   const compData = useMemo(() => {
     if (liveCompData) return liveCompData
-    if (data.progression_results || data.haiku_call_2_output) return safeJsonLoad(data.progression_results || data.haiku_call_2_output)
+    // Only fall back to progression_results if no live data — never cross-wire with haiku_call_1
+    if (data.progression_results) return safeJsonLoad(data.progression_results)
     return devComp === "with-data" ? FIXTURE_COMPARISON : FIXTURE_COMP_EMPTY
-  }, [liveCompData, data.progression_results, data.haiku_call_2_output, devComp])
+  }, [liveCompData, data.progression_results, devComp])
 
   const isDevMode    = !state?.analysisResult
   const isComparison = tab === "comparison"
 
-  // ── Current session fields ────────────────────────────────────────────────
+  // ── Current tab fields (haiku_call_1) ─────────────────────────────────────
   const summary  = data.summary  || {}
   const coaching = data.coaching || {}
   const params   = coaching.parameters || {}
   const reps     = data.reps   || []
   const issues   = data.issues || []
 
-  // Fallback to server H.264 video if local blob URL is not present in state
   const videoSrc = state?.videoPreviewUrl || (data.video_url ? `${BASE_URL}/${data.video_url}` : null)
 
   const overall   = summary.overall_form_score ?? 0
@@ -376,70 +544,29 @@ export default function ResultsPage() {
   const statusFailed =
     data.status === "failed" || (overall === 0 && reps.length === 0 && issues.length > 0)
 
-  // ── Comparison fields ─────────────────────────────────────────────────────
-  // Derive previous session dynamically from liveSessions history
-  const previousSession = useMemo(() => {
-    if (!liveSessions || liveSessions.length < 2) return null
-    const currId = data.session_id || data.analysis_id
-    if (!currId) return null
-    const idx = liveSessions.findIndex((s) => s.session_id === currId || s.analysis_id === currId)
-    if (idx !== -1 && idx < liveSessions.length - 1) {
-      return liveSessions[idx + 1]
-    }
-    return null
-  }, [liveSessions, data.session_id, data.analysis_id])
-
+  // ── Comparison tab fields (haiku_call_2) ──────────────────────────────────
   const hasComparison = !!(
-    compData.has_comparison ||
+    compData.has_comparison      ||
     compData.progression_verdict ||
-    compData.progress_direction ||
+    compData.progress_direction  ||
     compData.coaching_reasoning
   )
 
-  const compCurrent = useMemo(() => {
-    if (compData.current) return compData.current
-    return {
-      date_label: data.created_at ? new Date(data.created_at).toLocaleDateString("en-US", { month: "short", day: "numeric" }) : "Current",
-      weight_value: data.weight_value ?? 0,
-      weight_unit: data.weight_unit ?? "lbs",
-      overall_form_score: overall,
-      posture_score: summary.posture_score ?? 0,
-      stability_score: summary.stability_score ?? 0,
-      movement_quality_score: summary.movement_quality_score ?? 0,
-      range_of_motion_score: summary.range_of_motion_score ?? summary.tempo_score ?? 0,
-      reps: reps
-    }
-  }, [compData.current, data, overall, summary, reps])
+  // compCurrent and compPrevious come directly from the parsed compData
+  // (built from haiku_call_2) — NO cross-blending with haiku_call_1 summary
+  const compCurrent  = compData.current  || {}
+  const compPrevious = compData.previous || {}
 
-  const compPrevious = useMemo(() => {
-    if (compData.previous) return compData.previous
-    if (previousSession) {
-      return {
-        date_label: new Date(previousSession.created_at).toLocaleDateString("en-US", { month: "short", day: "numeric" }),
-        weight_value: previousSession.weight_value ?? 0,
-        weight_unit: previousSession.weight_unit ?? "lbs",
-        overall_form_score: previousSession.overall_score ?? 0,
-        posture_score: previousSession.posture_score ?? null,
-        stability_score: previousSession.stability_score ?? null,
-        movement_quality_score: previousSession.movement_quality_score ?? null,
-        range_of_motion_score: previousSession.range_of_motion_score ?? previousSession.tempo_score ?? null,
-        reps: []
-      }
-    }
-    return {}
-  }, [compData.previous, previousSession])
+  const compCoaching = compData.comparison_coaching || {}
+  // compParams must come from haiku_call_2 parameters, not haiku_call_1
+  const compParams   = compCoaching.parameters      || {}
 
-  const compCoaching   = compData.comparison_coaching || {}
-  const compParams     = compCoaching.parameters || {}
-
-  // Compute deltas: current score − previous score
   function delta(currentScore, previousScore) {
     if (currentScore == null || previousScore == null) return null
     return currentScore - previousScore
   }
 
   const today = new Date()
-  const fmt   = (d) => new Date(d).toLocaleDateString("en-US", { month: "long", day: "numeric" })
 
   return (
     <div className="min-h-screen bg-gray-50">
@@ -467,16 +594,15 @@ export default function ResultsPage() {
         </div>
 
         {/* ════════════════════════════════════════════════════════════════
-            COMPARISON TAB
+            COMPARISON TAB — data from haiku_call_2 only
         ════════════════════════════════════════════════════════════════ */}
         {isComparison && (
           <>
             {!hasComparison ? (
-              // ── Empty state ──────────────────────────────────────────
               <div className="mx-4 mb-4 bg-white rounded-2xl border border-gray-100 shadow-sm p-6 text-center">
                 <div className="text-3xl mb-3">📊</div>
                 <p className="text-sm text-gray-500 leading-relaxed">
-                  {compData.empty_state_message}
+                  {compData.empty_state_message || "No previous session found to compare against."}
                 </p>
               </div>
             ) : (
@@ -485,23 +611,31 @@ export default function ResultsPage() {
                 <div className="mx-4 mb-4 border border-gray-200 rounded-2xl overflow-hidden bg-white flex divide-x divide-gray-100">
                   <FramePlaceholder
                     label={compPrevious.date_label || "Previous"}
-                    weight={`${compPrevious.weight_value}${(compPrevious.weight_unit || "kg").toUpperCase()}`}
+                    weight={
+                      compPrevious.weight_value != null
+                        ? `${compPrevious.weight_value}${(compPrevious.weight_unit || "lbs").toUpperCase()}`
+                        : "—"
+                    }
                     highlight={false}
                   />
                   <FramePlaceholder
                     label={compCurrent.date_label || "Current"}
-                    weight={`${compCurrent.weight_value}${(compCurrent.weight_unit || "kg").toUpperCase()}`}
+                    weight={
+                      compCurrent.weight_value != null
+                        ? `${compCurrent.weight_value}${(compCurrent.weight_unit || "lbs").toUpperCase()}`
+                        : "—"
+                    }
                     highlight={true}
                   />
                 </div>
 
-                {/* Comparison form score */}
+                {/* Comparison overall form score (from haiku_call_2 current side) */}
                 <div className="mx-4 mb-4 bg-amber-50 rounded-2xl p-5 text-center border border-amber-100">
                   <div className="text-xs font-bold text-gray-500 uppercase tracking-widest mb-1">Form Score</div>
                   <div className="text-6xl font-extrabold mb-1" style={{ color: "#f59e0b" }}>
-                    {compCurrent.overall_form_score ?? overall}
+                    {compCurrent.overall_form_score ?? "—"}
                   </div>
-                  {compPrevious.overall_form_score != null && (
+                  {compPrevious.overall_form_score != null && compCurrent.overall_form_score != null && (
                     <div
                       className="text-sm font-semibold mb-2"
                       style={{
@@ -514,26 +648,37 @@ export default function ResultsPage() {
                     </div>
                   )}
                   <p className="text-sm text-gray-500 leading-relaxed">
-                    {compCoaching.summary_paragraph || compData.progression_verdict || (compData.weight_recommendation ? `Recommended progression: ${compData.weight_recommendation}.` : "")}
+                    {compCoaching.summary_paragraph
+                      || compData.progression_verdict
+                      || (compData.weight_recommendation ? `Recommended progression: ${compData.weight_recommendation}.` : "")}
                   </p>
                 </div>
 
-                {/* Comparison key insights with deltas */}
+                {/* Comparison key insights — scores + deltas from haiku_call_2 */}
                 <div className="mx-4 mb-4">
                   <h2 className="text-base font-bold text-gray-900 mb-3">Key Insights</h2>
                   <div className="bg-white rounded-2xl border border-gray-100 shadow-sm divide-y divide-gray-100 px-4">
                     {PARAMS.map((p) => {
-                      const cp     = compParams[p.compKey] || {}
-                      const score  = cp.score ?? compCurrent[`${p.summaryKey}_score`] ?? 0
-                      const prev   = compPrevious[`${p.summaryKey}_score`] ?? null
-                      const d      = delta(score, prev)
-                      
-                      const rawNote = cp.observation_action 
-                        || cp.observation 
-                        || cp.affirmation 
-                        || cp.correction 
-                        || compData[`${p.key}_trend`];
-                      const note = (rawNote && rawNote.trim()) ? rawNote : (DEFAULT_NOTES[p.key] || "Maintain solid form and consistent execution across all reps.");
+                      // Score from haiku_call_2 parameter block or current side scores
+                      const cp    = compParams[p.compKey] || {}
+                      const score = cp.score
+                        ?? compCurrent[`${p.summaryKey}_score`]
+                        ?? 0
+
+                      // Previous score exclusively from haiku_call_2 previous side
+                      const prev  = compPrevious[`${p.summaryKey}_score`] ?? null
+                      const d     = delta(score, prev)
+
+                      // Coaching note from haiku_call_2 — no fallback to haiku_call_1 notes
+                      const rawNote =
+                        cp.observation_action ||
+                        cp.observation        ||
+                        cp.affirmation        ||
+                        cp.correction         ||
+                        compData[`${p.key}_trend`]
+                      const note = rawNote?.trim()
+                        ? rawNote
+                        : DEFAULT_NOTES[p.key] || "Maintain solid form and consistent execution across all reps."
 
                       return (
                         <div key={p.key} className="flex items-start gap-4 py-4">
@@ -545,7 +690,7 @@ export default function ResultsPage() {
                   </div>
                 </div>
 
-                {/* Comparison rep charts side by side */}
+                {/* Comparison rep chart (current session reps) */}
                 <div className="mx-4 mb-4 bg-white rounded-2xl border border-gray-100 shadow-sm p-4">
                   <LineChart
                     repScores={compCurrent.reps?.map((r) => r.form_score) || []}
@@ -559,11 +704,11 @@ export default function ResultsPage() {
         )}
 
         {/* ════════════════════════════════════════════════════════════════
-            CURRENT TAB
+            CURRENT TAB — data from haiku_call_1 only
         ════════════════════════════════════════════════════════════════ */}
         {!isComparison && (
           <>
-            {/* Frame placeholder */}
+            {/* Frame / video */}
             <div className="mx-4 mb-4 border border-gray-200 rounded-2xl overflow-hidden bg-white">
               <div className="text-center py-2 text-xs text-gray-500">
                 {today.toLocaleDateString("en-US", { month: "long", day: "numeric" })} · {headerWeight}
@@ -594,16 +739,16 @@ export default function ResultsPage() {
               </div>
             )}
 
-            {/* Form score */}
+            {/* Form score — from haiku_call_1 */}
             <div className="mx-4 mb-4 bg-amber-50 rounded-2xl p-5 text-center border border-amber-100">
               <div className="text-xs font-bold text-gray-500 uppercase tracking-widest mb-1">Form Score</div>
               <div className="text-6xl font-extrabold mb-2" style={{ color: "#f59e0b" }}>{overall}</div>
               <p className="text-sm text-gray-500 leading-relaxed">
-                {coaching.summary_paragraph || "Lets stay in this weight and keep on improving!"}
+                {coaching.summary_paragraph || "Let's stay at this weight and keep improving!"}
               </p>
             </div>
 
-            {/* Next-Set Cue */}
+            {/* Next-Set Cue — from haiku_call_1 */}
             {coaching.feedback && (
               <div className="mx-4 mb-4 bg-indigo-50 rounded-2xl p-4 border border-indigo-100">
                 <div className="text-[10px] font-bold text-indigo-400 uppercase tracking-widest mb-1">💡 Next Set Cue</div>
@@ -611,14 +756,14 @@ export default function ResultsPage() {
               </div>
             )}
 
-            {/* Key Insights */}
+            {/* Key Insights — scores from haiku_call_1 */}
             <div className="mx-4 mb-4">
               <h2 className="text-base font-bold text-gray-900 mb-3">Key Insights</h2>
               <div className="bg-white rounded-2xl border border-gray-100 shadow-sm divide-y divide-gray-100 px-4">
                 {PARAMS.map((p) => {
                   const d     = params[p.key] || {}
                   const score = Math.round(d.score ?? summary?.[`${p.summaryKey}_score`] ?? 0)
-                  
+
                   return (
                     <div key={p.key} className="flex items-start gap-4 py-4">
                       <ScoreRing score={score} size={80} strokeW={8} label={p.label} />
@@ -642,7 +787,7 @@ export default function ResultsPage() {
               </div>
             </div>
 
-            {/* Root Cause Analysis */}
+            {/* Root Cause Analysis — from haiku_call_1 */}
             {data.causal_chains && data.causal_chains.length > 0 && (
               <div className="mx-4 mb-4">
                 <h2 className="text-base font-bold text-gray-900 mb-3">Root Cause</h2>
@@ -667,7 +812,7 @@ export default function ResultsPage() {
               </div>
             )}
 
-            {/* Issues */}
+            {/* Issues — from haiku_call_1 */}
             {issues.length > 0 && (
               <div className="mx-4 mb-4 space-y-2">
                 <h2 className="text-base font-bold text-gray-900">Issues Detected</h2>
@@ -677,7 +822,7 @@ export default function ResultsPage() {
               </div>
             )}
 
-            {/* Next Session Focus */}
+            {/* Next Session Focus — from haiku_call_1 */}
             {coaching.next_session_focus && coaching.next_session_focus.length > 0 && (
               <div className="mx-4 mb-4">
                 <h2 className="text-base font-bold text-gray-900 mb-3">Next Session Focus</h2>
@@ -692,7 +837,7 @@ export default function ResultsPage() {
               </div>
             )}
 
-            {/* Session Trends */}
+            {/* Session Trends — from haiku_call_1 */}
             {data.trends && (data.trends.depth || data.trends.posture || data.trends.stability) && (
               <div className="mx-4 mb-4">
                 <h2 className="text-base font-bold text-gray-900 mb-3">Session Trends</h2>
@@ -700,7 +845,7 @@ export default function ResultsPage() {
                   {["depth", "posture", "stability"].map((key) => {
                     const val = data.trends[key]
                     if (!val) return null
-                    const icon = val === "improving" ? "↑" : val === "worsening" ? "↓" : "→"
+                    const icon  = val === "improving" ? "↑" : val === "worsening" ? "↓" : "→"
                     const color = val === "improving" ? "text-emerald-600" : val === "worsening" ? "text-red-500" : "text-gray-500"
                     return (
                       <div key={key} className="flex flex-col items-center gap-1">
@@ -714,7 +859,7 @@ export default function ResultsPage() {
               </div>
             )}
 
-            {/* Rep chart */}
+            {/* Rep chart — from haiku_call_1 reps */}
             <div className="mx-4 mb-4 bg-white rounded-2xl border border-gray-100 shadow-sm p-4">
               <LineChart repScores={repScores} />
             </div>
@@ -757,10 +902,7 @@ export default function ResultsPage() {
                   <option value="">-- Select from DB or use Local Fixtures --</option>
                   {liveSessions.map((s) => {
                     const dateStr = new Date(s.created_at).toLocaleDateString("en-US", {
-                      month: "short",
-                      day: "numeric",
-                      hour: "2-digit",
-                      minute: "2-digit"
+                      month: "short", day: "numeric", hour: "2-digit", minute: "2-digit"
                     })
                     return (
                       <option key={s.session_id} value={s.session_id}>
@@ -776,19 +918,21 @@ export default function ResultsPage() {
               <div className="font-semibold text-gray-500 text-[10px] uppercase tracking-wider">Static Dev Fixtures</div>
               <div className="flex justify-center gap-4">
                 {["clean", "issues"].map((f) => (
-                  <button key={f} type="button" onClick={() => { handleLoadLiveSession(""); setDevFixture(f); }}
+                  <button key={f} type="button"
+                    onClick={() => { handleLoadLiveSession(""); setDevFixture(f) }}
                     className={`underline text-xs ${devFixture === f && !selectedLiveSessionId ? "text-teal-600 font-semibold" : "text-gray-400"}`}>
                     {f === "clean" ? "No Issues" : "With Issues"}
                   </button>
                 ))}
               </div>
             </div>
-            
+
             <div className="space-y-1">
               <div className="font-semibold text-gray-500 text-[10px] uppercase tracking-wider">Static Comparison Fixtures</div>
               <div className="flex justify-center gap-4">
                 {["with-data", "empty"].map((f) => (
-                  <button key={f} type="button" onClick={() => { handleLoadLiveSession(""); setDevComp(f); }}
+                  <button key={f} type="button"
+                    onClick={() => { handleLoadLiveSession(""); setDevComp(f) }}
                     className={`underline text-xs ${devComp === f && !selectedLiveSessionId ? "text-teal-600 font-semibold" : "text-gray-400"}`}>
                     {f === "with-data" ? "With Data" : "Empty State"}
                   </button>
@@ -802,4 +946,3 @@ export default function ResultsPage() {
     </div>
   )
 }
-

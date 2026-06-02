@@ -1,6 +1,0 @@
-fastapi
-uvicorn
-python-dotenv
-python-multipart
-mediapipe
-anthropic

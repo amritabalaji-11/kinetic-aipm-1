@@ -6,23 +6,23 @@ import time
 import uuid
 import mediapipe as mp
 import cv2
-from mp_utils.pose.pose_landmarks import LEFT_HIP, LEFT_KNEE, RIGHT_HIP, RIGHT_KNEE
-from mp_utils.trackers.trend_analyzer import TrendAnalyzer
-from mp_utils.trackers.rep_counter import RepCounter
-from mp_utils.trackers.exercise_trackers import (
+from mediapipe_code.mp_utils.pose.pose_landmarks import LEFT_HIP, LEFT_KNEE, RIGHT_HIP, RIGHT_KNEE
+from mediapipe_code.mp_utils.trackers.trend_analyzer import TrendAnalyzer
+from mediapipe_code.mp_utils.trackers.rep_counter import RepCounter
+from mediapipe_code.mp_utils.trackers.exercise_trackers import (
     PassiveAnkleTracker,
     PassiveBackAngleTracker,
     PassiveDepthTracker,
     PassiveStabilityTracker,
     PassiveTempoTracker,
 )
-from mp_utils.visualization.draw_methods import add_text_lines, annotate_frame, draw_points_and_lines, extract_worst_frame
-from mp_utils.geometry.angle_methods import detect_camera_view
-from mp_utils.quality.landmark_quality_configuration import (
+from mediapipe_code.mp_utils.visualization.draw_methods import add_text_lines, annotate_frame, draw_points_and_lines, extract_worst_frame
+from mediapipe_code.mp_utils.geometry.angle_methods import detect_camera_view
+from mediapipe_code.mp_utils.quality.landmark_quality_configuration import (
     LANDMARKS, LEFT_SIDE, LEG_CONNECTIONS, LEG_CONNECTIONS_LEFT_SIDE, LEG_CONNECTIONS_RIGHT_SIDE, LEG_TARGET_LANDMARKS, MEDIAPIPE_MODEL, 
     PRESENCE_THRESHOLD, RIGHT_SIDE, 
     VISIBILITY_THRESHOLD, FrameAssessment )
-from mp_utils.quality.landmark_quality_methods import (
+from mediapipe_code.mp_utils.quality.landmark_quality_methods import (
     build_composite_from_frames,
     compute_composite_score, 
     compute_frame_reliability, compute_reliability,
@@ -124,6 +124,7 @@ class LandmarkQualityFramework:
         video_path,
         exercise,
         weight_kg,
+        analysis_id,
     ):
         
         """
@@ -539,7 +540,7 @@ class LandmarkQualityFramework:
             len(reps_json_info),
         )
 
-        quality_result["analysis_id"] = str(uuid.uuid4())
+        quality_result["analysis_id"] = analysis_id
 
         quality_result["event"] = "mediapipe_complete"
 
@@ -575,7 +576,7 @@ class LandmarkQualityFramework:
 
         final_json = {
             "session": {
-                "analysis_id": str(uuid.uuid4()),
+                "analysis_id": analysis_id,
                 "exercise": exercise,
                 "weight_kg": weight_kg,
                 "rep_count": len(reps_json_info),
@@ -620,7 +621,7 @@ if __name__ == "__main__":
     video_name = os.path.splitext(os.path.basename(input_dir))[0] + "_resized"
     analysis_path = f"./backend/mediapipe_code/results/{video_name}.json"
 
-    final_json, quality_result, collage_b64, rep_frames_list = framework.process_video_once(input_dir, "goblet squat", 20)
+    final_json, quality_result, collage_b64, rep_frames_list = framework.process_video_once(input_dir, "goblet squat", 20, analysis_id)
 
     if final_json and os.path.exists(analysis_path):
         try:
