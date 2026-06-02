@@ -706,11 +706,10 @@ def extract_frames_from_memory(
 
 def resize_video(video_path: str):
 
-        name = os.path.basename(video_path)
-        full_name = os.path.splitext(name)[0]
-        output_dir = os.path.join("./mediapipe_code/video_results")
-        os.makedirs(output_dir, exist_ok=True)
-        output_path = os.path.join(output_dir, f"{full_name}_resized.mp4")
+        name = video_path.split("/")[-1]
+        full_name = name.split(".")[0]
+        os.makedirs("./mediapipe_code/video_results", exist_ok=True)
+        output_path = f"./mediapipe_code/video_results/{full_name}_resized.mp4"
 
         command = [
             str(FFMPEG_PATH),
