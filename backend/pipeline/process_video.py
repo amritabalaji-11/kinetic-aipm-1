@@ -18,63 +18,6 @@ from mediapipe_code.landmark_framework import LandmarkQualityFramework
 from utils.sse_manager import sse_manager
 from mediapipe_code.llm_run_code import run_llm_analysis
 from mediapipe_code.llm_run_code import run_llm_comparison
-
-
-
-
-# =========================================================
-# HAIKU CALL 2 — SYSTEM PROMPT
-# Longitudinal coaching: current session vs last 5 sessions.
-# Output must be valid JSON matching the progression schema.
-# =========================================================
-
-HAIKU_CALL_2_SYSTEM = """You are a squat coaching AI performing longitudinal analysis.
-
-Given a user's current session and their previous session history for the same exercise,
-return a JSON coaching comparison. Return ONLY valid JSON — no markdown fences, no explanation.
-
-Output this exact schema:
-{
-  "has_comparison": true,
-  "empty_state_message": null,
-  "current": {
-    "date_label": "May 22",
-    "weight_value": 40.0,
-    "weight_unit": "kg",
-    "overall_form_score": 72,
-    "posture_score": 73,
-    "stability_score": 75,
-    "movement_quality_score": 68,
-    "tempo_score": 55,
-    "reps": [{"rep_number": 1, "form_score": 81}]
-  },
-  "previous": { "<same shape as current — most recent previous session, or null>" },
-  "comparison_coaching": {
-    "summary_paragraph": "<1-2 sentences on today vs last session>",
-    "weight_decision": "<hold | good_to_progress | drop_weight>",
-    "parameters": {
-      "posture":          {"score": 73, "observation_action": "<1 sentence>"},
-      "stability":        {"score": 75, "observation_action": "<1 sentence>"},
-      "movement_quality": {"score": 68, "observation_action": "<1 sentence>"},
-      "tempo":            {"score": 55, "observation_action": "<1 sentence>"}
-    }
-  },
-  "progression_timeline": {
-    "insights": ["<insight 1>", "<insight 2>", "<insight 3>"],
-    "sessions": [{"date_label": "May 22", "weight_kg": 40.0, "overall_score": 72}]
-  }
-}
-
-Rules:
-- has_comparison is false only when previous_sessions is empty; set empty_state_message to
-  "Complete a second session to unlock your comparison." in that case.
-- previous is the most recent previous session (index 0 of previous_sessions), or null.
-- comparison_coaching is null when has_comparison is false.
-- weight_decision: "hold" if score < 75 or trending down; "good_to_progress" if score >= 80
-  and stable/improving; "drop_weight" if score dropped significantly (>= 8 points).
-- All scores are integers 0–100. date_label format: "Mon DD" e.g. "May 22".
-- progression_timeline.sessions lists all sessions newest-first (include current as index 0).
-"""
 from services.haiku_call_1_integration import HaikuCall1
 
 
@@ -136,6 +79,14 @@ def _download_from_gcs(gcs_path: str, session_id: str) -> str:
 # =========================================================
 
 async def run_mediapipe_analysis(analysis_id: str, file_location: str):
+    """
+    Full async pipeline — Haiku edition.
+
+    Event sequence:
+      upload_received → mediapipe_started → mediapipe_complete → biomechanics_complete
+      → haiku_started → analysis_ready (Tab 1 unlocks)
+      → haiku_call_2_complete (async, after Haiku Call 2) — closes stream
+    """
     from db.database import db
 
     loop = asyncio.get_event_loop()
@@ -296,14 +247,11 @@ async def run_mediapipe_analysis(analysis_id: str, file_location: str):
             "user_id":      user_id,
         }
 
-        # Slim biomechanics payload — session summary + per-rep data only
-        # (excludes raw frame-by-frame data to stay within TPM limits)
         biomechanics_slim = {
             "session": mp_result.get("session", {}),
             "reps":    mp_result.get("reps", []),
         }
 
-        # Run Haiku Call 1 in thread pool (uses sync Anthropic client)
         coaching_output = await loop.run_in_executor(
             _executor,
             lambda: _haiku_call_1.analyze_form(
@@ -318,7 +266,6 @@ async def run_mediapipe_analysis(analysis_id: str, file_location: str):
         await _store_analysis_results(analysis_id, user_id, session_id, record, mp_result, coaching_output)
 
         overall_score = coaching_output.get("overall_form_score", 0)
-        
 
         await sse_manager.send_event(analysis_id, "analysis_ready", 80, extra={
             **ctx,
@@ -327,6 +274,7 @@ async def run_mediapipe_analysis(analysis_id: str, file_location: str):
 
         # -------------------------------------------------
         # STEP 8 — Enqueue Haiku Call 2 (async, does not block analysis_ready)
+        #
         # S2-W8-01: stamp queued_at in DB so the haiku-status endpoint returns
         # accurate timing before the job enters running state.
         # S2-W8-04: emit haiku_call_2_queued SSE; job emits started/complete/
@@ -334,6 +282,7 @@ async def run_mediapipe_analysis(analysis_id: str, file_location: str):
         # -------------------------------------------------
         from datetime import datetime, timezone
         from db.database import db as _pipeline_db
+        queued_at = datetime.now(timezone.utc).isoformat()
         await _pipeline_db.execute(
             """
             UPDATE form_analyses
@@ -341,13 +290,21 @@ async def run_mediapipe_analysis(analysis_id: str, file_location: str):
                 haiku_call_2_queued_at  = :ts
             WHERE analysis_id = :aid
             """,
-            values={"ts": datetime.now(timezone.utc).isoformat(), "aid": analysis_id},
+            values={"ts": queued_at, "aid": analysis_id},
         )
 
-       # asyncio.create_task(fire_progression_ready()) #progression_ready runs async and does NOT block analysis_ready
-        print("[PIPELINE] scheduling haiku call 2")
+        await sse_manager.send_event(
+            analysis_id, "haiku_call_2_queued", 85,
+            extra={
+                **ctx,
+                "job_id":       analysis_id,
+                "timestamp_ms": int(datetime.now(timezone.utc).timestamp() * 1000),
+                "output":       None,
+                "error":        None,
+            },
+        )
+
         asyncio.create_task(run_haiku_call_2(analysis_id))
-        print("[PIPELINE] scheduled haiku call 2")
 
         print(f"[pipeline] Completed analysis_id={analysis_id}, reps={rep_count}")
         return mp_result
@@ -387,7 +344,6 @@ async def _store_biomechanics(analysis_id: str, data: dict):
     """Store full biomechanics JSON and mark analysis complete."""
     from db.database import db
 
-    # 1. Store full ML output + pipeline status
     await db.execute(
         """
         UPDATE form_analyses
@@ -401,7 +357,6 @@ async def _store_biomechanics(analysis_id: str, data: dict):
         },
     )
 
-    # 2. Store derived metrics separately
     await db.execute(
         """
         UPDATE form_analysis_results
@@ -443,17 +398,12 @@ async def _store_analysis_results(
 ):
     """
     Write Haiku Call 1 output to form_analysis_results.
-    This row is the prerequisite for Haiku Call 2 — it must exist before
-    run_haiku_call_2 is called.
-
-    Parameter scores are extracted from coaching_output['parameter_scores'].
-    Key names must match what haiku_call_1_system.txt produces — verify against
-    a real response if scores are storing as None.
+    This row is the prerequisite for Haiku Call 2.
     """
     from db.database import db
 
-    session        = mp_result.get("session", {})
-    param_scores   = coaching_output.get("parameter_scores", {})
+    session      = mp_result.get("session", {})
+    param_scores = coaching_output.get("parameter_scores", {})
 
     await db.execute(
         """
@@ -491,7 +441,6 @@ async def _store_analysis_results(
             "analysis_id":            analysis_id,
             "session_id":             session_id or "00000000-0000-0000-0000-000000000000",
             "user_id":                user_id,
-            # "exercise_id":            record["exercise_id"] if record else "goblet_squat",
             "exercise_id":            mp_result.get("exercise_name", "goblet_squat"),
             "weight_kg_normalised":   mp_result.get("weight_kg_normalised", 0.0),
             "overall_form_score":     coaching_output.get("overall_form_score"),

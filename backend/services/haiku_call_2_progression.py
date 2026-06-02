@@ -173,7 +173,6 @@ async def run_haiku_call_2(analysis_id: str) -> None:
             )
 
             if not current:
-                print("[Haiku Call 2] No current session found — skipping")
                 raise ValueError(f"No record found for analysis_id={analysis_id}")
 
             print("[Haiku Call 2] Current session loaded")
@@ -214,8 +213,6 @@ async def run_haiku_call_2(analysis_id: str) -> None:
             print("[Haiku Call 2] Previous session loaded")
 
             # ── No history → clean exit ────────────────────────────────────
-            # Not an error: user simply has no previous session to compare.
-            # Frontend resolves skeleton loaders and shows locked/empty state.
             if not previous:
                 await db.execute(
                     """
