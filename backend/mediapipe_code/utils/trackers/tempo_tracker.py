@@ -69,6 +69,10 @@ class TempoTracker:
             self.concentric_time = timestamp - self.phase_start_time
 
             if target_angle > up_th:
+                # Processing time compensation. 1/3 of the video frames are processed. The real-time compensation is 0.3 seconds per frame
+                self.eccentric_time += 0.3
+                self.concentric_time += 0.3
+                self.pause_time += 0.3
                 total_time = self.eccentric_time + self.pause_time + self.concentric_time
 
                 tempo_data = {
@@ -93,3 +97,7 @@ class TempoTracker:
                 return tempo_data
 
         return None
+    
+
+    def delete_current_rep(self):
+        self.current_rep_tempo = None

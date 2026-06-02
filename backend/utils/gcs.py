@@ -3,13 +3,14 @@ import os
 from fastapi import UploadFile
 from google.cloud import storage
 from google.oauth2 import service_account
+from utils.config import GCS_BUCKET_NAME
 
 
 # =========================================================
 # CONFIGURATION
 # =========================================================
 
-BUCKET_NAME = "kinetic_bucket"
+BUCKET_NAME = GCS_BUCKET_NAME
 
 BASE_DIR = os.path.dirname(os.path.dirname(__file__))
 

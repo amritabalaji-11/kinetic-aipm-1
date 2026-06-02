@@ -116,12 +116,20 @@ class DepthTracker:
 
         knee_min = self.knee_angle_min
 
-        if knee_min <= self.deep_knee_threshold:
-            depth_classification = "deep"
-        elif knee_min <= self.parallel_knee_threshold:
-            depth_classification = "parallel"
+        if "side" in camera_view:
+            if knee_min <= 100:
+                depth_classification = "deep"
+            elif knee_min <= 110:
+                depth_classification = "parallel"
+            else:
+                depth_classification = "insufficient"
         else:
-            depth_classification = "insufficient"
+            if self.hip_angle_min <= 100:
+                depth_classification = "deep"
+            elif self.hip_angle_min <= 110:
+                depth_classification = "parallel"
+            else:
+                depth_classification = "insufficient"
 
         rep_data = {
             "hip_angle_start": round(self.hip_angle_start, 2),
