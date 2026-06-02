@@ -266,19 +266,19 @@ class LandmarkQualityFramework:
                 # -------------------------------------------------
                 # VIEW
                 # -------------------------------------------------
-                raw_view = detect_view(norm_pose)
+                camera_view = detect_view(norm_pose)
 
                 # View stabilization: During initial frames, compile votes for the observed view.
                 # Once VIEW_LOCK_FRAMES is reached, lock the camera_view to the majority vote 
                 # to prevent transient errors or side-to-side view swapping.
-                if locked_view is None:
+                """if locked_view is None:
                     view_votes[raw_view] = view_votes.get(raw_view, 0) + 1
                     total_votes = sum(view_votes.values())
                     if total_votes >= VIEW_LOCK_FRAMES:
                         locked_view = max(view_votes, key=view_votes.get)
                     camera_view = raw_view
                 else:
-                    camera_view = locked_view
+                    camera_view = locked_view"""
 
                 active_landmarks, active_critical_landmarks = select_landmarks(
                     camera_view,
