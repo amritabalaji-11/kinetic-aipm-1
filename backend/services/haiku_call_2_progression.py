@@ -195,12 +195,16 @@ async def run_haiku_call_2(analysis_id: str):
                 await db.execute(
                     """
                     INSERT INTO progression_results (
+                        user_id,
+                        session_id,
                         analysis_id,
                         available
                     )
-                    VALUES (:analysis_id, :available)
+                    VALUES (:user_id, :session_id, :analysis_id, :available)
                     """,
                     values={
+                        "user_id": user_id,
+                        "session_id": session_id,
                         "analysis_id": analysis_id,
                         "available": False
                     }
