@@ -290,11 +290,11 @@ class PassiveStabilityTracker:
             return None
 
         ratio = 1 - knee_valgus_distance
-        if ratio >= 0.92:
+        if ratio >= 0.95:
             valgus_severity = 'severe'
-        elif ratio >= 0.85:
+        elif ratio >= 0.90:
             valgus_severity = 'moderate'
-        elif ratio >= 0.72:
+        elif ratio >= 0.80:
             valgus_severity = 'mild'
         else:
             valgus_severity = 'none'

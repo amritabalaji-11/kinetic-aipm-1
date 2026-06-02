@@ -1,4 +1,5 @@
 import base64
+import math
 import os
 import subprocess
 import cv2
@@ -272,7 +273,7 @@ def evaluate_quality_gate(
         left_vis, left_pres, left_joint = side_metrics("LEFT")
         right_vis, right_pres, right_joint = side_metrics("RIGHT")
 
-        if left_vis <= 0.60 and right_vis <= 0.60:
+        if left_vis <= 0.50 and right_vis <= 0.50:
             return {
                 "event": "error",
                 "error_stage": "quality_gate",
@@ -282,7 +283,7 @@ def evaluate_quality_gate(
                 "message": "We couldn't see your lower body clearly",
             }
 
-        if left_vis <= 0.60 and right_vis >= 0.60:
+        if left_vis <= 0.50 and right_vis >= 0.50:
             return {
                 "event": "error",
                 "error_stage": "quality_gate",
@@ -293,7 +294,7 @@ def evaluate_quality_gate(
                 "detail": f"Your left {left_joint} wasn't clearly visible.",
             }
 
-        if right_vis <= 0.60 and left_vis >= 0.60:
+        if right_vis <= 0.50 and left_vis >= 0.50:
             return {
                 "event": "error",
                 "error_stage": "quality_gate",
@@ -304,7 +305,7 @@ def evaluate_quality_gate(
                 "detail": f"Your right {right_joint} wasn't clearly visible.",
             }
 
-        if left_vis > 0.60 and left_pres <= 0.50:
+        if left_vis > 0.50 and left_pres <= 0.40:
             return {
                 "event": "error",
                 "error_stage": "quality_gate",
@@ -315,7 +316,7 @@ def evaluate_quality_gate(
                 "detail": f"Your left {left_joint} wasn't fully in frame throughout the video.",
             }
 
-        if right_vis > 0.60 and right_pres <= 0.50:
+        if right_vis > 0.50 and right_pres <= 0.40:
             return {
                 "event": "error",
                 "error_stage": "quality_gate",
@@ -329,7 +330,7 @@ def evaluate_quality_gate(
     elif dominant_view == "side_left":
         left_vis, left_pres, left_joint = side_metrics("LEFT")
 
-        if left_vis <= 0.60:
+        if left_vis <= 0.50:
             return {
                 "event": "error",
                 "error_stage": "quality_gate",
@@ -340,7 +341,7 @@ def evaluate_quality_gate(
                 "detail": f"Your left {left_joint} wasn't clearly visible.",
             }
 
-        if left_vis > 0.60 and left_pres <= 0.50:
+        if left_vis > 0.50 and left_pres <= 0.40:
             return {
                 "event": "error",
                 "error_stage": "quality_gate",
@@ -354,7 +355,7 @@ def evaluate_quality_gate(
     elif dominant_view == "side_right":
         right_vis, right_pres, right_joint = side_metrics("RIGHT")
 
-        if right_vis <= 0.60:
+        if right_vis <= 0.50:
             return {
                 "event": "error",
                 "error_stage": "quality_gate",
@@ -365,7 +366,7 @@ def evaluate_quality_gate(
                 "detail": f"Your right {right_joint} wasn't clearly visible.",
             }
 
-        if right_vis > 0.60 and right_pres <= 0.50:
+        if right_vis > 0.50 and right_pres <= 0.40:
             return {
                 "event": "error",
                 "error_stage": "quality_gate",
@@ -379,7 +380,7 @@ def evaluate_quality_gate(
     # ----------------------------
     # Gate 2 — Composite Score
     # ----------------------------
-    if video_score < 0.70:
+    if video_score < 0.60:
         return {
             "event": "error",
             "error_stage": "quality_gate",
@@ -400,13 +401,13 @@ def evaluate_quality_gate(
             "message": "We couldn't detect any squats in your video",
         }
 
-    if complete_reps < 1:
+    if complete_reps < 3:
         return {
             "event": "error",
             "error_stage": "quality_gate",
             "retryable": False,
             "error_code": "insufficient_reps",
-            "message": "We need at least 1 complete rep to give you meaningful feedback",
+            "message": "We need at least 3 complete reps to give you meaningful feedback",
         }
 
     quality_gate_status = "GOOD" if video_score >= 0.85 else "ACCEPTABLE"
@@ -573,7 +574,6 @@ def format_rep_data(rep_count, tempo_data, back_data, depth_data, stability_data
 
     return data
 
-import math
 
 def torso_vertical_angle(pose_world):
     """
@@ -747,13 +747,10 @@ def resize_video(video_path: str):
 
 
 def get_y(norm_pose, idx):
+    """
+    Get the y coordinate of the landmark at the given index, or None if it doesn't exist.
+    """
     lm = safe_get_landmark(norm_pose, idx)
     if lm is None:
         return None
     return lm.y
-
-def get_y_px(norm_pose, idx, height):
-    lm = safe_get_landmark(norm_pose, idx)
-    if lm is None:
-        return None
-    return int(lm.y * height)

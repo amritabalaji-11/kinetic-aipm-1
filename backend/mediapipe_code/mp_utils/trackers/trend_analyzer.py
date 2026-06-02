@@ -42,6 +42,7 @@ class TrendAnalyzer:
         return true_count
 
     def build_consolidated_summary(self, reps, camera_view):
+        """Build a consolidated summary of the reps, including means, trends, distributions, and flags."""
         total_reps = len(reps)
 
         # Running stats
