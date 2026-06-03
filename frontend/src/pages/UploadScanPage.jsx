@@ -11,8 +11,8 @@ const MUSCLE_GROUPS = [
   {
     id: "shoulders",
     label: "SHOULDERS",
-    zone: { top: "19%", left: "29%", width: "10%", height: "7%" },
-    glow: { top: "23%", left: "31%", translateX: "0", w: "w-6", h: "h-6" },
+    zone: { top: "19%", left: "37%", width: "10%", height: "7%" },
+    glow: { top: "26%", left: "37%", translateX: "0", w: "w-6", h: "h-6" },
     marker: { x: 120, y: 60 },
     exercises: [
       { id: "ohp",           name: "OVERHEAD PRESS",  enabled: false },
@@ -22,8 +22,8 @@ const MUSCLE_GROUPS = [
   {
     id: "biceps",
     label: "BICEPS",
-    zone: { top: "26%", left: "20%", width: "22%", height: "14%" },
-    glow: { top: "28%", left: "29%", translateX: "0", w: "w-5", h: "h-12", rotate: "10deg" },
+    zone: { top: "26%", left: "28%", width: "22%", height: "14%" },
+    glow: { top: "30%", left: "35%", translateX: "0", w: "w-5", h: "h-12", rotate: "10deg" },
     marker: { x: 28, y: 100 },
     exercises: [
       { id: "barbell-curl",  name: "BARBELL CURL",    enabled: false },
@@ -33,8 +33,8 @@ const MUSCLE_GROUPS = [
   {
     id: "forearms",
     label: "FOREARMS",
-    zone: { top: "33%", left: "16%", width: "22%", height: "14%" },
-    glow: { top: "35%", left: "27%", translateX: "0", w: "w-5", h: "h-12", rotate: "10deg" },
+    zone: { top: "33%", left: "24%", width: "22%", height: "14%" },
+    glow: { top: "35%", left: "33%", translateX: "0", w: "w-5", h: "h-12", rotate: "10deg" },
     marker: { x: 36, y: 140 },
     exercises: [
       { id: "wrist-curl",    name: "WRIST CURL",      enabled: false },
@@ -44,8 +44,8 @@ const MUSCLE_GROUPS = [
   {
     id: "chest",
     label: "CHEST",
-    zone: { top: "22%", left: "32%", width: "28%", height: "13%" },
-    glow: { top: "26%", left: "48%", translateX: "-50%", w: "w-14", h: "h-10" },
+    zone: { top: "22%", left: "40%", width: "28%", height: "13%" },
+    glow: { top: "26%", left: "51%", translateX: "-50%", w: "w-14", h: "h-10" },
     marker: { x: 152, y: 120 },
     exercises: [
       { id: "bench-press",   name: "BENCH PRESS",     enabled: false },
@@ -55,8 +55,8 @@ const MUSCLE_GROUPS = [
   {
     id: "abs",
     label: "ABS/CORE",
-    zone: { top: "33%", left: "28%", width: "40%", height: "14%" },
-    glow: { top: "34%", left: "48%", translateX: "-50%", w: "w-16", h: "h-12" },
+    zone: { top: "33%", left: "36%", width: "40%", height: "14%" },
+    glow: { top: "34%", left: "50%", translateX: "-50%", w: "w-16", h: "h-12" },
     marker: { x: 152, y: 130 },
     exercises: [
       { id: "plank",         name: "PLANK",           enabled: false },
@@ -67,8 +67,8 @@ const MUSCLE_GROUPS = [
   {
     id: "legs",
     label: "QUADS",
-    zone: { top: "45%", left: "25%", width: "44%", height: "19%" },
-    glow: { top: "47%", left: "47%", translateX: "-50%", w: "w-20", h: "h-16" },
+    zone: { top: "45%", left: "33%", width: "44%", height: "19%" },
+    glow: { top: "45%", left: "50%", translateX: "-50%", w: "w-20", h: "h-16" },
     marker: { x: 132, y: 182 },
     exercises: [
       { id: "goblet-squat",  name: "GOBLET SQUAT",   enabled: true  },
@@ -272,22 +272,22 @@ const highlightedMuscle =
                 style={{ zIndex: 15 }}
               >
 
-                <line x1="65" y1="75" x2="30" y2="63"
+                <line x1="78" y1="82" x2="52" y2="63"
                   stroke={selectedGroup === "shoulders" ? "#00ffc2" : "#1d2d3e"}
                   strokeOpacity={selectedGroup === "shoulders" ? "0.9" : "0.4"} strokeWidth="1" />
-                <line x1="62" y1="97" x2="36" y2="97"
+                <line x1="73" y1="97" x2="37" y2="97"
                   stroke={selectedGroup === "biceps" ? "#00ffc2" : "#1d2d3e"}
                   strokeOpacity={selectedGroup === "biceps" ? "0.9" : "0.4"} strokeWidth="1" />
-                <line x1="54" y1="122" x2="36" y2="118"
+                <line x1="67" y1="118" x2="37" y2="118"
                   stroke={selectedGroup === "forearms" ? "#00ffc2" : "#1d2d3e"}
                   strokeOpacity={selectedGroup === "forearms" ? "0.9" : "0.4"} strokeWidth="1" />
-                <line x1="76" y1="160" x2="26" y2="192"
+                <line x1="83" y1="150" x2="27" y2="192"
                   stroke={highlightedMuscle === "quads" ? "#00ffc2" : "#1d2d3e"}
                   strokeOpacity={highlightedMuscle === "quads" ? "0.9" : "0.4"} strokeWidth="1" />
-                <line x1="98" y1="82" x2="152" y2="97"
+                <line x1="107" y1="87" x2="152" y2="97"
                   stroke={selectedGroup === "chest" ? "#00ffc2" : "#1d2d3e"}
                   strokeOpacity={selectedGroup === "chest" ? "0.9" : "0.4"} strokeWidth="1" />
-                <line x1="88" y1="118" x2="138" y2="118"
+                <line x1="95" y1="118" x2="135" y2="118"
                   stroke={selectedGroup === "abs" ? "#00ffc2" : "#1d2d3e"}
                   strokeOpacity={selectedGroup === "abs" ? "0.9" : "0.4"} strokeWidth="1" />
                 <text x="6" y="60" textAnchor="start" fontSize="8" fill={selectedGroup === "shoulders" ? "#00ffc2" : "#1d2d3e"} fontWeight={selectedGroup === "shoulders" ? 700 : 500}>SHOULDERS</text>
