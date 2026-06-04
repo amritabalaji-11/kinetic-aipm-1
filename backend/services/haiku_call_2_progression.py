@@ -1,7 +1,16 @@
-from anthropic import AsyncAnthropic
+from anthropic import (
+    AsyncAnthropic,
+    APITimeoutError,
+    APIStatusError,
+    RateLimitError,
+    BadRequestError
+    )
 from db.database import db
 from utils.sse_manager import sse_manager
+from services.errors import map_exception_to_error_code
+from utils.logging import log_job_failure
 
+import time
 import json
 import os
 import traceback
@@ -16,34 +25,6 @@ import re
 client = AsyncAnthropic(
     api_key=os.getenv("ANTHROPIC_API_KEY")
 )
-
-# -------------------------------------------------
-# GLOBAL RATE LIMIT CONTROL
-# -------------------------------------------------
-HAIKU_CALL_2_SEMAPHORE = asyncio.Semaphore(1)  # increase to 2 later if stable
-
-
-def safe_json_load(raw: str):
-    """Robust JSON parser for Claude output."""
-    raw = raw.strip()
-    raw = re.sub(r"^```json", "", raw)
-    raw = re.sub(r"^```", "", raw)
-    raw = re.sub(r"```$", "", raw)
-    raw = raw.strip()
-    return json.loads(raw)
-
-
-async def call_haiku_with_retry(payload, retries=3):
-    """Prevents transient 429 failures from killing pipeline."""
-    for attempt in range(retries):
-        try:
-            return await client.messages.create(**payload)
-        except Exception as e:
-            wait = (2 ** attempt) + random.uniform(0, 0.5)
-            print(f"[Haiku Call 2] retry {attempt+1} in {wait:.2f}s due to {e}")
-            await asyncio.sleep(wait)
-    raise RuntimeError("Haiku Call 2 failed after retries")
-
 
 # =========================================================
 # GLOBAL RATE LIMIT CONTROL
@@ -60,16 +41,21 @@ HAIKU_CALL_2_SEMAPHORE = asyncio.Semaphore(1)
 # =========================================================
 
 def safe_json_load(raw: str):
-    """
-    Robust JSON parser for Claude output.
-    Removes markdown fences if Claude adds them.
-    """
 
     raw = raw.strip()
 
-    raw = re.sub(r"^```json", "", raw)
-    raw = re.sub(r"^```", "", raw)
-    raw = re.sub(r"```$", "", raw)
+    raw = re.sub(
+        r"^```(?:json)?",
+        "",
+        raw,
+        flags=re.IGNORECASE
+    )
+
+    raw = re.sub(
+        r"```$",
+        "",
+        raw
+    )
 
     raw = raw.strip()
 
@@ -80,27 +66,61 @@ def safe_json_load(raw: str):
 # RETRY WRAPPER
 # =========================================================
 
-async def call_haiku_with_retry(payload, retries=3):
+async def call_haiku_with_retry(payload):
     """
-    Prevents transient 429 failures from killing pipeline.
+    Initial attempt + 3 retries
+    Backoff: 1s → 3s → 9s
+    Per API timeout: 45s
     """
 
-    for attempt in range(retries):
+    backoff_times = [1, 3, 9]
+    max_attempts = 4
+
+    for attempt in range(max_attempts):
+
         try:
-            return await client.messages.create(**payload)
 
-        except Exception as e:
-            wait = (2 ** attempt) + random.uniform(0, 0.5)
+            return await asyncio.wait_for(
+                client.messages.create(**payload),
+                timeout=45
+            )
+
+        except Exception as exc:
+
+            error_code, retryable = (
+                map_exception_to_error_code(exc)
+            )
+
+            if not retryable:
+
+                print(
+                    f"[Haiku Call 2] "
+                    f"Non-retryable error: "
+                    f"{error_code} - {exc}"
+                )
+
+                raise
+
+            if attempt == max_attempts - 1:
+
+                print(
+                    f"[Haiku Call 2] "
+                    f"Max retries reached. "
+                    f"Last error: {error_code}"
+                )
+
+                raise
+
+            wait = backoff_times[attempt]
 
             print(
-                f"[Haiku Call 2] retry {attempt+1} "
-                f"in {wait:.2f}s due to {e}"
+                f"[Haiku Call 2] "
+                f"Retry {attempt+1}/3 "
+                f"in {wait}s "
+                f"due to {error_code}"
             )
 
             await asyncio.sleep(wait)
-
-    raise RuntimeError("Haiku Call 2 failed after retries")
-
 
 # =========================================================
 # MAIN JOB
@@ -108,6 +128,8 @@ async def call_haiku_with_retry(payload, retries=3):
 
 async def run_haiku_call_2(analysis_id: str):
     async with HAIKU_CALL_2_SEMAPHORE:
+
+        started_at = time.monotonic()
 
         # Small delay to let TPM window clear after Haiku Call 1
         await asyncio.sleep(10)
@@ -193,6 +215,13 @@ async def run_haiku_call_2(analysis_id: str):
             # -----------------------------------------
             if not previous:
 
+                elapsed = time.monotonic() - started_at
+
+                if elapsed > 120:
+                    raise TimeoutError(
+                        "Haiku Call 2 exceeded 120 seconds"
+                    )
+
                 await db.execute(
                     """
                     INSERT INTO progression_results (
@@ -239,7 +268,10 @@ async def run_haiku_call_2(analysis_id: str):
                 else:
                     previous_coaching = previous["coaching_output"]
 
-            previous_focus = previous_coaching["next_session_focus"] if previous_coaching else []
+            previous_focus = (
+                previous_coaching.get("next_session_focus", [])
+                if previous_coaching else []
+            )
             # -----------------------------------------
             # PROMPT
             # Includes both sessions' 4 parameter scores + overall + weight
@@ -298,6 +330,11 @@ Return ONLY valid JSON matching this exact schema:
 
             print("[Haiku Call 2] Calling Haiku...")
 
+            elapsed = time.monotonic() - started_at
+
+            if elapsed > 120:
+                raise TimeoutError("Haiku Call 2 exceeded time limit before calling Haiku")
+
             # -----------------------------------------
             # HAIKU CALL (RATE SAFE + RETRY)
             # -----------------------------------------
@@ -309,9 +346,29 @@ Return ONLY valid JSON matching this exact schema:
                 ]
             })
 
+            elapsed = time.monotonic() - started_at
+
+            if elapsed > 120:
+                raise TimeoutError(
+                    "Haiku Call 2 exceeded 120 seconds"
+                )
+
             result = safe_json_load(response.content[0].text)
 
             print("[Haiku Call 2] Response received")
+
+            required_fields = ["progression_verdict",
+                               "progress_direction",
+                                "weight_recommendation",
+                                "focus_this_week",
+                                "posture_trend",
+                                "stability_trend",
+                                "range_of_motion_trend",
+                                "movement_quality_trend"]
+
+            for field in required_fields:
+                if field not in result:
+                    raise KeyError(f"Missing required field in Haiku output: {field}")
 
             # -----------------------------------------
             # VALIDATION
@@ -387,6 +444,120 @@ Return ONLY valid JSON matching this exact schema:
 
             print("[Haiku Call 2] SUCCESS")
 
-        except Exception as e:
-            print(f"[Haiku Call 2] FAILED: {e}")
+        except Exception as exc:
+
+            elapsed = (
+                time.monotonic()
+                - started_at
+            )   
+
+            if (
+                isinstance(exc, TimeoutError)
+                and elapsed > 120
+            ):
+                error_code = (
+                    "HAIKU_CALL_2_TIMEOUT"
+                )
+
+                retryable = False
+
+            else:
+
+                error_code, retryable = (
+                    map_exception_to_error_code(exc)
+                )
+
+            log_job_failure(
+                analysis_id=analysis_id,
+                error_code=error_code,
+                retryable=retryable,
+                attempt=4,
+                elapsed=elapsed,
+                exc=exc
+            )
+
+            print(
+                f"[Haiku Call 2] FAILED "
+                f"analysis_id={analysis_id} "
+                f"error_code={error_code} "
+                f"retryable={retryable} "
+                f"elapsed={elapsed:.2f}s "
+                f"exception={type(exc).__name__}"
+            )
+
+            existing = await db.fetch_one(
+                """
+                SELECT analysis_id
+                FROM progression_results
+                WHERE analysis_id = :analysis_id
+                """,
+                values={
+                    "analysis_id": analysis_id
+                }
+            )
+
+            if existing:
+
+                await db.execute(
+                    """
+                    UPDATE progression_results
+                    SET error_code = :error_code,
+                        retryable = :retryable,
+                        last_error_at = CURRENT_TIMESTAMP,
+                        available = 0
+                    WHERE analysis_id = :analysis_id
+                    """,
+                    values={
+                        "error_code": error_code,
+                        "retryable": retryable,
+                        "analysis_id": analysis_id
+                    }
+                )
+
+            else:
+
+                await db.execute(
+                    """
+                    INSERT INTO progression_results (
+                        analysis_id,
+                        available,
+                        error_code,
+                        retryable
+                    )
+                    VALUES (
+                        :analysis_id,
+                        0,
+                        :error_code,
+                        :retryable
+                    )
+                    """,
+                    values={
+                        "analysis_id": analysis_id,
+                        "error_code": error_code,
+                        "retryable": retryable
+                    }
+                )
+
             traceback.print_exc()
+
+            try:
+
+                await sse_manager.send_event(
+                    analysis_id,
+                    "job_failed",
+                    100,
+                    "failed",
+                    {
+                        "job_type": 
+                            "haiku_call_2",
+
+                        "error_code":
+                            error_code,
+
+                        "retryable":
+                            retryable
+                    }
+                )
+
+            except Exception:
+                pass

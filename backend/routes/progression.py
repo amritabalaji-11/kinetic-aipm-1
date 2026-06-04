@@ -174,7 +174,12 @@ async def get_progression(analysis_id: str):
         WHERE analysis_id = :analysis_id
         """,
         values={
-            "analysis_id": analysis_id
+            "analysis_id": analysis_id,
+            "ai_verdict": True,
+            "error": {
+                "error_code": progression["error_code"] if progression else None,
+                "retryable": progression["retryable"] if progression else None
+            }
         }
     )
 
