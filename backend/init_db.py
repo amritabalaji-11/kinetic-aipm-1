@@ -112,6 +112,8 @@ CREATE TABLE IF NOT EXISTS progression_results (
 
 
         error_code TEXT,
+        retryable BOOLEAN,
+        last_error_at TIMESTAMP NULL,
         progress_direction TEXT
             CHECK (progress_direction IN ('up', 'down', 'stable'))
 
