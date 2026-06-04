@@ -227,11 +227,11 @@ export default function ResultsPage() {
     async function fetchSessions() {
       try {
         const localUserId = localStorage.getItem("user_id")
-        const batchUserId = "00000000-0000-0000-0000-000000000000"
+        const userId = localStorage.getItem("user_id")
 
         let allSessions = []
 
-        const r1 = await fetch(`${BASE_URL}/history/${batchUserId}`)
+        const r1 = await fetch(`${BASE_URL}/history/${userId}`)
         if (r1.ok) {
           const list = await r1.json()
           if (Array.isArray(list)) allSessions.push(...list)
@@ -946,3 +946,4 @@ export default function ResultsPage() {
     </div>
   )
 }
+
