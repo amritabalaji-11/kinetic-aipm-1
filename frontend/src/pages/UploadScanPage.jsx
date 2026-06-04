@@ -1,70 +1,167 @@
 import { useState, useEffect } from "react"
 import { useNavigate } from "react-router-dom"
-import { Upload, CheckCircle, AlertCircle, RotateCw, Check, ChevronDown, Play } from "lucide-react"
+import { Upload, CheckCircle, AlertCircle, RotateCw, Check, ChevronDown, Play, X } from "lucide-react"
 import { uploadVideo } from "../services/uploadService"
+import { validateVideoFile } from "../utils/validateVideo"
 
-const EXERCISES = [
-  { id: "goblet-squat",  name: "GOBLET SQUAT",  enabled: true  },
-  { id: "barbell-squat", name: "BARBELL SQUAT",  enabled: false },
-  { id: "deadlift",      name: "DEADLIFT",       enabled: false },
+// ─── Muscle groups ────────────────────────────────────────────────────────────
+// Hit zones are invisible overlays — positioned to match the anatomy image.
+// Labels, SVG lines, and glow positions are untouched from original.
+const MUSCLE_GROUPS = [
+  {
+    id: "shoulders",
+    label: "SHOULDERS",
+    zone: { top: "19%", left: "29%", width: "10%", height: "7%" },
+    glow: { top: "23%", left: "31%", translateX: "0", w: "w-6", h: "h-6" },
+    marker: { x: 120, y: 60 },
+    exercises: [
+      { id: "ohp",           name: "OVERHEAD PRESS",  enabled: false },
+      { id: "lateral-raise", name: "LATERAL RAISE",   enabled: false },
+    ],
+  },
+  {
+    id: "biceps",
+    label: "BICEPS",
+    zone: { top: "26%", left: "20%", width: "22%", height: "14%" },
+    glow: { top: "28%", left: "29%", translateX: "0", w: "w-5", h: "h-12", rotate: "10deg" },
+    marker: { x: 28, y: 100 },
+    exercises: [
+      { id: "barbell-curl",  name: "BARBELL CURL",    enabled: false },
+      { id: "hammer-curl",   name: "HAMMER CURL",     enabled: false },
+    ],
+  },
+  {
+    id: "forearms",
+    label: "FOREARMS",
+    zone: { top: "33%", left: "16%", width: "22%", height: "14%" },
+    glow: { top: "35%", left: "27%", translateX: "0", w: "w-5", h: "h-12", rotate: "10deg" },
+    marker: { x: 36, y: 140 },
+    exercises: [
+      { id: "wrist-curl",    name: "WRIST CURL",      enabled: false },
+      { id: "reverse-curl",  name: "REVERSE CURL",    enabled: false },
+    ],
+  },
+  {
+    id: "chest",
+    label: "CHEST",
+    zone: { top: "22%", left: "32%", width: "28%", height: "13%" },
+    glow: { top: "26%", left: "48%", translateX: "-50%", w: "w-14", h: "h-10" },
+    marker: { x: 152, y: 120 },
+    exercises: [
+      { id: "bench-press",   name: "BENCH PRESS",     enabled: false },
+      { id: "incline-press", name: "INCLINE PRESS",   enabled: false },
+    ],
+  },
+  {
+    id: "abs",
+    label: "ABS/CORE",
+    zone: { top: "33%", left: "28%", width: "40%", height: "14%" },
+    glow: { top: "34%", left: "48%", translateX: "-50%", w: "w-16", h: "h-12" },
+    marker: { x: 152, y: 130 },
+    exercises: [
+      { id: "plank",         name: "PLANK",           enabled: false },
+      { id: "crunch",        name: "CRUNCH",          enabled: false },
+      { id: "hanging-raise", name: "HANGING LEG RAISE", enabled: false },
+    ],
+  },
+  {
+    id: "legs",
+    label: "QUADS",
+    zone: { top: "45%", left: "25%", width: "44%", height: "19%" },
+    glow: { top: "47%", left: "47%", translateX: "-50%", w: "w-20", h: "h-16" },
+    marker: { x: 132, y: 182 },
+    exercises: [
+      { id: "goblet-squat",  name: "GOBLET SQUAT",   enabled: true  },
+      { id: "barbell-squat", name: "BARBELL SQUAT",  enabled: false },
+      { id: "leg-press",     name: "LEG PRESS",      enabled: false },
+    ],
+  },
 ]
 
 const MAX_FILE_SIZE_MB    = 500
-const ACCEPTED_FORMATS    = ["video/mp4", "video/quicktime", "video/webm"]
-const ACCEPTED_EXTENSIONS = ".mp4, .mov, .webm"
+const ACCEPTED_FORMATS    = [
+  "video/mp4",
+  "video/quicktime",
+  "video/x-msvideo",
+  "video/avi",
+  "video/msvideo",
+  "video/webm",
+]
+const ACCEPTED_EXTENSIONS = ".mp4, .mov, .avi, .webm"
 
 const MIN_WEIGHT  = 0
 const MAX_WEIGHT  = 200
 const WEIGHT_STEP = 0.5
 
+
 function UploadScanPage() {
   const navigate = useNavigate()
 
+  const [selectedGroup,   setSelectedGroup]   = useState(null)
   const [exercise,        setExercise]        = useState("")
   const [weight,          setWeight]          = useState(0)
   const [videoFile,       setVideoFile]       = useState(null)
   const [videoPreviewUrl, setVideoPreviewUrl] = useState(null)
   const [weightTouched,   setWeightTouched]   = useState(false)
-  const [fileError,       setFileError]       = useState("")
+  const [validationError, setValidationError] = useState(null)
+  const [isValidating,    setIsValidating]    = useState(false)
   const [tipsExpanded,    setTipsExpanded]    = useState(true)
   const [unit,            setUnit]            = useState("kg")
   const [formAlert,       setFormAlert]       = useState("")
   const [isUploading,     setIsUploading]     = useState(false)
-  const [uploadError,     setUploadError]     = useState("")
+  const [uploadError,     setUploadError]     = useState(null)
 
-  const maxWeightForUnit  = unit === "kg" ? MAX_WEIGHT : 440
-  const isWeightValid     = weight > 0
-  const isFormValid       = exercise && isWeightValid && videoFile && !fileError
-  const showWeightError   = weightTouched && !isWeightValid
-  const highlightedMuscle = exercise === "goblet-squat" || exercise === "barbell-squat" ? "quads" : null
+const maxWeightForUnit  = unit === "kg" ? MAX_WEIGHT : 440
+const isWeightValid     = weight > 0
+const isFormValid       = exercise && isWeightValid && videoFile && !validationError && !isValidating
+const showWeightError   = weightTouched && !isWeightValid
+
+const activeGroup      = MUSCLE_GROUPS.find((g) => g.id === selectedGroup)
+const visibleExercises = activeGroup?.exercises ?? []
+
+const highlightedMuscle =
+  selectedGroup === "legs" ||
+  exercise === "goblet-squat" ||
+  exercise === "barbell-squat"
+    ? "quads"
+    : selectedGroup ?? null
 
   useEffect(() => {
     if (isFormValid) setFormAlert("")
   }, [isFormValid])
 
-  function handleFileChange(e) {
+  useEffect(() => {
+    if (!selectedGroup) return
+  
+    const ids = activeGroup?.exercises.map((e) => e.id) || []
+  
+    if (exercise && !ids.includes(exercise)) {
+      setExercise("")
+    }
+  }, [selectedGroup])
+  
+  function handleMuscleGroupClick(groupId) {
+    setSelectedGroup((prev) => (prev === groupId ? null : groupId))
+  }
+  
+  async function handleFileChange(e) {
     const file = e.target.files[0]
     if (!file) return
-    setFileError("")
-
-    if (!ACCEPTED_FORMATS.includes(file.type)) {
-      setFileError(`Unsupported format. Please upload ${ACCEPTED_EXTENSIONS}.`)
-      setVideoFile(null)
-      setVideoPreviewUrl(null)
+  
+    setValidationError(null)
+    setVideoFile(null)
+    setVideoPreviewUrl(null)
+    setIsValidating(true)
+  
+    const error = await validateVideoFile(file)
+  
+    setIsValidating(false)
+  
+    if (error) {
+      setValidationError(error)
       return
     }
-
-    const fileSizeMB = file.size / (1024 * 1024)
-    if (fileSizeMB > MAX_FILE_SIZE_MB) {
-      setFileError(
-        `File too large (${fileSizeMB.toFixed(1)} MB). Max ${MAX_FILE_SIZE_MB} MB. ` +
-        `Try trimming the clip to the working set only.`
-      )
-      setVideoFile(null)
-      setVideoPreviewUrl(null)
-      return
-    }
-
+  
     setVideoFile(file)
     setVideoPreviewUrl(URL.createObjectURL(file))
   }
@@ -84,17 +181,17 @@ function UploadScanPage() {
   async function handleSubmit() {
     if (!isFormValid) {
       const parts = []
-      if (!exercise)      parts.push("select an exercise")
-      if (!videoFile)     parts.push("upload a video")
-      if (!isWeightValid) parts.push("set weight greater than 0")
-      if (fileError)      parts.push("fix the file error above")
+      if (!exercise)        parts.push("select an exercise")
+      if (!videoFile)       parts.push("upload a video")
+      if (!isWeightValid)   parts.push("set weight greater than 0")
+      if (validationError)  parts.push("fix the file error above")
       setFormAlert(`Before starting: ${parts.join(", ")}.`)
       setWeightTouched(true)
       return
     }
 
     setFormAlert("")
-    setUploadError("")
+    setUploadError(null)
     setIsUploading(true)
 
     try {
@@ -103,7 +200,10 @@ function UploadScanPage() {
         state: { analysisId, videoPreviewUrl },
       })
     } catch (err) {
-      setUploadError(err.message || "Upload failed. Please try again.")
+      setUploadError({
+        type: err.code === "UPLOAD_TIMEOUT" ? "UPLOAD_TIMEOUT" : "UPLOAD_FAILED",
+        message: err.message || "Upload failed. Please try again.",
+      })
       setIsUploading(false)
     }
   }
@@ -112,53 +212,92 @@ function UploadScanPage() {
     <div className="min-h-screen bg-light-bg text-text-primary p-4">
       <div className="max-w-md mx-auto space-y-4">
 
-        {/* ───────── Anatomy + Exercise Module ───────── */}
         <section className="border-2 border-dashed border-cyan-glow/60 rounded-xl p-4 bg-light-card shadow-sm">
 
-          <div className="relative flex justify-center mb-6">
-            <div className="relative w-64 h-84">
-              <img
-                src="/muscular_light.png"
-                alt="Anatomy diagram"
-                className="w-full h-full object-cover rounded-lg"
-              />
+          <p className="text-xs text-text-teritary text-center mb-3">
+            {selectedGroup
+              ? `${activeGroup.label} selected — choose an exercise below`
+              : "Tap a muscle group to get started"}
+          </p>
 
-              {highlightedMuscle === "quads" && (
-                <div className="absolute left-1/2 top-[48%] -translate-x-1/2 w-20 h-16 bg-cyan-glow/40 blur-sm rounded-full pointer-events-none" />
+          <div className="relative flex justify-center mb-6">
+            <div
+              className="relative w-80 rounded-lg overflow-hidden"
+              style={{
+                aspectRatio: '2/3',
+                backgroundImage: "url('/muscular_model.png')",
+                backgroundSize: '72% auto',
+                backgroundPosition: 'center center',
+                backgroundRepeat: 'no-repeat',
+                backgroundColor: '#ffffff',
+              }}
+            >
+              {MUSCLE_GROUPS.map((group) => (
+                <button
+                  key={group.id}
+                  type="button"
+                  onClick={() => handleMuscleGroupClick(group.id)}
+                  aria-label={`Select ${group.label}`}
+                  style={{
+                    position: "absolute",
+                    top: group.zone.top,
+                    left: group.zone.left,
+                    width: group.zone.width,
+                    height: group.zone.height,
+                    background: "transparent",
+                    border: "none",
+                    cursor: "pointer",
+                    zIndex: 10,
+                  }}
+                />
+              ))}
+
+              {/* ── Blur glow — shown for active muscle group ── */}
+              {activeGroup && (
+                <div
+                  className={`absolute ${activeGroup.glow.w} ${activeGroup.glow.h} bg-cyan-glow/40 blur-sm rounded-full pointer-events-none`}
+                  style={{
+                    top: activeGroup.glow.top,
+                    left: activeGroup.glow.left,
+                    transform: `translateX(${activeGroup.glow.translateX})${activeGroup.glow.rotate ? ` rotate(${activeGroup.glow.rotate})` : ""}`,
+                    zIndex: 5,
+                  }}
+                />
               )}
 
-              <span className="absolute top-10 left-[155px] text-[10px] text-text-teritary tracking-wide">SHOULDERS</span>
-              <span className="absolute top-[60px] left-[50px] text-[10px] text-text-teritary tracking-wide">BICEPS</span>
-              <span className="absolute top-[95px] left-[12px] text-[10px] text-text-teritary tracking-wide">FOREARMS</span>
-              <span
-                className={`absolute top-[192px] left-[55px] text-[10px] tracking-wide ${
-                  highlightedMuscle === "quads" ? "text-cyan-glow font-semibold" : "text-text-teritary"
-                }`}
-                style={{ pointerEvents: "none" }}
+              <svg
+                className="absolute inset-0 w-full h-full pointer-events-none"
+                viewBox="0 0 192 288"
+                preserveAspectRatio="xMidYMid meet"
+                style={{ zIndex: 15 }}
               >
-                QUADS
-              </span>
-              <span className="absolute top-[140px] right-[60px] text-[10px] text-text-teritary tracking-wide">CHEST</span>
-              <span className="absolute bottom-[180px] right-[160px] text-[10px] text-text-teritary tracking-wide">ABS/CORE</span>
-            </div>
 
-            <svg
-              className="absolute inset-0 w-full h-full pointer-events-none"
-              viewBox="0 0 192 288"
-              preserveAspectRatio="none"
-            >
-              <line x1="109" y1="55" x2="112" y2="45" stroke="#1d2d3e" strokeOpacity="0.4" strokeWidth="1" />
-              <line x1="69" y1="62" x2="75" y2="80" stroke="#1d2d3e" strokeOpacity="0.4" strokeWidth="1" />
-              <line x1="57" y1="92" x2="57" y2="112" stroke="#1d2d3e" strokeOpacity="0.4" strokeWidth="1" />
-              <line
-                x1="80" y1="167" x2="87" y2="167"
-                stroke={highlightedMuscle === "quads" ? "#00ffc2" : "#1d2d3e"}
-                strokeOpacity={highlightedMuscle === "quads" ? "0.9" : "0.4"}
-                strokeWidth="1"
-              />
-              <line x1="115" y1="118" x2="105" y2="84" stroke="#1d2d3e" strokeOpacity="0.4" strokeWidth="1" />
-              <line x1="81" y1="130" x2="95" y2="120" stroke="#1d2d3e" strokeOpacity="0.4" strokeWidth="1" />
-            </svg>
+                <line x1="65" y1="75" x2="30" y2="63"
+                  stroke={selectedGroup === "shoulders" ? "#00ffc2" : "#1d2d3e"}
+                  strokeOpacity={selectedGroup === "shoulders" ? "0.9" : "0.4"} strokeWidth="1" />
+                <line x1="62" y1="97" x2="36" y2="97"
+                  stroke={selectedGroup === "biceps" ? "#00ffc2" : "#1d2d3e"}
+                  strokeOpacity={selectedGroup === "biceps" ? "0.9" : "0.4"} strokeWidth="1" />
+                <line x1="54" y1="122" x2="36" y2="118"
+                  stroke={selectedGroup === "forearms" ? "#00ffc2" : "#1d2d3e"}
+                  strokeOpacity={selectedGroup === "forearms" ? "0.9" : "0.4"} strokeWidth="1" />
+                <line x1="76" y1="160" x2="26" y2="192"
+                  stroke={highlightedMuscle === "quads" ? "#00ffc2" : "#1d2d3e"}
+                  strokeOpacity={highlightedMuscle === "quads" ? "0.9" : "0.4"} strokeWidth="1" />
+                <line x1="98" y1="82" x2="152" y2="97"
+                  stroke={selectedGroup === "chest" ? "#00ffc2" : "#1d2d3e"}
+                  strokeOpacity={selectedGroup === "chest" ? "0.9" : "0.4"} strokeWidth="1" />
+                <line x1="88" y1="118" x2="138" y2="118"
+                  stroke={selectedGroup === "abs" ? "#00ffc2" : "#1d2d3e"}
+                  strokeOpacity={selectedGroup === "abs" ? "0.9" : "0.4"} strokeWidth="1" />
+                <text x="6" y="60" textAnchor="start" fontSize="8" fill={selectedGroup === "shoulders" ? "#00ffc2" : "#1d2d3e"} fontWeight={selectedGroup === "shoulders" ? 700 : 500}>SHOULDERS</text>
+                <text x="6" y="100" textAnchor="start" fontSize="8" fill={selectedGroup === "biceps" ? "#00ffc2" : "#1d2d3e"} fontWeight={selectedGroup === "biceps" ? 700 : 500}>BICEPS</text>
+                <text x="6" y="115" textAnchor="start" fontSize="8" fill={selectedGroup === "forearms" ? "#00ffc2" : "#1d2d3e"} fontWeight={selectedGroup === "forearms" ? 700 : 500}>FOREARMS</text>
+                <text x="6" y="200" textAnchor="start" fontSize="8" fill={highlightedMuscle === "quads" ? "#00ffc2" : "#1d2d3e"} fontWeight={highlightedMuscle === "quads" ? 700 : 500}>QUADS</text>
+                <text x="180" y="100" textAnchor="end" fontSize="8" fill={selectedGroup === "chest" ? "#00ffc2" : "#1d2d3e"} fontWeight={selectedGroup === "chest" ? 700 : 500}>CHEST</text>
+                <text x="180" y="120" textAnchor="end" fontSize="8" fill={selectedGroup === "abs" ? "#00ffc2" : "#1d2d3e"} fontWeight={selectedGroup === "abs" ? 700 : 500}>ABS/CORE</text>
+              </svg>
+            </div>
 
             <button
               type="button"
@@ -170,55 +309,56 @@ function UploadScanPage() {
           </div>
 
           <div className="flex items-center justify-between mb-3">
-            <h2 className="text-xs uppercase tracking-wider text-text-teritary">Exercise Module</h2>
+            <h2 className="text-xs uppercase tracking-wider text-text-teritary">
+              {selectedGroup ? `${activeGroup.label} — Exercise Module` : "Exercise Module"}
+            </h2>
             <button type="button" className="text-text-disabled hover:text-text-teritary" aria-label="View options">
               <ChevronDown size={14} />
             </button>
           </div>
 
-          <div className="space-y-2">
-            {EXERCISES.map((ex) => {
-              const isSelected = exercise === ex.id
-              return (
-                <button
-                  key={ex.id}
-                  type="button"
-                  onClick={() => ex.enabled && setExercise(ex.id)}
-                  disabled={!ex.enabled}
-                  className={`w-full flex items-center justify-between px-4 py-3 rounded-lg border text-sm font-medium tracking-wide transition-colors ${
-                    isSelected
-                      ? "border-cyan-glow text-text-primary bg-cyan-glow/15"
-                      : ex.enabled
-                      ? "border-gray-200 text-text-primary hover:border-gray-300 bg-white"
-                      : "border-gray-100 text-text-disabled cursor-not-allowed bg-white"
-                  }`}
-                >
-                  <span className="flex items-center gap-2">
-                    <span className="w-4 h-4 rounded-sm bg-gray-100" />
-                    {ex.name}
-                  </span>
-                  {!ex.enabled && (
-                    <span className="text-[10px] text-text-disabled uppercase tracking-wider">Soon</span>
-                  )}
-                  {isSelected && (
-                    <span className="w-5 h-5 rounded-full bg-cyan-glow flex items-center justify-center">
-                      <Check size={14} className="text-text-primary" />
+          {!selectedGroup ? (
+            <div className="text-xs text-text-teritary text-center py-4 border border-dashed border-gray-200 rounded-lg">
+              Select a muscle group above to see exercises
+            </div>
+          ) : (
+            <div className="space-y-2">
+              {visibleExercises.map((ex) => {
+                const isSelected = exercise === ex.id
+                return (
+                  <button
+                    key={ex.id}
+                    type="button"
+                    onClick={() => ex.enabled && setExercise(ex.id)}
+                    disabled={!ex.enabled}
+                    className={`w-full flex items-center justify-between px-4 py-3 rounded-lg border text-sm font-medium tracking-wide transition-colors ${
+                      isSelected
+                        ? "border-cyan-glow text-text-primary bg-cyan-glow/15"
+                        : ex.enabled
+                        ? "border-gray-200 text-text-primary hover:border-gray-300 bg-white"
+                        : "border-gray-100 text-text-disabled cursor-not-allowed bg-white"
+                    }`}
+                  >
+                    <span className="flex items-center gap-2">
+                      <span className="w-4 h-4 rounded-sm bg-gray-100" />
+                      {ex.name}
                     </span>
-                  )}
-                </button>
-              )
-            })}
-            <button
-              type="button"
-              className="w-full px-4 py-3 rounded-lg border border-gray-200 text-sm text-text-teritary hover:text-text-primary hover:border-gray-300 transition-colors"
-            >
-              VIEW MORE
-            </button>
-          </div>
+                    {!ex.enabled && (
+                      <span className="text-[10px] text-text-disabled uppercase tracking-wider">Soon</span>
+                    )}
+                    {isSelected && (
+                      <span className="w-5 h-5 rounded-full bg-cyan-glow flex items-center justify-center">
+                        <Check size={14} className="text-text-primary" />
+                      </span>
+                    )}
+                  </button>
+                )
+              })}
+            </div>
+          )}
         </section>
 
-        {/* ───────── Filming Tips (collapsible) ───────── */}
-        <section className="border-2 border-dashed border-cyan-glow/60 rounded-xl p-4 bg-light-card shadow-sm">
+        {videoFile && <section className="border-2 border-dashed border-cyan-glow/60 rounded-xl p-4 bg-light-card shadow-sm">
           <button
             type="button"
             onClick={() => setTipsExpanded((v) => !v)}
@@ -246,9 +386,8 @@ function UploadScanPage() {
               </ul>
             </>
           )}
-        </section>
+        </section>}
 
-        {/* ───────── Upload Session Video ───────── */}
         <section>
           <h2 className="text-base font-semibold text-text-primary mb-3">Upload Session Video</h2>
 
@@ -280,7 +419,7 @@ function UploadScanPage() {
             <div className="border-2 border-dashed border-cyan-glow/60 rounded-xl p-6 bg-light-card text-center shadow-sm">
               <Upload size={36} className="text-text-teritary mx-auto mb-3" />
               <p className="text-sm font-medium text-text-primary mb-1">Upload Video</p>
-              <p className="text-xs text-text-teritary mb-4">MP4, MOV or WebM · max {MAX_FILE_SIZE_MB} MB</p>
+              <p className="text-xs text-text-teritary mb-4">MP4, MOV or AVI · max {MAX_FILE_SIZE_MB} MB</p>
               <button
                 type="button"
                 onClick={() => document.getElementById("video-upload").click()}
@@ -294,27 +433,65 @@ function UploadScanPage() {
           <input
             id="video-upload"
             type="file"
-            accept="video/mp4,video/quicktime,video/webm"
+            accept="video/mp4,video/quicktime,video/x-msvideo,video/avi,.mp4,.mov,.avi"
             onChange={handleFileChange}
             className="hidden"
           />
 
-          {videoFile && !fileError && (
+          {videoFile && !validationError && (
             <p className="text-xs text-text-teritary mt-2 flex items-center gap-1">
               <CheckCircle size={12} className="text-success" />
               {videoFile.name} · {(videoFile.size / (1024 * 1024)).toFixed(1)} MB
             </p>
           )}
 
-          {fileError && (
-            <p className="text-xs text-error mt-2 flex items-start gap-1">
-              <AlertCircle size={14} className="mt-0.5 flex-shrink-0" />
-              <span>{fileError}</span>
-            </p>
+{isValidating && (
+  <p className="text-xs text-text-teritary mt-2 flex items-center gap-1">
+    <span className="inline-block w-3 h-3 rounded-full border-2 border-cyan-glow border-t-transparent animate-spin" />
+    Checking file…
+  </p>
+)}
+
+          {validationError && (
+            <div role="alert" className="mt-2 rounded-lg border border-red-200 bg-red-50 p-3">
+              <div className="flex items-start gap-2">
+                <AlertCircle size={14} className="mt-0.5 shrink-0 text-error" />
+                <p className="flex-1 text-xs text-error leading-relaxed">{validationError.message}</p>
+                <button
+                  type="button"
+                  aria-label="Dismiss"
+                  onClick={() => { setValidationError(null); setVideoFile(null); setVideoPreviewUrl(null) }}
+                  className="shrink-0 text-error hover:text-red-700"
+                >
+                  <X size={14} />
+                </button>
+              </div>
+              <div className="mt-2 flex gap-3">
+                <button
+                  type="button"
+                  onClick={() => { setValidationError(null); setVideoFile(null); setVideoPreviewUrl(null) }}
+                  className="text-xs text-text-teritary underline hover:text-text-primary"
+                >
+                  Dismiss
+                </button>
+                {(validationError.type === "FILE_TOO_LARGE" || validationError.type === "FORMAT_UNSUPPORTED") && (
+                  <button
+                    type="button"
+                    onClick={() => {
+                      const input = document.getElementById("video-upload")
+                      input.value = ""
+                      input.click()
+                    }}
+                    className="text-xs font-medium text-cyan-glow underline hover:brightness-90"
+                  >
+                    Re-select file
+                  </button>
+                )}
+              </div>
+            </div>
           )}
         </section>
 
-        {/* ───────── Load Parameters (weight) ───────── */}
         <section className="border-2 border-dashed border-cyan-glow/60 rounded-xl p-4 bg-light-card shadow-sm">
           <div className="flex items-center justify-between mb-3">
             <label className="text-xs uppercase tracking-wider text-text-teritary">Load Parameters</label>
@@ -371,18 +548,17 @@ function UploadScanPage() {
           )}
         </section>
 
-        {/* ───────── Start Analysis Button ───────── */}
         <button
           type="button"
           onClick={handleSubmit}
-          disabled={isUploading}
+          disabled={isUploading || isValidating}
           className={`w-full h-14 rounded-xl font-semibold tracking-wide transition-all ${
-            isFormValid && !isUploading
+            isFormValid && !isUploading && !isValidating
               ? "bg-gradient-to-r from-teal to-cyan-glow text-text-primary hover:brightness-105 shadow-md"
               : "bg-gray-100 text-text-secondary border border-gray-200"
           }`}
         >
-          {isUploading ? "UPLOADING..." : "START ANALYSIS →"}
+          {isUploading ? "UPLOADING..." : isValidating ? "VALIDATING..." : "START ANALYSIS →"}
         </button>
 
         {!isFormValid && !isUploading && (
@@ -399,13 +575,31 @@ function UploadScanPage() {
         )}
 
         {uploadError && (
-          <p className="text-xs text-error text-center flex items-start justify-center gap-1">
-            <AlertCircle size={14} className="mt-0.5 flex-shrink-0" />
-            <span>{uploadError}</span>
-          </p>
+          <div role="alert" className="rounded-lg border border-red-200 bg-red-50 p-3">
+            <div className="flex items-start gap-2">
+              <AlertCircle size={14} className="mt-0.5 shrink-0 text-error" />
+              <p className="flex-1 text-xs text-error leading-relaxed">{uploadError.message}</p>
+            </div>
+            {uploadError.type === "UPLOAD_TIMEOUT" ? (
+              <button
+                type="button"
+                onClick={handleSubmit}
+                className="mt-2 text-xs font-medium text-cyan-glow underline hover:brightness-90"
+              >
+                Try again
+              </button>
+            ) : (
+              <button
+                type="button"
+                onClick={() => setUploadError(null)}
+                className="mt-2 text-xs text-text-teritary underline hover:text-text-primary"
+              >
+                Dismiss
+              </button>
+            )}
+          </div>
         )}
 
-        {/* Dev shortcut */}
         {import.meta.env.DEV && (
           <button
             type="button"
@@ -433,3 +627,4 @@ function UploadScanPage() {
 }
 
 export default UploadScanPage
+
