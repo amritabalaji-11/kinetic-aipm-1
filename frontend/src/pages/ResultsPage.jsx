@@ -946,3 +946,4 @@ export default function ResultsPage() {
     </div>
   )
 }
+
