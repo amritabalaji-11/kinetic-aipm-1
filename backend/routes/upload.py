@@ -1,5 +1,6 @@
 from uuid import uuid4
 from datetime import datetime
+import sqlite3
 
 from fastapi import (
     APIRouter,
@@ -30,13 +31,23 @@ ALLOWED_MIME_TYPES = {
 
 @router.post("/upload")
 async def upload(
-    background_tasks: BackgroundTasks,
     file: UploadFile = File(...),
-    exercise_id: str = Form(...),
-    weight_value: float = Form(...),
-    weight_unit: str = Form(...),
+    exercise: str = Form(None),
+    exercise_name: str = Form(None),
+    weight: float = Form(None),
+    weight_value: float = Form(None),
+    weight_unit: str = Form("lbs"),
+    #user_id: str = Form("00000000-0000-0000-0000-000000000000"),
     user_id: str = Form(...),
-    session_id: str = Form(...)
+    session_id: str = Form(None),
+    background_tasks: BackgroundTasks = BackgroundTasks()
+  #  background_tasks: BackgroundTasks,
+  #  file: UploadFile = File(...),
+  #  exercise_name: str = Form(...),
+  #  weight_value: float = Form(...),
+  #  weight_unit: str = Form(...),
+  #  user_id: str = Form(...),
+  #  session_id: str = Form(...)
 ):
 
     # =========================================================
@@ -115,10 +126,10 @@ async def upload(
                 analysis_id,
                 session_id,
                 user_id,
-                exercise_id,
+                exercise_name,
                 weight_value,
                 weight_unit,
-                weight_kg_normalised,
+                weight_kg,
                 video_url,
                 filename,
                 size_mb,
@@ -129,10 +140,10 @@ async def upload(
                 :analysis_id,
                 :session_id,
                 :user_id,
-                :exercise_id,
+                :exercise_name,
                 :weight_value,
                 :weight_unit,
-                :weight_kg_normalised,
+                :weight_kg,
                 :video_url,
                 :filename,
                 :size_mb,
@@ -144,16 +155,27 @@ async def upload(
                 "analysis_id": analysis_id,
                 "session_id": session_id,
                 "user_id": user_id,
-                "exercise_id": exercise_id,
+                "exercise_name": exercise_name,
                 "weight_value": weight_value,
                 "weight_unit": weight_unit,
-                "weight_kg_normalised": weight_kg_normalised,
+                "weight_kg": weight_kg_normalised,
                 "video_url": video_url,
                 "filename": file.filename,
                 "size_mb": round(file_size / (1024 * 1024), 2),
                 "created_at": datetime.utcnow().isoformat()
             }
         )
+        
+    except sqlite3.IntegrityError as e:
+        if "session_id" in str(e):
+            raise HTTPException(
+                status_code=409,
+                detail={"error": "SESSION_ALREADY_EXISTS"}
+                )
+        raise  HTTPException(
+        status_code=500,
+        detail={"error": "DATABASE_INTEGRITY_ERROR"}
+    )
 
     except Exception as e:
 
