@@ -28,7 +28,7 @@ CREATE TABLE IF NOT EXISTS user_profiles (
         )
         """
     
-CREATE_FORM_ANALYSES_SQL = """ 
+CREATE_FORM_ANALYSES_SQL = """
 CREATE TABLE IF NOT EXISTS form_analyses (
         session_id TEXT PRIMARY KEY,
         user_id TEXT NOT NULL REFERENCES user_profiles(user_id) ON DELETE CASCADE,
@@ -48,7 +48,15 @@ CREATE TABLE IF NOT EXISTS form_analyses (
         
         biomechanics_json TEXT,
         error_code TEXT,
-        llm_json TEXT
+        llm_json TEXT,
+        
+        
+        -- S2-W8-01: Haiku Call 2 async job tracking fields
+        haiku_call_2_status TEXT DEFAULT 'queued',
+        haiku_call_2_queued_at TEXT,
+        haiku_call_2_started_at TEXT,
+        haiku_call_2_completed_at TEXT,
+        haiku_call_2_error TEXT
 )
 """
 
@@ -88,7 +96,26 @@ CREATE TABLE IF NOT EXISTS form_analysis_results (
         overall_form_score INTEGER,
         session_tags TEXT, 
         comparison_coaching_output TEXT,
-        annotated_frame_url TEXT
+        annotated_frame_url TEXT,
+
+          -- Haiku Call 2 async tracking
+        job_status TEXT DEFAULT 'queued'
+            CHECK (
+                job_status IN (
+                    'queued',
+                    'running',
+                    'complete',
+                    'failed',
+                    'timeout'
+                )
+            ),
+
+        queued_at TEXT,
+        started_at TEXT,
+        completed_at TEXT,
+
+        haiku_call_2_output TEXT,
+        haiku_call_2_error TEXT
     )
     """
 
@@ -167,9 +194,15 @@ def init_db():
 
     cursor.execute(CREATE_FORM_ANALYSES_SQL)
     for col, definition in [
-        ("progression_output", "TEXT"),
-        ("filename", "TEXT"),
-        ("size_mb", "REAL"),
+        ("progression_output",       "TEXT"),
+        ("filename",                 "TEXT"),
+        ("size_mb",                  "REAL"),
+        # S2-W8-01: Haiku Call 2 async job tracking fields
+        ("haiku_call_2_status",      "TEXT DEFAULT 'queued'"),
+        ("haiku_call_2_queued_at",   "TEXT"),
+        ("haiku_call_2_started_at",  "TEXT"),
+        ("haiku_call_2_completed_at","TEXT"),
+        ("haiku_call_2_error",       "TEXT"),
     ]:
         try:
             cursor.execute(f"ALTER TABLE form_analyses ADD COLUMN {col} {definition}")
@@ -179,8 +212,6 @@ def init_db():
             pass  # column already exists
 
     cursor.execute(CREATE_WORKOUT_SESSIONS_LOG_SQL)
-
-    cursor.execute(CREATE_USER_PROFILE_SQL)
 
     cursor.execute(CREATE_FORM_ANALYSIS_RESULTS_SQL)
 
@@ -198,12 +229,18 @@ def init_db():
         ("form_analyses", "size_mb", "REAL"),
 
         # user_profile
-        ("user_profile", "annotated_frame_url", "TEXT"),
-        ("user_profile", "progress_ladder_image_url", "TEXT"),
+        ("user_profiles", "annotated_frame_url", "TEXT"),
+        ("user_profiles", "progress_ladder_image_url", "TEXT"),
 
         # form_analysis_results
         ("form_analysis_results", "annotated_frame_url", "TEXT"),
-    ]
+        ("form_analysis_results", "job_status", "TEXT DEFAULT 'queued'"),
+        ("form_analysis_results", "queued_at", "TEXT"),
+        ("form_analysis_results", "started_at", "TEXT"),
+        ("form_analysis_results", "completed_at", "TEXT"),
+        ("form_analysis_results", "haiku_call_2_output", "TEXT"),
+        ("form_analysis_results", "haiku_call_2_error", "TEXT"),
+        ]
 
     for table, column, definition in migrations:
         try:
@@ -228,3 +265,4 @@ def init_db():
 
 if __name__ == "__main__":
     init_db()
+
