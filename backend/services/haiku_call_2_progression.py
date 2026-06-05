@@ -1,37 +1,39 @@
-# backend/services/haiku_call_2_progression.py
-#
-# Async job: Haiku Call 2 — longitudinal progression coaching.
-#
-# SSE event sequence (S2-W8-04):
-#   haiku_call_2_started    → in_progress (emitted when job begins)
-#   haiku_call_2_no_history → completed   (no previous session; exits cleanly)
-#   haiku_call_2_complete   → completed   (output payload included)
-#   job_failed              → failed      (error_code + job_type="haiku_call_2")
-#
-# haiku_call_2_queued is emitted by process_video.py at enqueue time.
-#
-# DB tracking fields written on form_analyses:
-#   haiku_call_2_status  → queued → running → complete | failed
-#   haiku_call_2_started_at, haiku_call_2_completed_at, haiku_call_2_error
-#
-# On success writes all 8 S2-W8-02 output fields to progression_results.
-
-import asyncio
-import json
-import os
-import random
-import re
-import traceback
 from datetime import datetime, timezone
 
-from anthropic import AsyncAnthropic
+from anthropic import (
+    AsyncAnthropic,
+    APITimeoutError,
+    APIStatusError,
+    RateLimitError,
+    BadRequestError
+    )
 from db.database import db
 from utils.sse_manager import sse_manager
+from services.errors import map_exception_to_error_code
+from utils.logging import log_job_failure
 
-client = AsyncAnthropic(api_key=os.getenv("ANTHROPIC_API_KEY"))
+import time
+import json
+import os
+import traceback
+import asyncio
+import random
+import re
 
-# Haiku Call 2 must finish within this many seconds or job_failed fires.
-HAIKU_CALL_2_TIMEOUT_SECONDS = 30
+# =========================================================
+# ANTHROPIC CLIENT
+# =========================================================
+
+client = AsyncAnthropic(
+    api_key=os.getenv("ANTHROPIC_API_KEY")
+)
+
+# =========================================================
+# GLOBAL RATE LIMIT CONTROL
+# =========================================================
+# Prevents multiple Haiku Call 2 jobs from hammering TPM
+# Increase later if Anthropic quota allows it
+# =========================================================
 
 # Prevents multiple Haiku Call 2 jobs from hammering TPM.
 HAIKU_CALL_2_SEMAPHORE = asyncio.Semaphore(1)
@@ -56,19 +58,65 @@ def safe_json_load(raw: str):
     return json.loads(raw.strip())
 
 
-async def call_haiku_with_retry(payload, retries=3):
-    """Prevents transient 429 failures from killing the pipeline."""
-    for attempt in range(retries):
+async def call_haiku_with_retry(payload):
+    """
+    Initial attempt + 3 retries
+    Backoff: 1s → 3s → 9s
+    Per API timeout: 45s
+    """
+
+    backoff_times = [1, 3, 9]
+    max_attempts = 4
+
+    for attempt in range(max_attempts):
+
         try:
-            return await client.messages.create(**payload)
-        except Exception as e:
-            wait = (2 ** attempt) + random.uniform(0, 0.5)
-            print(f"[Haiku Call 2] retry {attempt + 1} in {wait:.2f}s due to {e}")
+
+            return await asyncio.wait_for(
+                client.messages.create(**payload),
+                timeout=45
+            )
+
+        except Exception as exc:
+
+            error_code, retryable = (
+                map_exception_to_error_code(exc)
+            )
+
+            if not retryable:
+
+                print(
+                    f"[Haiku Call 2] "
+                    f"Non-retryable error: "
+                    f"{error_code} - {exc}"
+                )
+
+                raise
+
+            if attempt == max_attempts - 1:
+
+                print(
+                    f"[Haiku Call 2] "
+                    f"Max retries reached. "
+                    f"Last error: {error_code}"
+                )
+
+                raise
+
+            wait = backoff_times[attempt]
+
+            print(
+                f"[Haiku Call 2] "
+                f"Retry {attempt+1}/3 "
+                f"in {wait}s "
+                f"due to {error_code}"
+            )
+
             await asyncio.sleep(wait)
-    raise RuntimeError("Haiku Call 2 failed after retries")
 
-
-# ─── DB status helpers ────────────────────────────────────────────────────────
+# =========================================================
+# MAIN JOB
+# =========================================================
 
 async def _mark_running(analysis_id: str) -> None:
     await db.execute(
@@ -136,7 +184,10 @@ async def run_haiku_call_2(analysis_id: str) -> None:
       job_failed              — error or timeout; includes error_code
     """
     async with HAIKU_CALL_2_SEMAPHORE:
-        # Small delay to let the TPM window clear after Haiku Call 1
+
+        started_at = time.monotonic()
+
+        # Small delay to let TPM window clear after Haiku Call 1
         await asyncio.sleep(10)
 
         print(f"[Haiku Call 2] START analysis_id={analysis_id}")
@@ -159,6 +210,7 @@ async def run_haiku_call_2(analysis_id: str) -> None:
                     fa.weight_kg,
                     fa.created_at,
                     far.session_id,
+                    far.exercise_id,
                     far.overall_form_score,
                     far.posture_score,
                     far.stability_score,
@@ -181,6 +233,7 @@ async def run_haiku_call_2(analysis_id: str) -> None:
             session_id    = current["session_id"]
             user_id       = current["user_id"]
             exercise_name = current["exercise_name"]
+            exercise_id   = current.get("exercise_id") or exercise_name
 
             # ── Fetch most recent previous session ────────────────────────
             previous = await db.fetch_one(
@@ -199,16 +252,16 @@ async def run_haiku_call_2(analysis_id: str) -> None:
                 LEFT JOIN form_analysis_results far
                        ON fa.analysis_id = far.analysis_id
                 WHERE fa.user_id      = :uid
-                  AND fa.exercise_name = :ename
+                  AND far.exercise_id = :exercise_id
                   AND fa.analysis_id  != :aid
                   AND fa.status IN ('complete', 'completed')
                 ORDER BY fa.created_at DESC
                 LIMIT 1
                 """,
                 {
-                    "uid":   user_id,
-                    "ename": exercise_name,
-                    "aid":   analysis_id,
+                    "uid":         user_id,
+                    "exercise_id": exercise_id,
+                    "aid":         analysis_id,
                 },
             )
 
@@ -216,14 +269,38 @@ async def run_haiku_call_2(analysis_id: str) -> None:
 
             # ── No history → clean exit ────────────────────────────────────
             if not previous:
+
+                elapsed = time.monotonic() - started_at
+
+                if elapsed > 120:
+                    raise TimeoutError(
+                        "Haiku Call 2 exceeded 120 seconds"
+                    )
+
                 await db.execute(
                     """
-                    INSERT OR IGNORE INTO progression_results (
-                        analysis_id, session_id, user_id, available
+                    INSERT INTO progression_results (
+                        analysis_id,
+                        session_id,
+                        user_id,
+                        exercise_id,
+                        available
                     )
-                    VALUES (:aid, :sid, :uid, 0)
+                    VALUES (
+                        :analysis_id,
+                        :session_id,
+                        :user_id,
+                        :exercise_id,
+                        :available
+                    )
                     """,
-                    values={"aid": analysis_id, "sid": session_id, "uid": user_id},
+                    values={
+                        "analysis_id": analysis_id,
+                        "session_id": session_id,
+                        "user_id": user_id,
+                        "exercise_id": exercise_id,
+                        "available": False
+                    }
                 )
                 await _emit(
                     analysis_id, "haiku_call_2_no_history", 100, "completed",
@@ -240,7 +317,16 @@ async def run_haiku_call_2(analysis_id: str) -> None:
                 previous_coaching = json.loads(raw) if isinstance(raw, str) else raw
             previous_focus = previous_coaching.get("next_session_focus", [])
 
-            # ── Build prompt ───────────────────────────────────────────────
+            previous_focus = (
+                previous_coaching.get("next_session_focus", [])
+                if previous_coaching else []
+            )
+            # -----------------------------------------
+            # PROMPT
+            # Includes both sessions' 4 parameter scores + overall + weight
+            # + previous next_session_focus for "We've Told You" context
+            # Weight progression reasoning is inline — no external MD files
+            # -----------------------------------------
             prompt = f"""You are a strength progression coach.
 
 Compare these two training sessions and return coaching output.
@@ -290,22 +376,53 @@ Return ONLY valid JSON matching this exact schema:
 
             print("[Haiku Call 2] Calling Haiku...")
 
-            # ── Call Haiku (rate-safe retry + timeout) ─────────────────────
-            response = await asyncio.wait_for(
-                call_haiku_with_retry({
-                    "model":      "claude-haiku-4-5-20251001",
-                    "max_tokens": 800,
-                    "messages":   [{"role": "user", "content": prompt}],
-                }),
-                timeout=HAIKU_CALL_2_TIMEOUT_SECONDS,
-            )
+            elapsed = time.monotonic() - started_at
+
+            if elapsed > 120:
+                raise TimeoutError("Haiku Call 2 exceeded time limit before calling Haiku")
+
+            # -----------------------------------------
+            # HAIKU CALL (RATE SAFE + RETRY)
+            # -----------------------------------------
+            response = await call_haiku_with_retry({
+                "model": "claude-haiku-4-5-20251001",
+                "max_tokens": 800,
+                "messages": [
+                    {"role": "user", "content": prompt}
+                ]
+            })
+
+            elapsed = time.monotonic() - started_at
+
+            if elapsed > 120:
+                raise TimeoutError(
+                    "Haiku Call 2 exceeded 120 seconds"
+                )
 
             result = safe_json_load(response.content[0].text)
             print("[Haiku Call 2] Response received")
 
-            # ── Validate output fields ─────────────────────────────────────
-            allowed_actions    = {"hold", "increase", "decrease"}
+            allowed_actions = {"hold", "increase", "decrease"}
             allowed_directions = {"up", "down", "stable"}
+
+            required_fields = ["progression_verdict",
+                               "progress_direction",
+                                "weight_recommendation",
+                                "focus_this_week",
+                                "posture_trend",
+                                "stability_trend",
+                                "range_of_motion_trend",
+                                "movement_quality_trend"]
+
+            for field in required_fields:
+                if field not in result:
+                    raise KeyError(f"Missing required field in Haiku output: {field}")
+
+            # -----------------------------------------
+            # VALIDATION
+            # -----------------------------------------
+            if result["weight_recommendation"]["action"] not in ["hold", "increase", "decrease"]:
+                raise ValueError(f"Invalid weight action: {result['weight_recommendation']['action']}")
 
             if result["weight_recommendation"]["action"] not in allowed_actions:
                 raise ValueError(
@@ -327,6 +444,7 @@ Return ONLY valid JSON matching this exact schema:
                     analysis_id,
                     session_id,
                     user_id,
+                    exercise_id,
                     available,
                     progression_verdict,
                     progress_direction,
@@ -337,7 +455,7 @@ Return ONLY valid JSON matching this exact schema:
                     range_of_motion_trend,
                     movement_quality_trend
                 ) VALUES (
-                    :aid, :sid, :uid, 1,
+                    :aid, :sid, :uid, :exercise_id, 1,
                     :verdict,    :direction,
                     :weight_rec, :focus,
                     :posture,    :stability,
@@ -345,17 +463,18 @@ Return ONLY valid JSON matching this exact schema:
                 )
                 """,
                 values={
-                    "aid":        analysis_id,
-                    "sid":        session_id,
-                    "uid":        user_id,
-                    "verdict":    result["progression_verdict"],
-                    "direction":  result["progress_direction"],
-                    "weight_rec": json.dumps(result["weight_recommendation"]),
-                    "focus":      result["focus_this_week"],
-                    "posture":    result["posture_trend"],
-                    "stability":  result["stability_trend"],
-                    "rom":        result["range_of_motion_trend"],
-                    "mq":         result["movement_quality_trend"],
+                    "aid":         analysis_id,
+                    "sid":         session_id,
+                    "uid":         user_id,
+                    "exercise_id": exercise_id,
+                    "verdict":     result["progression_verdict"],
+                    "direction":   result["progress_direction"],
+                    "weight_rec":  json.dumps(result["weight_recommendation"]),
+                    "focus":       result["focus_this_week"],
+                    "posture":     result["posture_trend"],
+                    "stability":   result["stability_trend"],
+                    "rom":         result["range_of_motion_trend"],
+                    "mq":          result["movement_quality_trend"],
                 },
             )
 
@@ -383,18 +502,131 @@ Return ONLY valid JSON matching this exact schema:
                 },
             )
 
-        except Exception as e:
-            error_code = "HAIKU_CALL_2_FAILED"
-            print(f"[Haiku Call 2] FAILED analysis_id={analysis_id}: {e}")
-            traceback.print_exc()
-            await _mark_failed(analysis_id, str(e))
-            await _emit(
-                analysis_id, "job_failed", 100, "failed",
-                {
-                    "error_code": error_code,
-                    "job_type":   "haiku_call_2",
-                    "error":      str(e),
-                    "output":     None,
-                },
+            print("[Haiku Call 2] SUCCESS")
+
+        except Exception as exc:
+
+            elapsed = (
+                time.monotonic()
+                - started_at
+            )   
+
+            if (
+                isinstance(exc, TimeoutError)
+                and elapsed > 120
+            ):
+                error_code = (
+                    "HAIKU_CALL_2_TIMEOUT"
+                )
+
+                retryable = False
+
+            else:
+
+                error_code, retryable = (
+                    map_exception_to_error_code(exc)
+                )
+
+            log_job_failure(
+                analysis_id=analysis_id,
+                error_code=error_code,
+                retryable=retryable,
+                attempt=4,
+                elapsed=elapsed,
+                exc=exc
             )
 
+            print(
+                f"[Haiku Call 2] FAILED "
+                f"analysis_id={analysis_id} "
+                f"error_code={error_code} "
+                f"retryable={retryable} "
+                f"elapsed={elapsed:.2f}s "
+                f"exception={type(exc).__name__}"
+            )
+
+            existing = await db.fetch_one(
+                """
+                SELECT analysis_id
+                FROM progression_results
+                WHERE analysis_id = :analysis_id
+                """,
+                values={
+                    "analysis_id": analysis_id
+                }
+            )
+
+            if existing:
+
+                await db.execute(
+                    """
+                    UPDATE progression_results
+                    SET error_code = :error_code,
+                        retryable = :retryable,
+                        last_error_at = CURRENT_TIMESTAMP,
+                        available = 0
+                    WHERE analysis_id = :analysis_id
+                    """,
+                    values={
+                        "error_code": error_code,
+                        "retryable": retryable,
+                        "analysis_id": analysis_id
+                    }
+                )
+
+            else:
+
+                await db.execute(
+                    """
+                    INSERT INTO progression_results (
+                        analysis_id,
+                        session_id,
+                        user_id,
+                        exercise_id,
+                        available,
+                        error_code,
+                        retryable
+                    )
+                    VALUES (
+                        :analysis_id,
+                        :session_id,
+                        :user_id,
+                        :exercise_id,
+                        0,
+                        :error_code,
+                        :retryable
+                    )
+                    """,
+                    values={
+                        "analysis_id": analysis_id,
+                        "session_id":  session_id,
+                        "user_id":     user_id,
+                        "exercise_id": exercise_id,
+                        "error_code":  error_code,
+                        "retryable":   retryable
+                    }
+                )
+
+            traceback.print_exc()
+
+            try:
+
+                await sse_manager.send_event(
+                    analysis_id,
+                    "job_failed",
+                    100,
+                    "failed",
+                    {
+                        "job_type": 
+                            "haiku_call_2",
+
+                        "error_code":
+                            error_code,
+
+                        "retryable":
+                            retryable
+                    }
+                )
+
+            except Exception:
+                pass
