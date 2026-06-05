@@ -528,8 +528,10 @@ def annotate_frame_front(
         {
             "label": "Dorsiflexion",
             "pass": dorsiflexion_status.lower() in ("good", "excellent"),
-            "text": f"{dorsiflexion_status.replace("_", " ").title()} - {_fmt_angle(dorsiflexion_angle)}" if dorsiflexion_status.lower() in ("good", "excellent") 
-            else f"{dorsiflexion_status.replace("_", " ").title()} - {_fmt_angle(dorsiflexion_angle)} (target >= 25°)",
+            #"text": f"{dorsiflexion_status.replace("_", " ").title()} - {_fmt_angle(dorsiflexion_angle)}" if dorsiflexion_status.lower() in ("good", "excellent") 
+            #else f"{dorsiflexion_status.replace("_", " ").title()} - {_fmt_angle(dorsiflexion_angle)} (target >= 25°)",
+            "text": f"{dorsiflexion_status.replace('_', ' ').title()} - {_fmt_angle(dorsiflexion_angle)}" if dorsiflexion_status.lower() in ("good", "excellent") 
+            else f"{dorsiflexion_status.replace('_', ' ').title()} - {_fmt_angle(dorsiflexion_angle)} (target >= 30°)",
             "severity": 0.0 if dorsiflexion_status.lower() in ("good", "excellent") else 1.0,
             "color": (255, 220, 0),
         },
@@ -658,8 +660,10 @@ def annotate_frame_side(
         {
             "label": "Dorsiflexion",
             "pass": dorsiflexion_status.lower() in ("good", "excellent"),
-            "text": f"{dorsiflexion_status.replace("_", " ").title()} - {_fmt_angle(dorsiflexion_angle)}" if dorsiflexion_status.lower() in ("good", "excellent") 
-            else f"{dorsiflexion_status.replace("_", " ").title()} - {_fmt_angle(dorsiflexion_angle)} (target >= 30°)",
+            #"text": f"{dorsiflexion_status.replace("_", " ").title()} - {_fmt_angle(dorsiflexion_angle)}" if dorsiflexion_status.lower() in ("good", "excellent") 
+            #else f"{dorsiflexion_status.replace("_", " ").title()} - {_fmt_angle(dorsiflexion_angle)} (target >= 30°)",
+            "text": f"{dorsiflexion_status.replace('_',' ').title()} - {_fmt_angle(dorsiflexion_angle)}" if dorsiflexion_status.lower() in ("good", "excellent") 
+            else f"{dorsiflexion_status.replace('_', ' ').title()} - {_fmt_angle(dorsiflexion_angle)} (target >= 25°)",
             "severity": 0.0 if dorsiflexion_status.lower() in ("good", "excellent") else 1.0,
             "color": (255, 220, 0),
         },
