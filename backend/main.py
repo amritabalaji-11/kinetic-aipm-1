@@ -11,6 +11,13 @@ from routes import upload, stream, analysis, progression, history, stream
 
 app = FastAPI()
 
+@app.get("/")
+def root():
+    return {
+        "status": "ok",
+        "message": "Kinetic backend is running 🚀"
+    }
+
 # CORS config
 app.add_middleware(
     CORSMiddleware,

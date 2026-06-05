@@ -37,7 +37,8 @@ async def upload(
     weight: float = Form(None),
     weight_value: float = Form(None),
     weight_unit: str = Form("lbs"),
-    user_id: str = Form("00000000-0000-0000-0000-000000000000"),
+    #user_id: str = Form("00000000-0000-0000-0000-000000000000"),
+    user_id: str = Form(...),
     session_id: str = Form(None),
     background_tasks: BackgroundTasks = BackgroundTasks()
   #  background_tasks: BackgroundTasks,
