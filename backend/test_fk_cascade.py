@@ -44,10 +44,11 @@ def run_test():
         INSERT INTO form_analysis_results (
             analysis_id,
             session_id,
-            overall_score
+            exercise_id,
+            overall_form_score
         )
-        VALUES (?, ?, ?)
-    """, (analysis_id, session_id, 85.0))
+        VALUES (?, ?, ?, ?)
+    """, (analysis_id, session_id, "goblet_squat", 85))
 
     print("Analysis inserted")
 
