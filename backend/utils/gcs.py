@@ -55,7 +55,7 @@ async def upload_file_to_gcs(
         blob.upload_from_file(
             file.file,
             content_type=file.content_type,
-            timeout=60
+            timeout=300
         )
 
         return f"gs://{BUCKET_NAME}/{destination_blob_name}"
