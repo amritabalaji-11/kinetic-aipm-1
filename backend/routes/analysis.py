@@ -115,6 +115,7 @@ async def get_haiku_status(analysis_id: str):
     Response time: <50 ms (primary-key lookup on form_analyses).
     404 if analysis_id does not exist.
     """
+    # ── Single indexed lookup — always <50 ms ─────────────────────────────────
     row = await db.fetch_one(
         """
         SELECT
@@ -140,6 +141,7 @@ async def get_haiku_status(analysis_id: str):
         "error":               row["haiku_call_2_error"],
     }
 
+    # ── Attach all 8 output fields when the job is complete ───────────────────
     if row["haiku_call_2_status"] == "complete":
         prog = await db.fetch_one(
             """
@@ -162,9 +164,9 @@ async def get_haiku_status(analysis_id: str):
         if prog and prog["available"]:
             weight_rec_raw = prog["weight_recommendation"]
             response.update({
-                "progression_verdict":   prog["progression_verdict"],
-                "progress_direction":    prog["progress_direction"],
-                "weight_recommendation": (
+                "progression_verdict":    prog["progression_verdict"],
+                "progress_direction":     prog["progress_direction"],
+                "weight_recommendation":  (
                     json.loads(weight_rec_raw)
                     if isinstance(weight_rec_raw, str)
                     else weight_rec_raw
@@ -176,6 +178,7 @@ async def get_haiku_status(analysis_id: str):
                 "movement_quality_trend": prog["movement_quality_trend"],
             })
         else:
+            # First-ever session — job completed but no comparison data exists
             response["available"] = False
 
     return response

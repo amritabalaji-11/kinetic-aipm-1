@@ -5,6 +5,7 @@
 # Event sequence:
 #   upload_received → mediapipe_started → mediapipe_complete → biomechanics_complete
 #   → haiku_started → analysis_ready  (Tab 1 unlocks)
+#   → haiku_call_2_queued  (emitted before async job fires)
 #   → haiku_call_2_complete OR haiku_call_2_no_history  (Tab 2 unlocks / locks)
 
 import asyncio
@@ -12,6 +13,7 @@ import os
 import json
 import shutil
 from concurrent.futures import ThreadPoolExecutor
+from datetime import datetime, timezone
 
 from services.haiku_call_2_progression import run_haiku_call_2
 from mediapipe_code.landmark_framework import LandmarkQualityFramework
@@ -85,7 +87,7 @@ async def run_mediapipe_analysis(analysis_id: str, file_location: str):
     Event sequence:
       upload_received → mediapipe_started → mediapipe_complete → biomechanics_complete
       → haiku_started → analysis_ready (Tab 1 unlocks)
-      → haiku_call_2_complete (async, after Haiku Call 2) — closes stream
+      → haiku_call_2_queued → haiku_call_2_complete (async) — closes stream
     """
     from db.database import db
 
@@ -277,13 +279,13 @@ async def run_mediapipe_analysis(analysis_id: str, file_location: str):
         #
         # S2-W8-01: stamp queued_at in DB so the haiku-status endpoint returns
         # accurate timing before the job enters running state.
-        # S2-W8-04: emit haiku_call_2_queued SSE; job emits started/complete/
-        # no_history/job_failed and closes the stream.
+        # S2-W8-04: emit haiku_call_2_queued SSE so the frontend knows the job
+        # is enqueued. run_haiku_call_2 handles the no-history case internally
+        # and emits haiku_call_2_no_history if there's nothing to compare against.
         # -------------------------------------------------
-        from datetime import datetime, timezone
-        from db.database import db as _pipeline_db
         queued_at = datetime.now(timezone.utc).isoformat()
-        await _pipeline_db.execute(
+
+        await db.execute(
             """
             UPDATE form_analyses
             SET haiku_call_2_status    = 'queued',
@@ -431,7 +433,7 @@ async def _store_analysis_results(
             :posture_score,
             :stability_score,
             :movement_quality_score,
-            :tempo_score,
+            :range_of_motion_score,
             :rep_count,
             :rep_scores,
             :coaching_output
@@ -447,7 +449,7 @@ async def _store_analysis_results(
             "posture_score":          param_scores.get("posture"),
             "stability_score":        param_scores.get("stability"),
             "movement_quality_score": param_scores.get("movement_quality"),
-            "tempo_score":            param_scores.get("ROM"),
+            "range_of_motion_score":  param_scores.get("range_of_motion"),
             "rep_count":              session.get("rep_count"),
             "rep_scores":             json.dumps(coaching_output.get("rep_scores", [])),
             "coaching_output":        json.dumps(coaching_output),
