@@ -28,7 +28,7 @@ CREATE TABLE IF NOT EXISTS user_profiles (
         )
         """
     
-CREATE_FORM_ANALYSES_SQL = """ 
+CREATE_FORM_ANALYSES_SQL = """
 CREATE TABLE IF NOT EXISTS form_analyses (
         session_id TEXT PRIMARY KEY,
         user_id TEXT NOT NULL REFERENCES user_profiles(user_id) ON DELETE CASCADE,

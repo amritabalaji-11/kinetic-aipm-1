@@ -2,9 +2,9 @@ import json
 
 from fastapi import APIRouter, HTTPException
 from db.database import db
-import json
 
 router = APIRouter()
+
 
 def safe_json(val):
     if not val:
@@ -13,7 +13,7 @@ def safe_json(val):
         return val
     try:
         return json.loads(val)
-    except:
+    except Exception:
         return val
 
 
@@ -55,9 +55,9 @@ async def get_analysis(analysis_id: str):
         results = dict(results)
         haiku_call_1 = {
             **results,
-            "rep_scores": safe_json(results.get("rep_scores")),
+            "rep_scores":      safe_json(results.get("rep_scores")),
             "coaching_output": safe_json(results.get("coaching_output")),
-            "issues_json": safe_json(results.get("issues_json")),
+            "issues_json":     safe_json(results.get("issues_json")),
         }
 
     # =====================================================
@@ -87,7 +87,7 @@ async def get_analysis(analysis_id: str):
     # 4. RESPONSE
     # =====================================================
     return {
-        "analysis": analysis,
+        "analysis":    analysis,
         "haiku_call_1": haiku_call_1,
         "haiku_call_2": haiku_call_2,
     }
