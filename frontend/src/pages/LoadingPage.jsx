@@ -89,7 +89,7 @@ function LoadingPage() {
   const { steps, isDone, error, partialWarning, cancel, resultUrl } =
     useSSEStream(fixtureMode ? null : analysisId)
 
-  const BASE_URL = import.meta.env.VITE_API_URL || "http://localhost:8000"
+  const BASE_URL = import.meta.env.VITE_API_URL || ""
 
   useEffect(() => {
     if (fixtureMode || !isDone) return

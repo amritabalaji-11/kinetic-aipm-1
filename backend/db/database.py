@@ -1,8 +1,11 @@
+import os
 from pathlib import Path
 from databases import Database
+from dotenv import load_dotenv
+
+load_dotenv()
 
 BASE_DIR = Path(__file__).resolve().parent.parent
-DATABASE_PATH = BASE_DIR / "kinetic.db"
-DATABASE_URL = f"sqlite:///{DATABASE_PATH.as_posix()}"
+DATABASE_URL = os.getenv("DATABASE_URL", f"sqlite:///{(BASE_DIR / 'kinetic.db').as_posix()}")
 
 db = Database(DATABASE_URL)

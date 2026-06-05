@@ -220,18 +220,18 @@ export default function ResultsPage() {
   const [liveCurrentData,  setLiveCurrentData]  = useState(null)  // haiku_call_1 shape
   const [liveCompData,     setLiveCompData]      = useState(null)  // haiku_call_2 shape
 
-  const BASE_URL = import.meta.env.VITE_API_URL || "http://localhost:8000"
+  const BASE_URL = import.meta.env.VITE_API_URL || ""
 
   // Fetch completed sessions from DB
   useEffect(() => {
     async function fetchSessions() {
       try {
         const localUserId = localStorage.getItem("user_id")
-        const userId = localStorage.getItem("user_id")
+        const batchUserId = "00000000-0000-0000-0000-000000000000"
 
         let allSessions = []
 
-        const r1 = await fetch(`${BASE_URL}/history/${userId}`)
+        const r1 = await fetch(`${BASE_URL}/history/${batchUserId}`)
         if (r1.ok) {
           const list = await r1.json()
           if (Array.isArray(list)) allSessions.push(...list)
@@ -946,4 +946,3 @@ export default function ResultsPage() {
     </div>
   )
 }
-

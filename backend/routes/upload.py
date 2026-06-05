@@ -31,16 +31,15 @@ ALLOWED_MIME_TYPES = {
 
 @router.post("/upload")
 async def upload(
+    background_tasks: BackgroundTasks,
     file: UploadFile = File(...),
     exercise: str = Form(None),
     exercise_name: str = Form(None),
     weight: float = Form(None),
     weight_value: float = Form(None),
     weight_unit: str = Form("lbs"),
-    #user_id: str = Form("00000000-0000-0000-0000-000000000000"),
-    user_id: str = Form(...),
+    user_id: str = Form("00000000-0000-0000-0000-000000000000"),
     session_id: str = Form(None),
-    background_tasks: BackgroundTasks = BackgroundTasks()
   #  background_tasks: BackgroundTasks,
   #  file: UploadFile = File(...),
   #  exercise_name: str = Form(...),
@@ -108,12 +107,23 @@ async def upload(
         )
 
     except Exception as e:
-        print("GCS ERROR:", str(e))
-
-        raise HTTPException(
-            status_code=503,
-            detail={"error": "PIPELINE_UNAVAILABLE"}
-        )
+        print("GCS upload failed, falling back to local storage:", str(e))
+        try:
+            import os, shutil
+            local_uploads_dir = os.path.join(os.path.dirname(__file__), "..", "uploads", user_id, analysis_id)
+            os.makedirs(local_uploads_dir, exist_ok=True)
+            local_video_path = os.path.join(local_uploads_dir, file.filename)
+            file.file.seek(0)
+            with open(local_video_path, "wb") as f_out:
+                shutil.copyfileobj(file.file, f_out)
+            video_url = local_video_path
+            print(f"Video saved locally: {video_url}")
+        except Exception as local_err:
+            print("Local fallback also failed:", str(local_err))
+            raise HTTPException(
+                status_code=503,
+                detail={"error": "PIPELINE_UNAVAILABLE"}
+            )
 
     # =========================================================
     # INSERT DB RECORD

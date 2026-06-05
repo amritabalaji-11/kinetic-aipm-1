@@ -17,7 +17,7 @@ async def get_history(user_id: str):
                 SELECT 
                     a.session_id, a.user_id, a.weight_value, a.weight_unit, a.video_url, 
                     a.status, a.quality_gate_status, a.video_score, a.created_at,
-                    r.analysis_id, r.overall_score, r.rep_count
+                    r.analysis_id, r.overall_form_score AS overall_score, r.rep_count
                 FROM form_analyses a
                 LEFT JOIN form_analysis_results r ON a.analysis_id = r.analysis_id
                 WHERE a.user_id = ? AND a.status = 'completed'

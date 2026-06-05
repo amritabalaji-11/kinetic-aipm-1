@@ -62,7 +62,7 @@ function useSSEStream(analysisId) {
 
   const eventSourceRef = useRef(null)
   const doneRef = useRef(false)
-  const BASE_URL = import.meta.env.VITE_API_URL || "http://localhost:8000"
+  const BASE_URL = import.meta.env.VITE_API_URL || ""
 
   function updateStep(index, newStatus) {
     setSteps(prev => prev.map((s, i) => i === index ? { ...s, status: newStatus } : s))
@@ -115,7 +115,7 @@ function useSSEStream(analysisId) {
       }
 
       // --- Final event ---
-      if (eventName === "progression_ready" || eventName === "haiku_call_2_no_history" || eventName === "haiku_call_2_complete") {
+      if (eventName === "progression_ready") {
         const lastIndex = PIPELINE_STEPS.findIndex(s => s.completeOn === "progression_ready")
         if (lastIndex !== -1) updateStep(lastIndex, "complete")
 

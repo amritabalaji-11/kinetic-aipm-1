@@ -20,7 +20,14 @@ CRITICAL_SIDE_JOINTS = ["HIP", "KNEE", "ANKLE", "FOOT", "SHOULDER", "ANKLE"]
 
 import shutil
 
-FFMPEG_PATH = shutil.which("ffmpeg")
+import os
+ffmpeg_sys = shutil.which("ffmpeg")
+if not ffmpeg_sys:
+    for path in ["/opt/homebrew/bin/ffmpeg", "/usr/local/bin/ffmpeg", "/usr/bin/ffmpeg"]:
+        if os.path.exists(path):
+            ffmpeg_sys = path
+            break
+FFMPEG_PATH = ffmpeg_sys
 
 def get_first_pose(result):
     """
