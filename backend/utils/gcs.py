@@ -3,6 +3,7 @@ import os
 from fastapi import UploadFile
 from google.cloud import storage
 from google.oauth2 import service_account
+from matplotlib.cbook import _lock_path
 from utils.config import GCS_BUCKET_NAME
 
 
@@ -61,6 +62,35 @@ async def upload_file_to_gcs(
 
     except Exception as e:
 
+        print("========== GCS ERROR ==========")
+        print(str(e))
+        print("================================")
+
+        raise e
+    
+# =========================================================
+# IMAGE UPLOAD
+# =========================================================
+
+async def upload_image_to_gcs(
+    file: UploadFile,
+    destination_blob_name: str
+):
+    try:
+
+        bucket = client.bucket(BUCKET_NAME)
+
+        blob = bucket.blob(destination_blob_name)
+
+        blob.upload_from_filename(
+            _lock_path,
+            content_type="image/png"
+        )
+
+        blob.make_public()
+
+        return blob.public_url
+    except Exception as e:
         print("========== GCS ERROR ==========")
         print(str(e))
         print("================================")
