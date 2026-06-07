@@ -1,6 +1,7 @@
 import { BrowserRouter, Routes, Route } from "react-router-dom"
 import { UserProvider } from "./context/UserContext"
 import NavBar from "./components/NavBar"
+import SplashScreen from "./pages/SplashScreen"
 import HomePage from "./pages/HomePage"
 import LoginPage from "./pages/LoginPage"
 import PlanPage from "./pages/PlanPage"
@@ -30,8 +31,10 @@ function App() {
     <UserProvider>
       <BrowserRouter>
         <Routes>
+          <Route path="/" element={<SplashScreen />} />
+          <Route path="/select-profile" element={<LoginPage />} />
           <Route path="/login" element={<LoginPage />} />
-          <Route path="/" element={<Layout><HomePage /></Layout>} />
+          <Route path="/home" element={<Layout><HomePage /></Layout>} />
           <Route path="/plan" element={<Layout><PlanPage /></Layout>} />
           <Route path="/timeline" element={<Layout><TimelinePage /></Layout>} />
           <Route path="/profile" element={<Layout><ProfilePage /></Layout>} />

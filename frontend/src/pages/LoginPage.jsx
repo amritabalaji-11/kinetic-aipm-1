@@ -90,11 +90,11 @@ function LoginPage() {
   const { activeUser, setUser } = useUser()
   const navigate = useNavigate()
 
-  if (activeUser) return <Navigate to="/" replace />
+  if (activeUser) return <Navigate to="/home" replace />
 
   const handleSelect = (userId) => {
     setUser(userId)
-    navigate("/")
+    navigate("/home")
   }
 
   return (

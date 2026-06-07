@@ -304,28 +304,16 @@ export default function ResultsPage() {
   useEffect(() => {
     async function fetchSessions() {
       try {
-        const localUserId = localStorage.getItem("user_id")
         const userId = localStorage.getItem("user_id")
-        let allSessions = []
+        if (!userId) return
         const r1 = await fetch(`${BASE_URL}/history/${userId}`)
         if (r1.ok) {
           const list = await r1.json()
-          if (Array.isArray(list)) allSessions.push(...list)
-        }
-        if (localUserId && localUserId !== batchUserId) {
-          const r2 = await fetch(`${BASE_URL}/history/${localUserId}`)
-          if (r2.ok) {
-            const list = await r2.json()
-            if (Array.isArray(list)) allSessions.push(...list)
+          if (Array.isArray(list)) {
+            const sorted = [...list].sort((a, b) => new Date(b.created_at) - new Date(a.created_at))
+            setLiveSessions(sorted)
           }
         }
-        const unique = []
-        const seen = new Set()
-        for (const s of allSessions) {
-          if (!seen.has(s.session_id)) { seen.add(s.session_id); unique.push(s) }
-        }
-        unique.sort((a, b) => new Date(b.created_at) - new Date(a.created_at))
-        setLiveSessions(unique)
       } catch (err) {
         console.error("Failed to fetch live history sessions:", err)
       }
