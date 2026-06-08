@@ -11,8 +11,8 @@ const MUSCLE_GROUPS = [
   {
     id: "shoulders",
     label: "SHOULDERS",
-    zone: { top: "19%", left: "29%", width: "10%", height: "7%" },
-    glow: { top: "23%", left: "31%", translateX: "0", w: "w-6", h: "h-6" },
+    zone: { top: "19%", left: "37%", width: "10%", height: "7%" },
+    glow: { top: "26%", left: "37%", translateX: "0", w: "w-6", h: "h-6" },
     marker: { x: 120, y: 60 },
     exercises: [
       { id: "ohp",           name: "OVERHEAD PRESS",  enabled: false },
@@ -22,8 +22,8 @@ const MUSCLE_GROUPS = [
   {
     id: "biceps",
     label: "BICEPS",
-    zone: { top: "26%", left: "20%", width: "22%", height: "14%" },
-    glow: { top: "28%", left: "29%", translateX: "0", w: "w-5", h: "h-12", rotate: "10deg" },
+    zone: { top: "26%", left: "28%", width: "22%", height: "14%" },
+    glow: { top: "30%", left: "34%", translateX: "0", w: "w-5", h: "h-12", rotate: "10deg" },
     marker: { x: 28, y: 100 },
     exercises: [
       { id: "barbell-curl",  name: "BARBELL CURL",    enabled: false },
@@ -33,8 +33,8 @@ const MUSCLE_GROUPS = [
   {
     id: "forearms",
     label: "FOREARMS",
-    zone: { top: "33%", left: "16%", width: "22%", height: "14%" },
-    glow: { top: "35%", left: "27%", translateX: "0", w: "w-5", h: "h-12", rotate: "10deg" },
+    zone: { top: "33%", left: "24%", width: "22%", height: "14%" },
+    glow: { top: "35%", left: "32%", translateX: "0", w: "w-5", h: "h-12", rotate: "10deg" },
     marker: { x: 36, y: 140 },
     exercises: [
       { id: "wrist-curl",    name: "WRIST CURL",      enabled: false },
@@ -44,8 +44,8 @@ const MUSCLE_GROUPS = [
   {
     id: "chest",
     label: "CHEST",
-    zone: { top: "22%", left: "32%", width: "28%", height: "13%" },
-    glow: { top: "26%", left: "48%", translateX: "-50%", w: "w-14", h: "h-10" },
+    zone: { top: "22%", left: "40%", width: "28%", height: "13%" },
+    glow: { top: "26%", left: "52%", translateX: "-50%", w: "w-14", h: "h-10" },
     marker: { x: 152, y: 120 },
     exercises: [
       { id: "bench-press",   name: "BENCH PRESS",     enabled: false },
@@ -55,8 +55,8 @@ const MUSCLE_GROUPS = [
   {
     id: "abs",
     label: "ABS/CORE",
-    zone: { top: "33%", left: "28%", width: "40%", height: "14%" },
-    glow: { top: "34%", left: "48%", translateX: "-50%", w: "w-16", h: "h-12" },
+    zone: { top: "33%", left: "36%", width: "40%", height: "14%" },
+    glow: { top: "34%", left: "52%", translateX: "-50%", w: "w-16", h: "h-12" },
     marker: { x: 152, y: 130 },
     exercises: [
       { id: "plank",         name: "PLANK",           enabled: false },
@@ -67,8 +67,8 @@ const MUSCLE_GROUPS = [
   {
     id: "legs",
     label: "QUADS",
-    zone: { top: "45%", left: "25%", width: "44%", height: "19%" },
-    glow: { top: "47%", left: "47%", translateX: "-50%", w: "w-20", h: "h-16" },
+    zone: { top: "45%", left: "33%", width: "44%", height: "19%" },
+    glow: { top: "47%", left: "50%", translateX: "-50%", w: "w-20", h: "h-16" },
     marker: { x: 132, y: 182 },
     exercises: [
       { id: "goblet-squat",  name: "GOBLET SQUAT",   enabled: true  },
@@ -212,7 +212,7 @@ const highlightedMuscle =
     <div className="min-h-screen bg-light-bg text-text-primary p-4">
       <div className="max-w-md mx-auto space-y-4">
 
-        <section className="border-2 border-dashed border-cyan-glow/60 rounded-xl p-4 bg-light-card shadow-sm">
+        <section className="border-2 border-dashed border-blue-300/60 rounded-xl p-4 bg-light-card shadow-sm">
 
           <p className="text-xs text-text-teritary text-center mb-3">
             {selectedGroup
@@ -255,7 +255,7 @@ const highlightedMuscle =
               {/* ── Blur glow — shown for active muscle group ── */}
               {activeGroup && (
                 <div
-                  className={`absolute ${activeGroup.glow.w} ${activeGroup.glow.h} bg-cyan-glow/40 blur-sm rounded-full pointer-events-none`}
+                  className={`absolute ${activeGroup.glow.w} ${activeGroup.glow.h} bg-blue-400/40 blur-sm rounded-full pointer-events-none`}
                   style={{
                     top: activeGroup.glow.top,
                     left: activeGroup.glow.left,
@@ -272,30 +272,30 @@ const highlightedMuscle =
                 style={{ zIndex: 15 }}
               >
 
-                <line x1="65" y1="75" x2="30" y2="63"
-                  stroke={selectedGroup === "shoulders" ? "#00ffc2" : "#1d2d3e"}
+                <line x1="78" y1="80" x2="57" y2="63"
+                  stroke={selectedGroup === "shoulders" ? "#3b82f6" : "#1d2d3e"}
                   strokeOpacity={selectedGroup === "shoulders" ? "0.9" : "0.4"} strokeWidth="1" />
-                <line x1="62" y1="97" x2="36" y2="97"
-                  stroke={selectedGroup === "biceps" ? "#00ffc2" : "#1d2d3e"}
+                <line x1="75" y1="97" x2="37" y2="97"
+                  stroke={selectedGroup === "biceps" ? "#3b82f6" : "#1d2d3e"}
                   strokeOpacity={selectedGroup === "biceps" ? "0.9" : "0.4"} strokeWidth="1" />
-                <line x1="54" y1="122" x2="36" y2="118"
-                  stroke={selectedGroup === "forearms" ? "#00ffc2" : "#1d2d3e"}
+                <line x1="67" y1="118" x2="50" y2="113"
+                  stroke={selectedGroup === "forearms" ? "#3b82f6" : "#1d2d3e"}
                   strokeOpacity={selectedGroup === "forearms" ? "0.9" : "0.4"} strokeWidth="1" />
-                <line x1="76" y1="160" x2="26" y2="192"
-                  stroke={highlightedMuscle === "quads" ? "#00ffc2" : "#1d2d3e"}
+                <line x1="83" y1="150" x2="37" y2="192"
+                  stroke={highlightedMuscle === "quads" ? "#3b82f6" : "#1d2d3e"}
                   strokeOpacity={highlightedMuscle === "quads" ? "0.9" : "0.4"} strokeWidth="1" />
-                <line x1="98" y1="82" x2="152" y2="97"
-                  stroke={selectedGroup === "chest" ? "#00ffc2" : "#1d2d3e"}
+                <line x1="104" y1="90" x2="150" y2="97"
+                  stroke={selectedGroup === "chest" ? "#3b82f6" : "#1d2d3e"}
                   strokeOpacity={selectedGroup === "chest" ? "0.9" : "0.4"} strokeWidth="1" />
-                <line x1="88" y1="118" x2="138" y2="118"
-                  stroke={selectedGroup === "abs" ? "#00ffc2" : "#1d2d3e"}
+                <line x1="95" y1="118" x2="135" y2="118"
+                  stroke={selectedGroup === "abs" ? "#3b82f6" : "#1d2d3e"}
                   strokeOpacity={selectedGroup === "abs" ? "0.9" : "0.4"} strokeWidth="1" />
-                <text x="6" y="60" textAnchor="start" fontSize="8" fill={selectedGroup === "shoulders" ? "#00ffc2" : "#1d2d3e"} fontWeight={selectedGroup === "shoulders" ? 700 : 500}>SHOULDERS</text>
-                <text x="6" y="100" textAnchor="start" fontSize="8" fill={selectedGroup === "biceps" ? "#00ffc2" : "#1d2d3e"} fontWeight={selectedGroup === "biceps" ? 700 : 500}>BICEPS</text>
-                <text x="6" y="115" textAnchor="start" fontSize="8" fill={selectedGroup === "forearms" ? "#00ffc2" : "#1d2d3e"} fontWeight={selectedGroup === "forearms" ? 700 : 500}>FOREARMS</text>
-                <text x="6" y="200" textAnchor="start" fontSize="8" fill={highlightedMuscle === "quads" ? "#00ffc2" : "#1d2d3e"} fontWeight={highlightedMuscle === "quads" ? 700 : 500}>QUADS</text>
-                <text x="180" y="100" textAnchor="end" fontSize="8" fill={selectedGroup === "chest" ? "#00ffc2" : "#1d2d3e"} fontWeight={selectedGroup === "chest" ? 700 : 500}>CHEST</text>
-                <text x="180" y="120" textAnchor="end" fontSize="8" fill={selectedGroup === "abs" ? "#00ffc2" : "#1d2d3e"} fontWeight={selectedGroup === "abs" ? 700 : 500}>ABS/CORE</text>
+                <text x="6" y="60" textAnchor="start" fontSize="8" fill={selectedGroup === "shoulders" ? "#3b82f6" : "#1d2d3e"} fontWeight={selectedGroup === "shoulders" ? 700 : 500}>SHOULDERS</text>
+                <text x="6" y="100" textAnchor="start" fontSize="8" fill={selectedGroup === "biceps" ? "#3b82f6" : "#1d2d3e"} fontWeight={selectedGroup === "biceps" ? 700 : 500}>BICEPS</text>
+                <text x="6" y="115" textAnchor="start" fontSize="8" fill={selectedGroup === "forearms" ? "#3b82f6" : "#1d2d3e"} fontWeight={selectedGroup === "forearms" ? 700 : 500}>FOREARMS</text>
+                <text x="6" y="200" textAnchor="start" fontSize="8" fill={highlightedMuscle === "quads" ? "#3b82f6" : "#1d2d3e"} fontWeight={highlightedMuscle === "quads" ? 700 : 500}>QUADS</text>
+                <text x="180" y="100" textAnchor="end" fontSize="8" fill={selectedGroup === "chest" ? "#3b82f6" : "#1d2d3e"} fontWeight={selectedGroup === "chest" ? 700 : 500}>CHEST</text>
+                <text x="180" y="120" textAnchor="end" fontSize="8" fill={selectedGroup === "abs" ? "#3b82f6" : "#1d2d3e"} fontWeight={selectedGroup === "abs" ? 700 : 500}>ABS/CORE</text>
               </svg>
             </div>
 
@@ -333,7 +333,7 @@ const highlightedMuscle =
                     disabled={!ex.enabled}
                     className={`w-full flex items-center justify-between px-4 py-3 rounded-lg border text-sm font-medium tracking-wide transition-colors ${
                       isSelected
-                        ? "border-cyan-glow text-text-primary bg-cyan-glow/15"
+                        ? "border-blue-500 text-text-primary bg-blue-500/15"
                         : ex.enabled
                         ? "border-gray-200 text-text-primary hover:border-gray-300 bg-white"
                         : "border-gray-100 text-text-disabled cursor-not-allowed bg-white"
@@ -347,7 +347,7 @@ const highlightedMuscle =
                       <span className="text-[10px] text-text-disabled uppercase tracking-wider">Soon</span>
                     )}
                     {isSelected && (
-                      <span className="w-5 h-5 rounded-full bg-cyan-glow flex items-center justify-center">
+                      <span className="w-5 h-5 rounded-full bg-blue-500 flex items-center justify-center">
                         <Check size={14} className="text-text-primary" />
                       </span>
                     )}
@@ -358,7 +358,7 @@ const highlightedMuscle =
           )}
         </section>
 
-        {videoFile && <section className="border-2 border-dashed border-cyan-glow/60 rounded-xl p-4 bg-light-card shadow-sm">
+        {!videoFile && <section className="border-2 border-dashed border-blue-300/60 rounded-xl p-4 bg-light-card shadow-sm">
           <button
             type="button"
             onClick={() => setTipsExpanded((v) => !v)}
@@ -372,7 +372,7 @@ const highlightedMuscle =
             <>
               <div className="mb-3">
                 <img
-                  src="/angle.png"
+                  src="/goblet_squat.png"
                   alt="Correct vs incorrect squat form reference"
                   className="w-full aspect-video object-contain rounded-md"
                   onError={(e) => { e.currentTarget.style.display = "none" }}
@@ -401,7 +401,7 @@ const highlightedMuscle =
                     const vid = e.currentTarget.closest("div").querySelector("video")
                     if (vid.paused) vid.play(); else vid.pause()
                   }}
-                  className="w-14 h-14 rounded-full bg-cyan-glow flex items-center justify-center hover:scale-105 transition-transform shadow-lg"
+                  className="w-14 h-14 rounded-full bg-blue-500 flex items-center justify-center hover:scale-105 transition-transform shadow-lg"
                   aria-label="Play video preview"
                 >
                   <Play size={24} className="text-text-primary ml-1" fill="currentColor" />
@@ -416,7 +416,7 @@ const highlightedMuscle =
               </button>
             </div>
           ) : (
-            <div className="border-2 border-dashed border-cyan-glow/60 rounded-xl p-6 bg-light-card text-center shadow-sm">
+            <div className="border-2 border-dashed border-blue-300/60 rounded-xl p-6 bg-light-card text-center shadow-sm">
               <Upload size={36} className="text-text-teritary mx-auto mb-3" />
               <p className="text-sm font-medium text-text-primary mb-1">Upload Video</p>
               <p className="text-xs text-text-teritary mb-4">MP4, MOV or AVI · max {MAX_FILE_SIZE_MB} MB</p>
@@ -447,7 +447,7 @@ const highlightedMuscle =
 
 {isValidating && (
   <p className="text-xs text-text-teritary mt-2 flex items-center gap-1">
-    <span className="inline-block w-3 h-3 rounded-full border-2 border-cyan-glow border-t-transparent animate-spin" />
+    <span className="inline-block w-3 h-3 rounded-full border-2 border-blue-500 border-t-transparent animate-spin" />
     Checking file…
   </p>
 )}
@@ -482,7 +482,7 @@ const highlightedMuscle =
                       input.value = ""
                       input.click()
                     }}
-                    className="text-xs font-medium text-cyan-glow underline hover:brightness-90"
+                    className="text-xs font-medium text-blue-500 underline hover:brightness-90"
                   >
                     Re-select file
                   </button>
@@ -492,17 +492,17 @@ const highlightedMuscle =
           )}
         </section>
 
-        <section className="border-2 border-dashed border-cyan-glow/60 rounded-xl p-4 bg-light-card shadow-sm">
-          <div className="flex items-center justify-between mb-3">
-            <label className="text-xs uppercase tracking-wider text-text-teritary">Load Parameters</label>
-            <div className="flex bg-gray-100 rounded-md p-0.5 text-xs">
+        <section className="rounded-2xl p-4 bg-white shadow-sm border border-gray-100">
+          <div className="flex items-center justify-between mb-4">
+            <span className="text-sm font-semibold text-text-primary">Load Parameters</span>
+            <div className="flex bg-gray-100 rounded-full p-0.5 text-xs">
               {["kg", "lbs"].map((u) => (
                 <button
                   key={u}
                   type="button"
                   onClick={() => { setUnit(u); setWeight(0); setWeightTouched(false) }}
-                  className={`px-2 py-0.5 rounded transition-colors uppercase ${
-                    unit === u ? "bg-cyan-glow text-text-primary font-semibold" : "text-text-teritary"
+                  className={`px-3 py-1 rounded-full transition-colors uppercase font-medium ${
+                    unit === u ? "bg-blue-500 text-text-primary shadow-sm" : "text-text-teritary"
                   }`}
                 >
                   {u}
@@ -511,8 +511,8 @@ const highlightedMuscle =
             </div>
           </div>
 
-          <div className="flex items-center justify-between mb-3">
-            <span className="text-sm font-medium text-text-primary">Weight</span>
+          <div className="flex items-center justify-between mb-2">
+            <span className="text-xs font-semibold uppercase tracking-widest text-text-teritary">Weight</span>
             <div className="flex items-baseline gap-1">
               <input
                 type="number"
@@ -524,9 +524,9 @@ const highlightedMuscle =
                 placeholder="0"
                 onChange={handleWeightInputChange}
                 onBlur={() => setWeightTouched(true)}
-                className="w-16 bg-transparent text-right text-2xl text-text-primary font-semibold focus:outline-none"
+                className="w-24 bg-transparent text-right text-4xl text-text-primary font-bold focus:outline-none"
               />
-              <span className="text-sm text-text-teritary uppercase">{unit}</span>
+              <span className="text-sm text-text-teritary uppercase font-semibold">{unit}</span>
             </div>
           </div>
 
@@ -537,7 +537,7 @@ const highlightedMuscle =
             step={WEIGHT_STEP}
             value={weight}
             onChange={handleWeightSliderChange}
-            className="w-full accent-cyan-glow"
+            className="w-full accent-blue-500 h-1 rounded-full"
           />
 
           {showWeightError && (
@@ -552,13 +552,18 @@ const highlightedMuscle =
           type="button"
           onClick={handleSubmit}
           disabled={isUploading || isValidating}
-          className={`w-full h-14 rounded-xl font-semibold tracking-wide transition-all ${
+          className={`w-full h-16 rounded-2xl font-bold text-base tracking-widest transition-all flex items-center justify-center gap-3 shadow-lg ${
             isFormValid && !isUploading && !isValidating
-              ? "bg-gradient-to-r from-teal to-cyan-glow text-text-primary hover:brightness-105 shadow-md"
+              ? "bg-gradient-to-r from-[#6c63ff] via-[#5b9cf6] to-[#3b82f6] text-white hover:brightness-105"
               : "bg-gray-100 text-text-secondary border border-gray-200"
           }`}
         >
-          {isUploading ? "UPLOADING..." : isValidating ? "VALIDATING..." : "START ANALYSIS →"}
+          {isUploading ? "UPLOADING..." : isValidating ? "VALIDATING..." : (
+            <>
+              START ANALYSIS
+              <span className="text-xl">→</span>
+            </>
+          )}
         </button>
 
         {!isFormValid && !isUploading && (
@@ -584,7 +589,7 @@ const highlightedMuscle =
               <button
                 type="button"
                 onClick={handleSubmit}
-                className="mt-2 text-xs font-medium text-cyan-glow underline hover:brightness-90"
+                className="mt-2 text-xs font-medium text-blue-500 underline hover:brightness-90"
               >
                 Try again
               </button>
@@ -603,7 +608,7 @@ const highlightedMuscle =
         {import.meta.env.DEV && (
           <button
             type="button"
-            className="w-full py-2 text-xs text-teal underline text-center"
+            className="w-full py-2 text-xs text-blue-500 underline text-center"
             onClick={() =>
               navigate("/upload/loading", {
                 state: {

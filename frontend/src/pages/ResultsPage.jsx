@@ -11,6 +11,7 @@ import FIXTURE_CLEAN        from "../../../fixtures/form-analysis.clean.json"
 import FIXTURE_WITH_ISSUES  from "../../../fixtures/form-analysis.with-issues.json"
 import FIXTURE_COMPARISON   from "../../../fixtures/form-comparison.json"
 import FIXTURE_COMP_EMPTY   from "../../../fixtures/form-comparison.empty.json"
+import FIXTURE_PROGRESSION  from "../../../fixtures/form-progression.json"
 
 // ─── Colour banding ───────────────────────────────────────────────────────────
 function ringColor(score) {
@@ -226,35 +227,17 @@ export default function ResultsPage() {
   useEffect(() => {
     async function fetchSessions() {
       try {
-        const localUserId = localStorage.getItem("user_id")
         const userId = localStorage.getItem("user_id")
-
-        let allSessions = []
+        if (!userId) return
 
         const r1 = await fetch(`${BASE_URL}/history/${userId}`)
         if (r1.ok) {
           const list = await r1.json()
-          if (Array.isArray(list)) allSessions.push(...list)
-        }
-
-        if (localUserId && localUserId !== batchUserId) {
-          const r2 = await fetch(`${BASE_URL}/history/${localUserId}`)
-          if (r2.ok) {
-            const list = await r2.json()
-            if (Array.isArray(list)) allSessions.push(...list)
+          if (Array.isArray(list)) {
+            const sorted = [...list].sort((a, b) => new Date(b.created_at) - new Date(a.created_at))
+            setLiveSessions(sorted)
           }
         }
-
-        const unique = []
-        const seen = new Set()
-        for (const s of allSessions) {
-          if (!seen.has(s.session_id)) {
-            seen.add(s.session_id)
-            unique.push(s)
-          }
-        }
-        unique.sort((a, b) => new Date(b.created_at) - new Date(a.created_at))
-        setLiveSessions(unique)
       } catch (err) {
         console.error("Failed to fetch live history sessions:", err)
       }
@@ -446,6 +429,10 @@ export default function ResultsPage() {
         progression_verdict:   haikuCall2.progression_verdict   || null,
         progress_direction:    haikuCall2.progress_direction     || null,
         weight_recommendation: haikuCall2.weight_recommendation  || null,
+        posture_trend:         haikuCall2.posture_trend          || null,
+        stability_trend:       haikuCall2.stability_trend        || null,
+        range_of_motion_trend: haikuCall2.range_of_motion_trend  || null,
+        movement_quality_trend:haikuCall2.movement_quality_trend || null,
 
         // Current side of comparison (haiku_call_2's view of this session)
         current: {
@@ -515,9 +502,24 @@ export default function ResultsPage() {
   // Comparison tab always uses liveCompData (haiku_call_2) or fixture
   const compData = useMemo(() => {
     if (liveCompData) return liveCompData
-    // Only fall back to progression_results if no live data — never cross-wire with haiku_call_1
     if (data.progression_results) return safeJsonLoad(data.progression_results)
-    return devComp === "with-data" ? FIXTURE_COMPARISON : FIXTURE_COMP_EMPTY
+    // In dev: progression fixture has richer data (ladder, history, focus)
+    if (devComp === "with-data") {
+      const base = FIXTURE_COMPARISON
+      const prog = FIXTURE_PROGRESSION
+      return {
+        ...base,
+        previous_next_session_focus: prog.previous_next_session_focus || [],
+        focus_this_week:  prog.ai_verdict?.focus_this_week  || null,
+        focus_tags:       prog.focus_tags || [],
+        progress_ladder:  prog.progress_ladder || [],
+        progress_ladder_image_url: prog.progress_ladder_image_url || null,
+        form_history:     prog.form_history || [],
+        progress_direction: prog.ai_verdict?.progress_direction || null,
+        weight_recommendation: prog.ai_verdict?.weight_recommendation || null,
+      }
+    }
+    return FIXTURE_COMP_EMPTY
   }, [liveCompData, data.progression_results, devComp])
 
   const isDevMode    = !state?.analysisResult
@@ -569,26 +571,29 @@ export default function ResultsPage() {
   const today = new Date()
 
   return (
-    <div className="min-h-screen bg-gray-50">
+    <div className="min-h-screen" style={{ background: "#f0eeff" }}>
       <div className="max-w-sm mx-auto pb-10">
 
         {/* ── Header ────────────────────────────────────────────────────── */}
         <div className="pt-6 pb-3 px-4 text-center">
-          <h1 className="text-base font-bold text-gray-900 tracking-widest">{headerExercise}</h1>
+          <h1 className="text-base font-bold text-gray-900 tracking-wide">{headerExercise}</h1>
         </div>
 
         {/* ── Tab toggle ────────────────────────────────────────────────── */}
-        <div className="mx-4 mb-4 flex bg-gray-100 rounded-xl p-1 border border-gray-200">
-          {["current", "comparison"].map((t) => (
+        <div className="mx-4 mb-4 flex rounded-2xl p-1" style={{ background: "#e2dbff" }}>
+          {[["current", "Analysis"], ["comparison", "Progression"]].map(([t, label]) => (
             <button
               key={t}
               type="button"
               onClick={() => setTab(t)}
-              className={`flex-1 py-1.5 rounded-lg text-sm font-medium capitalize transition-colors ${
-                tab === t ? "bg-white text-gray-900 shadow-sm font-semibold" : "text-gray-400"
+              className={`flex-1 py-2 rounded-xl text-sm font-semibold transition-all ${
+                tab === t
+                  ? "text-gray-900 shadow-sm"
+                  : "text-gray-500"
               }`}
+              style={tab === t ? { background: "white" } : {}}
             >
-              {t.charAt(0).toUpperCase() + t.slice(1)}
+              {label}
             </button>
           ))}
         </div>
@@ -599,105 +604,336 @@ export default function ResultsPage() {
         {isComparison && (
           <>
             {!hasComparison ? (
+              // ── Empty / locked state ──────────────────────────────────
               <div className="mx-4 mb-4 bg-white rounded-2xl border border-gray-100 shadow-sm p-6 text-center">
-                <div className="text-3xl mb-3">📊</div>
+                <div className="text-3xl mb-3">🔒</div>
                 <p className="text-sm text-gray-500 leading-relaxed">
-                  {compData.empty_state_message || "No previous session found to compare against."}
+                  {compData.empty_state_message || "Complete another session to unlock your progress view."}
                 </p>
               </div>
             ) : (
               <>
-                {/* Side-by-side frames */}
-                <div className="mx-4 mb-4 border border-gray-200 rounded-2xl overflow-hidden bg-white flex divide-x divide-gray-100">
-                  <FramePlaceholder
-                    label={compPrevious.date_label || "Previous"}
-                    weight={
-                      compPrevious.weight_value != null
-                        ? `${compPrevious.weight_value}${(compPrevious.weight_unit || "lbs").toUpperCase()}`
-                        : "—"
-                    }
-                    highlight={false}
-                  />
-                  <FramePlaceholder
-                    label={compCurrent.date_label || "Current"}
-                    weight={
-                      compCurrent.weight_value != null
-                        ? `${compCurrent.weight_value}${(compCurrent.weight_unit || "lbs").toUpperCase()}`
-                        : "—"
-                    }
-                    highlight={true}
-                  />
-                </div>
-
-                {/* Comparison overall form score (from haiku_call_2 current side) */}
-                <div className="mx-4 mb-4 bg-amber-50 rounded-2xl p-5 text-center border border-amber-100">
-                  <div className="text-xs font-bold text-gray-500 uppercase tracking-widest mb-1">Form Score</div>
-                  <div className="text-6xl font-extrabold mb-1" style={{ color: "#f59e0b" }}>
-                    {compCurrent.overall_form_score ?? "—"}
-                  </div>
-                  {compPrevious.overall_form_score != null && compCurrent.overall_form_score != null && (
-                    <div
-                      className="text-sm font-semibold mb-2"
-                      style={{
-                        color: (compCurrent.overall_form_score - compPrevious.overall_form_score) >= 0
-                          ? "#6366f1" : "#ef4444"
-                      }}
-                    >
-                      {compCurrent.overall_form_score - compPrevious.overall_form_score > 0 ? "+" : ""}
-                      {compCurrent.overall_form_score - compPrevious.overall_form_score} vs last session
+                {/* ── Before / Now comparison strip ───────────────────── */}
+                <div className="mx-4 mb-3 bg-white rounded-2xl p-4 shadow-sm">
+                  <div className="flex gap-3">
+                    {/* BEFORE */}
+                    <div className="flex-1 rounded-2xl border border-gray-200 overflow-hidden flex flex-col">
+                      <div className="relative flex-1 bg-gray-50 flex items-center justify-center" style={{ minHeight: 140 }}>
+                        <img src="/squat_posture.png" alt="Before" className="h-32 object-contain" style={{ filter: "grayscale(30%)" }} />
+                        <div className="absolute top-2 left-2 text-[10px] text-gray-400 font-semibold uppercase tracking-widest">Before</div>
+                        <div className="absolute top-2 right-2 p-1 rounded border border-gray-300 bg-white">
+                          <svg className="w-3 h-3 text-blue-400" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                            <path strokeLinecap="round" strokeLinejoin="round" d="M4 8V4m0 0h4M4 4l5 5m11-1V4m0 0h-4m4 0l-5 5M4 16v4m0 0h4m-4 0l5-5m11 5l-5-5m5 5v-4m0 4h-4" />
+                          </svg>
+                        </div>
+                      </div>
+                      <div className="flex items-center justify-between px-3 py-2 bg-white">
+                        <span className="text-xs text-gray-400">{compPrevious.date_label || "Previous"}</span>
+                        <span className="text-base font-extrabold text-gray-500">{compPrevious.overall_form_score ?? "—"}</span>
+                      </div>
                     </div>
-                  )}
-                  <p className="text-sm text-gray-500 leading-relaxed">
-                    {compCoaching.summary_paragraph
-                      || compData.progression_verdict
-                      || (compData.weight_recommendation ? `Recommended progression: ${compData.weight_recommendation}.` : "")}
-                  </p>
+                    {/* NOW */}
+                    <div className="flex-1 rounded-2xl overflow-hidden flex flex-col" style={{ border: "2px solid #a78bfa" }}>
+                      <div className="relative flex-1 bg-purple-50 flex items-center justify-center" style={{ minHeight: 140 }}>
+                        <img src="/squat_posture.png" alt="Now" className="h-32 object-contain" />
+                        {/* Dynamic glow dots — position matches squat figure anatomy, shown when trend is down */}
+                        {(() => {
+                          // Each entry: [trend field, top%, left%, label]
+                          // Positions tuned to squat_posture.png anatomy
+                          const dotMap = [
+                            { trend: compData.posture_trend,          top: "18%", left: "38%", size: "w-4 h-4" }, // upper back/shoulder
+                            { trend: compData.stability_trend,        top: "42%", left: "32%", size: "w-3 h-3" }, // hip/core
+                            { trend: compData.range_of_motion_trend,  top: "62%", left: "28%", size: "w-4 h-4" }, // knee
+                            { trend: compData.movement_quality_trend, top: "80%", left: "30%", size: "w-3 h-3" }, // ankle
+                          ]
+                          return dotMap
+                            .filter(d => d.trend === "down")
+                            .map((d, i) => (
+                              <div key={i}
+                                className={`absolute ${d.size} rounded-full bg-amber-400 opacity-90 blur-[1px]`}
+                                style={{
+                                  top: d.top,
+                                  left: d.left,
+                                  boxShadow: "0 0 8px 3px rgba(251,191,36,0.6)",
+                                }}
+                              />
+                            ))
+                        })()}
+                        <div className="absolute top-2 left-2 text-[10px] font-bold uppercase tracking-widest" style={{ color: "#7c3aed" }}>Now</div>
+                        <div className="absolute top-2 right-2 p-1 rounded border border-purple-200 bg-white">
+                          <svg className="w-3 h-3 text-blue-400" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                            <path strokeLinecap="round" strokeLinejoin="round" d="M4 8V4m0 0h4M4 4l5 5m11-1V4m0 0h-4m4 0l-5 5M4 16v4m0 0h4m-4 0l5-5m11 5l-5-5m5 5v-4m0 4h-4" />
+                          </svg>
+                        </div>
+                      </div>
+                      <div className="flex items-center justify-between px-3 py-2 bg-white">
+                        <span className="text-xs text-gray-400">{compCurrent.date_label || "Current"}</span>
+                        <span className="text-base font-extrabold" style={{ color: "#6366f1" }}>{compCurrent.overall_form_score ?? "—"}</span>
+                      </div>
+                    </div>
+                  </div>
                 </div>
 
-                {/* Comparison key insights — scores + deltas from haiku_call_2 */}
-                <div className="mx-4 mb-4">
-                  <h2 className="text-base font-bold text-gray-900 mb-3">Key Insights</h2>
-                  <div className="bg-white rounded-2xl border border-gray-100 shadow-sm divide-y divide-gray-100 px-4">
-                    {PARAMS.map((p) => {
-                      // Score from haiku_call_2 parameter block or current side scores
-                      const cp    = compParams[p.compKey] || {}
-                      const score = cp.score
-                        ?? compCurrent[`${p.summaryKey}_score`]
-                        ?? 0
+                {/* ── What We Told You ─────────────────────────────────── */}
+                {compData.previous_next_session_focus?.length > 0 && (
+                  <div className="mx-4 mb-3 bg-white rounded-2xl p-4 shadow-sm">
+                    <div className="text-[10px] text-gray-400 uppercase tracking-widest mb-1">
+                      Last Session · {compPrevious.date_label || "Previous"} · {compPrevious.weight_value != null ? `${compPrevious.weight_value}${(compPrevious.weight_unit || "kg").toUpperCase()}` : "—"}
+                    </div>
+                    <div className="text-xs font-bold uppercase tracking-wide mb-2" style={{ color: "#6366f1" }}>What We Told You</div>
+                    <blockquote className="border-l-4 pl-3" style={{ borderColor: "#a78bfa" }}>
+                      {compData.previous_next_session_focus.map((f, i) => (
+                        <p key={i} className="text-sm text-gray-700 italic leading-relaxed">"{f}"</p>
+                      ))}
+                    </blockquote>
+                  </div>
+                )}
 
-                      // Previous score exclusively from haiku_call_2 previous side
+                {/* ── Form Score + AI Verdict ──────────────────────────── */}
+                <div className="mx-4 mb-3 rounded-2xl p-4" style={{ background: "linear-gradient(135deg, #7c6ff7, #6fa8f5)" }}>
+                  <div className="flex items-start gap-4">
+                    <div className="flex flex-col items-center gap-1 shrink-0">
+                      <div className="text-[10px] font-bold text-white/70 uppercase tracking-widest mb-1">Form Score</div>
+                      <ScoreRing
+                        score={compCurrent.overall_form_score ?? 0}
+                        size={72}
+                        strokeW={6}
+                        delta={compPrevious.overall_form_score != null && compCurrent.overall_form_score != null
+                          ? compCurrent.overall_form_score - compPrevious.overall_form_score
+                          : null}
+                      />
+                      <div className="text-[9px] font-bold px-2 py-0.5 rounded-full text-gray-800 mt-1 bg-white">
+                        {(() => {
+                          const rec = compData.weight_recommendation
+                          const recStr = typeof rec === "string" ? rec : rec?.action || rec?.label || rec?.recommendation || null
+                          return recStr ? recStr.toUpperCase() : `HOLD AT ${compCurrent.weight_value ?? ""}${(compCurrent.weight_unit || "kg").toUpperCase()}`
+                        })()}
+                      </div>
+                    </div>
+                    <div className="flex-1 min-w-0 pt-1">
+                      {compData.progress_direction && (
+                        <div className="text-sm font-bold text-white mb-1">
+                          AI Verdict · Progress {compData.progress_direction === "up" ? "↑" : compData.progress_direction === "down" ? "↓" : "→"}
+                        </div>
+                      )}
+                      <p className="text-xs text-white/90 leading-relaxed">
+                        {compCoaching.summary_paragraph || compData.progression_verdict || ""}
+                      </p>
+                    </div>
+                  </div>
+                </div>
+
+                {/* ── Key Insights with delta chips ────────────────────── */}
+                <div className="mx-4 mb-3">
+                  <div className="flex items-center gap-2 mb-2">
+                    <svg className="w-4 h-4" style={{ color: "#f59e0b" }} fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                      <circle cx="12" cy="12" r="10"/><circle cx="12" cy="12" r="6"/><circle cx="12" cy="12" r="2"/>
+                    </svg>
+                    <h2 className="text-sm font-extrabold text-gray-900 uppercase tracking-wide">Key Insights</h2>
+                  </div>
+                  <div className="bg-white rounded-2xl shadow-sm overflow-hidden">
+                    {PARAMS.map((p, idx) => {
+                      const cp    = compParams[p.compKey] || {}
+                      const score = cp.score ?? compCurrent[`${p.summaryKey}_score`] ?? 0
                       const prev  = compPrevious[`${p.summaryKey}_score`] ?? null
                       const d     = delta(score, prev)
-
-                      // Coaching note from haiku_call_2 — no fallback to haiku_call_1 notes
-                      const rawNote =
-                        cp.observation_action ||
-                        cp.observation        ||
-                        cp.affirmation        ||
-                        cp.correction         ||
-                        compData[`${p.key}_trend`]
-                      const note = rawNote?.trim()
-                        ? rawNote
-                        : DEFAULT_NOTES[p.key] || "Maintain solid form and consistent execution across all reps."
-
                       return (
-                        <div key={p.key} className="flex items-start gap-4 py-4">
-                          <ScoreRing score={score} size={80} strokeW={8} delta={d} label={p.label} />
-                          <p className="text-sm text-gray-600 leading-relaxed pt-2 flex-1">{note}</p>
+                        <div key={p.key} className={`px-4 py-3 flex items-center gap-3 ${idx < PARAMS.length - 1 ? "border-b border-gray-50" : ""}`}>
+                          <ScoreRing score={score} size={52} strokeW={5} />
+                          <div className="flex-1 min-w-0">
+                            <div className="text-sm font-bold text-gray-900">{p.label}</div>
+                            <div className="text-xs text-gray-400">{prev ?? "—"} → {score}</div>
+                          </div>
+                          {d !== null && (
+                            <div className="text-xs font-bold px-2.5 py-1 rounded-full shrink-0"
+                              style={{
+                                background: d > 0 ? "#dcfce7" : d < 0 ? "#fee2e2" : "#f3f4f6",
+                                color:      d > 0 ? "#16a34a" : d < 0 ? "#dc2626" : "#6b7280",
+                              }}>
+                              {d > 0 ? `+${d} ↑` : d < 0 ? `${d} ↓` : "—"}
+                            </div>
+                          )}
+                          <svg className="w-4 h-4 text-gray-300 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                            <path strokeLinecap="round" strokeLinejoin="round" d="M19 9l-7 7-7-7" />
+                          </svg>
                         </div>
                       )
                     })}
                   </div>
                 </div>
 
-                {/* Comparison rep chart (current session reps) */}
-                <div className="mx-4 mb-4 bg-white rounded-2xl border border-gray-100 shadow-sm p-4">
+                {/* ── Across Your Set — dual rep chart ─────────────────── */}
+                <div className="mx-4 mb-3 bg-white rounded-2xl p-4 shadow-sm">
+                  <div className="flex items-center gap-2 mb-0.5">
+                    <svg className="w-4 h-4 text-indigo-400" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                      <path strokeLinecap="round" strokeLinejoin="round" d="M13 7h8m0 0v8m0-8l-8 8-4-4-6 6" />
+                    </svg>
+                    <h2 className="text-sm font-extrabold text-gray-900 uppercase tracking-wide">Across Your Set</h2>
+                  </div>
+                  <div className="flex items-center justify-between mb-2">
+                    <div className="text-xs text-gray-400">Rep-by-Rep Consistency</div>
+                    {(() => {
+                      const scores = (compCurrent.reps || []).map(r => r.form_score ?? 0)
+                      const spread = scores.length > 1 ? Math.max(...scores) - Math.min(...scores) : null
+                      return spread !== null ? (
+                        <span className="text-[10px] font-bold px-2.5 py-1 rounded-full text-white" style={{ background: "#7c6ff7" }}>
+                          {spread}-PT SPREAD
+                        </span>
+                      ) : null
+                    })()}
+                  </div>
                   <LineChart
-                    repScores={compCurrent.reps?.map((r) => r.form_score) || []}
+                    repScores={(compCurrent.reps || []).map(r => r.form_score ?? 0)}
                     color="#6366f1"
                     gradientColor="#818cf8"
                   />
+                  <div className="flex items-center gap-4 mt-3 justify-center">
+                    <div className="flex items-center gap-1.5">
+                      <div className="w-6 border-t-2 border-dashed border-gray-300" />
+                      <span className="text-[10px] text-gray-400">Last Session</span>
+                    </div>
+                    <div className="flex items-center gap-1.5">
+                      <div className="w-6 border-t-2" style={{ borderColor: "#6366f1" }} />
+                      <span className="text-[10px] text-gray-500 font-medium">This Session</span>
+                    </div>
+                  </div>
                 </div>
+
+                {/* ── Progress Ladder ──────────────────────────────────── */}
+                {(compData.progress_ladder_image_url || compData.progress_ladder?.length > 0) && (
+                  <div className="mx-4 mb-3 bg-white rounded-2xl shadow-sm p-4">
+                    <div className="flex items-center gap-2 mb-1">
+                      <span className="text-base">🪜</span>
+                      <h2 className="text-sm font-extrabold text-gray-900">Progress ladder</h2>
+                    </div>
+                    <p className="text-xs text-gray-400 mb-3 leading-relaxed">
+                      Form scores typically dip when you load heavier, that's normal. Watch your average per rung, not individual sessions.
+                    </p>
+                    {compData.progress_ladder_image_url ? (
+                      <img src={compData.progress_ladder_image_url} alt="Progress ladder" className="w-full rounded-xl" />
+                    ) : (
+                      <div className="space-y-2">
+                        {(compData.progress_ladder || []).map((row, i) => {
+                          const isCurrent = row.label?.toLowerCase().includes("current")
+                          return (
+                            <div key={i} className="flex items-center gap-3 p-3 rounded-2xl border"
+                              style={{ borderColor: isCurrent ? "#a78bfa" : "#e5e7eb", background: isCurrent ? "#faf8ff" : "white" }}>
+                              {/* Weight + label */}
+                              <div className="shrink-0 w-12">
+                                <div className="text-sm font-extrabold text-gray-900">{row.weight}{row.weight_unit ?? "kg"}</div>
+                                <div className="text-[10px] font-semibold" style={{ color: isCurrent ? "#7c3aed" : "#9ca3af" }}>
+                                  {row.label ?? ""}
+                                </div>
+                                {row.avg != null && (
+                                  <div className="text-[10px] text-gray-400">Avg {row.avg}</div>
+                                )}
+                              </div>
+                              {/* Score pills */}
+                              <div className="flex gap-1.5 flex-wrap flex-1">
+                                {(row.scores || []).map((s, j) => (
+                                  typeof s === "number" ? (
+                                    <span key={j} className="text-xs font-bold px-2.5 py-1 rounded-xl text-white"
+                                      style={{ background: s >= 80 ? "#22c55e" : s >= 65 ? "#f59e0b" : "#ef4444" }}>
+                                      {s}
+                                    </span>
+                                  ) : (
+                                    // dumbbell placeholder for sessions without analysis
+                                    <span key={j} className="w-9 h-7 rounded-xl flex items-center justify-center border-2"
+                                      style={{ borderColor: "#e5e7eb" }}>
+                                      <svg className="w-4 h-4 text-gray-300" fill="currentColor" viewBox="0 0 24 24">
+                                        <path d="M20.57 14.86L22 13.43 20.57 12 17 15.57 8.43 7 12 3.43 10.57 2 9.14 3.43 7.71 2 5.57 4.14 4.14 2.71 2.71 4.14l1.43 1.43L2 7.71l1.43 1.43L2 10.57 3.43 12 7 8.43 15.57 17 12 20.57 13.43 22l1.43-1.43L16.29 22l2.14-2.14 1.43 1.43 1.43-1.43-1.43-1.43L22 16.29l-1.43-1.43z"/>
+                                      </svg>
+                                    </span>
+                                  )
+                                ))}
+                              </div>
+                              {/* Session + analyzed counts */}
+                              <div className="shrink-0 text-right">
+                                <div className="text-[10px] text-gray-400">{row.sessions ?? ""} sessions</div>
+                                {row.analyzed != null && (
+                                  <div className="text-[10px] font-semibold" style={{ color: "#7c3aed" }}>{row.analyzed} Analyzed</div>
+                                )}
+                              </div>
+                            </div>
+                          )
+                        })}
+                      </div>
+                    )}
+                  </div>
+                )}
+
+                {/* ── Your Focus This Week ─────────────────────────────── */}
+                <div className="mx-4 mb-3 bg-white rounded-2xl shadow-sm p-4">
+                  <div className="flex items-center gap-2 mb-2">
+                    <span className="text-base">🎯</span>
+                    <h2 className="text-sm font-extrabold text-gray-900">Your focus this week</h2>
+                  </div>
+                  {compData.focus_this_week ? (
+                    <>
+                      <p className="text-sm font-semibold text-gray-800 leading-relaxed mb-2">{compData.focus_this_week}</p>
+                      {compData.focus_tags?.length > 0 && (
+                        <p className="text-xs text-gray-400 leading-relaxed">
+                          Try: {compData.focus_tags.join(", ")}.
+                        </p>
+                      )}
+                    </>
+                  ) : (
+                    <p className="text-sm text-gray-400">No focus available yet.</p>
+                  )}
+                </div>
+
+                {/* ── Form History ─────────────────────────────────────── */}
+                {compData.form_history?.length > 0 && (
+                  <div className="mx-4 mb-3">
+                    <h2 className="text-sm font-extrabold text-gray-900 mb-0.5">Form History</h2>
+                    <p className="text-xs text-gray-400 mb-3">Your last 3 Analyses</p>
+                    <div className="space-y-3">
+                      {compData.form_history.slice(0, 3).map((h, i) => {
+                        const hScore   = h.overall_form_score ?? h.overall_score ?? 0
+                        const hDate    = h.created_at
+                          ? new Date(h.created_at).toLocaleDateString("en-GB", { day: "numeric", month: "short" })
+                          : (h.date ?? "—")
+                        const hWeight  = h.weight_value != null ? `${h.weight_value}${h.weight_unit ?? "kg"}` : "—"
+                        const hReps    = h.rep_count ?? h.reps ?? "—"
+                        const hVerdict = h.verdict ?? h.summary ?? ""
+                        const scoreColor = hScore >= 80 ? "#22c55e" : hScore >= 65 ? "#f59e0b" : "#ef4444"
+                        return (
+                          <div key={i} className="flex gap-3 p-3 rounded-2xl bg-white shadow-sm items-start">
+                            {/* Figure thumbnail */}
+                            <div className="w-14 h-16 rounded-xl overflow-hidden shrink-0 flex items-center justify-center" style={{ background: "linear-gradient(135deg, #ede9fe, #dbeafe)" }}>
+                              {h.annotated_frame_url ? (
+                                <img src={h.annotated_frame_url} className="w-full h-full object-cover" alt="frame" />
+                              ) : (
+                                <svg className="w-7 h-7 text-purple-300" fill="currentColor" viewBox="0 0 24 24">
+                                  <path d="M12 12c2.7 0 4.8-2.1 4.8-4.8S14.7 2.4 12 2.4 7.2 4.5 7.2 7.2 9.3 12 12 12zm0 2.4c-3.2 0-9.6 1.6-9.6 4.8v2.4h19.2v-2.4c0-3.2-6.4-4.8-9.6-4.8z"/>
+                                </svg>
+                              )}
+                            </div>
+                            <div className="flex-1 min-w-0">
+                              <div className="flex items-start justify-between gap-1 mb-0.5">
+                                <div className="text-sm font-bold text-gray-900 leading-snug">{h.exercise_name ?? h.exercise ?? "Goblet Squat"}</div>
+                                <div className="text-sm font-extrabold shrink-0" style={{ color: scoreColor }}>
+                                  {hScore}<span className="text-[10px] text-gray-400 font-normal">/100</span>
+                                </div>
+                              </div>
+                              <div className="text-[10px] text-gray-400 mb-1">{hDate} · {hWeight} · {hReps} Reps</div>
+                              {hVerdict && <p className="text-xs text-gray-500 leading-snug">{hVerdict}</p>}
+                            </div>
+                          </div>
+                        )
+                      })}
+                    </div>
+                  </div>
+                )}
+                {/* ── Verdict ──────────────────────────────────────────── */}
+                {(compCoaching.summary_paragraph || compData.progression_verdict) && (
+                  <div className="mx-4 mb-4 rounded-2xl p-4" style={{ background: "linear-gradient(135deg, #7c6ff7, #6fa8f5)" }}>
+                    <div className="text-sm font-bold text-white mb-1">Verdict</div>
+                    <p className="text-xs text-white/90 leading-relaxed">
+                      {compCoaching.summary_paragraph || compData.progression_verdict}
+                    </p>
+                  </div>
+                )}
               </>
             )}
           </>
@@ -867,21 +1103,21 @@ export default function ResultsPage() {
         )}
 
         {/* ── Actions ───────────────────────────────────────────────────── */}
-        <div className="mx-4 flex gap-3">
-          <button
-            type="button"
-            onClick={() => navigate("/timeline")}
-            className="flex-1 py-3.5 rounded-2xl border border-gray-200 text-gray-700 text-sm font-semibold bg-white"
-          >
-            Timeline
-          </button>
+        <div className="mx-4 flex flex-col gap-3 mt-2">
           <button
             type="button"
             onClick={() => navigate("/upload")}
-            className="flex-1 py-3.5 rounded-2xl text-white text-sm font-semibold"
-            style={{ backgroundColor: "#4dd9c0" }}
+            className="w-full py-4 rounded-2xl text-white text-sm font-bold tracking-wide shadow-md"
+            style={{ background: "linear-gradient(to right, #6c63ff, #5b9cf6)" }}
           >
             New Upload
+          </button>
+          <button
+            type="button"
+            onClick={() => navigate("/timeline")}
+            className="w-full py-4 rounded-2xl text-sm font-semibold text-gray-700 bg-white border border-gray-200"
+          >
+            Continue to Set 3
           </button>
         </div>
 
@@ -946,4 +1182,3 @@ export default function ResultsPage() {
     </div>
   )
 }
-
