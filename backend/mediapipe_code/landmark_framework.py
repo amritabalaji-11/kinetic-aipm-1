@@ -150,8 +150,8 @@ class LandmarkQualityFramework:
         # Setup temp annotated video output
         temp_annotated_path = video_path + ".annotated_temp.mp4"
         fourcc = cv2.VideoWriter_fourcc(*"mp4v")
-        # Since we downsample by skipping every 2nd frame, write at 15.0 FPS
-        out_video = cv2.VideoWriter(temp_annotated_path, fourcc, 15.0, (width, height))
+        # Since we downsample by skipping every 2nd frame, write at 10.0 FPS
+        out_video = cv2.VideoWriter(temp_annotated_path, fourcc, 10.0, (width, height))
 
         video_name = os.path.splitext(os.path.basename(resized_video_path))[0]
 
@@ -216,7 +216,7 @@ class LandmarkQualityFramework:
                 if not ok:
                     break
 
-                if frame_index % 2 != 0:
+                if frame_index % 3 != 0:
                     frame_index += 1
                     continue
 
@@ -266,7 +266,7 @@ class LandmarkQualityFramework:
                 # -------------------------------------------------
                 # VIEW
                 # -------------------------------------------------
-                camera_view = detect_view(norm_pose)
+                camera_view = detect_view(world_pose)
 
                 # View stabilization: During initial frames, compile votes for the observed view.
                 # Once VIEW_LOCK_FRAMES is reached, lock the camera_view to the majority vote 

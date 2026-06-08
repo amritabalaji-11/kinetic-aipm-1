@@ -45,14 +45,21 @@ class PassiveAnkleTracker:
         if "side" in camera_view:
             if dorsiflexion_at_bottom >= 30:
                 status = "good"
-            elif 29 >= dorsiflexion_at_bottom >= 20:
+            elif dorsiflexion_at_bottom >= 20:
                 status = "mild_restriction"
-            elif 19 >= dorsiflexion_at_bottom >= 10:
+            elif dorsiflexion_at_bottom >= 10:
                 status = "moderate_restriction"
             else:
                 status = "severe_restriction"
         else:
-            status = "good" if dorsiflexion_at_bottom >= 25 else "restricted"
+            status = (
+                "good"
+                if dorsiflexion_at_bottom >= 25
+                else "restricted"
+            )
+            
+        
+        self.dorsiflexion_status = status 
 
         ankle_data = {
             "dorsiflexion_at_bottom": dorsiflexion_at_bottom,
@@ -299,13 +306,12 @@ class PassiveStabilityTracker:
         else:
             valgus_severity = 'none'
 
-        valgus_label = 'Good' if valgus_severity == 'none' else 'Warning'
 
         stability_data = {
             "knee_valgus_distance": knee_valgus_distance,
             "knee_gap_hip_gap_ratio": ratio,
             "valgus_severity": valgus_severity,
-            "valgus_label": valgus_label,
+            "valgus_label": "Warning" if valgus_flag else "Good",
             "valgus_phase": valgus_phase,
             "valgus_flag": valgus_flag,
         }
@@ -334,35 +340,58 @@ class PassiveStabilityTracker:
             return {"knee_distance": None, "shoulder_width": None, "knee_ratio": None}
 
     def _classify_valgus_phase(self):
+        """
+        Find the minimum knee distance during the rep
+        and classify where it occurred.
+        """
+
         if not self.rep_frames:
             return None, None, False
 
         min_dist = None
         min_pos = None
-        min_ratio = None
+        min_shoulder_width = None
 
         for i, frame in enumerate(self.rep_frames):
             dist = frame["knee_distance"]
+            shoulder_width = frame["shoulder_width"]
             ratio = frame["knee_ratio"]
-            if dist is None or ratio is None:
+
+            if dist is None or shoulder_width is None or ratio is None:
                 continue
+
             if min_dist is None or dist < min_dist:
                 min_dist = dist
-                min_ratio = ratio
                 min_pos = i
+                min_shoulder_width = shoulder_width
 
         if min_dist is None:
             return None, None, False
 
         rep_len = len(self.rep_frames)
+
         if rep_len <= 1:
             phase = "MID"
         else:
             pct = min_pos / (rep_len - 1)
-            phase = "EARLY" if pct < 0.33 else ("MID" if pct < 0.66 else "LATE")
 
-        valgus_flag = min_dist < self.valgus_limit_threshold
-        return round(min_dist, 4), phase, valgus_flag
+            if pct < 0.33:
+                phase = "EARLY"
+            elif pct < 0.66:
+                phase = "MID"
+            else:
+                phase = "LATE"
+
+        valgus_flag = (
+            min_shoulder_width is not None
+            and min_dist <= min_shoulder_width
+        )
+
+        return (
+            round(min_dist, 4),
+            phase,
+            valgus_flag,
+        )
 
     def on_reset(self):
         self.reset()
