@@ -155,10 +155,12 @@ CREATE TABLE IF NOT EXISTS workout_sessions_log (
     log_id INTEGER PRIMARY KEY AUTOINCREMENT,
     user_id TEXT NOT NULL,
     exercise_id TEXT NOT NULL,
+    exercise_name TEXT,
     session_id TEXT NOT NULL,
     logged_at TEXT DEFAULT CURRENT_TIMESTAMP,
     set_number INTEGER,
     weight_use REAL,
+    weight_value REAL,
     rep_count INTEGER
 )
 """
@@ -240,6 +242,10 @@ def init_db():
         ("form_analysis_results", "completed_at", "TEXT"),
         ("form_analysis_results", "haiku_call_2_output", "TEXT"),
         ("form_analysis_results", "haiku_call_2_error", "TEXT"),
+
+        # workout_sessions_log
+        ("workout_sessions_log", "exercise_name", "TEXT"),
+        ("workout_sessions_log", "weight_value", "REAL"),
         ]
 
     for table, column, definition in migrations:
