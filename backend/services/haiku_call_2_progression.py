@@ -233,7 +233,7 @@ async def run_haiku_call_2(analysis_id: str) -> None:
             session_id    = current["session_id"]
             user_id       = current["user_id"]
             exercise_name = current["exercise_name"]
-            exercise_id   = current.get("exercise_id") or exercise_name
+            exercise_id   = current["exercise_id"] or exercise_name
 
             # ── Fetch most recent previous session ────────────────────────
             previous = await db.fetch_one(
@@ -601,7 +601,7 @@ Return ONLY valid JSON matching this exact schema:
                         "analysis_id": analysis_id,
                         "session_id":  session_id,
                         "user_id":     user_id,
-                        "exercise_id": exercise_id,
+                        "exercise_id": current["exercise_id"],
                         "error_code":  error_code,
                         "retryable":   retryable
                     }
