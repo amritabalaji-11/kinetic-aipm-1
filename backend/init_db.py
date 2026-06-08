@@ -160,6 +160,7 @@ CREATE TABLE IF NOT EXISTS workout_sessions_log (
     logged_at TEXT DEFAULT CURRENT_TIMESTAMP,
     set_number INTEGER,
     weight_use REAL,
+    weight_unit TEXT,
     weight_value REAL,
     rep_count INTEGER
 )
@@ -246,6 +247,7 @@ def init_db():
         # workout_sessions_log
         ("workout_sessions_log", "exercise_name", "TEXT"),
         ("workout_sessions_log", "weight_value", "REAL"),
+        ("workout_sessions_log", "weight_unit", "TEXT"),
         ]
 
     for table, column, definition in migrations:
