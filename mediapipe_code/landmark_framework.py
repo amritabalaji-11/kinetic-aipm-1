@@ -726,22 +726,22 @@ class LandmarkQualityFramework:
 
 # How to use it
 framework = LandmarkQualityFramework(model_path=MEDIAPIPE_MODEL)
-input_dir = "./mediapipe_code/videos/user_003_videos/user_003_3.mp4"
-analysis_path = "./mediapipe_code/results/call_1/user_001_side_17.5kg.json"
+input_dir = "./mediapipe_code/videos/user_001_videos/user_001_front_17.5kg.mp4"
+analysis_path = "./mediapipe_code/results/call_1/user_001_front_17.5kg.json"
 
-#start = time.time()
+start = time.time()
 final_json, quality_result, collage_b64, rep_frames_list = framework.process_video_once(input_dir, "goblet-squat", 17.5)
-#frame, frame_data, dominant_camera_view, rep_data = extract_worst_frame(input_dir, analysis_path, rep_frames_list, final_json)
+frame, frame_data, dominant_camera_view, rep_data = extract_worst_frame(input_dir, analysis_path, rep_frames_list, final_json)
 
-#print(rep_data)
+print(rep_data)
 
-#annotated_worst_frame = overlay_frame(frame, frame_data, dominant_camera_view, rep_data, output_filename="user_001_side_17.5kg")
+annotated_worst_frame = overlay_frame(frame, frame_data, dominant_camera_view, rep_data, output_filename="user_001_front_17.5kg")
 
 """result = run_llm_analysis_test_haiku_v2(final_json, collage_b64, debug=True)
 
 output_dir = "./mediapipe_code/results/call_1"
 os.makedirs(output_dir, exist_ok=True)
-json_filename = os.path.join(output_dir, f"user_001_side_17.5kg.json")
+json_filename = os.path.join(output_dir, f"user_001_side_12.5kg.json")
 with open(json_filename, "w", encoding="utf-8") as f:
         json.dump(
             result,

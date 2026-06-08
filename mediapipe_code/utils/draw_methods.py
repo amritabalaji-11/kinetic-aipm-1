@@ -1,4 +1,5 @@
 import json
+import math
 import os
 
 import cv2
@@ -483,7 +484,7 @@ def add_side_faults_panel(
 
 
 def _fmt_angle(value):
-    return "N/A" if value is None else f"{value:.0f}°"
+    return "N/A" if value is None else f"{math.floor(value)}°"
 
 
 def annotate_frame_front(
@@ -519,7 +520,8 @@ def annotate_frame_front(
     depth_angle = rep_data["depth_data"]["hip_angle_at_bottom"]
     back_angle_value = rep_data["back_data"]["back_angle_at_bottom"]
 
-    valgus_label = rep_data["stability_data"]["valgus_label"]
+    valgus_flag = rep_data["stability_data"]["valgus_flag"]
+    valgus_severity = rep_data["stability_data"]["valgus_severity"]
 
     valgus_distance = rep_data["stability_data"]["knee_valgus_distance"]
     
@@ -551,10 +553,9 @@ def annotate_frame_front(
         },
         {
             "label": "Knee Tracking",
-            "pass": valgus_label.lower() == "good",
-            "text": f"{valgus_label.title()} - {int(valgus_distance*100)}%" if valgus_label.lower() == "good" 
-            else f"{back_label.title()} - {int(valgus_distance*100)}% (target > 20%)",
-            "severity": 0.0 if back_label.lower() in ("good", "excellent") else 1.0,
+            "pass": valgus_flag,
+            "text": f"{valgus_severity.title()}",
+            "severity": 0.0 if valgus_severity.lower() == "none" else 1.0,
             "color": KNEE_POINT_COLOR,
         },
     ]
@@ -593,10 +594,10 @@ def annotate_frame_front(
         width,
         height,
         frame_info["camera_view"],
-        valgus_label=valgus_label,
+        valgus_label=valgus_flag,
     )
 
-    if valgus_label == "Warning":
+    if valgus_flag == False:
         annotated = draw_knee_valgus_overlay(annotated, frame_info["norm_pose"], width, height)
 
     add_side_faults_panel(
@@ -1083,7 +1084,7 @@ def draw_valgus_status_label(
     if not knee_points:
         return annotated
 
-    status = str(valgus_label or "").strip()
+    status = valgus_label
 
     chip_width = 170
     right_padding = 12
@@ -1096,7 +1097,7 @@ def draw_valgus_status_label(
         text_x,
         text_y,
         prefix="Knee Tracking",
-        status=status or "Warning",
+        status="Good" if status else "Warning",
         font_size=25,
         color=KNEE_POINT_COLOR,
         camera_view=camera_view
@@ -1123,7 +1124,10 @@ def draw_label_with_warning_chip(
     black_rgb = (0, 0, 0)
     green_rgb = (0, 220, 0)
 
-    status_clean = str(status or "").strip()
+    if type(status) == type(True):
+        status = "Good" if status else "Warning"
+    else:
+        status_clean = str(status or "").strip()
     status_lower = status_clean.lower()
 
     border_bgr = color or (0, 220, 0)

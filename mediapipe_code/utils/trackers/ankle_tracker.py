@@ -138,17 +138,18 @@ class AnkleTracker:
         if "side" in camera_view:
             if dorsiflexion_at_bottom >= 30:
                 status = "good"
-            elif  29 >= dorsiflexion_at_bottom >= 20:
+            elif dorsiflexion_at_bottom >= 20:
                 status = "mild_restriction"
-            elif 19 >= dorsiflexion_at_bottom >= 10:
+            elif dorsiflexion_at_bottom >= 10:
                 status = "moderate_restriction"
             else:
                 status = "severe_restriction"
         else:
-            if dorsiflexion_at_bottom >= 25:
-                status = "good"
-            else:
-                status = "restricted"
+            status = (
+                "good"
+                if dorsiflexion_at_bottom >= 25
+                else "restricted"
+            )
             
         
         self.dorsiflexion_status = status 

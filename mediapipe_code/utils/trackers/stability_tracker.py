@@ -15,6 +15,9 @@ class StabilityTracker:
         "rep_frames",
         "valgus_limit_threshold",
         "current_stability_data",
+        "knee_valgus_distance",
+        "valgus_phase",
+        "valgus_flag",
     )
 
     def __init__(self):
@@ -35,6 +38,9 @@ class StabilityTracker:
         self.state = "STANDING"
         self.bottom_hold_frames = 0
         self.rep_frames = []
+        self.knee_valgus_distance = None
+        self.valgus_phase = None
+        self.valgus_flag = None
 
     # ---------------------------------------------------------
     # Helpers
@@ -94,17 +100,20 @@ class StabilityTracker:
 
         min_dist = None
         min_pos = None
+        min_shoulder_width = None
 
         for i, frame in enumerate(self.rep_frames):
             dist = frame["knee_distance"]
+            shoulder_width = frame["shoulder_width"]
             ratio = frame["knee_ratio"]
 
-            if dist is None or ratio is None:
+            if dist is None or shoulder_width is None or ratio is None:
                 continue
 
             if min_dist is None or dist < min_dist:
                 min_dist = dist
                 min_pos = i
+                min_shoulder_width = shoulder_width
 
         if min_dist is None:
             return None, None, False
@@ -124,7 +133,8 @@ class StabilityTracker:
                 phase = "LATE"
 
         valgus_flag = (
-            min_dist < self.valgus_limit_threshold
+            min_shoulder_width is not None
+            and min_dist <= min_shoulder_width
         )
 
         return (
@@ -197,6 +207,12 @@ class StabilityTracker:
 
             self.bottom_hold_frames += 1
 
+            (
+                self.knee_valgus_distance,
+                self.valgus_phase,
+                self.valgus_flag,
+            ) = self._classify_valgus_phase()
+
             if target_angle > self.hip_angle_threshold_down:
 
                 if self.bottom_hold_frames >= self.min_bottom_hold:
@@ -215,15 +231,13 @@ class StabilityTracker:
             if target_angle <= self.hip_angle_threshold_up:
                 return None
 
-            (
-                knee_valgus_distance,
-                valgus_phase,
-                valgus_flag,
-            ) = self._classify_valgus_phase()
 
 
-
-            if "side" in camera_view:
+            if (
+                self.knee_valgus_distance is None
+                or camera_view is None
+                or "side" in camera_view
+            ):
                 stability_data = {
                     "knee_valgus_distance": None,
                     "knee_gap_hip_gap_ratio": None,
@@ -233,24 +247,24 @@ class StabilityTracker:
                     "valgus_flag": None,
                 }
             else:
+                ratio = max(0.0, min(1.0, 1 - self.knee_valgus_distance))
 
-                ratio = 1 - knee_valgus_distance
-
-                if ratio >= 0.95:     valgus_severity = 'severe'
-                elif ratio >= 0.90:   valgus_severity = 'moderate'
-                elif ratio >= 0.80:   valgus_severity = 'mild'
-                else:                 valgus_severity = 'none'
-
-                knee_gap_hip_gap_ratio = ratio
-                valgus_label           = 'Good' if valgus_severity == 'none' else 'Warning'
+                if ratio >= 0.95:
+                    valgus_severity = "severe"
+                elif ratio >= 0.90:
+                    valgus_severity = "moderate"
+                elif ratio >= 0.80:
+                    valgus_severity = "mild"
+                else:
+                    valgus_severity = "none"
 
                 stability_data = {
-                    "knee_valgus_distance": knee_valgus_distance,
-                    "knee_gap_hip_gap_ratio": knee_gap_hip_gap_ratio,
+                    "knee_valgus_distance": self.knee_valgus_distance,
+                    "knee_gap_hip_gap_ratio": ratio,
                     "valgus_severity": valgus_severity,
-                    "valgus_label": valgus_label,
-                    "valgus_phase": valgus_phase,
-                    "valgus_flag": valgus_flag,
+                    "valgus_label": "Warning" if self.valgus_flag else "Good",
+                    "valgus_phase": self.valgus_phase,
+                    "valgus_flag": self.valgus_flag,
                 }
 
             self.current_stability_data = stability_data
