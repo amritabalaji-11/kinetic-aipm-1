@@ -178,6 +178,16 @@ function LoadingPage() {
   const displaySteps  = fixtureMode ? fixtureSteps : steps
   const displayIsDone = fixtureMode ? fixtureDone  : isDone
 
+  // ── PROGRESS PERCENTAGE ───────────────────────────────────────────────────
+  const totalSteps     = displaySteps.length || 1
+  const completedSteps = displaySteps.filter((s) => s.status === "complete").length
+  const activeStep     = displaySteps.find((s) => s.status === "active")
+  const progressPct    = displayIsDone
+    ? 100
+    : activeStep
+      ? Math.round((completedSteps / totalSteps) * 100 + (1 / totalSteps) * 50)
+      : Math.round((completedSteps / totalSteps) * 100)
+
   function handleCancel() {
     if (fixtureMode) {
       abortRef.current?.abort()
@@ -208,8 +218,26 @@ function LoadingPage() {
         </div>
       </div>
 
+      {/* Progress bar */}
+      <div className="px-4 pt-3">
+        <div className="flex items-center gap-3">
+          <span className="text-xs font-semibold text-text-primary dark:text-white w-9 shrink-0">
+            {progressPct}%
+          </span>
+          <div className="flex-1 h-2 bg-gray-100 dark:bg-gray-700 rounded-full overflow-hidden">
+            <div
+              className="h-full rounded-full transition-all duration-700 ease-out"
+              style={{
+                width: `${progressPct}%`,
+                background: "linear-gradient(to right, #6c63ff, #5b9cf6)",
+              }}
+            />
+          </div>
+        </div>
+      </div>
+
       {/* Content */}
-      <div className="flex flex-col flex-1 px-5 pt-5 pb-8 gap-4">
+      <div className="flex flex-col flex-1 px-5 pt-4 pb-8 gap-4">
 
         {/* Title + subtitle */}
         <div className="text-center">
@@ -235,10 +263,13 @@ function LoadingPage() {
         )}
 
         {/* Tips card */}
-        <div className="bg-white dark:bg-dark-card rounded-2xl p-4 border border-gray-100 dark:border-transparent flex items-start gap-3">
-          <Lightbulb size={18} className="text-text-tertiary dark:text-gray-400 mt-0.5 shrink-0" />
-          <p className="text-body text-text-tertiary dark:text-gray-400 leading-relaxed">
-            <span className="text-text-primary dark:text-white font-medium">Tips: </span>
+        <div
+          className="rounded-2xl p-4 flex items-start gap-3"
+          style={{ background: "linear-gradient(135deg, #6c63ff, #5b9cf6)" }}
+        >
+          <Lightbulb size={18} className="text-white/80 mt-0.5 shrink-0" />
+          <p className="text-sm text-white leading-relaxed">
+            <span className="font-semibold">Tips: </span>
             Take a 45-second breather. Your muscles need this reset for the next set.
           </p>
         </div>
@@ -272,14 +303,14 @@ function LoadingPage() {
             </div>
             <div className="flex gap-3">
               <button
-                className="flex-1 py-4 rounded-2xl text-button font-medium text-white"
+                className="flex-1 py-4 rounded-2xl text-button font-bold text-white uppercase tracking-widest"
                 style={{ backgroundColor: "#E57373" }}
                 onClick={handleCancel}
               >
                 Cancel
               </button>
               <button
-                className="flex-1 py-4 rounded-2xl text-button font-medium text-white"
+                className="flex-1 py-4 rounded-2xl text-button font-bold text-white uppercase tracking-widest"
                 style={{ backgroundColor: "#E8A050" }}
                 onClick={handleCancel}
               >
@@ -287,15 +318,15 @@ function LoadingPage() {
               </button>
             </div>
           </div>
-        ) : (
+        ) : !displayIsDone ? (
           <button
-            className="w-full py-4 rounded-2xl text-button font-medium text-white uppercase tracking-wide dark:bg-[#7B1D1D] bg-[#E57373]"
-            onClick={() => { if (!displayIsDone) handleCancel() }}
-            disabled={displayIsDone}
+            className="w-full py-4 rounded-2xl text-button font-bold text-white uppercase tracking-widest"
+            style={{ backgroundColor: "#E57373" }}
+            onClick={handleCancel}
           >
-            {displayIsDone ? "Complete! Taking you to results..." : "Cancel"}
+            Cancel
           </button>
-        )}
+        ) : null}
 
       </div>
     </div>
@@ -305,14 +336,14 @@ function LoadingPage() {
 function StepIcon({ status }) {
   if (status === "complete") {
     return (
-      <div className="w-5 h-5 rounded-full flex items-center justify-center shrink-0" style={{ backgroundColor: "#00d66b" }}>
+      <div className="w-5 h-5 rounded-full flex items-center justify-center shrink-0" style={{ backgroundColor: "#5b9cf6" }}>
         <Check size={11} color="white" strokeWidth={3} />
       </div>
     )
   }
   if (status === "active") {
     return (
-      <div className="w-5 h-5 rounded-full border-2 animate-spin shrink-0" style={{ borderColor: "#99f6e4", borderTopColor: "transparent" }} />
+      <div className="w-5 h-5 rounded-full border-2 animate-spin shrink-0" style={{ borderColor: "#5b9cf6", borderTopColor: "transparent" }} />
     )
   }
   if (status === "error") {
