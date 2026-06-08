@@ -220,6 +220,23 @@ def init_db():
 
     cursor.execute(CREATE_PROGRESSION_RESULTS_SQL)
 
+    def seed_exercise_alignment(connection):
+        cursor = connection.cursor()
+
+        cursor.execute("""
+        UPDATE form_analysis_results
+        SET exercise_id = 'ex_goblet_squat'
+        WHERE exercise_id IS NULL OR exercise_id = ''
+        """)
+
+        cursor.execute("""
+        UPDATE form_analyses
+        SET exercise_name = 'goblet_squat'
+        WHERE exercise_name IS NULL OR exercise_name = ''
+        """)
+
+        connection.commit()
+
     # =====================================================
     # SAFE MIGRATIONS
     # =====================================================
