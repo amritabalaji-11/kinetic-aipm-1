@@ -113,7 +113,7 @@ function ReadyCTA() {
 
         {/* Build Your Workout */}
         <button
-          onClick={() => navigate("/upload")}
+          onClick={() => navigate("/plan")}
           className="w-full flex items-center justify-between px-4 py-3 rounded-xl mb-2"
           style={{ background: "linear-gradient(90deg, #60c8f8 0%, #3b8ef8 30%, #6C5CE7 65%, #a78bfa 100%)" }}
         >

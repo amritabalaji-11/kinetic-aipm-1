@@ -145,6 +145,34 @@ export const PROGRESS_LADDER = {
   },
 }
 
+// Muscle groups for workout builder
+export const MUSCLE_GROUPS = [
+  { id: "chest",      name: "Chest",     count: 8,  image: "/chest_figure.png" },
+  { id: "back",       name: "Back",      count: 9,  image: "/Back_figure.png" },
+  { id: "legs",       name: "Legs",      count: 13, image: "/Legs_figure.png" },
+  { id: "shoulders",  name: "Shoulders", count: 7,  image: "/Shoulders_figure.png" },
+  { id: "arms",       name: "Arms",      count: 10, image: "/Arms_figure.png" },
+  { id: "full_body",  name: "Full Body", count: 8,  image: "/Fullbody_figure.png" },
+]
+
+// Exercise library for workout builder
+export const EXERCISES = [
+  { id: "ex_001", name: "Goblet Squat",       muscles: ["Quads", "Glutes", "Hamstring"], category: "Compound",   groups: ["legs"],             image: "/Gobletsquat_figure.png" },
+  { id: "ex_002", name: "Romanian Deadlift",  muscles: ["Hamstring", "Glutes", "Back"],  category: "Compound",   groups: ["legs", "back"],     image: "/Romaniandeadlift_figure.png" },
+  { id: "ex_003", name: "Bulgarian Squat",    muscles: ["Quads", "Glutes", "Hamstring"], category: "Compound",   groups: ["legs"],             image: "/Bulgariansquat_figure.png" },
+  { id: "ex_004", name: "Leg Curl",           muscles: ["Hamstring", "Calves"],          category: "Isolation",  groups: ["legs"],             image: "/Legcurl_figure.png" },
+  { id: "ex_006", name: "Bench Press",        muscles: ["Chest", "Triceps", "Shoulders"],category: "Compound",   groups: ["chest"],            image: "/lifter_icon_nobg.png" },
+  { id: "ex_007", name: "Incline Dumbbell Press",muscles:["Chest","Shoulders","Triceps"],category: "Compound",   groups: ["chest"],            image: "/lifter_icon_nobg.png" },
+  { id: "ex_008", name: "Cable Fly",          muscles: ["Chest"],                        category: "Isolation",  groups: ["chest"],            image: "/lifter_icon_nobg.png" },
+  { id: "ex_009", name: "Pull-Up",            muscles: ["Back", "Biceps"],               category: "Compound",   groups: ["back"],             image: "/muscular_model2.png" },
+  { id: "ex_010", name: "Barbell Row",        muscles: ["Back", "Biceps", "Rear Delt"],  category: "Compound",   groups: ["back"],             image: "/muscular_model2.png" },
+  { id: "ex_011", name: "Overhead Press",     muscles: ["Shoulders", "Triceps"],         category: "Compound",   groups: ["shoulders"],        image: "/muscular_model2.png" },
+  { id: "ex_012", name: "Lateral Raise",      muscles: ["Side Delt"],                    category: "Isolation",  groups: ["shoulders"],        image: "/muscular_model2.png" },
+  { id: "ex_013", name: "Bicep Curl",         muscles: ["Biceps"],                       category: "Isolation",  groups: ["arms"],             image: "/muscular.png" },
+  { id: "ex_014", name: "Tricep Pushdown",    muscles: ["Triceps"],                      category: "Isolation",  groups: ["arms"],             image: "/muscular.png" },
+  { id: "ex_015", name: "Deadlift",           muscles: ["Back", "Glutes", "Hamstring"],  category: "Compound",   groups: ["full_body", "back"], image: "/lifter_icon_nobg.png" },
+]
+
 // Detailed form history with coaching feedback
 export const FORM_HISTORY_DETAILED = {
   user_001: [
