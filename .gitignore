@@ -12,4 +12,4 @@ backend/mediapipe_code/video_results/
 *.db
 *.mp4
 ffmpeg
-echo "backend/kinetic.db" >> .gitignore
+echo "backend/kinetic.db" >> .gitignorebackend/kinetic.db
