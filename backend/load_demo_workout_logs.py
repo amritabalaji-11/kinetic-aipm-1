@@ -9,7 +9,7 @@ USER_PROFILE = {
     "profile_id": "user_001_profile",
     "user_id": "user_001",
     "display_name": "Demo Female User",
-    "experience_level": "Intermediate",
+   # "experience_level": "Intermediate",
     "age": 39,
     "gender": "Female",
     "level": "Intermediate",
@@ -74,16 +74,14 @@ def insert_user_profile(connection, profile):
             profile_id,
             user_id,
             display_name,
-            experience_level,
             age,
             gender,
             level,
             injury_report,
             injury_details
-        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
+        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?)
         ON CONFLICT(user_id) DO UPDATE SET
             display_name=excluded.display_name,
-            experience_level=excluded.experience_level,
             age=excluded.age,
             gender=excluded.gender,
             level=excluded.level,
@@ -94,7 +92,6 @@ def insert_user_profile(connection, profile):
             profile["profile_id"],
             profile["user_id"],
             profile["display_name"],
-            profile["experience_level"],
             profile["age"],
             profile["gender"],
             profile["level"],
