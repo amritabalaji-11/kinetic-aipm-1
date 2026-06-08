@@ -233,7 +233,7 @@ async def run_haiku_call_2(analysis_id: str) -> None:
             session_id    = current["session_id"]
             user_id       = current["user_id"]
             exercise_name = current["exercise_name"]
-            exercise_id   = current["exercise_id"] or exercise_name
+            exercise_id = current["exercise_id"] if current["exercise_id"] else exercise_name
 
             # ── Fetch most recent previous session ────────────────────────
             previous = await db.fetch_one(
