@@ -29,6 +29,8 @@ async def get_progression(analysis_id: str):
             far.movement_quality_score,
             far.range_of_motion_score,
             far.rep_scores,
+            fa.weight_value,
+            fa.weight_unit,
             fa.created_at
         FROM form_analysis_results far
         JOIN form_analyses fa
@@ -53,6 +55,9 @@ async def get_progression(analysis_id: str):
             far.range_of_motion_score,
             far.rep_scores,
             far.coaching_output,
+            far.annotated_frame_url,
+            fa.weight_value,
+            fa.weight_unit,
             fa.created_at
         FROM form_analysis_results far
         JOIN form_analyses fa
@@ -94,6 +99,10 @@ async def get_progression(analysis_id: str):
                 if isinstance(previous["coaching_output"], str)
                 else previous["coaching_output"]
             )
+            
+            print("PARSED coaching_output:")
+            print(coaching)
+
             previous_next_session_focus = coaching.get("next_session_focus", [])
         except Exception:
             pass
@@ -107,7 +116,9 @@ async def get_progression(analysis_id: str):
 
     profile = await db.fetch_one(
         """
-        SELECT progress_ladder_image_url
+        SELECT 
+            progress_ladder_image_url,
+            annotated_frame_url
         FROM user_profiles
         WHERE user_id = :uid
         """,
@@ -190,22 +201,30 @@ async def get_progression(analysis_id: str):
         "available": True,
         "current_session": {
             "date":             current["created_at"],
-            "overall":          current["overall_form_score"],
-            "posture":          current["posture_score"],
-            "stability":        current["stability_score"],
-            "movement_quality": current["movement_quality_score"],
-            "range_of_motion":  current["range_of_motion_score"],
+            "overall_score":          current["overall_form_score"],
+            "posture_score":          current["posture_score"],
+            "stability_score":        current["stability_score"],
+            "movement_quality_score": current["movement_quality_score"],
+            "range_of_motion_score":  current["range_of_motion_score"],
             "rep_scores":       current_rep_scores,
             "spread":           spread,
+            "weight_value": current["weight_value"],
+            "weight_unit": current["weight_unit"],
+            "annotated_frame_url": (
+                profile["annotated_frame_url"] if profile else None
+            ),
         },
         "previous_session": {
             "date":               previous["created_at"],
-            "overall":            previous["overall_form_score"],
-            "posture":            previous["posture_score"],
-            "stability":          previous["stability_score"],
-            "movement_quality":   previous["movement_quality_score"],
-            "range_of_motion":    previous["range_of_motion_score"],
-            "next_session_focus": previous_next_session_focus,
+            "overall_score":            previous["overall_form_score"],
+            "posture_score":            previous["posture_score"],
+            "stability_score":          previous["stability_score"],
+            "movement_quality_score":   previous["movement_quality_score"],
+            "range_of_motion_score":    previous["range_of_motion_score"],
+            "next_session_focus":       previous_next_session_focus,
+            "weight_value":             previous["weight_value"],
+            "weight_unit":              previous["weight_unit"],
+            "annotated_frame_url":      previous["annotated_frame_url"],
         },
         "deltas":                      deltas,
         "previous_next_session_focus": previous_next_session_focus,
