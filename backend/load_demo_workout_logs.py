@@ -5,62 +5,52 @@ from datetime import datetime
 from init_db import init_db, DATABASE_PATH
 
 
-USER_PROFILE = {
-    "profile_id": "user_001_profile",
-    "user_id": "user_001",
-    "display_name": "Demo Female User",
-   # "experience_level": "Intermediate",
-    "age": 39,
-    "gender": "Female",
-    "level": "Intermediate",
-    "injury_report": 0,
-    "injury_details": None,
-}
+USER_PROFILES = [
+    {
+        "profile_id": "user_001_profile",
+        "user_id": "user_001",
+        "display_name": "Amrita",
+        "age": 23,
+        "gender": "Female",
+        "level": "Intermediate",
+        "injury_report": 0,
+        "injury_details": None,
+    },
+    {
+        "profile_id": "user_002_profile",
+        "user_id": "user_002",
+        "display_name": "Nicole",
+        "age": None,
+        "gender": None,
+        "level": None,
+        "injury_report": 0,
+        "injury_details": None,
+    },
+]
 
 WORKOUT_SESSIONS = [
     {
-        "date": "2026-05-09 10:00:00",
+        "user_id": "user_002",
+        "exercise_id": "ex_goblet_squat",
+        "exercise_name": "Goblet Squat",
+        "date": "2026-05-15 10:00:00",
         "session_id": str(uuid.uuid4()),
         "rows": [
-            {"set_number": 1, "weight_use": 12.5, "weight_unit": "kg", "weight_value": 12.5, "rep_count": 11},
-            {"set_number": 2, "weight_use": 12.5, "weight_unit": "kg", "weight_value": 12.5, "rep_count": 11},
-            {"set_number": 3, "weight_use": 12.5, "weight_unit": "kg", "weight_value": 12.5, "rep_count": 11},
+            {"set_number": 1, "weight_use": 12.5, "weight_unit": "kg", "weight_value": 12.5, "rep_count": 9},
+            {"set_number": 2, "weight_use": 12.5, "weight_unit": "kg", "weight_value": 12.5, "rep_count": 10},
+            {"set_number": 3, "weight_use": 12.5, "weight_unit": "kg", "weight_value": 12.5, "rep_count": 10},
         ],
     },
     {
-        "date": "2026-05-12 10:00:00",
+        "user_id": "user_002",
+        "exercise_id": "ex_goblet_squat",
+        "exercise_name": "Goblet Squat",
+        "date": "2026-05-27 10:00:00",
         "session_id": str(uuid.uuid4()),
         "rows": [
-            {"set_number": 1, "weight_use": 12.0, "weight_unit": "kg", "weight_value": 12.0, "rep_count": 12},
-            {"set_number": 2, "weight_use": 14.0, "weight_unit": "kg", "weight_value": 14.0, "rep_count": 10},
-            {"set_number": 3, "weight_use": 14.0, "weight_unit": "kg", "weight_value": 14.0, "rep_count": 10},
-        ],
-    },
-    {
-        "date": "2026-05-16 10:00:00",
-        "session_id": str(uuid.uuid4()),
-        "rows": [
-            {"set_number": 1, "weight_use": 14.0, "weight_unit": "kg", "weight_value": 14.0, "rep_count": 10},
-            {"set_number": 2, "weight_use": 14.0, "weight_unit": "kg", "weight_value": 14.0, "rep_count": 10},
-            {"set_number": 3, "weight_use": 14.0, "weight_unit": "kg", "weight_value": 14.0, "rep_count": 10},
-        ],
-    },
-    {
-        "date": "2026-05-25 10:00:00",
-        "session_id": str(uuid.uuid4()),
-        "rows": [
-            {"set_number": 1, "weight_use": 15.0, "weight_unit": "kg", "weight_value": 15.0, "rep_count": 10},
-            {"set_number": 2, "weight_use": 15.0, "weight_unit": "kg", "weight_value": 15.0, "rep_count": 10},
-            {"set_number": 3, "weight_use": 15.0, "weight_unit": "kg", "weight_value": 15.0, "rep_count": 10},
-        ],
-    },
-    {
-        "date": "2026-05-30 10:00:00",
-        "session_id": str(uuid.uuid4()),
-        "rows": [
-            {"set_number": 1, "weight_use": 15.0, "weight_unit": "kg", "weight_value": 15.0, "rep_count": 10},
-            {"set_number": 2, "weight_use": 17.5, "weight_unit": "kg", "weight_value": 17.5, "rep_count": 8},
-            {"set_number": 3, "weight_use": 17.5, "weight_unit": "kg", "weight_value": 17.5, "rep_count": 8},
+            {"set_number": 1, "weight_use": 12.5, "weight_unit": "kg", "weight_value": 12.5, "rep_count": 12},
+            {"set_number": 2, "weight_use": 12.5, "weight_unit": "kg", "weight_value": 12.5, "rep_count": 10},
+            {"set_number": 3, "weight_use": 12.5, "weight_unit": "kg", "weight_value": 12.5, "rep_count": 10},
         ],
     },
 ]
@@ -108,9 +98,9 @@ def build_user_workout_rows():
         for row in session["rows"]:
             rows.append(
                 {
-                    "user_id": "user_001",
-                    "exercise_id": "ex_goblet_squat",
-                    "exercise_name": "Goblet Squat",
+                    "user_id": session["user_id"],
+                    "exercise_id": session["exercise_id"],
+                    "exercise_name": session["exercise_name"],
                     "session_id": session["session_id"],
                     "logged_at": session["date"],
                     "set_number": row["set_number"],
@@ -175,11 +165,11 @@ def show_results(connection):
             injury_report,
             injury_details
         FROM user_profiles
-        WHERE user_id = ?
+        WHERE user_id IN (?, ?)
         """,
-        ("user_001",),
+        ("user_001", "user_002"),
     )
-    print("\nUser profile:")
+    print("\nUser profiles:")
     for row in cursor.fetchall():
         print(row)
 
@@ -198,13 +188,13 @@ def show_results(connection):
             weight_value,
             rep_count
         FROM workout_sessions_log
-        WHERE user_id = ?
-        ORDER BY logged_at, session_id, set_number
+        WHERE user_id IN (?, ?)
+        ORDER BY user_id, logged_at, session_id, set_number
         """,
-        ("user_001",),
+        ("user_001", "user_002"),
     )
 
-    print("\nWorkout session logs for user_001:")
+    print("\nWorkout session logs for user_001 and user_002:")
     for row in cursor.fetchall():
         print(row)
 
@@ -216,11 +206,12 @@ def main():
     print(f"Connecting to SQLite database at: {DATABASE_PATH}")
     conn = sqlite3.connect(DATABASE_PATH)
 
-    print("Inserting demo user profile...")
-    insert_user_profile(conn, USER_PROFILE)
+    print("Inserting demo user profiles...")
+    for profile in USER_PROFILES:
+        insert_user_profile(conn, profile)
 
     workout_rows = build_user_workout_rows()
-    print(f"Inserting {len(workout_rows)} workout log rows for user_001...")
+    print(f"Inserting {len(workout_rows)} workout log rows...")
     inserted_count = insert_workout_rows(conn, workout_rows)
     print(f"Inserted {inserted_count} rows into workout_sessions_log.")
 
