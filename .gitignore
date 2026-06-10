@@ -5,11 +5,8 @@ secrets/
 venv
 __pycache__
 backend/credentials/
-backend/kinetic.db
 backend/mediapipe_code/videos/
 backend/mediapipe_code/video_results/
 *.pyc
-*.db
 *.mp4
 ffmpeg
-echo "backend/kinetic.db" >> .gitignorebackend/kinetic.db
