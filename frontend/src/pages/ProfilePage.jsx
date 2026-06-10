@@ -1,23 +1,31 @@
 import { useEffect, useState, useMemo } from "react"
+import { Navigate } from "react-router-dom"
+import { useUser } from "../context/UserContext"
 
 const BASE_URL = import.meta.env.VITE_API_URL || "http://localhost:8000"
 
 export default function ProfilePage() {
+  const { activeUserId } = useUser()
   const [profile, setProfile] = useState(null)
   const [workouts, setWorkouts] = useState([])
   const [loading, setLoading] = useState(true)
 
   useEffect(() => {
-    const userId = "user_001"
+    if (!activeUserId) return
 
-    fetch(`${BASE_URL}/users/${userId}/details`)
+    setLoading(true)
+    fetch(`${BASE_URL}/users/${activeUserId}/details`)
       .then(r => r.json())
       .then(data => {
         setProfile(data.user_profile ?? null)
         setWorkouts(Array.isArray(data.workout_sessions) ? data.workout_sessions : [])
       })
       .finally(() => setLoading(false))
-  }, [])
+  }, [activeUserId])
+
+  if (!activeUserId) {
+    return <Navigate to="/login" replace />
+  }
 
   const stats = useMemo(() => {
     if (!workouts.length) return { totalSessions: 0, totalSets: 0, lastDate: null, trend: [], maxW: 1 }
