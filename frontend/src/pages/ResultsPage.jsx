@@ -111,8 +111,9 @@ function VideoPlayer({ src }) {
 
 function ParamCard({ label, score, observation, affirmation, correction, defaultNote, initOpen = false }) {
   const [open, setOpen] = useState(initOpen)
+  const borderColor = score >= 80 ? "#22C55E" : score >= 65 ? "#F97316" : "#EF4444"
   return (
-    <div className="rounded-2xl mb-2 overflow-hidden" style={{ background: "#fff", border: "1px solid #f3f4f6", boxShadow: "0 1px 3px rgba(0,0,0,0.05)" }}>
+    <div className="rounded-2xl mb-2 overflow-hidden" style={{ background: "#fff", border: "1px solid #f3f4f6", borderLeft: `4px solid ${borderColor}`, boxShadow: "0 1px 3px rgba(0,0,0,0.05)" }}>
       <button type="button" onClick={() => setOpen(o => !o)} className="w-full flex items-center gap-3 px-4 py-3">
         <ScoreRing score={score} />
         <div className="flex-1 text-left">
@@ -142,7 +143,7 @@ function ParamCard({ label, score, observation, affirmation, correction, default
               <p className="text-xs text-gray-600 leading-relaxed">{affirmation}</p>
             </div>
           )}
-          {observation && !correction && !affirmation && (
+          {observation && (
             <div className="flex items-start gap-2">
               <svg className="w-4 h-4 text-orange-400 mt-0.5 flex-shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
                 <path strokeLinecap="round" strokeLinejoin="round" d="M12 9v2m0 4h.01M10.29 3.86L1.82 18a2 2 0 001.71 3h16.94a2 2 0 001.71-3L13.71 3.86a2 2 0 00-3.42 0z" />
@@ -356,13 +357,28 @@ export default function ResultsPage() {
       const currentParameters = {
         posture: {
           score:       currentSummary.posture_score,
-          affirmation: coachingOutput1.affirm?.[0]       || null,
-          observation: null,
-          correction:  coachingOutput1.correct?.[0]?.cue || null,
+          affirmation: paramScores1.posture?.affirmation || coachingOutput1.affirm?.[0] || null,
+          observation: paramScores1.posture?.observation || null,
+          correction:  paramScores1.posture?.correction  || coachingOutput1.correct?.[0]?.cue || null,
         },
-        stability:        { score: currentSummary.stability_score },
-        movement_quality: { score: currentSummary.movement_quality_score },
-        range_of_motion:  { score: currentSummary.range_of_motion_score },
+        stability: {
+          score:       currentSummary.stability_score,
+          affirmation: paramScores1.stability?.affirmation || null,
+          observation: paramScores1.stability?.observation || null,
+          correction:  paramScores1.stability?.correction  || null,
+        },
+        movement_quality: {
+          score:       currentSummary.movement_quality_score,
+          affirmation: paramScores1.movement_quality?.affirmation || null,
+          observation: paramScores1.movement_quality?.observation || null,
+          correction:  paramScores1.movement_quality?.correction  || null,
+        },
+        range_of_motion: {
+          score:       currentSummary.range_of_motion_score,
+          affirmation: paramScores1.range_of_motion?.affirmation || null,
+          observation: paramScores1.range_of_motion?.observation || null,
+          correction:  paramScores1.range_of_motion?.correction  || null,
+        },
       }
       const currentCoaching = {
         summary_paragraph:  currentSummary.summary_paragraph,
@@ -401,6 +417,7 @@ export default function ResultsPage() {
         reps:          parsedReps,
         issues:        [],
         causal_chains: coachingOutput1.root_cause_analysis || haikuCall1.root_cause_analysis || [],
+        annotated_frame_url: baseAnalysis.annotated_frame_urls?.[0] || baseAnalysis.annotated_frame_url || null,
       }
       const coachingOutput2   = haikuCall2.coaching_output || haikuCall2
       const compParamScores2  = coachingOutput2.parameter_scores || {}
@@ -512,7 +529,8 @@ export default function ResultsPage() {
   const reps     = data.reps   || []
   const issues   = data.issues || []
 
-  const videoSrc  = state?.videoPreviewUrl || (data.video_url ? `${BASE_URL}/${data.video_url}` : null)
+  const videoSrc    = state?.videoPreviewUrl || (data.video_url ? `${BASE_URL}/${data.video_url}` : null)
+  const frameSrc    = data.annotated_frame_url ? `${BASE_URL}/${data.annotated_frame_url}` : null
   const overall   = summary.overall_form_score ?? 0
   const repScores = reps.map(r => r.form_score ?? 0)
 
@@ -538,7 +556,7 @@ export default function ResultsPage() {
   }
 
   const NAV_ITEMS = [
-    { label: "Home",     icon: "M3 12l2-2m0 0l7-7 7 7M5 10v10a1 1 0 001 1h3m10-11l2 2m-2-2v10a1 1 0 01-1 1h-3m-6 0a1 1 0 001-1v-4a1 1 0 011-1h2a1 1 0 011 1v4a1 1 0 001 1m-6 0h6", path: "/"         },
+    { label: "Home",     icon: "M3 12l2-2m0 0l7-7 7 7M5 10v10a1 1 0 001 1h3m10-11l2 2m-2-2v10a1 1 0 01-1 1h-3m-6 0a1 1 0 001-1v-4a1 1 0 011-1h2a1 1 0 011 1v4a1 1 0 001 1m-6 0h6", path: "/home"     },
     { label: "Plan",     icon: "M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z", path: "/plan"     },
     { label: "Analysis", icon: "M15 10l4.553-2.069A1 1 0 0121 8.82v6.36a1 1 0 01-1.447.894L15 14M3 8a2 2 0 012-2h8a2 2 0 012 2v8a2 2 0 01-2 2H5a2 2 0 01-2-2V8z", path: "/results", active: true },
     { label: "Timeline", icon: "M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z", path: "/timeline" },
@@ -656,7 +674,9 @@ export default function ResultsPage() {
         {!isProgression && (
           <>
             <div className="mx-4 mb-4 rounded-2xl overflow-hidden">
-              {videoSrc ? (
+              {frameSrc ? (
+                <img src={frameSrc} alt="Annotated analysis frame" className="w-full object-cover" style={{ display: "block", maxHeight: 300, borderRadius: "1rem" }} />
+              ) : videoSrc ? (
                 <VideoPlayer src={videoSrc} />
               ) : (
                 <div className="h-52 flex flex-col items-center justify-center gap-3" style={{ background: "#0f0f1a", borderRadius: "1rem" }}>
@@ -674,8 +694,8 @@ export default function ResultsPage() {
               </div>
             )}
 
-            <div className="mx-4 mb-4 rounded-2xl p-4" style={{ background: "linear-gradient(135deg, #6366f1 0%, #8b5cf6 100%)" }}>
-              <div className="text-white text-sm font-bold mb-3">AI Verdict • Maintain</div>
+            <div className="mx-4 mb-4 rounded-2xl p-4" style={{ background: "linear-gradient(135deg, #0284C7 0%, #9747FF 100%)" }}>
+              <div className="text-white text-sm font-bold mb-3">AI Verdict</div>
               <div className="flex items-start gap-4">
                 <div className="flex flex-col items-center gap-1 flex-shrink-0">
                   <BigScoreRing score={overall} />
@@ -740,10 +760,10 @@ export default function ResultsPage() {
         <div className="mx-4 mt-2 mb-6 flex flex-col gap-3">
           <button type="button" onClick={() => navigate("/upload")}
             className="w-full py-4 rounded-2xl text-white text-sm font-bold tracking-wide"
-            style={{ background: "linear-gradient(90deg, #4f46e5, #818cf8)" }}>
+            style={{ background: "linear-gradient(135deg, #0284C7 0%, #9747FF 100%)" }}>
             New Upload
           </button>
-          <button type="button" onClick={() => navigate("/")}
+          <button type="button" onClick={() => navigate("/home")}
             className="w-full py-4 rounded-2xl text-sm font-semibold bg-white"
             style={{ border: "1.5px solid #e5e7eb", color: "#374151" }}>
             Continue to Set 3

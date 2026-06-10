@@ -5,7 +5,7 @@ import { useSSEStream } from "../hooks/useSSEStream"
 function StepIcon({ status }) {
   if (status === "complete") {
     return (
-      <div className="w-6 h-6 rounded-full flex items-center justify-center shrink-0" style={{ background: "#3b82f6" }}>
+      <div className="w-6 h-6 rounded-full flex items-center justify-center shrink-0" style={{ background: "#9747FF" }}>
         <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="white" strokeWidth={3}>
           <path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" />
         </svg>
@@ -14,7 +14,7 @@ function StepIcon({ status }) {
   }
   if (status === "active") {
     return (
-      <div className="w-6 h-6 rounded-full border-2 animate-spin shrink-0" style={{ borderColor: "#3b82f6", borderTopColor: "transparent" }} />
+      <div className="w-6 h-6 rounded-full border-2 animate-spin shrink-0" style={{ borderColor: "#0284C7", borderTopColor: "transparent" }} />
     )
   }
   if (status === "error") {
@@ -127,7 +127,7 @@ export default function LoadingPage() {
 
   if (!analysisId) {
     return (
-      <div className="min-h-screen flex flex-col items-center justify-center px-6" style={{ backgroundColor: "#F0EFFE", colorScheme: "light" }}>
+      <div className="min-h-screen flex flex-col items-center justify-center px-6" style={{ backgroundColor: "#F4F2FA", colorScheme: "light" }}>
         <p className="text-gray-700 text-sm text-center mb-4">No analysis in progress.</p>
         <button className="text-indigo-500 underline text-sm" onClick={() => navigate("/upload")}>Upload a video</button>
       </div>
@@ -135,7 +135,7 @@ export default function LoadingPage() {
   }
 
   return (
-    <div className="min-h-screen flex flex-col" style={{ backgroundColor: "#F0EFFE", colorScheme: "light" }}>
+    <div className="min-h-screen flex flex-col" style={{ backgroundColor: "#F4F2FA", colorScheme: "light" }}>
 
       <div className="pt-4 px-4">
         <div className="rounded-2xl overflow-hidden w-full">
@@ -156,7 +156,7 @@ export default function LoadingPage() {
           <div className="flex-1 h-1.5 rounded-full" style={{ background: "#e5e7eb" }}>
             <div
               className="h-1.5 rounded-full transition-all duration-700"
-              style={{ width: `${progress}%`, background: "linear-gradient(90deg, #4f46e5, #818cf8)" }}
+              style={{ width: `${progress}%`, background: "linear-gradient(90deg, #0284C7, #9747FF)" }}
             />
           </div>
         </div>
@@ -166,7 +166,7 @@ export default function LoadingPage() {
           <p className="text-sm text-gray-500">Kinetic is analyzing your video upload...</p>
         </div>
 
-        <div className="rounded-2xl px-4 py-4 flex items-start gap-3" style={{ background: "linear-gradient(135deg, #6366f1 0%, #818cf8 100%)" }}>
+        <div className="rounded-2xl px-4 py-4 flex items-start gap-3" style={{ background: "linear-gradient(135deg, #0284C7 0%, #9747FF 100%)" }}>
           <svg className="w-5 h-5 text-white shrink-0 mt-0.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
             <path strokeLinecap="round" strokeLinejoin="round" d="M9.663 17h4.673M12 3v1m6.364 1.636l-.707.707M21 12h-1M4 12H3m3.343-5.657l-.707-.707m2.828 9.9a5 5 0 117.072 0l-.548.547A3.374 3.374 0 0014 18.469V19a2 2 0 11-4 0v-.531c0-.895-.356-1.754-.988-2.386l-.548-.547z" />
           </svg>
@@ -207,7 +207,7 @@ export default function LoadingPage() {
           <div className="flex gap-3">
             <button
               className="flex-1 py-4 rounded-2xl text-sm font-bold text-white uppercase tracking-widest"
-              style={{ background: "#ef4444" }}
+              style={{ background: "#FD0500" }}
               onClick={() => { cancel(); navigate("/upload") }}
             >
               Cancel
@@ -223,7 +223,7 @@ export default function LoadingPage() {
         ) : !isDone ? (
           <button
             className="w-full py-4 rounded-2xl text-sm font-bold text-white uppercase tracking-widest"
-            style={{ background: "#ef4444" }}
+            style={{ background: "#FD0500" }}
             onClick={() => { cancel(); navigate("/upload") }}
           >
             CANCEL
