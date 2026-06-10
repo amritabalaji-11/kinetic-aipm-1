@@ -12,7 +12,7 @@ function generateUUID() {
 async function uploadVideo(videoFile, exercise, weight, weightUnit = "kg") {
     const formData = new FormData()
 
-    let userId = localStorage.getItem('user_id')
+    let userId = localStorage.getItem('active_user_id')
     if (!userId) {
         userId = generateUUID()
         localStorage.setItem('user_id', userId)
