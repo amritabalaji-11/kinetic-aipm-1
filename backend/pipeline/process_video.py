@@ -66,6 +66,7 @@ def _download_from_gcs(gcs_path: str, session_id: str) -> str:
 
     # Each session gets its own subfolder so parallel uploads don't clash
     temp_dir = os.path.join("mediapipe_code", "videos", "incoming", session_id)
+    # temp_dir = os.path.join(".\\backend\\mediapipe_code\\videos\\incoming", session_id)
     os.makedirs(temp_dir, exist_ok=True)
 
     filename = os.path.basename(blob_path)
@@ -127,6 +128,7 @@ async def run_mediapipe_analysis(analysis_id: str, file_location: str):
         # -------------------------------------------------
         # STEP 1 — get video onto local disk
         # -------------------------------------------------
+        print(file_location)
         if file_location.startswith("gs://"):
             local_path = _download_from_gcs(file_location, analysis_id)
         else:

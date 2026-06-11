@@ -1,0 +1,132 @@
+{
+  "_fixture": "sse-upload-progress.sequence",
+  "_schema_ref": "S1-W5-04 · Complete SSE Event Timeline · S1-W5-06 SSE skeleton",
+  "_notes": "Full 13-event SSE sequence. delayMs = realistic time since previous event. Use in mock SSE emitter to reproduce authentic progress UI. User-facing messages match the copy table in the schema doc exactly.",
+
+  "analysis_id": "550e8400-e29b-41d4-a716-446655440001",
+  "session_id": "c1d2e3f4-0000-0000-0000-aabbccddeeff",
+  "user_id": "a3f8c2d1-9b4e-4f7a-8c2d-1e5f9b3a7c4e",
+  "video_filename": "alex_barbell_squat_20260511.mp4",
+  "video_size_mb": 43.12,
+
+  "events": [
+    {
+      "seq": 1,
+      "delay_ms": 0,
+      "event": "upload_received",
+      "progress_pct": 5,
+      "user_facing_message": "Video received. Preparing your session...",
+      "data": {
+        "analysis_id": "550e8400-e29b-41d4-a716-446655440001",
+        "session_id": "c1d2e3f4-0000-0000-0000-aabbccddeeff",
+        "user_id": "a3f8c2d1-9b4e-4f7a-8c2d-1e5f9b3a7c4e",
+        "filename": "alex_barbell_squat_20260511.mp4",
+        "size_mb": 43.12,
+        "created_at": "2026-05-11T09:14:33.412Z"
+      }
+    },
+    {
+      "seq": 2,
+      "delay_ms": 1200,
+      "event": "mediapipe_started",
+      "progress_pct": 10,
+      "user_facing_message": "Reading your movement patterns...",
+      "data": {
+        "analysis_id": "550e8400-e29b-41d4-a716-446655440001",
+        "session_id": "c1d2e3f4-0000-0000-0000-aabbccddeeff",
+        "user_id": "a3f8c2d1-9b4e-4f7a-8c2d-1e5f9b3a7c4e",
+        "video_url": "gs://kinetic-videos/videos/a3f8c2d1-9b4e-4f7a-8c2d-1e5f9b3a7c4e/550e8400-e29b-41d4-a716-446655440001/original.mp4"
+      }
+    },
+    {
+      "seq": 3,
+      "delay_ms": 8400,
+      "event": "mediapipe_complete",
+      "progress_pct": 30,
+      "user_facing_message": "Reading your movement patterns...",
+      "_note": "Message unchanged from mediapipe_started — % bar advances only",
+      "data": {
+        "analysis_id": "550e8400-e29b-41d4-a716-446655440001",
+        "session_id": "c1d2e3f4-0000-0000-0000-aabbccddeeff",
+        "user_id": "a3f8c2d1-9b4e-4f7a-8c2d-1e5f9b3a7c4e",
+        "rep_count": 5,
+        "fps": 30,
+        "keypoints_detected": 33,
+        "frames_processed": 924
+      }
+    },
+    {
+      "seq": 4,
+      "delay_ms": 700,
+      "event": "claude_started",
+      "progress_pct": 35,
+      "user_facing_message": "Writing your personalised coaching...",
+      "data": {
+        "analysis_id": "550e8400-e29b-41d4-a716-446655440001",
+        "session_id": "c1d2e3f4-0000-0000-0000-aabbccddeeff",
+        "user_id": "a3f8c2d1-9b4e-4f7a-8c2d-1e5f9b3a7c4e"
+      }
+    },
+    {
+      "seq": 5,
+      "delay_ms": 9800,
+      "event": "claude_complete",
+      "progress_pct": 80,
+      "user_facing_message": "Almost there. Finalising your results...",
+      "data": {
+        "analysis_id": "550e8400-e29b-41d4-a716-446655440001",
+        "session_id": "c1d2e3f4-0000-0000-0000-aabbccddeeff",
+        "user_id": "a3f8c2d1-9b4e-4f7a-8c2d-1e5f9b3a7c4e",
+        "recommendation": "hold"
+      }
+    },
+    {
+      "seq": 6,
+      "delay_ms": 1800,
+      "event": "analysis_complete",
+      "progress_pct": 100,
+      "user_facing_message": "Your analysis is ready.",
+      "_note": "Frontend auto-navigates to Results screen on this event.",
+      "data": {
+        "analysis_id": "550e8400-e29b-41d4-a716-446655440001",
+        "session_id": "c1d2e3f4-0000-0000-0000-aabbccddeeff",
+        "user_id": "a3f8c2d1-9b4e-4f7a-8c2d-1e5f9b3a7c4e",
+        "full_result_url": "/results/550e8400-e29b-41d4-a716-446655440001"
+      }
+    },
+    {
+      "seq": 13,
+      "delay_ms": 1800,
+      "event": "analysis_complete",
+      "progress_pct": 100,
+      "user_facing_message": "Your analysis is ready.",
+      "_note": "Frontend auto-navigates to Results screen on this event.",
+      "data": {
+        "analysis_id": "550e8400-e29b-41d4-a716-446655440001",
+        "session_id": "c1d2e3f4-0000-0000-0000-aabbccddeeff",
+        "user_id": "a3f8c2d1-9b4e-4f7a-8c2d-1e5f9b3a7c4e",
+        "full_result_url": "/results/550e8400-e29b-41d4-a716-446655440001"
+      }
+    }
+  ],
+
+  "error_scenario": {
+    "_notes": "Drop-in replacement for seq 4 onwards to test the error state UI. Covers the Loading_Error screen — shows Cancel + Try Again CTAs.",
+    "event": {
+      "seq": 5,
+      "delay_ms": 14000,
+      "event": "error",
+      "progress_pct": null,
+      "user_facing_message": "We couldn't read your body position clearly. Film from your side with good lighting and a clear background.",
+      "data": {
+        "analysis_id": "550e8400-e29b-41d4-a716-446655440001",
+        "session_id": "c1d2e3f4-0000-0000-0000-aabbccddeeff",
+        "user_id": "a3f8c2d1-9b4e-4f7a-8c2d-1e5f9b3a7c4e",
+        "error_code": "poor_video_quality",
+        "error_stage": "quality_gate",
+        "retryable": "false",
+        "message": "MediaPipe composite visibility score below threshold: 0.61"
+      }
+    }
+  }
+}

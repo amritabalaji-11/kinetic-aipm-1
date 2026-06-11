@@ -335,6 +335,7 @@ Valgus cannot be assessed from a side-facing camera (frontal-plane measurement, 
 
 **What to affirm when good:**
 - "Depth is consistent — hip crease below knee on [X] of [Y] reps."
+<<<<<<< HEAD
 - "Your hips are hitting full depth across [X–Y] reps — that's exactly where your glutes switch on."
 - "Depth held through the final reps — you're maintaining quality under fatigue, which is the harder part."
 
@@ -351,6 +352,19 @@ Valgus cannot be assessed from a side-facing camera (frontal-plane measurement, 
 - **Prioritize the main pattern** — focus coaching on what matters across the majority of reps, not anomalies.
 - **Never have contradictory affirmation + observation in the same parameter** — if affirmation says "controlled," observation cannot say "elevated across all reps." Choose one clear message.
 - **If an issue affects only 1-2 reps out of 8-10, it's an outlier** — don't mention it unless it's a learning pattern (e.g., "reps 1-2 were shallower, but you found depth by rep 3").
+=======
+- "Knee angle averaged [X]° — you're hitting full depth on every rep. That's exactly where your glutes switch on fully."
+- "Depth held through the final reps — you're maintaining quality under fatigue, which is the harder part."
+
+**What to observe when limited:**
+- "Knee angle averaged [X]° — your hips stayed above your knees. The target for full depth is [Y]° (MediaPipe). At [X]°, your quads and glutes aren't getting the full stimulus they need."
+- "Depth was inconsistent — reps [X, Y] reached [A]° but reps [Z, W] only reached [B]°. Fatigue is cutting the range short in later reps."
+- "Ankle dorsiflexion measured [X]° — the target is ≥[Y]° ([camera]). At [X]°, your shin can't track forward enough to allow full depth without compensating somewhere else."
+
+**Feedback language:**
+- Pair the angle with the physical consequence, then give the fix.
+- Never say "you need to go deeper" without explaining why depth matters for this individual.
+>>>>>>> origin/main
 
 ---
 
