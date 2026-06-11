@@ -3,8 +3,8 @@ import { createContext, useContext, useState } from "react"
 export const DEMO_USERS = {
   user_001: {
     id: "user_001",
-    name: "Alex",
-    initials: "AC",
+    name: "Amrita",
+    initials: "AB",
     level: "Beginner",
     levelColor: "#22c55e",
     levelBg: "#dcfce7",
@@ -24,8 +24,8 @@ export const DEMO_USERS = {
   },
   user_002: {
     id: "user_002",
-    name: "Maya",
-    initials: "MP",
+    name: "Nicole",
+    initials: "NA",
     level: "Intermediate",
     levelColor: "#8b5cf6",
     levelBg: "#ede9fe",
@@ -45,8 +45,8 @@ export const DEMO_USERS = {
   },
   user_003: {
     id: "user_003",
-    name: "Jordan",
-    initials: "JL",
+    name: "Advait",
+    initials: "AD",
     level: "Plateau · Breaker",
     levelColor: "#f59e0b",
     levelBg: "#fef3c7",

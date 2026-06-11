@@ -1,6 +1,6 @@
 import json
 
-from fastapi import APIRouter, HTTPException
+from fastapi import APIRouter, HTTPException, Header
 from db.database import db
 
 router = APIRouter()
@@ -119,6 +119,7 @@ async def get_haiku_status(analysis_id: str):
     row = await db.fetch_one(
         """
         SELECT
+            user_id,
             haiku_call_2_status,
             haiku_call_2_queued_at,
             haiku_call_2_started_at,
@@ -182,3 +183,41 @@ async def get_haiku_status(analysis_id: str):
             response["available"] = False
 
     return response
+
+
+@router.get("/form_analysis_results/{user_id}")
+async def get_user_form_analysis(user_id: str):
+    """Fetch latest 3 form analysis results for a user"""
+    results = await db.fetch_all(
+        """
+        SELECT
+            fr.analysis_id,
+            fr.overall_form_score,
+            fr.created_at,
+            fr.exercise_id,
+            fr.coaching_output,
+            fr.rep_count,
+            fr.annotated_frame_url,
+            fa.weight_kg
+        FROM form_analysis_results fr
+        JOIN form_analyses fa ON fr.analysis_id = fa.analysis_id
+        WHERE fr.user_id = :user_id
+        ORDER BY fr.created_at DESC
+        LIMIT 3
+        """,
+        {"user_id": user_id}
+    )
+
+    return [
+        {
+            "analysis_id": r["analysis_id"],
+            "score": r["overall_form_score"],
+            "date": r["created_at"],
+            "exercise": r["exercise_id"],
+            "load_kg": r["weight_kg"],
+            "rep_count": r["rep_count"],
+            "feedback": safe_json(r["coaching_output"]).get("verdict_summary", "") if r["coaching_output"] else "",
+            "image_url": r["annotated_frame_url"]
+        }
+        for r in results
+    ]

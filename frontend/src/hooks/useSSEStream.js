@@ -2,23 +2,23 @@ import { useState, useEffect, useRef } from "react"
 
 const PIPELINE_STEPS = [
   {
-    label: "Lock onto your posture...",
+    label: "Deconstructing your video into frames.",
     activeOn: ["upload_received", "mediapipe_started"],
     completeOn: "mediapipe_complete",
   },
   {
 
-    label: "Check your barbell depth...",
+    label: "Extracting joint angles & movement patterns",
     activeOn: ["biomechanics_complete"],
     completeOn: "haiku_started",
   },
   {
-    label: "Analyzing your form...",
+    label: "Analysing your movements & posture in detail.",
     activeOn: ["haiku_started"],
     completeOn: "analysis_ready",
   },
   {
-    label: "Building your coaching report...",
+    label: "Generating your coaching report",
     activeOn: ["analysis_ready"],
     completeOn: "progression_ready",
   },

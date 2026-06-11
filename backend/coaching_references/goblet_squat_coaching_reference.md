@@ -335,6 +335,24 @@ Valgus cannot be assessed from a side-facing camera (frontal-plane measurement, 
 
 **What to affirm when good:**
 - "Depth is consistent — hip crease below knee on [X] of [Y] reps."
+<<<<<<< HEAD
+- "Your hips are hitting full depth across [X–Y] reps — that's exactly where your glutes switch on."
+- "Depth held through the final reps — you're maintaining quality under fatigue, which is the harder part."
+
+**What to observe when limited:**
+- "Your hips stayed above your knees on [X] reps. The target is hips below knee level. At this height, your quads and glutes aren't getting the full stimulus they need."
+- "Depth was inconsistent — early reps [X, Y] went deeper, but later reps [Z, W] got shallower. Fatigue is cutting the range short."
+- "Your ankle mobility is limiting how far your shins can track forward, which is preventing you from reaching full depth without forward lean compensation."
+
+**Feedback language:**
+- Pair the measurement with the physical consequence, then give the fix.
+- Never say "you need to go deeper" without explaining why depth matters for this individual.
+- **Don't highlight single-rep outliers as observations** — if rep 1 is shallow but reps 2+ are good, frame it as a warm-up pattern, not a form issue.
+- **Avoid technical terms** (MediaPipe, interior angle, RC1, RC2, etc.) — use plain language (knee angle, hip position, shin angle). RC1-5 are internal reference docs, NOT user-facing language.
+- **Prioritize the main pattern** — focus coaching on what matters across the majority of reps, not anomalies.
+- **Never have contradictory affirmation + observation in the same parameter** — if affirmation says "controlled," observation cannot say "elevated across all reps." Choose one clear message.
+- **If an issue affects only 1-2 reps out of 8-10, it's an outlier** — don't mention it unless it's a learning pattern (e.g., "reps 1-2 were shallower, but you found depth by rep 3").
+=======
 - "Knee angle averaged [X]° — you're hitting full depth on every rep. That's exactly where your glutes switch on fully."
 - "Depth held through the final reps — you're maintaining quality under fatigue, which is the harder part."
 
@@ -346,6 +364,7 @@ Valgus cannot be assessed from a side-facing camera (frontal-plane measurement, 
 **Feedback language:**
 - Pair the angle with the physical consequence, then give the fix.
 - Never say "you need to go deeper" without explaining why depth matters for this individual.
+>>>>>>> origin/main
 
 ---
 

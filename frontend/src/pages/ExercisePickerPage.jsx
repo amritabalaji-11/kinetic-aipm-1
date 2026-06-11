@@ -143,7 +143,7 @@ export default function ExercisePickerPage() {
       </div>
 
       {/* CTA */}
-      <div className="fixed bottom-24 left-0 right-0 mx-auto px-5" style={{ maxWidth: 430 }}>
+      <div className="fixed left-0 right-0 mx-auto px-5" style={{ bottom: "140px", maxWidth: 430 }}>
         <button
           disabled={selected.length === 0}
           onClick={handlePick}

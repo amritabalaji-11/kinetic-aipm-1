@@ -1,9 +1,6 @@
-import { useState, useEffect } from "react"
 import { Navigate, useNavigate } from "react-router-dom"
 import { useUser, DEMO_USERS } from "../context/UserContext"
 import { Leaf, BarChart2, Rocket } from "lucide-react"
-
-const BASE_URL = import.meta.env.VITE_API_URL || "http://localhost:8000"
 
 const USER_ICONS = {
   user_001: Leaf,
@@ -92,53 +89,12 @@ function ProfileCard({ user, onSelect }) {
 function LoginPage() {
   const { activeUser, setUser } = useUser()
   const navigate = useNavigate()
-  const [users, setUsers] = useState([])
-  const [loading, setLoading] = useState(true)
-  const [error, setError] = useState(null)
 
-  useEffect(() => {
-    fetch(`${BASE_URL}/users`)
-      .then((res) => {
-        if (!res.ok) throw new Error(`Failed to load users: ${res.status}`)
-        return res.json()
-      })
-      .then((data) => {
-        setUsers(
-          data.map((user) => ({
-            id: user.user_id,
-            name: user.display_name || user.user_id,
-            initials: (user.display_name || user.user_id)
-              .split(" ")
-              .map((w) => w[0])
-              .join("")
-              .slice(0, 2),
-            level: user.level || "Member",
-            levelColor: user.level === "Intermediate" ? "#8b5cf6" : "#22c55e",
-            levelBg: user.level === "Intermediate" ? "#ede9fe" : "#dcfce7",
-            description: `${user.gender || ""}${user.gender && user.age ? " • " : ""}${user.age || "?"}`,
-            currentWeight: 0,
-            avgScore: 0,
-            progressNote: user.injury_report ? "Injury report on file" : "Active training profile",
-            progressNoteColor: user.injury_report ? "#f59e0b" : "#22c55e",
-            avatarGradient: user.user_id === "user_003" ? ["#a18cd1", "#fbc2eb"] : user.user_id === "user_002" ? ["#f093fb", "#f5576c"] : ["#4facfe", "#00f2fe"],
-            greeting: "Welcome back!",
-            focus: {
-              title: "Your focus this week",
-              advice: "Keep consistency in every set.",
-              tips: "Focus on form before adding weight.",
-            },
-          }))
-        )
-      })
-      .catch((err) => setError(err.message))
-      .finally(() => setLoading(false))
-  }, [])
-
-  if (activeUser) return <Navigate to="/" replace />
+  if (activeUser) return <Navigate to="/home" replace />
 
   const handleSelect = (userId) => {
     setUser(userId)
-    navigate("/")
+    navigate("/home")
   }
 
   return (
@@ -189,19 +145,13 @@ function LoginPage() {
 
         {/* Profile cards */}
         <div className="space-y-3">
-          {loading && (
-            <div className="text-center text-sm text-gray-500 py-8">Loading users...</div>
-          )}
-          {error && (
-            <div className="text-center text-sm text-red-500 py-4">{error}</div>
-          )}
-          {!loading && !error && (users.length > 0 ? users : Object.values(DEMO_USERS)).map((user) => (
+          {Object.values(DEMO_USERS).map((user) => (
             <ProfileCard key={user.id} user={user} onSelect={handleSelect} />
           ))}
         </div>
 
         <p className="text-center text-xs mt-6" style={{ color: "#9ca3af" }}>
-          {users.length > 0 ? "Select your profile" : "Demo Mode • No Login"}
+          Demo Mode • No Login
         </p>
       </div>
     </div>

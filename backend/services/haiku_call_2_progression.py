@@ -214,7 +214,7 @@ async def run_haiku_call_2(analysis_id: str) -> None:
                     far.overall_form_score,
                     far.posture_score,
                     far.stability_score,
-                    far.range_of_motion_score,
+                    COALESCE(far.range_of_motion_score, far.tempo_score) as range_of_motion_score,
                     far.movement_quality_score,
                     far.rep_scores,
                     far.coaching_output
@@ -244,7 +244,7 @@ async def run_haiku_call_2(analysis_id: str) -> None:
                     far.overall_form_score,
                     far.posture_score,
                     far.stability_score,
-                    far.range_of_motion_score,
+                    COALESCE(far.range_of_motion_score, far.tempo_score) as range_of_motion_score,
                     far.movement_quality_score,
                     far.rep_scores,
                     far.coaching_output
@@ -331,6 +331,10 @@ async def run_haiku_call_2(analysis_id: str) -> None:
 
 Compare these two training sessions and return coaching output.
 
+NOTE: "Range of Motion" and "Tempo" refer to the same parameter in this product —
+the field name changed from "tempo" to "range_of_motion" in recent versions.
+Treat them as the same metric when analyzing progression.
+
 CURRENT SESSION
 Overall score:    {current['overall_form_score']}
 Posture score:    {current['posture_score']}
@@ -353,10 +357,16 @@ WHAT YOU TOLD THEM TO FOCUS ON LAST SESSION
 {json.dumps(previous_focus, indent=2)}
 
 WEIGHT PROGRESSION RULES
-- hold: overall score < 75, or score dropped vs previous session
-- increase: overall score >= 80 AND score is stable or improving
-- decrease: overall score dropped significantly (8+ points vs previous)
-- target_weight_kg: suggest next logical increment (+2 kg increase, -2 kg decrease, same for hold)
+- hold: overall score < 75, or score dropped vs previous session → reason MUST start with "Maintain at X kg" or "Hold at X kg" (use current weight)
+- increase: overall score >= 80 AND score is stable or improving → reason MUST start with "Increase to X kg"
+- decrease: overall score dropped significantly (8+ points vs previous) → reason MUST start with "Decrease to X kg"
+- target_weight_kg: for hold=same weight, for increase=+2kg, for decrease=-2kg
+- CRITICAL: The reason MUST be consistent with the action and target_weight. If action=hold and target=16kg, reason MUST mention "16kg" or "current weight", NEVER suggest a different weight.
+
+For each parameter trend (posture, stability, ROM, movement quality):
+1. Compare current vs previous scores
+2. Analyze if there's improvement, decline, or no change
+3. Provide 2-3 lines of specific coaching advice based on the trend
 
 Return ONLY valid JSON matching this exact schema:
 {{
@@ -365,13 +375,13 @@ Return ONLY valid JSON matching this exact schema:
   "weight_recommendation": {{
     "action": "hold | increase | decrease",
     "target_weight_kg": 0,
-    "reason": "1 sentence explanation"
+    "reason": "MUST match the action: if hold→'Maintain at Xkg...', if increase→'Increase to Xkg...', if decrease→'Decrease to Xkg...'. NEVER suggest a weight different from target_weight_kg."
   }},
   "focus_this_week": "Single actionable recommendation for next training day",
-  "posture_trend":          "up | down | stable",
-  "stability_trend":        "up | down | stable",
-  "range_of_motion_trend":  "up | down | stable",
-  "movement_quality_trend": "up | down | stable"
+  "posture_trend":          "2-3 lines of coaching analysis on posture progression",
+  "stability_trend":        "2-3 lines of coaching analysis on stability progression",
+  "range_of_motion_trend":  "2-3 lines of coaching analysis on ROM progression",
+  "movement_quality_trend": "2-3 lines of coaching analysis on movement quality progression"
 }}"""
 
             print("[Haiku Call 2] Calling Haiku...")
@@ -430,12 +440,14 @@ Return ONLY valid JSON matching this exact schema:
                 )
             if result["progress_direction"] not in allowed_directions:
                 raise ValueError(f"Invalid progress_direction: {result['progress_direction']!r}")
+
+            # Validate trend fields are non-empty strings (coaching text, not just direction words)
             for trend_field in (
                 "posture_trend", "stability_trend",
                 "range_of_motion_trend", "movement_quality_trend",
             ):
-                if result[trend_field] not in allowed_directions:
-                    raise ValueError(f"Invalid {trend_field}: {result[trend_field]!r}")
+                if not isinstance(result[trend_field], str) or len(result[trend_field].strip()) == 0:
+                    raise ValueError(f"Invalid {trend_field}: must be non-empty string")
 
             # ── Write to progression_results ───────────────────────────────
             await db.execute(

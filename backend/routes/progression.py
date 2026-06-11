@@ -1,6 +1,6 @@
 import json
 
-from fastapi import APIRouter, HTTPException
+from fastapi import APIRouter, HTTPException, Header
 
 from db.database import db
 
@@ -91,21 +91,40 @@ async def get_progression(analysis_id: str):
         else 0
     )
 
+    # =====================================================
+    # Fetch previous session's Haiku Call 2 for focus_this_week
+    # =====================================================
     previous_next_session_focus = []
-    if previous["coaching_output"]:
-        try:
-            coaching = (
-                json.loads(previous["coaching_output"])
-                if isinstance(previous["coaching_output"], str)
-                else previous["coaching_output"]
-            )
-            
-            print("PARSED coaching_output:")
-            print(coaching)
+    previous_session_id = previous["session_id"]
 
-            previous_next_session_focus = coaching.get("next_session_focus", [])
-        except Exception:
-            pass
+    previous_haiku_call_2 = await db.fetch_one(
+        """
+        SELECT focus_this_week
+        FROM progression_results
+        WHERE session_id = :session_id
+        """,
+        values={"session_id": previous_session_id}
+    )
+
+    if previous_haiku_call_2 and previous_haiku_call_2["focus_this_week"]:
+        # focus_this_week is a string (max 120 chars), wrap in array for consistency
+        previous_next_session_focus = [previous_haiku_call_2["focus_this_week"]]
+    else:
+        # Fallback to Haiku Call 1 next_session_focus if Call 2 not available
+        if previous["coaching_output"]:
+            try:
+                coaching = (
+                    json.loads(previous["coaching_output"])
+                    if isinstance(previous["coaching_output"], str)
+                    else previous["coaching_output"]
+                )
+
+                print("PARSED coaching_output:")
+                print(coaching)
+
+                previous_next_session_focus = coaching.get("next_session_focus", [])
+            except Exception:
+                pass
 
     deltas = {
         "posture":          _safe_delta(current["posture_score"],          previous["posture_score"]),

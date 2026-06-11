@@ -2,6 +2,10 @@
 @tailwind components;
 @tailwind utilities;
 
+body {
+  font-family: 'Bricolage Grotesque', sans-serif;
+}
+
 @keyframes scanDown {
   0%   { top: 0%;   opacity: 1; }
   50%  { opacity: 0.7; }

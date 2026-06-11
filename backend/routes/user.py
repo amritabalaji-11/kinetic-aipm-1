@@ -24,6 +24,27 @@ async def list_users():
     return [dict(row) for row in rows]
 
 
+@router.get("/{user_id}/profile")
+async def get_user_profile(user_id: str):
+    profile = await db.fetch_one(
+        """
+        SELECT
+            profile_id,
+            user_id,
+            display_name,
+            annotated_frame_url
+        FROM user_profiles
+        WHERE user_id = :user_id
+        """,
+        {"user_id": user_id}
+    )
+
+    if profile is None:
+        raise HTTPException(status_code=404, detail="User not found")
+
+    return dict(profile)
+
+
 @router.get("/{user_id}/details")
 async def get_user_details(user_id: str):
     profile = await db.fetch_one(

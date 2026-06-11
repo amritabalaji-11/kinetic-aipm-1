@@ -1,635 +1,360 @@
-import { useState, useEffect } from "react"
+import { useState, useRef } from "react"
 import { useNavigate } from "react-router-dom"
-import { Upload, CheckCircle, AlertCircle, RotateCw, Check, ChevronDown, Play, X } from "lucide-react"
 import { uploadVideo } from "../services/uploadService"
-import { validateVideoFile } from "../utils/validateVideo"
 
-// ─── Muscle groups ────────────────────────────────────────────────────────────
-// Hit zones are invisible overlays — positioned to match the anatomy image.
-// Labels, SVG lines, and glow positions are untouched from original.
-const MUSCLE_GROUPS = [
-  {
-    id: "shoulders",
-    label: "SHOULDERS",
-    zone: { top: "19%", left: "37%", width: "10%", height: "7%" },
-    glow: { top: "26%", left: "37%", translateX: "0", w: "w-6", h: "h-6" },
-    marker: { x: 120, y: 60 },
-    exercises: [
-      { id: "ohp",           name: "OVERHEAD PRESS",  enabled: false },
-      { id: "lateral-raise", name: "LATERAL RAISE",   enabled: false },
-    ],
-  },
-  {
-    id: "biceps",
-    label: "BICEPS",
-    zone: { top: "26%", left: "28%", width: "22%", height: "14%" },
-    glow: { top: "30%", left: "34%", translateX: "0", w: "w-5", h: "h-12", rotate: "10deg" },
-    marker: { x: 28, y: 100 },
-    exercises: [
-      { id: "barbell-curl",  name: "BARBELL CURL",    enabled: false },
-      { id: "hammer-curl",   name: "HAMMER CURL",     enabled: false },
-    ],
-  },
-  {
-    id: "forearms",
-    label: "FOREARMS",
-    zone: { top: "33%", left: "24%", width: "22%", height: "14%" },
-    glow: { top: "35%", left: "32%", translateX: "0", w: "w-5", h: "h-12", rotate: "10deg" },
-    marker: { x: 36, y: 140 },
-    exercises: [
-      { id: "wrist-curl",    name: "WRIST CURL",      enabled: false },
-      { id: "reverse-curl",  name: "REVERSE CURL",    enabled: false },
-    ],
-  },
-  {
-    id: "chest",
-    label: "CHEST",
-    zone: { top: "22%", left: "40%", width: "28%", height: "13%" },
-    glow: { top: "26%", left: "52%", translateX: "-50%", w: "w-14", h: "h-10" },
-    marker: { x: 152, y: 120 },
-    exercises: [
-      { id: "bench-press",   name: "BENCH PRESS",     enabled: false },
-      { id: "incline-press", name: "INCLINE PRESS",   enabled: false },
-    ],
-  },
-  {
-    id: "abs",
-    label: "ABS/CORE",
-    zone: { top: "33%", left: "36%", width: "40%", height: "14%" },
-    glow: { top: "34%", left: "52%", translateX: "-50%", w: "w-16", h: "h-12" },
-    marker: { x: 152, y: 130 },
-    exercises: [
-      { id: "plank",         name: "PLANK",           enabled: false },
-      { id: "crunch",        name: "CRUNCH",          enabled: false },
-      { id: "hanging-raise", name: "HANGING LEG RAISE", enabled: false },
-    ],
-  },
-  {
-    id: "legs",
-    label: "QUADS",
-    zone: { top: "45%", left: "33%", width: "44%", height: "19%" },
-    glow: { top: "47%", left: "50%", translateX: "-50%", w: "w-20", h: "h-16" },
-    marker: { x: 132, y: 182 },
-    exercises: [
-      { id: "goblet-squat",  name: "GOBLET SQUAT",   enabled: true  },
-      { id: "barbell-squat", name: "BARBELL SQUAT",  enabled: false },
-      { id: "leg-press",     name: "LEG PRESS",      enabled: false },
-    ],
-  },
+
+const EXERCISES = {
+  QUADS: [
+    { id: "goblet-squat",  name: "GOBLET SQUAT"  },
+    { id: "barbell-squat", name: "BARBELL SQUAT"  },
+    { id: "deadlift",      name: "DEADLIFT"       },
+  ],
+  SHOULDERS: [], BICEPS: [], FOREARMS: [], CHEST: [], "ABS/CORE": [],
+}
+
+const TIPS_TITLE = {
+  "goblet-squat":  "LET'S CRUSH YOUR GOBLET SQUATS TODAY",
+  "barbell-squat": "LET'S CRUSH YOUR BARBELL SQUATS TODAY",
+  "deadlift":      "LET'S CRUSH YOUR DEADLIFTS TODAY",
+}
+
+const CAMERA_TIPS = [
+  { label: "Angle",    text: "Record directly from the side. The AI needs to see your spine and joint angles clearly." },
+  { label: "Distance", text: "Stand about 6–8 feet away so your entire body remains in the frame at the bottom of the squat." },
+  { label: "Height",   text: "Place the phone at hip/waist height. Floor angles distort the AI's depth perception." },
+  { label: "Contrast", text: "Wear clothes that contrast with your background (e.g., don't wear black leggings against a black wall)." },
 ]
 
-const MAX_FILE_SIZE_MB    = 500
-const ACCEPTED_FORMATS    = [
-  "video/mp4",
-  "video/quicktime",
-  "video/x-msvideo",
-  "video/avi",
-  "video/msvideo",
-  "video/webm",
-]
-const ACCEPTED_EXTENSIONS = ".mp4, .mov, .avi, .webm"
+const MAX_FILE_SIZE_MB = 500
+const ACCEPTED_FORMATS = ["video/mp4", "video/quicktime", "video/webm"]
 
-const MIN_WEIGHT  = 0
-const MAX_WEIGHT  = 200
-const WEIGHT_STEP = 0.5
+export default function UploadScanPage() {
+  const navigate     = useNavigate()
+  const videoRef     = useRef(null)
+  const fileInputRef = useRef(null)
 
+  const [selectedMuscle,    setSelectedMuscle]    = useState(null)
+  const [selectedExercise,  setSelectedExercise]  = useState(null)
+  const [videoFile,         setVideoFile]         = useState(null)
+  const [videoPreviewUrl,   setVideoPreviewUrl]   = useState(null)
+  const [isPlaying,         setIsPlaying]         = useState(false)
+  const [weight,            setWeight]            = useState(0)
+  const [unit,              setUnit]              = useState("kg")
+  const [fileError,         setFileError]         = useState("")
+  const [isUploading,       setIsUploading]       = useState(false)
+  const [uploadError,       setUploadError]       = useState("")
+  const [showSuccessToast,  setShowSuccessToast]  = useState(false)
 
-function UploadScanPage() {
-  const navigate = useNavigate()
+  const maxWeight    = unit === "kg" ? 200 : 440
+  const isFormValid  = selectedExercise && videoFile && !fileError && weight > 0
+  const exerciseList = selectedMuscle ? (EXERCISES[selectedMuscle] || []) : []
+  const tipsTitle    = selectedExercise ? TIPS_TITLE[selectedExercise] : null
 
-  const [selectedGroup,   setSelectedGroup]   = useState(null)
-  const [exercise,        setExercise]        = useState("")
-  const [weight,          setWeight]          = useState(0)
-  const [videoFile,       setVideoFile]       = useState(null)
-  const [videoPreviewUrl, setVideoPreviewUrl] = useState(null)
-  const [weightTouched,   setWeightTouched]   = useState(false)
-  const [validationError, setValidationError] = useState(null)
-  const [isValidating,    setIsValidating]    = useState(false)
-  const [tipsExpanded,    setTipsExpanded]    = useState(true)
-  const [unit,            setUnit]            = useState("kg")
-  const [formAlert,       setFormAlert]       = useState("")
-  const [isUploading,     setIsUploading]     = useState(false)
-  const [uploadError,     setUploadError]     = useState(null)
-
-const maxWeightForUnit  = unit === "kg" ? MAX_WEIGHT : 440
-const isWeightValid     = weight > 0
-const isFormValid       = exercise && isWeightValid && videoFile && !validationError && !isValidating
-const showWeightError   = weightTouched && !isWeightValid
-
-const activeGroup      = MUSCLE_GROUPS.find((g) => g.id === selectedGroup)
-const visibleExercises = activeGroup?.exercises ?? []
-
-const highlightedMuscle =
-  selectedGroup === "legs" ||
-  exercise === "goblet-squat" ||
-  exercise === "barbell-squat"
-    ? "quads"
-    : selectedGroup ?? null
-
-  useEffect(() => {
-    if (isFormValid) setFormAlert("")
-  }, [isFormValid])
-
-  useEffect(() => {
-    if (!selectedGroup) return
-  
-    const ids = activeGroup?.exercises.map((e) => e.id) || []
-  
-    if (exercise && !ids.includes(exercise)) {
-      setExercise("")
-    }
-  }, [selectedGroup])
-  
-  function handleMuscleGroupClick(groupId) {
-    setSelectedGroup((prev) => (prev === groupId ? null : groupId))
-  }
-  
-  async function handleFileChange(e) {
-    const file = e.target.files[0]
+  function handleFileChange(e) {
+    const file = e.target.files?.[0]
     if (!file) return
-  
-    setValidationError(null)
-    setVideoFile(null)
-    setVideoPreviewUrl(null)
-    setIsValidating(true)
-  
-    const error = await validateVideoFile(file)
-  
-    setIsValidating(false)
-  
-    if (error) {
-      setValidationError(error)
-      return
+    setFileError("")
+    if (!ACCEPTED_FORMATS.includes(file.type)) {
+      setFileError("Unsupported format. Please upload MP4, MOV or WebM.")
+      setVideoFile(null); setVideoPreviewUrl(null); return
     }
-  
+    if (file.size / (1024 * 1024) > MAX_FILE_SIZE_MB) {
+      setFileError("File too large. Max " + MAX_FILE_SIZE_MB + " MB.")
+      setVideoFile(null); setVideoPreviewUrl(null); return
+    }
     setVideoFile(file)
     setVideoPreviewUrl(URL.createObjectURL(file))
-  }
-
-  function handleWeightSliderChange(e) {
-    setWeight(Number(e.target.value))
-    setWeightTouched(true)
-  }
-
-  function handleWeightInputChange(e) {
-    const val = e.target.value
-    if (val === "") { setWeight(0); return }
-    const num = Number(val)
-    if (!isNaN(num) && num >= MIN_WEIGHT && num <= maxWeightForUnit) setWeight(num)
+    setShowSuccessToast(true)
   }
 
   async function handleSubmit() {
-    if (!isFormValid) {
-      const parts = []
-      if (!exercise)        parts.push("select an exercise")
-      if (!videoFile)       parts.push("upload a video")
-      if (!isWeightValid)   parts.push("set weight greater than 0")
-      if (validationError)  parts.push("fix the file error above")
-      setFormAlert(`Before starting: ${parts.join(", ")}.`)
-      setWeightTouched(true)
-      return
-    }
-
-    setFormAlert("")
-    setUploadError(null)
-    setIsUploading(true)
-
+    if (!isFormValid) return
+    setUploadError(""); setIsUploading(true)
     try {
-      const analysisId = await uploadVideo(videoFile, exercise, weight, unit)
-      navigate("/upload/loading", {
-        state: { analysisId, videoPreviewUrl },
-      })
+      const analysisId = await uploadVideo(videoFile, selectedExercise, weight, unit)
+      navigate("/upload/loading", { state: { analysisId, videoPreviewUrl } })
     } catch (err) {
-      setUploadError({
-        type: err.code === "UPLOAD_TIMEOUT" ? "UPLOAD_TIMEOUT" : "UPLOAD_FAILED",
-        message: err.message || "Upload failed. Please try again.",
-      })
+      setUploadError(err.message || "Upload failed. Please try again.")
       setIsUploading(false)
     }
   }
 
+  const NAV_ITEMS = [
+    { label: "Home",     icon: "M3 12l2-2m0 0l7-7 7 7M5 10v10a1 1 0 001 1h3m10-11l2 2m-2-2v10a1 1 0 01-1 1h-3m-6 0a1 1 0 001-1v-4a1 1 0 011-1h2a1 1 0 011 1v4a1 1 0 001 1m-6 0h6", path: "/" },
+    { label: "Plan",     icon: "M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z", path: "/plan" },
+    { label: "Anaylsis", icon: "M15 10l4.553-2.069A1 1 0 0121 8.82v6.36a1 1 0 01-1.447.894L15 14M3 8a2 2 0 012-2h8a2 2 0 012 2v8a2 2 0 01-2 2H5a2 2 0 01-2-2V8z", path: "/upload", active: true },
+    { label: "Timeline", icon: "M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z", path: "/timeline" },
+    { label: "Profile",  icon: "M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z", path: "/profile" },
+  ]
+
   return (
-    <div className="min-h-screen bg-light-bg text-text-primary p-4">
-      <div className="max-w-md mx-auto space-y-4">
+    <div className="min-h-screen pb-24" style={{ backgroundColor: "#F0EFFE", colorScheme: "light" }}>
+      <div className="max-w-sm mx-auto px-4 pt-6">
 
-        <section className="border-2 border-dashed border-blue-300/60 rounded-xl p-4 bg-light-card shadow-sm">
+        <h1 className="text-xl font-bold text-gray-900 mb-4">Select Target Muscle</h1>
 
-          <p className="text-xs text-text-teritary text-center mb-3">
-            {selectedGroup
-              ? `${activeGroup.label} selected — choose an exercise below`
-              : "Tap a muscle group to get started"}
-          </p>
+        {/* Body diagram + Exercise Module */}
+        <div className="rounded-2xl mb-4 overflow-hidden" style={{ border: "1.5px dashed #93c5fd", background: "white" }}>
 
-          <div className="relative flex justify-center mb-6">
-            <div
-              className="relative w-80 rounded-lg overflow-hidden"
-              style={{
-                aspectRatio: '2/3',
-                backgroundImage: "url('/muscular_model.png')",
-                backgroundSize: '72% auto',
-                backgroundPosition: 'center center',
-                backgroundRepeat: 'no-repeat',
-                backgroundColor: '#ffffff',
-              }}
-            >
-              {MUSCLE_GROUPS.map((group) => (
-                <button
-                  key={group.id}
-                  type="button"
-                  onClick={() => handleMuscleGroupClick(group.id)}
-                  aria-label={`Select ${group.label}`}
-                  style={{
-                    position: "absolute",
-                    top: group.zone.top,
-                    left: group.zone.left,
-                    width: group.zone.width,
-                    height: group.zone.height,
-                    background: "transparent",
-                    border: "none",
-                    cursor: "pointer",
-                    zIndex: 10,
-                  }}
-                />
-              ))}
-
-              {/* ── Blur glow — shown for active muscle group ── */}
-              {activeGroup && (
-                <div
-                  className={`absolute ${activeGroup.glow.w} ${activeGroup.glow.h} bg-blue-400/40 blur-sm rounded-full pointer-events-none`}
-                  style={{
-                    top: activeGroup.glow.top,
-                    left: activeGroup.glow.left,
-                    transform: `translateX(${activeGroup.glow.translateX})${activeGroup.glow.rotate ? ` rotate(${activeGroup.glow.rotate})` : ""}`,
-                    zIndex: 5,
-                  }}
-                />
-              )}
-
-              <svg
-                className="absolute inset-0 w-full h-full pointer-events-none"
-                viewBox="0 0 192 288"
-                preserveAspectRatio="xMidYMid meet"
-                style={{ zIndex: 15 }}
-              >
-
-                <line x1="78" y1="80" x2="57" y2="63"
-                  stroke={selectedGroup === "shoulders" ? "#3b82f6" : "#1d2d3e"}
-                  strokeOpacity={selectedGroup === "shoulders" ? "0.9" : "0.4"} strokeWidth="1" />
-                <line x1="75" y1="97" x2="37" y2="97"
-                  stroke={selectedGroup === "biceps" ? "#3b82f6" : "#1d2d3e"}
-                  strokeOpacity={selectedGroup === "biceps" ? "0.9" : "0.4"} strokeWidth="1" />
-                <line x1="67" y1="118" x2="50" y2="113"
-                  stroke={selectedGroup === "forearms" ? "#3b82f6" : "#1d2d3e"}
-                  strokeOpacity={selectedGroup === "forearms" ? "0.9" : "0.4"} strokeWidth="1" />
-                <line x1="83" y1="150" x2="37" y2="192"
-                  stroke={highlightedMuscle === "quads" ? "#3b82f6" : "#1d2d3e"}
-                  strokeOpacity={highlightedMuscle === "quads" ? "0.9" : "0.4"} strokeWidth="1" />
-                <line x1="104" y1="90" x2="150" y2="97"
-                  stroke={selectedGroup === "chest" ? "#3b82f6" : "#1d2d3e"}
-                  strokeOpacity={selectedGroup === "chest" ? "0.9" : "0.4"} strokeWidth="1" />
-                <line x1="95" y1="118" x2="135" y2="118"
-                  stroke={selectedGroup === "abs" ? "#3b82f6" : "#1d2d3e"}
-                  strokeOpacity={selectedGroup === "abs" ? "0.9" : "0.4"} strokeWidth="1" />
-                <text x="6" y="60" textAnchor="start" fontSize="8" fill={selectedGroup === "shoulders" ? "#3b82f6" : "#1d2d3e"} fontWeight={selectedGroup === "shoulders" ? 700 : 500}>SHOULDERS</text>
-                <text x="6" y="100" textAnchor="start" fontSize="8" fill={selectedGroup === "biceps" ? "#3b82f6" : "#1d2d3e"} fontWeight={selectedGroup === "biceps" ? 700 : 500}>BICEPS</text>
-                <text x="6" y="115" textAnchor="start" fontSize="8" fill={selectedGroup === "forearms" ? "#3b82f6" : "#1d2d3e"} fontWeight={selectedGroup === "forearms" ? 700 : 500}>FOREARMS</text>
-                <text x="6" y="200" textAnchor="start" fontSize="8" fill={highlightedMuscle === "quads" ? "#3b82f6" : "#1d2d3e"} fontWeight={highlightedMuscle === "quads" ? 700 : 500}>QUADS</text>
-                <text x="180" y="100" textAnchor="end" fontSize="8" fill={selectedGroup === "chest" ? "#3b82f6" : "#1d2d3e"} fontWeight={selectedGroup === "chest" ? 700 : 500}>CHEST</text>
-                <text x="180" y="120" textAnchor="end" fontSize="8" fill={selectedGroup === "abs" ? "#3b82f6" : "#1d2d3e"} fontWeight={selectedGroup === "abs" ? 700 : 500}>ABS/CORE</text>
+          <div className="relative p-4 pb-8">
+            {selectedMuscle && (
+              <div className="absolute top-6 left-4 z-10">
+                <span className="inline-block px-3 py-1.5 rounded-full text-xs font-bold text-white tracking-widest"
+                  style={{ background: "linear-gradient(135deg, #6366F1 0%, #7C3AED 100%)", boxShadow: "0 4px 12px rgba(99, 102, 241, 0.4)" }}>
+                  {selectedMuscle} SELECTED
+                </span>
+              </div>
+            )}
+            <div style={{
+              position: "relative",
+              padding: "4px",
+              borderRadius: "12px",
+              border: selectedMuscle ? "3px solid #7C3AED" : "3px solid transparent",
+              background: selectedMuscle ? "linear-gradient(135deg, rgba(124, 58, 237, 0.1) 0%, rgba(147, 71, 255, 0.1) 100%)" : "transparent",
+              transition: "all 0.3s ease",
+            }}>
+              <img
+                src="/muscular_quads.png"
+                alt="Body diagram"
+                className="w-full object-contain"
+                style={{
+                  maxHeight: 300,
+                  filter: selectedMuscle === "QUADS" ? "none" : "saturate(0)",
+                  transition: "filter 0.3s ease",
+                  borderRadius: "8px",
+                }}
+                onError={e => { e.currentTarget.src = "/muscular_model2.png" }}
+              />
+            </div>
+            <button type="button" aria-label="SHOULDERS" className="absolute" style={{ left: "2%", top: "8%",    width: "38%", height: "14%", opacity: 0 }} onClick={() => { setSelectedMuscle(selectedMuscle === "SHOULDERS" ? null : "SHOULDERS"); setSelectedExercise(null) }} />
+            <button type="button" aria-label="BICEPS"    className="absolute" style={{ left: "2%", top: "24%",   width: "30%", height: "12%", opacity: 0 }} onClick={() => { setSelectedMuscle(m => m === "BICEPS"    ? null : "BICEPS");    setSelectedExercise(null) }} />
+            <button type="button" aria-label="FOREARMS"  className="absolute" style={{ left: "2%", top: "38%",   width: "34%", height: "12%", opacity: 0 }} onClick={() => { setSelectedMuscle(m => m === "FOREARMS"  ? null : "FOREARMS");  setSelectedExercise(null) }} />
+            <button type="button" aria-label="QUADS"     className="absolute" style={{ left: "2%", bottom: "20%", width: "46%", height: "22%", opacity: 0 }} onClick={() => { setSelectedMuscle(m => m === "QUADS"     ? null : "QUADS");     setSelectedExercise(null) }} />
+            <button type="button" aria-label="CHEST"     className="absolute" style={{ right: "2%", top: "14%",  width: "32%", height: "14%", opacity: 0 }} onClick={() => { setSelectedMuscle(m => m === "CHEST"     ? null : "CHEST");     setSelectedExercise(null) }} />
+            <button type="button" aria-label="ABS/CORE"  className="absolute" style={{ right: "2%", top: "30%",  width: "36%", height: "14%", opacity: 0 }} onClick={() => { setSelectedMuscle(m => m === "ABS/CORE"  ? null : "ABS/CORE");  setSelectedExercise(null) }} />
+            <button type="button" className="absolute bottom-1 right-4 text-gray-400" aria-label="Rotate">
+              <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                <path strokeLinecap="round" strokeLinejoin="round" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
               </svg>
-            </div>
-
-            <button
-              type="button"
-              className="absolute bottom-0 right-0 text-text-teritary hover:text-text-primary"
-              aria-label="Rotate view"
-            >
-              <RotateCw size={20} />
             </button>
           </div>
 
-          <div className="flex items-center justify-between mb-3">
-            <h2 className="text-xs uppercase tracking-wider text-text-teritary">
-              {selectedGroup ? `${activeGroup.label} — Exercise Module` : "Exercise Module"}
-            </h2>
-            <button type="button" className="text-text-disabled hover:text-text-teritary" aria-label="View options">
-              <ChevronDown size={14} />
-            </button>
-          </div>
-
-          {!selectedGroup ? (
-            <div className="text-xs text-text-teritary text-center py-4 border border-dashed border-gray-200 rounded-lg">
-              Select a muscle group above to see exercises
-            </div>
-          ) : (
-            <div className="space-y-2">
-              {visibleExercises.map((ex) => {
-                const isSelected = exercise === ex.id
-                return (
-                  <button
-                    key={ex.id}
-                    type="button"
-                    onClick={() => ex.enabled && setExercise(ex.id)}
-                    disabled={!ex.enabled}
-                    className={`w-full flex items-center justify-between px-4 py-3 rounded-lg border text-sm font-medium tracking-wide transition-colors ${
-                      isSelected
-                        ? "border-blue-500 text-text-primary bg-blue-500/15"
-                        : ex.enabled
-                        ? "border-gray-200 text-text-primary hover:border-gray-300 bg-white"
-                        : "border-gray-100 text-text-disabled cursor-not-allowed bg-white"
-                    }`}
-                  >
-                    <span className="flex items-center gap-2">
-                      <span className="w-4 h-4 rounded-sm bg-gray-100" />
-                      {ex.name}
-                    </span>
-                    {!ex.enabled && (
-                      <span className="text-[10px] text-text-disabled uppercase tracking-wider">Soon</span>
-                    )}
-                    {isSelected && (
-                      <span className="w-5 h-5 rounded-full bg-blue-500 flex items-center justify-center">
-                        <Check size={14} className="text-text-primary" />
-                      </span>
-                    )}
-                  </button>
-                )
-              })}
-            </div>
-          )}
-        </section>
-
-        {!videoFile && <section className="border-2 border-dashed border-blue-300/60 rounded-xl p-4 bg-light-card shadow-sm">
-          <button
-            type="button"
-            onClick={() => setTipsExpanded((v) => !v)}
-            className="w-full flex items-center justify-between mb-3"
-          >
-            <h2 className="text-sm font-semibold text-text-primary">Tips for the video upload</h2>
-            <span className="text-error text-lg leading-none">{tipsExpanded ? "—" : "+"}</span>
-          </button>
-
-          {tipsExpanded && (
-            <>
-              <div className="mb-3">
-                <img
-                  src="/goblet_squat.png"
-                  alt="Correct vs incorrect squat form reference"
-                  className="w-full aspect-video object-contain rounded-md"
-                  onError={(e) => { e.currentTarget.style.display = "none" }}
-                />
-              </div>
-              <ul className="text-xs text-text-secondary space-y-1.5 list-disc list-inside leading-relaxed">
-                <li><strong>Angle</strong>: Record directly from the side. The AI needs to see your spine and joint angles clearly.</li>
-                <li><strong>Distance</strong>: Stand about 6–8 feet away so your entire body stays in frame at the bottom of the squat.</li>
-                <li><strong>Height</strong>: Place the phone at hip/waist height. Floor angles distort the AI's depth perception.</li>
-                <li><strong>Contrast</strong>: Wear clothes that contrast with your background (e.g., don't wear black leggings against a black wall).</li>
-              </ul>
-            </>
-          )}
-        </section>}
-
-        <section>
-          <h2 className="text-base font-semibold text-text-primary mb-3">Upload Session Video</h2>
-
-          {videoPreviewUrl ? (
-            <div className="relative rounded-xl overflow-hidden bg-light-card border border-gray-200 shadow-sm">
-              <video src={videoPreviewUrl} className="w-full aspect-video object-cover" muted playsInline />
-              <div className="absolute inset-0 flex items-center justify-center bg-black/20">
-                <button
-                  type="button"
-                  onClick={(e) => {
-                    const vid = e.currentTarget.closest("div").querySelector("video")
-                    if (vid.paused) vid.play(); else vid.pause()
-                  }}
-                  className="w-14 h-14 rounded-full bg-blue-500 flex items-center justify-center hover:scale-105 transition-transform shadow-lg"
-                  aria-label="Play video preview"
-                >
-                  <Play size={24} className="text-text-primary ml-1" fill="currentColor" />
-                </button>
-              </div>
-              <button
-                type="button"
-                onClick={() => document.getElementById("video-upload").click()}
-                className="absolute top-2 right-2 px-3 py-1 bg-white/90 text-text-primary text-xs rounded-md hover:bg-white shadow"
-              >
-                Change
-              </button>
-            </div>
-          ) : (
-            <div className="border-2 border-dashed border-blue-300/60 rounded-xl p-6 bg-light-card text-center shadow-sm">
-              <Upload size={36} className="text-text-teritary mx-auto mb-3" />
-              <p className="text-sm font-medium text-text-primary mb-1">Upload Video</p>
-              <p className="text-xs text-text-teritary mb-4">MP4, MOV or AVI · max {MAX_FILE_SIZE_MB} MB</p>
-              <button
-                type="button"
-                onClick={() => document.getElementById("video-upload").click()}
-                className="px-4 py-2 bg-gray-100 hover:bg-gray-200 text-text-primary text-sm rounded-lg transition-colors"
-              >
-                Upload Video
-              </button>
-            </div>
-          )}
-
-          <input
-            id="video-upload"
-            type="file"
-            accept="video/mp4,video/quicktime,video/x-msvideo,video/avi,.mp4,.mov,.avi"
-            onChange={handleFileChange}
-            className="hidden"
-          />
-
-          {videoFile && !validationError && (
-            <p className="text-xs text-text-teritary mt-2 flex items-center gap-1">
-              <CheckCircle size={12} className="text-success" />
-              {videoFile.name} · {(videoFile.size / (1024 * 1024)).toFixed(1)} MB
-            </p>
-          )}
-
-{isValidating && (
-  <p className="text-xs text-text-teritary mt-2 flex items-center gap-1">
-    <span className="inline-block w-3 h-3 rounded-full border-2 border-blue-500 border-t-transparent animate-spin" />
-    Checking file…
-  </p>
-)}
-
-          {validationError && (
-            <div role="alert" className="mt-2 rounded-lg border border-red-200 bg-red-50 p-3">
-              <div className="flex items-start gap-2">
-                <AlertCircle size={14} className="mt-0.5 shrink-0 text-error" />
-                <p className="flex-1 text-xs text-error leading-relaxed">{validationError.message}</p>
-                <button
-                  type="button"
-                  aria-label="Dismiss"
-                  onClick={() => { setValidationError(null); setVideoFile(null); setVideoPreviewUrl(null) }}
-                  className="shrink-0 text-error hover:text-red-700"
-                >
-                  <X size={14} />
-                </button>
-              </div>
-              <div className="mt-2 flex gap-3">
-                <button
-                  type="button"
-                  onClick={() => { setValidationError(null); setVideoFile(null); setVideoPreviewUrl(null) }}
-                  className="text-xs text-text-teritary underline hover:text-text-primary"
-                >
-                  Dismiss
-                </button>
-                {(validationError.type === "FILE_TOO_LARGE" || validationError.type === "FORMAT_UNSUPPORTED") && (
-                  <button
-                    type="button"
-                    onClick={() => {
-                      const input = document.getElementById("video-upload")
-                      input.value = ""
-                      input.click()
-                    }}
-                    className="text-xs font-medium text-blue-500 underline hover:brightness-90"
-                  >
-                    Re-select file
-                  </button>
+          <div style={{ background: "linear-gradient(135deg, #e0e7ff 0%, #ede9fe 100%)" }} className="px-4 pt-3 pb-4">
+            <div className="flex items-center justify-between mb-3">
+              <div className="flex items-center gap-2">
+                <span className="text-[11px] font-bold text-gray-600 tracking-widest uppercase">Exercise Module</span>
+                {selectedMuscle && (
+                  <span className="px-2.5 py-1 rounded-full text-xs font-bold text-white tracking-wide"
+                    style={{ background: "linear-gradient(135deg, #7C3AED 0%, #9333EA 100%)" }}>
+                    {selectedMuscle}
+                  </span>
                 )}
               </div>
+              <svg className="w-4 h-4 text-gray-400" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2}>
+                <rect x="3" y="3" width="7" height="7" rx="1"/><rect x="14" y="3" width="7" height="7" rx="1"/>
+                <rect x="3" y="14" width="7" height="7" rx="1"/><rect x="14" y="14" width="7" height="7" rx="1"/>
+              </svg>
             </div>
-          )}
-        </section>
+            {exerciseList.length === 0 ? (
+              <div className="bg-white rounded-xl px-4 py-3">
+                <span className="text-sm text-gray-400">Select Target Muscle</span>
+              </div>
+            ) : (
+              <div className="space-y-2">
+                {exerciseList.map(ex => {
+                  const sel = selectedExercise === ex.id
+                  return (
+                    <button
+                      key={ex.id}
+                      type="button"
+                      onClick={() => setSelectedExercise(ex.id)}
+                      className="w-full flex items-center justify-between px-4 py-3 rounded-xl text-sm font-semibold tracking-wide bg-white transition-all"
+                      style={{ border: sel ? "2px solid #3b82f6" : "2px solid transparent" }}
+                    >
+                      <span className="flex items-center gap-3 text-gray-900">
+                        <span>🏋️</span>
+                        <span>{ex.name}</span>
+                      </span>
+                      {sel && (
+                        <span className="w-6 h-6 rounded-full flex items-center justify-center flex-shrink-0" style={{ background: "#3b82f6" }}>
+                          <svg className="w-3.5 h-3.5 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={3}>
+                            <path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" />
+                          </svg>
+                        </span>
+                      )}
+                    </button>
+                  )
+                })}
+                <button type="button" className="w-full px-4 py-3 rounded-xl bg-white text-sm text-gray-400 font-medium">
+                  VIEW MORE
+                </button>
+              </div>
+            )}
+          </div>
+        </div>
 
-        <section className="rounded-2xl p-4 bg-white shadow-sm border border-gray-100">
-          <div className="flex items-center justify-between mb-4">
-            <span className="text-sm font-semibold text-text-primary">Load Parameters</span>
-            <div className="flex bg-gray-100 rounded-full p-0.5 text-xs">
-              {["kg", "lbs"].map((u) => (
+        {/* Tips */}
+        {tipsTitle && (
+          <div className="bg-white rounded-2xl p-4 mb-4 shadow-sm border border-gray-100">
+            <div className="flex items-center justify-between mb-3">
+              <span className="text-sm font-semibold text-gray-900">Tips for the video upload</span>
+              <div className="w-6 h-0.5 bg-blue-400" />
+            </div>
+            <p className="text-[11px] font-bold text-gray-700 tracking-wide text-center mb-3">{tipsTitle}</p>
+            <img src="/angle.png" alt="Form reference" className="w-full rounded-lg mb-3 object-contain max-h-44" onError={e => { e.currentTarget.style.display = "none" }} />
+            <ul className="space-y-1.5">
+              {CAMERA_TIPS.map(tip => (
+                <li key={tip.label} className="text-xs text-gray-600 leading-relaxed">
+                  <span className="font-semibold">{tip.label}: </span>{tip.text}
+                </li>
+              ))}
+            </ul>
+          </div>
+        )}
+
+        {/* Upload Session Video */}
+        <h2 className="text-xl font-bold text-gray-900 mb-3">Upload Session Video</h2>
+        {videoPreviewUrl ? (
+          <div className="relative rounded-2xl overflow-hidden mb-4" style={{ border: "1.5px dashed #93c5fd" }}>
+            <video
+              ref={videoRef}
+              src={videoPreviewUrl}
+              className="w-full cursor-pointer"
+              style={{ display: "block" }}
+              muted
+              playsInline
+              onPlay={() => setIsPlaying(true)}
+              onPause={() => setIsPlaying(false)}
+              onEnded={() => setIsPlaying(false)}
+              onClick={() => {
+                if (!videoRef.current) return
+                videoRef.current.paused ? videoRef.current.play() : videoRef.current.pause()
+              }}
+            />
+            <div className="absolute inset-0 flex items-center justify-center pointer-events-none">
+              {!isPlaying && (
                 <button
-                  key={u}
                   type="button"
-                  onClick={() => { setUnit(u); setWeight(0); setWeightTouched(false) }}
-                  className={`px-3 py-1 rounded-full transition-colors uppercase font-medium ${
-                    unit === u ? "bg-blue-500 text-text-primary shadow-sm" : "text-text-teritary"
-                  }`}
+                  className="w-14 h-14 rounded-full flex items-center justify-center pointer-events-auto"
+                  style={{ background: "rgba(0,0,0,0.45)", border: "2px solid #14b8a6" }}
+                  onClick={() => { if (videoRef.current) videoRef.current.play() }}
                 >
-                  {u}
+                  <svg className="w-6 h-6 ml-1" fill="#14b8a6" viewBox="0 0 24 24"><path d="M8 5v14l11-7z" /></svg>
+                </button>
+              )}
+            </div>
+            {showSuccessToast && (
+              <div className="absolute bottom-3 left-3 flex items-center gap-2 px-3 py-2 rounded-full"
+                style={{ background: "rgba(20,20,20,0.85)" }}>
+                <span className="w-5 h-5 rounded-full flex items-center justify-center shrink-0" style={{ background: "#22c55e" }}>
+                  <svg className="w-3 h-3" fill="none" viewBox="0 0 24 24" stroke="white" strokeWidth={3}>
+                    <path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" />
+                  </svg>
+                </span>
+                <span className="text-white text-sm font-semibold">Successful</span>
+                <button type="button" onClick={() => setShowSuccessToast(false)} className="text-gray-400 text-sm ml-1">✕</button>
+              </div>
+            )}
+            <button
+              type="button"
+              onClick={() => {
+                setVideoFile(null)
+                setVideoPreviewUrl(null)
+                setIsPlaying(false)
+                setShowSuccessToast(false)
+                if (fileInputRef.current) fileInputRef.current.value = ""
+              }}
+              className="absolute top-2 right-2 w-7 h-7 rounded-full flex items-center justify-center text-white text-sm font-bold"
+              style={{ background: "rgba(0,0,0,0.55)" }}
+            >✕</button>
+          </div>
+        ) : (
+          <div className="rounded-2xl p-8 text-center mb-4" style={{ background: "linear-gradient(135deg, #ddd6fe 0%, #e0e7ff 100%)", border: "1.5px dashed #93c5fd" }}>
+            <div className="w-14 h-14 rounded-full bg-white flex items-center justify-center mx-auto mb-3 shadow-sm">
+              <svg className="w-7 h-7 text-gray-500" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                <path strokeLinecap="round" strokeLinejoin="round" d="M7 16a4 4 0 01-.88-7.903A5 5 0 1115.9 6L16 6a5 5 0 011 9.9M15 13l-3-3m0 0l-3 3m3-3v12" />
+              </svg>
+            </div>
+            <p className="text-sm font-bold text-gray-800 mb-1">Upload Video</p>
+            <p className="text-xs text-gray-500 mb-4">Supports high-quality files.</p>
+            <button
+              type="button"
+              onClick={() => fileInputRef.current?.click()}
+              className="flex items-center gap-2 mx-auto px-5 py-2 rounded-lg text-sm font-semibold text-white"
+              style={{ background: "#1f2937" }}
+            >
+              <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                <path strokeLinecap="round" strokeLinejoin="round" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-8l-4-4m0 0L8 8m4-4v12" />
+              </svg>
+              Upload Video
+            </button>
+          </div>
+        )}
+        <input ref={fileInputRef} type="file" accept="video/mp4,video/quicktime,video/webm" onChange={handleFileChange} className="hidden" />
+        {fileError && <p className="text-xs text-red-500 mb-3">{fileError}</p>}
+
+        {/* Load Parameters */}
+        <div className="bg-white rounded-2xl p-4 mb-4 shadow-sm border border-gray-100">
+          <div className="flex items-center justify-between mb-3">
+            <span className="text-sm font-semibold text-gray-700">Load Parameters</span>
+            <div className="flex rounded-full overflow-hidden border border-indigo-200 text-xs font-semibold">
+              {[["Kg","kg"],["Lbs","lbs"]].map(([label, val]) => (
+                <button key={val} type="button" onClick={() => { setUnit(val); setWeight(0) }}
+                  className="px-3 py-1 transition-colors"
+                  style={{ background: unit === val ? "#3b82f6" : "white", color: unit === val ? "white" : "#6b7280" }}>
+                  {label}
                 </button>
               ))}
             </div>
           </div>
-
-          <div className="flex items-center justify-between mb-2">
-            <span className="text-xs font-semibold uppercase tracking-widest text-text-teritary">Weight</span>
-            <div className="flex items-baseline gap-1">
-              <input
-                type="number"
-                inputMode="numeric"
-                min={MIN_WEIGHT}
-                max={maxWeightForUnit}
-                step={WEIGHT_STEP}
-                value={weight === 0 ? "" : weight}
-                placeholder="0"
-                onChange={handleWeightInputChange}
-                onBlur={() => setWeightTouched(true)}
-                className="w-24 bg-transparent text-right text-4xl text-text-primary font-bold focus:outline-none"
-              />
-              <span className="text-sm text-text-teritary uppercase font-semibold">{unit}</span>
-            </div>
+          <div className="flex items-baseline justify-between mb-3">
+            <span className="text-sm font-bold text-gray-700 uppercase tracking-wide">Weight</span>
+            <span className="text-2xl font-bold text-gray-900">
+              {weight} <span className="text-sm font-semibold text-gray-500 uppercase">{unit}</span>
+            </span>
           </div>
+          <input type="range" min={0} max={maxWeight} step={0.5} value={weight}
+            onChange={e => setWeight(Number(e.target.value))} className="w-full" style={{ accentColor: "#6366f1" }} />
+          <div className="flex justify-between mt-1 px-1">
+            {[0,1,2,3,4].map(i => <div key={i} className="w-px h-1.5 bg-gray-300" />)}
+          </div>
+        </div>
 
-          <input
-            type="range"
-            min={MIN_WEIGHT}
-            max={maxWeightForUnit}
-            step={WEIGHT_STEP}
-            value={weight}
-            onChange={handleWeightSliderChange}
-            className="w-full accent-blue-500 h-1 rounded-full"
-          />
-
-          {showWeightError && (
-            <p className="text-xs text-error mt-2 flex items-center gap-1">
-              <AlertCircle size={14} />
-              Weight must be greater than 0
-            </p>
-          )}
-        </section>
-
+        {/* Start Analysis */}
         <button
           type="button"
           onClick={handleSubmit}
-          disabled={isUploading || isValidating}
-          className={`w-full h-16 rounded-2xl font-bold text-base tracking-widest transition-all flex items-center justify-center gap-3 shadow-lg ${
-            isFormValid && !isUploading && !isValidating
-              ? "bg-gradient-to-r from-[#6c63ff] via-[#5b9cf6] to-[#3b82f6] text-white hover:brightness-105"
-              : "bg-gray-100 text-text-secondary border border-gray-200"
-          }`}
+          disabled={isUploading}
+          className="w-full py-4 rounded-2xl text-sm font-bold tracking-widest uppercase mb-2"
+          style={{
+            background: isFormValid ? "linear-gradient(135deg, #0284C7 0%, #9747FF 100%)" : "#e5e7eb",
+            color: isFormValid ? "white" : "#9ca3af",
+          }}
         >
-          {isUploading ? "UPLOADING..." : isValidating ? "VALIDATING..." : (
-            <>
-              START ANALYSIS
-              <span className="text-xl">→</span>
-            </>
-          )}
+          {isUploading ? (
+            <span className="flex items-center justify-center gap-2">
+              <svg className="w-4 h-4 animate-spin" fill="none" viewBox="0 0 24 24">
+                <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
+                <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z" />
+              </svg>
+              Uploading...
+            </span>
+          ) : "START ANALYSIS →"}
         </button>
 
         {!isFormValid && !isUploading && (
-          <p className="text-xs text-text-teritary text-center -mt-2">
-            Choose exercise, set load (&gt; 0), and attach a video — then tap start.
-          </p>
+          <p className="text-xs text-gray-400 text-center mb-2">Choose exercise, set load (&gt; 0), and attach a video — then tap start.</p>
         )}
-
-        {formAlert && (
-          <p className="text-xs text-error text-center flex items-start justify-center gap-1">
-            <AlertCircle size={14} className="mt-0.5 flex-shrink-0" />
-            <span>{formAlert}</span>
-          </p>
-        )}
-
-        {uploadError && (
-          <div role="alert" className="rounded-lg border border-red-200 bg-red-50 p-3">
-            <div className="flex items-start gap-2">
-              <AlertCircle size={14} className="mt-0.5 shrink-0 text-error" />
-              <p className="flex-1 text-xs text-error leading-relaxed">{uploadError.message}</p>
-            </div>
-            {uploadError.type === "UPLOAD_TIMEOUT" ? (
-              <button
-                type="button"
-                onClick={handleSubmit}
-                className="mt-2 text-xs font-medium text-blue-500 underline hover:brightness-90"
-              >
-                Try again
-              </button>
-            ) : (
-              <button
-                type="button"
-                onClick={() => setUploadError(null)}
-                className="mt-2 text-xs text-text-teritary underline hover:text-text-primary"
-              >
-                Dismiss
-              </button>
-            )}
-          </div>
-        )}
+        {uploadError && <p className="text-xs text-red-500 text-center mb-2">{uploadError}</p>}
 
         {import.meta.env.DEV && (
-          <button
-            type="button"
-            className="w-full py-2 text-xs text-blue-500 underline text-center"
-            onClick={() =>
-              navigate("/upload/loading", {
-                state: {
-                  fixtureMode:    true,
-                  exercise:       exercise || "goblet-squat",
-                  weight:         weight || 20,
-                  unit,
-                  videoPreviewUrl,
-                  queuedFileSize: videoFile?.size ?? 55 * 1024 * 1024,
-                },
-              })
-            }
-          >
-            Dev: preview loading UI (no server)
+          <button type="button" className="w-full py-2 text-xs text-indigo-400 underline text-center"
+            onClick={() => navigate("/upload/loading", { state: { fixtureMode: true, videoPreviewUrl, analysisId: "dev-test" } })}>
+            Dev: skip to loading screen
           </button>
         )}
-
       </div>
+
     </div>
   )
 }
-
-export default UploadScanPage
-

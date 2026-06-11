@@ -1,330 +1,309 @@
-import { useEffect, useState, useRef } from "react"
+import { useEffect, useMemo, useState } from "react"
 import { useNavigate, useLocation } from "react-router-dom"
-import { Lightbulb, Check, X, AlertTriangle } from "lucide-react"
 import { useSSEStream } from "../hooks/useSSEStream"
 
-// ─── Fixture imports (W5 only) ────────────────────────────────────────────────
-import FIXTURE_CLEAN from "../../../fixtures/form-analysis.clean.json"
+function StepIcon({ status }) {
+  if (status === "complete") {
+    return (
+      <div className="w-6 h-6 rounded-full flex items-center justify-center shrink-0" style={{ background: "#9747FF" }}>
+        <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="white" strokeWidth={3}>
+          <path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" />
+        </svg>
+      </div>
+    )
+  }
+  if (status === "active") {
+    return (
+      <div className="w-6 h-6 rounded-full border-2 animate-spin shrink-0" style={{ borderColor: "#0284C7", borderTopColor: "transparent" }} />
+    )
+  }
+  if (status === "error") {
+    return (
+      <div className="w-6 h-6 rounded-full flex items-center justify-center shrink-0" style={{ background: "#ef4444" }}>
+        <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="white" strokeWidth={3}>
+          <path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" />
+        </svg>
+      </div>
+    )
+  }
+  return <div className="w-6 h-6 rounded-full border-2 shrink-0" style={{ borderColor: "#d1d5db" }} />
+}
 
-// ─── Fake pipeline steps for fixture mode ────────────────────────────────────
-const FIXTURE_STEPS = [
-  { label: "Lock onto your posture…" },
-  { label: "Check your barbell depth…" },
-  { label: "Mapping bar path and stability…" },
-  { label: "Calculating force and rhythm…" },
+const DISPLAY_LABELS = [
+  "Deconstructing your video into frames.",
+  "Extracting joint angles & movement patterns",
+  "Analysing your movements & posture in detail.",
+  "Generating your coaching report",
 ]
-const STEP_DELAY_MS = 900
-const DONE_HOLD_MS  = 1200
 
-// ─────────────────────────────────────────────────────────────────────────────
+const EVENT_SUBLABELS = {
+  upload_received:    "Video received",
+  mediapipe_started:  "Running pose detection",
+  mediapipe_complete: "Pose detection complete",
+  nemotron_started:   "Scoring your movement",
+  nemotron_complete:  "Movement scored",
+  rag_started:        "Looking up exercise data",
+  rag_complete:       "Exercise data retrieved",
+  claude_started:     "Generating your coaching",
+  claude_complete:    "Coaching generated",
+  haiku_started:      "Generating your coaching",
+  analysis_complete:  "Analysis complete",
+  analysis_ready:     "Analysis ready",
+}
 
-function LoadingPage() {
-  const navigate = useNavigate()
-  const location = useLocation()
+const BASE_URL = import.meta.env.VITE_API_URL || "http://localhost:8000"
 
-  const {
-    analysisId,
-    videoPreviewUrl,
-    fixtureMode,
-    exercise,
-  } = location.state || {}
+export default function LoadingPage() {
+  const navigate  = useNavigate()
+  const location  = useLocation()
+  const { analysisId, videoPreviewUrl } = location.state || {}
+  const { steps, isDone, error, cancel, resultUrl, analysisData, lastEvent } = useSSEStream(analysisId)
 
-  // ── FIXTURE MODE (W5) ─────────────────────────────────────────────────────
-  // When fixtureMode: true is passed from UploadScanPage, skip the SSE stream
-  // entirely and run a fake timed pipeline instead.
-  const [fixtureSteps, setFixtureSteps] = useState(
-    FIXTURE_STEPS.map((s) => ({ label: s.label, status: "pending" }))
-  )
-  const [fixtureDone, setFixtureDone] = useState(false)
-  const abortRef = useRef(null)
+  const [booted, setBooted] = useState(false)
+  const [previousSession, setPreviousSession] = useState(null)
+  const [currentAnalysis, setCurrentAnalysis] = useState(null)
+  const [haikuCall2Data, setHaikuCall2Data] = useState(null)
 
+  // Fetch current analysis and previous session
   useEffect(() => {
-    if (!fixtureMode) return
-
-    const ac = new AbortController()
-    abortRef.current = ac
-
-    const sleep = (ms) =>
-      new Promise((res, rej) => {
-        const t = setTimeout(res, ms)
-        ac.signal.addEventListener("abort", () => { clearTimeout(t); rej(new Error("aborted")) })
-      })
-
-    ;(async () => {
+    if (!analysisId) return
+    const fetchData = async () => {
       try {
-        for (let i = 0; i < FIXTURE_STEPS.length; i++) {
-          await sleep(STEP_DELAY_MS)
-          setFixtureSteps(FIXTURE_STEPS.map((s, idx) => ({
-            label:  s.label,
-            status: idx < i  ? "complete"
-                  : idx === i ? "active"
-                  : "pending",
-          })))
+        // Fetch current analysis
+        const analysisRes = await fetch(`${BASE_URL}/analysis/${analysisId}`)
+        if (analysisRes.ok) {
+          const data = await analysisRes.json()
+          const analysis = data.analysis || data
+          console.log("[DEBUG] Current analysis:", analysis)
+          setCurrentAnalysis({
+            overall_form_score: analysis.overall_form_score || 72,
+            weight_value: analysis.weight_value,
+            weight_unit: analysis.weight_unit || "kg",
+            created_at: analysis.created_at
+          })
         }
-        await sleep(STEP_DELAY_MS)
-        setFixtureSteps(FIXTURE_STEPS.map((s) => ({ label: s.label, status: "complete" })))
-        await sleep(DONE_HOLD_MS)
-        setFixtureDone(true)
-      } catch {
-        // aborted — user cancelled
-      }
-    })()
 
-    return () => ac.abort()
-  }, [fixtureMode])
-
-  // Navigate to results once fixture pipeline finishes
-  useEffect(() => {
-    if (!fixtureMode || !fixtureDone) return
-    navigate("/upload/results", {
-      state: {
-        analysisResult: FIXTURE_CLEAN,
-        videoPreviewUrl,
-        exercise,
-      },
-    })
-  }, [fixtureMode, fixtureDone])
-
-  // ── REAL SSE MODE (W6) ────────────────────────────────────────────────────
-  const { steps, isDone, error, partialWarning, cancel, resultUrl } =
-    useSSEStream(fixtureMode ? null : analysisId)
-
-  const BASE_URL = import.meta.env.VITE_API_URL || "http://localhost:8000"
-
-  useEffect(() => {
-    if (fixtureMode || !isDone) return
-  
-    const timer = setTimeout(async () => {
-      let analysisResult = null
-  
-      try {
-        const response = await fetch(`${BASE_URL}/analysis/${analysisId}`)
-        if (!response.ok) throw new Error("Fetch failed")
-  
-        const record = await response.json()
-  
-        const biomechanics = record.biomechanics_json
-          ? JSON.parse(record.biomechanics_json)
-          : {}
-  
-        const haikuCall1 = record.haiku_call_1 || {}
-        const haikuCall2 = record.haiku_call_2 || {}
-  
-        // ── BUILD RESULTS PAGE SHAPE ─────────────────────────────
-        analysisResult = {
-          // base
-          analysis_id: record.analysis_id,
-          session_id: record.session_id,
-          exercise_id: record.exercise_id,
-          exercise_name: record.exercise_name,
-          display_name: record.exercise_name?.toUpperCase(),
-  
-          weight_value: record.weight_value,
-          weight_unit: record.weight_unit,
-          status: record.status,
-          video_url: record.video_url,
-          created_at: record.created_at,
-  
-          // IMPORTANT: ResultsPage expects THIS shape
-          summary: {
-            overall_form_score: haikuCall1.overall_form_score || 0,
-            posture_score: haikuCall1.posture_score || 0,
-            stability_score: haikuCall1.stability_score || 0,
-            movement_quality_score: haikuCall1.movement_quality_score || 0,
-            range_of_motion_score: haikuCall1.range_of_motion_score || 0,
-            tempo_score: haikuCall1.tempo_score || 0,
-          },
-  
-          coaching: haikuCall1.coaching_output || {},
-          reps: biomechanics.reps || [],
-          issues: biomechanics.issue_tags || [],
-  
-          causal_chains: haikuCall1.root_cause_analysis || [],
+        // Fetch previous session for comparison
+        const userId = localStorage.getItem("active_user_id") || localStorage.getItem("user_id") || "user_001"
+        console.log("[DEBUG] Fetching history for userId:", userId)
+        const historyRes = await fetch(`${BASE_URL}/form_analysis_results/${userId}`)
+        if (historyRes.ok) {
+          const history = await historyRes.json()
+          console.log("[DEBUG] History response:", history)
+          if (Array.isArray(history) && history.length > 0) {
+            // Map the API response to our expected format
+            const prevSession = history[0]
+            setPreviousSession({
+              session_id: prevSession.analysis_id,
+              created_at: prevSession.date,
+              weight_value: prevSession.load_kg,
+              weight_unit: "kg",
+              overall_form_score: prevSession.score,
+              progression_recommendation: prevSession.feedback
+            })
+            console.log("[DEBUG] Previous session set:", prevSession)
+          }
         }
       } catch (err) {
-        console.error("Failed to load analysis:", err)
+        console.error("Error fetching comparison data:", err)
       }
-  
-      navigate(resultUrl || "/upload/results", {
-        state: {
-          analysisId,
-          analysisResult,
-          videoPreviewUrl,
-        },
-      })
-    }, 1500)
-  
-    return () => clearTimeout(timer)
-  }, [fixtureMode, isDone, analysisId, navigate, resultUrl, videoPreviewUrl])
-  
-  // ── GUARD — no analysis in progress (real mode only) ─────────────────────
-  if (!fixtureMode && !analysisId) {
+    }
+    fetchData()
+  }, [analysisId])
+
+  // Fetch Haiku Call 2 data when analysis is complete
+  useEffect(() => {
+    if (!isDone || !analysisId) return
+    const fetchHaikuData = async () => {
+      try {
+        const res = await fetch(`${BASE_URL}/analysis/${analysisId}/progression`)
+        if (res.ok) {
+          const data = await res.json()
+          console.log("[DEBUG] Haiku Call 2 data:", data)
+          setHaikuCall2Data({
+            progression_direction: data.progression_direction,
+            weight_recommendation: data.weight_recommendation,
+            verdict: data.verdict
+          })
+        }
+      } catch (err) {
+        console.error("Error fetching Haiku Call 2 data:", err)
+      }
+    }
+    fetchHaikuData()
+  }, [isDone, analysisId])
+
+  useEffect(() => {
+    const t = setTimeout(() => setBooted(true), 800)
+    return () => clearTimeout(t)
+  }, [])
+
+  const [elapsed, setElapsed] = useState(0)
+  useEffect(() => {
+    if (isDone) return
+    const t = setInterval(() => setElapsed(s => s + 1), 1000)
+    return () => clearInterval(t)
+  }, [isDone])
+
+  const elapsedLabel = elapsed < 60
+    ? `${elapsed}s`
+    : `${Math.floor(elapsed / 60)}m ${elapsed % 60}s`
+
+  const displaySteps = DISPLAY_LABELS.map((label, i) => {
+    if (!booted) return { label, status: i === 0 ? "active" : "pending" }
+    const step = steps[i]
+    return {
+      label,
+      status: step ? step.status : (isDone ? "complete" : "pending"),
+    }
+  })
+
+  const completedCount = useMemo(() => steps.filter(s => s.status === "complete").length, [steps])
+  const progress = useMemo(() => {
+    if (isDone) return 100
+    const pct = Math.round((completedCount / steps.length) * 85)
+    const hasActive = steps.some(s => s.status === "active")
+    return hasActive ? Math.max(pct, 10) : pct
+  }, [completedCount, steps, isDone])
+
+  useEffect(() => {
+    if (!isDone) return
+    const t = setTimeout(async () => {
+      let analysisRecord = null
+      let progressionData = null
+
+      try {
+        const res = await fetch(`http://localhost:8000/analysis/${analysisId}`)
+        if (res.ok) {
+          analysisRecord = await res.json()
+          if (analysisRecord?.biomechanics_json && typeof analysisRecord.biomechanics_json === "string") {
+            try { analysisRecord.biomechanics_json = JSON.parse(analysisRecord.biomechanics_json) } catch (_) {}
+          }
+        }
+      } catch (_) {}
+
+      try {
+        const res = await fetch(`http://localhost:8000/analysis/${analysisId}/progression`)
+        if (res.ok) {
+          const body = await res.json()
+          if (body?.has_comparison !== undefined) progressionData = body
+        }
+      } catch (_) {}
+
+      console.log("[DEBUG] analysisRecord:", JSON.stringify(analysisRecord, null, 2))
+      const result = analysisRecord
+        ? { ...analysisRecord, progression_data: progressionData }
+        : null
+
+      const userId = localStorage.getItem("user_id")
+      navigate(resultUrl || "/upload/results", { state: { analysisId, analysisResult: result, videoPreviewUrl, userId } })
+    }, 3000)
+    return () => clearTimeout(t)
+  }, [isDone, analysisId, navigate, resultUrl])
+
+  if (!analysisId) {
     return (
-      <div className="min-h-screen bg-light-bg dark:bg-dark-bg flex flex-col items-center justify-center px-6">
-        <p className="text-text-primary dark:text-white text-body text-center mb-4">
-          No analysis in progress.
-        </p>
-        <button
-          className="text-teal underline text-body"
-          onClick={() => navigate("/upload")}
-        >
-          Upload a video
-        </button>
+      <div className="min-h-screen flex flex-col items-center justify-center px-6" style={{ backgroundColor: "#F4F2FA", colorScheme: "light" }}>
+        <p className="text-gray-700 text-sm text-center mb-4">No analysis in progress.</p>
+        <button className="text-indigo-500 underline text-sm" onClick={() => navigate("/upload")}>Upload a video</button>
       </div>
     )
   }
 
-  // Pick which steps + done state to show depending on mode
-  const displaySteps  = fixtureMode ? fixtureSteps : steps
-  const displayIsDone = fixtureMode ? fixtureDone  : isDone
-
-  // ── PROGRESS PERCENTAGE ───────────────────────────────────────────────────
-  const totalSteps     = displaySteps.length || 1
-  const completedSteps = displaySteps.filter((s) => s.status === "complete").length
-  const activeStep     = displaySteps.find((s) => s.status === "active")
-  const progressPct    = displayIsDone
-    ? 100
-    : activeStep
-      ? Math.round((completedSteps / totalSteps) * 100 + (1 / totalSteps) * 50)
-      : Math.round((completedSteps / totalSteps) * 100)
-
-  function handleCancel() {
-    if (fixtureMode) {
-      abortRef.current?.abort()
-    } else {
-      cancel()
-    }
-    navigate("/upload")
-  }
-
-  // ── RENDER ────────────────────────────────────────────────────────────────
   return (
-    <div className="min-h-screen bg-light-bg dark:bg-dark-bg flex flex-col">
+    <div className="min-h-screen flex flex-col" style={{ backgroundColor: "#F4F2FA", colorScheme: "light" }}>
 
-      {/* Video thumbnail */}
-      <div className="pt-3 px-4">
-        <div className="w-full rounded-2xl overflow-hidden" style={{ height: "380px" }}>
+      <div className="pt-4 px-4">
+        <div className="rounded-2xl overflow-hidden w-full">
           {videoPreviewUrl ? (
-            <video
-              src={videoPreviewUrl}
-              className="w-full h-full object-cover object-center"
-              autoPlay muted loop playsInline
-            />
+            <video src={videoPreviewUrl} className="w-full" style={{ display: "block" }} autoPlay muted loop playsInline />
           ) : (
-            <div className="w-full h-full bg-dark-card flex items-center justify-center">
-              <p className="text-gray-600 text-body">Preview unavailable</p>
+            <div className="w-full flex items-center justify-center bg-gray-900" style={{ height: 260 }}>
+              <p className="text-gray-500 text-sm">Preview unavailable</p>
             </div>
           )}
         </div>
       </div>
 
-      {/* Progress bar */}
-      <div className="px-4 pt-3">
+      <div className="flex flex-col flex-1 px-5 pt-4 pb-6 gap-4">
+
         <div className="flex items-center gap-3">
-          <span className="text-xs font-semibold text-text-primary dark:text-white w-9 shrink-0">
-            {progressPct}%
-          </span>
-          <div className="flex-1 h-2 bg-gray-100 dark:bg-gray-700 rounded-full overflow-hidden">
+          <span className="text-sm font-semibold text-gray-700 w-10 shrink-0">{progress}%</span>
+          <div className="flex-1 h-1.5 rounded-full" style={{ background: "#e5e7eb" }}>
             <div
-              className="h-full rounded-full transition-all duration-700 ease-out"
-              style={{
-                width: `${progressPct}%`,
-                background: "linear-gradient(to right, #6c63ff, #5b9cf6)",
-              }}
+              className="h-1.5 rounded-full transition-all duration-700"
+              style={{ width: `${progress}%`, background: "linear-gradient(90deg, #0284C7, #9747FF)" }}
             />
           </div>
         </div>
-      </div>
 
-      {/* Content */}
-      <div className="flex flex-col flex-1 px-5 pt-4 pb-8 gap-4">
-
-        {/* Title + subtitle */}
         <div className="text-center">
-          <h1
-            className="text-text-primary dark:text-white font-medium mb-1"
-            style={{ fontSize: "17px" }}
-          >
-            Form Check in Progress
-          </h1>
-          <p className="text-text-tertiary dark:text-gray-400 text-body">
-            Kinetic is analyzing your video upload...
-          </p>
+          <h1 className="text-lg font-semibold text-gray-900 mb-0.5">Form Check in Progress</h1>
+          <p className="text-sm text-gray-500">Kinetic is analyzing your video upload...</p>
         </div>
 
-        {/* Partial warning — real mode only */}
-        {!fixtureMode && partialWarning && (
-          <div className="bg-amber-50 dark:bg-amber-900/20 rounded-2xl px-4 py-3 border border-amber-200 dark:border-amber-700 flex items-start gap-3">
-            <AlertTriangle size={16} className="text-amber-500 mt-0.5 shrink-0" />
-            <p className="text-body text-amber-700 dark:text-amber-400">
-              {partialWarning}
-            </p>
-          </div>
-        )}
 
-        {/* Tips card */}
-        <div
-          className="rounded-2xl p-4 flex items-start gap-3"
-          style={{ background: "linear-gradient(135deg, #6c63ff, #5b9cf6)" }}
-        >
-          <Lightbulb size={18} className="text-white/80 mt-0.5 shrink-0" />
+        <div className="rounded-2xl px-4 py-4 flex items-start gap-3" style={{ background: "linear-gradient(135deg, #0284C7 0%, #9747FF 100%)" }}>
+          <svg className="w-5 h-5 text-white shrink-0 mt-0.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+            <path strokeLinecap="round" strokeLinejoin="round" d="M9.663 17h4.673M12 3v1m6.364 1.636l-.707.707M21 12h-1M4 12H3m3.343-5.657l-.707-.707m2.828 9.9a5 5 0 117.072 0l-.548.547A3.374 3.374 0 0014 18.469V19a2 2 0 11-4 0v-.531c0-.895-.356-1.754-.988-2.386l-.548-.547z" />
+          </svg>
           <p className="text-sm text-white leading-relaxed">
             <span className="font-semibold">Tips: </span>
             Take a 45-second breather. Your muscles need this reset for the next set.
           </p>
         </div>
 
-        {/* Steps checklist */}
-        <div className="bg-white dark:bg-dark-card rounded-2xl px-4 py-3 border border-gray-100 dark:border-transparent flex flex-col gap-3">
-          {displaySteps.map((step, index) => (
-            <div key={index} className="flex items-center gap-3">
+        {error && (
+          <div className="rounded-2xl px-4 py-3 border border-red-100 bg-red-50">
+            <p className="text-sm text-red-600">{error.userMessage}</p>
+          </div>
+        )}
+
+        <div className="bg-white rounded-2xl px-5 py-4 flex flex-col gap-4" style={{ border: "1.5px dashed #93c5fd" }}>
+          {displaySteps.map((step, i) => (
+            <div key={i} className="flex items-center gap-3">
               <StepIcon status={step.status} />
-              <span
-                className={`text-body ${
-                  step.status === "complete" ? "text-text-primary dark:text-white" :
-                  step.status === "active"   ? "text-text-primary dark:text-white" :
-                  step.status === "error"    ? "text-error" :
-                  "text-text-disabled dark:text-gray-500"
-                }`}
-              >
-                {step.label}
-              </span>
+              <div className="flex flex-col">
+                <span className={`text-sm font-medium ${step.status === "pending" ? "text-gray-400" : "text-gray-800"}`}>
+                  {step.label}
+                </span>
+                {step.status === "active" && lastEvent && EVENT_SUBLABELS[lastEvent] && (
+                  <span className="text-xs text-indigo-500 mt-0.5">{EVENT_SUBLABELS[lastEvent]}</span>
+                )}
+                {step.status === "error" && lastEvent && (
+                  <span className="text-xs text-red-400 mt-0.5">Failed at: {lastEvent}</span>
+                )}
+              </div>
             </div>
           ))}
         </div>
 
         <div className="flex-1" />
 
-        {/* Buttons */}
-        {!fixtureMode && error ? (
-          <div className="flex flex-col gap-3">
-            <div className="bg-red-50 dark:bg-red-900/20 rounded-2xl px-4 py-3 border border-red-100 dark:border-red-800">
-              <p className="text-body text-error">{error.userMessage}</p>
-            </div>
-            <div className="flex gap-3">
-              <button
-                className="flex-1 py-4 rounded-2xl text-button font-bold text-white uppercase tracking-widest"
-                style={{ backgroundColor: "#E57373" }}
-                onClick={handleCancel}
-              >
-                Cancel
-              </button>
-              <button
-                className="flex-1 py-4 rounded-2xl text-button font-bold text-white uppercase tracking-widest"
-                style={{ backgroundColor: "#E8A050" }}
-                onClick={handleCancel}
-              >
-                Try Again
-              </button>
-            </div>
+        {error ? (
+          <div className="flex gap-3">
+            <button
+              className="flex-1 py-4 rounded-2xl text-sm font-bold text-white uppercase tracking-widest"
+              style={{ background: "#FD0500" }}
+              onClick={() => { cancel(); navigate("/upload") }}
+            >
+              Cancel
+            </button>
+            <button
+              className="flex-1 py-4 rounded-2xl text-sm font-bold text-white uppercase tracking-widest"
+              style={{ background: "#f97316" }}
+              onClick={() => { cancel(); navigate("/upload") }}
+            >
+              Try Again
+            </button>
           </div>
-        ) : !displayIsDone ? (
+        ) : !isDone ? (
           <button
-            className="w-full py-4 rounded-2xl text-button font-bold text-white uppercase tracking-widest"
-            style={{ backgroundColor: "#E57373" }}
-            onClick={handleCancel}
+            className="w-full py-4 rounded-2xl text-sm font-bold text-white uppercase tracking-widest"
+            style={{ background: "#FD0500" }}
+            onClick={() => { cancel(); navigate("/upload") }}
           >
-            Cancel
+            CANCEL
           </button>
         ) : null}
 
@@ -332,28 +311,3 @@ function LoadingPage() {
     </div>
   )
 }
-
-function StepIcon({ status }) {
-  if (status === "complete") {
-    return (
-      <div className="w-5 h-5 rounded-full flex items-center justify-center shrink-0" style={{ backgroundColor: "#5b9cf6" }}>
-        <Check size={11} color="white" strokeWidth={3} />
-      </div>
-    )
-  }
-  if (status === "active") {
-    return (
-      <div className="w-5 h-5 rounded-full border-2 animate-spin shrink-0" style={{ borderColor: "#5b9cf6", borderTopColor: "transparent" }} />
-    )
-  }
-  if (status === "error") {
-    return (
-      <div className="w-5 h-5 rounded-full flex items-center justify-center shrink-0" style={{ backgroundColor: "#ff3b30" }}>
-        <X size={11} color="white" strokeWidth={3} />
-      </div>
-    )
-  }
-  return <div className="w-5 h-5 rounded-full border-2 border-gray-300 dark:border-gray-600 shrink-0" />
-}
-
-export default LoadingPage

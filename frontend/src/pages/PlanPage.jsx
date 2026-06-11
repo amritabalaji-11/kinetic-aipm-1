@@ -2,85 +2,209 @@ import { useState } from "react"
 import { useNavigate } from "react-router-dom"
 import { MUSCLE_GROUPS } from "../data/dummyData"
 
-export default function PlanPage() {
-  const navigate = useNavigate()
-  const [selected, setSelected] = useState([])
+const MUSCLE_BORDER_COLORS = {
+  chest: "1px solid rgba(2, 132, 199, 0.4)",
+  back: "1px solid rgba(147, 71, 255, 0.4)",
+  legs: "1px solid rgba(2, 132, 199, 0.4)",
+  shoulders: "1px solid rgba(2, 132, 199, 0.4)",
+  arms: "1px solid rgba(147, 71, 255, 0.4)",
+  full_body: "1px solid rgba(2, 132, 199, 0.4)",
+}
 
-  const toggle = (id) =>
-    setSelected((prev) =>
-      prev.includes(id) ? prev.filter((x) => x !== id) : [...prev, id]
+const PlanPage = () => {
+  const navigate = useNavigate()
+  const [selectedMuscles, setSelectedMuscles] = useState([])
+
+  const handleMuscleClick = (muscleId) => {
+    setSelectedMuscles((prev) =>
+      prev.includes(muscleId)
+        ? prev.filter((id) => id !== muscleId)
+        : [...prev, muscleId]
     )
+  }
+
+  const handleContinue = () => {
+    navigate("/plan/exercises", { state: { selectedMuscles } })
+  }
 
   return (
-    <div className="flex flex-col min-h-screen px-5 pt-14 pb-32" style={{ background: "#f5f4fb" }}>
-      <h1 className="text-2xl font-bold text-gray-900 leading-tight">
-        What are we<br />training today?
-      </h1>
-      <p className="mt-1 text-sm text-gray-400">Pick 1 or more muscle group to start.</p>
+    <div style={{ minHeight: "100vh", background: "#F0EFFE", padding: "24px 24px 120px 24px" }}>
+      {/* Header */}
+      <div style={{ marginBottom: "32px" }}>
+        <h1
+          style={{
+            fontSize: "24px",
+            fontWeight: 600,
+            fontFamily: "'Bricolage Grotesque'",
+            color: "#0F172A",
+            margin: "0 0 8px 0",
+          }}
+        >
+          What are we training today?
+        </h1>
+        <p
+          style={{
+            fontSize: "14px",
+            fontWeight: 400,
+            fontFamily: "'DM Sans'",
+            color: "#454850",
+            margin: 0,
+          }}
+        >
+          Pick 1 or more muscle group to start.
+        </p>
+      </div>
 
-      <div className="grid grid-cols-2 gap-3 mt-6">
-        {MUSCLE_GROUPS.map((mg) => {
-          const active = selected.includes(mg.id)
+      {/* 2-column grid of muscle groups */}
+      <div
+        style={{
+          display: "grid",
+          gridTemplateColumns: "1fr 1fr",
+          gap: "12px",
+          marginBottom: "48px",
+        }}
+      >
+        {MUSCLE_GROUPS.map((muscle) => {
+          const isSelected = selectedMuscles.includes(muscle.id)
+          const isLegs = muscle.id === "legs"
+
           return (
             <button
-              key={mg.id}
-              onClick={() => toggle(mg.id)}
-              className="rounded-2xl overflow-hidden text-left"
+              key={muscle.id}
+              onClick={() => handleMuscleClick(muscle.id)}
               style={{
-                background: active
-                  ? "linear-gradient(165deg, rgba(255,255,255,0.25) 0%, rgba(196,181,253,0.55) 12%, rgba(167,139,250,0.48) 65%, rgba(147,197,253,0.52) 100%)"
-                  : "#F4F2FA",
-                border: active ? "2px solid #a78bfa" : "2px solid #e8e4f8",
-                boxShadow: active ? "0 0 0 3px rgba(167,139,250,0.15)" : "none",
-                transition: "border-color 0.15s, box-shadow 0.15s",
-                minHeight: 160,
+                position: "relative",
+                width: "100%",
+                height: "140px",
+                background: "#FFFFFF",
+                borderRadius: "16px",
+                border: MUSCLE_BORDER_COLORS[muscle.id],
+                cursor: "pointer",
+                filter: "drop-shadow(0px 4px 4px rgba(0,0,0,0.14))",
+                padding: "16px",
+                boxSizing: "border-box",
                 display: "flex",
                 flexDirection: "column",
+                justifyContent: "flex-end",
+                overflow: "hidden",
               }}
             >
-              <div
-                className="flex-1 flex items-end justify-center pt-4"
-                style={{ background: "transparent", transition: "background 0.15s" }}
-              >
-                <img
-                  src={mg.image}
-                  alt={mg.name}
+              {/* Figure image */}
+              <img
+                src={muscle.image}
+                alt={muscle.name}
+                style={{
+                  position: "absolute",
+                  top: "8px",
+                  right: "8px",
+                  height: (muscle.id === "chest" || muscle.id === "full_body" || muscle.id === "back") ? "70px" : "88px",
+                  objectFit: "contain",
+                  objectPosition: "top right",
+                }}
+              />
+
+              {/* Checkmark icon - shows when selected */}
+              {isSelected && (
+                <div
                   style={{
-                    height: 100,
-                    width: "100%",
-                    objectFit: "contain",
-                    objectPosition: "center bottom",
-                    filter: active ? "none" : "grayscale(20%)",
-                    opacity: active ? 1 : 0.85,
+                    position: "absolute",
+                    top: "16px",
+                    left: "16px",
+                    width: "24px",
+                    height: "24px",
+                    background: "#8133FF",
+                    borderRadius: "50%",
+                    display: "flex",
+                    alignItems: "center",
+                    justifyContent: "center",
+                    zIndex: 2,
                   }}
-                />
-              </div>
-              <div className="px-3 py-2.5">
-                <p className="font-semibold text-gray-900 text-sm">{mg.name}</p>
-                <p className="text-xs text-gray-400">{mg.count} exercises</p>
-              </div>
+                >
+                  <span
+                    style={{
+                      color: "#FFFFFF",
+                      fontSize: "16px",
+                      fontWeight: "bold",
+                    }}
+                  >
+                    ✓
+                  </span>
+                </div>
+              )}
+
+              {/* Muscle name */}
+              <p
+                style={{
+                  fontSize: "16px",
+                  fontWeight: 600,
+                  fontFamily: "'Bricolage Grotesque'",
+                  color: "#8133FF",
+                  margin: "0 0 4px 0",
+                  position: "relative",
+                  zIndex: 1,
+                  maxWidth: "65%",
+                }}
+              >
+                {muscle.name}
+              </p>
+
+              {/* Exercise count */}
+              <p
+                style={{
+                  fontSize: "14px",
+                  fontWeight: 400,
+                  fontFamily: "'DM Sans'",
+                  color: "#0F172A",
+                  margin: 0,
+                  position: "relative",
+                  zIndex: 1,
+                  maxWidth: "65%",
+                }}
+              >
+                {muscle.count} exercises
+              </p>
             </button>
           )
         })}
       </div>
 
-      {/* CTA */}
-      <div className="fixed bottom-24 left-0 right-0 mx-auto px-5" style={{ maxWidth: 430 }}>
+      {/* CTA button at bottom */}
+      <div
+        style={{
+          position: "fixed",
+          bottom: "140px",
+          left: "50%",
+          transform: "translateX(-50%)",
+          width: "calc(100% - 48px)",
+          maxWidth: "400px",
+          zIndex: 1000,
+        }}
+      >
         <button
-          disabled={selected.length === 0}
-          onClick={() => navigate("/plan/exercises", { state: { selectedMuscles: selected } })}
-          className="w-full py-4 rounded-2xl font-semibold text-white text-base"
+          onClick={handleContinue}
+          disabled={selectedMuscles.length === 0}
           style={{
-            background: selected.length > 0
-              ? "linear-gradient(135deg, #4F46E5, #7C3AED)"
-              : "#d1cce8",
-            transition: "background 0.2s",
-            cursor: selected.length > 0 ? "pointer" : "default",
+            width: "100%",
+            padding: "16px",
+            background: selectedMuscles.length > 0
+              ? "linear-gradient(92.52deg, #0284C7 0%, #9747FF 100%)"
+              : "#DBDBDB",
+            color: "#FFFFFF",
+            fontSize: "16px",
+            fontWeight: 600,
+            fontFamily: "'Bricolage Grotesque'",
+            border: "none",
+            borderRadius: "8px",
+            cursor: selectedMuscles.length > 0 ? "pointer" : "not-allowed",
           }}
         >
-          Pick a Muscle
+          {selectedMuscles.length > 0
+            ? `Select ${selectedMuscles.length} Muscle${selectedMuscles.length > 1 ? 's' : ''}`
+            : "Select a Muscle"}
         </button>
       </div>
     </div>
   )
 }
+
+export default PlanPage

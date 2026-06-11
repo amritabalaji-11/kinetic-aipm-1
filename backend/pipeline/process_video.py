@@ -65,8 +65,8 @@ def _download_from_gcs(gcs_path: str, session_id: str) -> str:
     blob = bucket.blob(blob_path)
 
     # Each session gets its own subfolder so parallel uploads don't clash
-    temp_dir = os.path.join(".\\backend\\mediapipe_code\\videos\\incoming", session_id)
-    # temp_dir = os.path.join("mediapipe_code", "videos", "incoming", session_id)
+    temp_dir = os.path.join("mediapipe_code", "videos", "incoming", session_id)
+    # temp_dir = os.path.join(".\\backend\\mediapipe_code\\videos\\incoming", session_id)
     os.makedirs(temp_dir, exist_ok=True)
 
     filename = os.path.basename(blob_path)
@@ -409,6 +409,16 @@ async def _store_analysis_results(
     session      = mp_result.get("session", {})
     param_scores = coaching_output.get("parameter_scores", {})
 
+    # Fetch weight_value and weight_unit from form_analyses
+    weight_row = await db.fetch_one(
+        "SELECT weight_value, weight_unit FROM form_analyses WHERE analysis_id = :aid",
+        values={"aid": analysis_id}
+    )
+    #weight_value = weight_row.get("weight_value") if weight_row else None
+    #weight_unit = weight_row.get("weight_unit") if weight_row else None
+    weight_value = weight_row["weight_value"] if weight_row else None
+    weight_unit = weight_row["weight_unit"] if weight_row else None
+
     await db.execute(
         """
         INSERT OR REPLACE INTO form_analysis_results (
@@ -416,6 +426,8 @@ async def _store_analysis_results(
             session_id,
             user_id,
             exercise_id,
+            weight_value,
+            weight_unit,
             weight_kg_normalised,
             overall_form_score,
             posture_score,
@@ -430,6 +442,8 @@ async def _store_analysis_results(
             :session_id,
             :user_id,
             :exercise_id,
+            :weight_value,
+            :weight_unit,
             :weight_kg_normalised,
             :overall_form_score,
             :posture_score,
@@ -446,12 +460,14 @@ async def _store_analysis_results(
             "session_id":             session_id or "00000000-0000-0000-0000-000000000000",
             "user_id":                user_id,
             "exercise_id":            mp_result.get("exercise_name", "goblet_squat"),
-            "weight_kg_normalised":   mp_result.get("weight_kg_normalised", 0.0),
+            "weight_value":           weight_value,
+            "weight_unit":            weight_unit,
+            "weight_kg_normalised":   mp_result.get("weight_kg", 0.0),
             "overall_form_score":     coaching_output.get("overall_form_score"),
-            "posture_score":          param_scores.get("posture"),
-            "stability_score":        param_scores.get("stability"),
-            "movement_quality_score": param_scores.get("movement_quality"),
-            "range_of_motion_score":  param_scores.get("range_of_motion"),
+            "posture_score":          param_scores.get("posture", {}).get("score") if isinstance(param_scores.get("posture"), dict) else param_scores.get("posture"),
+            "stability_score":        param_scores.get("stability", {}).get("score") if isinstance(param_scores.get("stability"), dict) else param_scores.get("stability"),
+            "movement_quality_score": param_scores.get("movement_quality", {}).get("score") if isinstance(param_scores.get("movement_quality"), dict) else param_scores.get("movement_quality"),
+            "range_of_motion_score":  param_scores.get("range_of_motion", {}).get("score") if isinstance(param_scores.get("range_of_motion"), dict) else param_scores.get("range_of_motion"),
             "rep_count":              session.get("rep_count"),
             "rep_scores":             json.dumps(coaching_output.get("rep_scores", [])),
             "coaching_output":        json.dumps(coaching_output),

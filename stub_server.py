@@ -54,7 +54,20 @@ async def get_analysis(analysis_id: str):
     if not record:
         from fastapi import HTTPException
         raise HTTPException(status_code=404, detail="Analysis not found")
-    return record
+
+    # Return complete fixture data merged with upload metadata
+    result = dict(STUB_BIOMECHANICS)  # Start with fixture (has summary, coaching, etc.)
+    result.update({
+        "analysis_id": record.get("analysis_id"),
+        "session_id": record.get("session_id"),
+        "exercise_id": record.get("exercise_id"),
+        "exercise_name": record.get("exercise_id"),
+        "weight_value": record.get("weight_value"),
+        "weight_unit": record.get("weight_unit"),
+        "status": record.get("status"),
+    })
+    print(f"[STUB] GET /analysis/{analysis_id} returning summary score: {result.get('summary', {}).get('overall_form_score')}")
+    return result
 
 
 @app.get("/analysis/{analysis_id}/progression")
@@ -71,6 +84,36 @@ async def get_progression(analysis_id: str):
 
     fixture = _json.loads((_Path(__file__).parent / "fixtures" / "form-comparison.json").read_text())
     return fixture
+
+
+@app.get("/users/{user_id}/profile")
+async def get_user_profile(user_id: str):
+    """Return user profile — no annotated frame URL in stub (will use analysis frame instead)"""
+    return {
+        "user_id": user_id,
+        "annotated_frame_url": None,  # Stub doesn't provide this; let analysis frame show
+    }
+
+
+@app.get("/users/{user_id}/profile-images")
+async def get_user_profile_images(user_id: str):
+    """Return user profile images (for home screen)"""
+    return {
+        "user_id": user_id,
+        "profile_image_url": None,
+        "annotated_frames": [],
+    }
+
+
+@app.get("/history/{user_id}")
+async def get_user_history(user_id: str):
+    """Return user analysis history"""
+    # Return analyses for this user from the in-memory store
+    user_analyses = [
+        {"session_id": aid, "created_at": "2026-06-11T10:00:00Z", "overall_score": 81, "exercise_name": "goblet-squat"}
+        for aid in list(_analyses.keys())[:5]  # Return last 5 analyses
+    ]
+    return user_analyses
 
 
 async def pipeline_stream(analysis_id: str):

@@ -1,6 +1,6 @@
 import { useState } from "react"
 import { useNavigate, useLocation } from "react-router-dom"
-import { X, Clock, ChevronLeft } from "lucide-react"
+import { X, Clock, ChevronLeft, CheckCircle } from "lucide-react"
 
 const FOCUS_LABEL = {
   chest: "Chest", back: "Back", legs: "Legs",
@@ -18,6 +18,7 @@ export default function WorkoutOrderPage() {
   const [exercises, setExercises] = useState(location.state?.selectedExercises ?? [])
 
   const [dragIndex, setDragIndex] = useState(null)
+  const [showSuccess, setShowSuccess] = useState(false)
 
   const removeExercise = (id) =>
     setExercises((prev) => prev.filter((ex) => ex.id !== id))
@@ -40,6 +41,39 @@ export default function WorkoutOrderPage() {
   }
 
   const handleDragEnd = () => setDragIndex(null)
+
+  const handleCreateWorkout = () => {
+    // Create active workout session with 3 default sets per exercise
+    const activeWorkout = {
+      id: Date.now(),
+      startDate: new Date().toLocaleDateString(),
+      startTime: new Date().toLocaleTimeString(),
+      muscles: selectedMuscles,
+      exercises: exercises.map(ex => ({
+        id: ex.id,
+        name: ex.name,
+        muscles: ex.muscles,
+        sets: [
+          { id: Date.now() + 1, setNumber: 1, weight: "", reps: "", videoUrl: null, completed: false },
+          { id: Date.now() + 2, setNumber: 2, weight: "", reps: "", videoUrl: null, completed: false },
+          { id: Date.now() + 3, setNumber: 3, weight: "", reps: "", videoUrl: null, completed: false }
+        ]
+      })),
+      focusLabel: selectedMuscles.length === 1
+        ? FOCUS_LABEL[selectedMuscles[0]] ?? "Mixed"
+        : selectedMuscles.length > 1 ? "Mixed" : "General",
+      status: "active"
+    }
+
+    // Save active workout
+    localStorage.setItem("activeWorkout", JSON.stringify(activeWorkout))
+
+    // Show success and navigate
+    setShowSuccess(true)
+    setTimeout(() => {
+      navigate("/workout/active", { state: { workoutId: activeWorkout.id } })
+    }, 1500)
+  }
 
   const focusLabel =
     selectedMuscles.length === 1
@@ -166,22 +200,44 @@ export default function WorkoutOrderPage() {
       </div>
 
       {/* CTA */}
-      <div className="fixed bottom-24 left-0 right-0 mx-auto px-5" style={{ maxWidth: 430 }}>
+      <div className="fixed left-0 right-0 mx-auto px-5" style={{ bottom: "140px", maxWidth: 430 }}>
         <button
-          disabled={exercises.length === 0}
-          onClick={() => navigate("/")}
+          disabled={exercises.length === 0 || showSuccess}
+          onClick={handleCreateWorkout}
           className="w-full py-4 rounded-2xl font-semibold text-white text-base"
           style={{
-            background: exercises.length > 0
+            background: exercises.length > 0 && !showSuccess
               ? "linear-gradient(135deg, #4158D0, #6C5CE7, #C850C0)"
               : "#d1cce8",
             transition: "background 0.2s",
-            cursor: exercises.length > 0 ? "pointer" : "default",
+            cursor: exercises.length > 0 && !showSuccess ? "pointer" : "default",
           }}
         >
-          Create Workout
+          {showSuccess ? "Workout Created! ✓" : "Create Workout"}
         </button>
       </div>
+
+      {/* Success Message */}
+      {showSuccess && (
+        <div
+          className="fixed inset-0 flex items-center justify-center"
+          style={{ background: "rgba(0,0,0,0.5)", zIndex: 50 }}
+        >
+          <div
+            className="bg-white rounded-3xl p-8 text-center mx-4"
+            style={{ maxWidth: 320 }}
+          >
+            <div className="flex justify-center mb-4">
+              <CheckCircle size={60} color="#6C5CE7" strokeWidth={1.5} />
+            </div>
+            <h2 className="text-2xl font-bold text-gray-900 mb-2">Workout Created!</h2>
+            <p className="text-gray-600 mb-6">
+              {exercises.length} exercises ready to go
+            </p>
+            <p className="text-sm text-gray-400">Redirecting to Workout Logger...</p>
+          </div>
+        </div>
+      )}
     </div>
   )
 }
