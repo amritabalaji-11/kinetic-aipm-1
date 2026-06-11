@@ -355,25 +355,6 @@ export default function UploadScanPage() {
         )}
       </div>
 
-      {/* Bottom nav */}
-      <div className="fixed bottom-0 left-0 right-0 bg-white border-t border-gray-100 flex justify-around items-center py-2 px-4">
-        {NAV_ITEMS.map(({ label, icon, path, active }) => (
-          <button key={label} type="button" onClick={() => navigate(path)} className="flex flex-col items-center gap-0.5">
-            {active ? (
-              <div className="w-10 h-10 rounded-full flex items-center justify-center -mt-4 shadow-lg" style={{ background: "linear-gradient(135deg, #6366f1, #818cf8)" }}>
-                <svg className="w-5 h-5 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-                  <path strokeLinecap="round" strokeLinejoin="round" d={icon} />
-                </svg>
-              </div>
-            ) : (
-              <svg className="w-5 h-5 text-gray-400" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-                <path strokeLinecap="round" strokeLinejoin="round" d={icon} />
-              </svg>
-            )}
-            <span className="text-[10px]" style={{ color: active ? "#6366f1" : "#9ca3af" }}>{label}</span>
-          </button>
-        ))}
-      </div>
     </div>
   )
 }
