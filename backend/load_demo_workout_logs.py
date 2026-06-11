@@ -20,11 +20,21 @@ USER_PROFILES = [
         "profile_id": "user_002_profile",
         "user_id": "user_002",
         "display_name": "Nicole",
-        "age": None,
-        "gender": None,
-        "level": None,
+        "age": 23,
+        "gender": "Female",
+        "level": "Intermediate",
         "injury_report": 0,
         "injury_details": None,
+    },
+    {
+        "profile_id": "user_003_profile",
+        "user_id": "user_003",
+        "display_name": "Jordan",
+        "age": 29,
+        "gender": "Non-binary",
+        "level": "Advanced",
+        "injury_report": 1,
+        "injury_details": "Right knee soreness after heavy squats",
     },
 ]
 
@@ -51,6 +61,30 @@ WORKOUT_SESSIONS = [
             {"set_number": 1, "weight_use": 12.5, "weight_unit": "kg", "weight_value": 12.5, "rep_count": 12},
             {"set_number": 2, "weight_use": 12.5, "weight_unit": "kg", "weight_value": 12.5, "rep_count": 10},
             {"set_number": 3, "weight_use": 12.5, "weight_unit": "kg", "weight_value": 12.5, "rep_count": 10},
+        ],
+    },
+    {
+        "user_id": "user_003",
+        "exercise_id": "ex_goblet_squat",
+        "exercise_name": "Goblet Squat",
+        "date": "2026-05-22 09:30:00",
+        "session_id": str(uuid.uuid4()),
+        "rows": [
+            {"set_number": 1, "weight_use": 20, "weight_unit": "kg", "weight_value": 20, "rep_count": 8},
+            {"set_number": 2, "weight_use": 20, "weight_unit": "kg", "weight_value": 20, "rep_count": 8},
+            {"set_number": 3, "weight_use": 20, "weight_unit": "kg", "weight_value": 20, "rep_count": 7},
+        ],
+    },
+    {
+        "user_id": "user_003",
+        "exercise_id": "ex_barbell_squat",
+        "exercise_name": "Barbell Squat",
+        "date": "2026-05-29 11:00:00",
+        "session_id": str(uuid.uuid4()),
+        "rows": [
+            {"set_number": 1, "weight_use": 40, "weight_unit": "kg", "weight_value": 40, "rep_count": 5},
+            {"set_number": 2, "weight_use": 40, "weight_unit": "kg", "weight_value": 40, "rep_count": 5},
+            {"set_number": 3, "weight_use": 40, "weight_unit": "kg", "weight_value": 40, "rep_count": 5},
         ],
     },
 ]
@@ -165,9 +199,9 @@ def show_results(connection):
             injury_report,
             injury_details
         FROM user_profiles
-        WHERE user_id IN (?, ?)
+        WHERE user_id IN (?, ?, ?)
         """,
-        ("user_001", "user_002"),
+        ("user_001", "user_002", "user_003"),
     )
     print("\nUser profiles:")
     for row in cursor.fetchall():
@@ -188,10 +222,10 @@ def show_results(connection):
             weight_value,
             rep_count
         FROM workout_sessions_log
-        WHERE user_id IN (?, ?)
+        WHERE user_id IN (?, ?, ?)
         ORDER BY user_id, logged_at, session_id, set_number
         """,
-        ("user_001", "user_002"),
+        ("user_001", "user_002", "user_003"),
     )
 
     print("\nWorkout session logs for user_001 and user_002:")

@@ -1,8 +1,10 @@
-import { useState } from "react"
+import { useState, useEffect } from "react"
 import { Navigate, useNavigate } from "react-router-dom"
 import { Bell, CalendarDays, ChevronRight, Dumbbell, List, LayoutGrid, Target, Droplet } from "lucide-react"
 import { useUser } from "../context/UserContext"
 import { WEEKLY_CALENDAR, PROGRESS_LADDER, FORM_HISTORY_DETAILED } from "../data/dummyData"
+
+const BASE_URL = import.meta.env.VITE_API_URL || "http://localhost:8000"
 
 // ─── helpers ─────────────────────────────────────────────────────────────────
 
@@ -12,13 +14,40 @@ function scoreBadgeStyle(score) {
   return { bg: "#fee2e2", color: "#991b1b" }
 }
 
+function getWorkoutCalendar(workouts) {
+  if (!Array.isArray(workouts) || workouts.length === 0) return null
+
+  const daySet = new Set()
+  let latest = null
+
+  workouts.forEach((session) => {
+    const date = new Date(session.logged_at)
+    if (Number.isNaN(date.getTime())) return
+    daySet.add(date.getDay())
+    if (!latest || date > latest) latest = date
+  })
+
+  if (!latest) return null
+
+  const sunday = new Date(latest)
+  sunday.setDate(latest.getDate() - latest.getDay())
+  const saturday = new Date(sunday)
+  saturday.setDate(sunday.getDate() + 6)
+
+  return {
+    weekLabel: `${sunday.toLocaleDateString("en-US", { month: "short", day: "numeric" })} – ${saturday.toLocaleDateString("en-US", { month: "short", day: "numeric" })}`,
+    workoutDays: Array.from(daySet).sort((a, b) => a - b),
+    streak: daySet.size,
+  }
+}
+
 const DAY_LABELS = ["S", "M", "T", "W", "Th", "F", "S"]
 const WEEK_DATES = [24, 25, 26, 27, 28, 29, 30]
 
 // ─── Week Calendar ────────────────────────────────────────────────────────────
 
-function WeekCalendar({ userId }) {
-  const cal = WEEKLY_CALENDAR[userId] || { weekLabel: "May 24 – 30", workoutDays: [], streak: 0 }
+function WeekCalendar({ userId, calendar }) {
+  const cal = calendar || WEEKLY_CALENDAR[userId] || { weekLabel: "May 24 – 30", workoutDays: [], streak: 0 }
   const todayIdx = 3 // Wednesday
 
   return (
@@ -440,8 +469,50 @@ function FormHistory({ userId }) {
 function HomePage() {
   const { activeUser, activeUserId, clearUser } = useUser()
   const navigate = useNavigate()
+  const [profile, setProfile] = useState(null)
+  const [workouts, setWorkouts] = useState([])
+  const [loading, setLoading] = useState(false)
+  const [error, setError] = useState(null)
+
+  useEffect(() => {
+    if (!activeUserId) return
+
+    setLoading(true)
+    setError(null)
+
+    fetch(`${BASE_URL}/users/${activeUserId}/details`)
+      .then((res) => {
+        if (!res.ok) throw new Error(`Failed to load profile: ${res.status}`)
+        return res.json()
+      })
+      .then((data) => {
+        setProfile(data.user_profile ?? null)
+        setWorkouts(Array.isArray(data.workout_sessions) ? data.workout_sessions : [])
+      })
+      .catch((err) => setError(err.message))
+      .finally(() => setLoading(false))
+  }, [activeUserId])
 
   if (!activeUser) return <Navigate to="/login" replace />
+  if (loading) {
+    return (
+      <div className="min-h-screen bg-[#f0eeff] flex items-center justify-center">
+        <p className="text-sm text-gray-400">Loading profile...</p>
+      </div>
+    )
+  }
+
+  if (error) {
+    return (
+      <div className="min-h-screen bg-[#f0eeff] flex items-center justify-center px-4">
+        <p className="text-sm text-red-500 text-center">{error}</p>
+      </div>
+    )
+  }
+
+  const displayName = profile?.display_name || activeUser.name
+  const profileLevel = profile?.level || activeUser.level
+  const workoutCalendar = getWorkoutCalendar(workouts)
 
   return (
     <div className="min-h-screen" style={{ background: "#F4F2FA" }}>
@@ -449,10 +520,13 @@ function HomePage() {
       <div className="flex items-start justify-between px-4 pt-6 pb-3" style={{ background: "#F4F2FA" }}>
         <div>
           <h1 className="text-2xl font-black" style={{ color: "#1a1a2e" }}>
-            Hey {activeUser.name}
+            Hey {displayName}
           </h1>
           <p className="text-xs mt-0.5" style={{ color: "#8b8ba7" }}>
             {activeUser.greeting}
+          </p>
+          <p className="text-xs mt-0.5" style={{ color: "#8b8ba7" }}>
+            Level: {profileLevel}
           </p>
         </div>
         <div className="flex items-center gap-2 mt-1">
@@ -472,7 +546,7 @@ function HomePage() {
         </div>
       </div>
 
-      <WeekCalendar userId={activeUserId} />
+      <WeekCalendar userId={activeUserId} calendar={workoutCalendar} />
       <ReadyCTA />
       <ProgressLadder userId={activeUserId} user={activeUser} />
       <FormHistory userId={activeUserId} />
