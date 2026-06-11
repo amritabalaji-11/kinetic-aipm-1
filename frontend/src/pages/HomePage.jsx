@@ -549,3 +549,96 @@ export default function HomePage() {
     </div>
   )
 }
+
+// ─── Main Page ────────────────────────────────────────────────────────────────
+
+function HomePage() {
+  const { activeUser, activeUserId, clearUser } = useUser()
+  const navigate = useNavigate()
+  const [profile, setProfile] = useState(null)
+  const [workouts, setWorkouts] = useState([])
+  const [loading, setLoading] = useState(false)
+  const [error, setError] = useState(null)
+
+  useEffect(() => {
+    if (!activeUserId) return
+
+    setLoading(true)
+    setError(null)
+
+    fetch(`${BASE_URL}/users/${activeUserId}/details`)
+      .then((res) => {
+        if (!res.ok) throw new Error(`Failed to load profile: ${res.status}`)
+        return res.json()
+      })
+      .then((data) => {
+        setProfile(data.user_profile ?? null)
+        setWorkouts(Array.isArray(data.workout_sessions) ? data.workout_sessions : [])
+      })
+      .catch((err) => setError(err.message))
+      .finally(() => setLoading(false))
+  }, [activeUserId])
+
+  if (!activeUser) return <Navigate to="/login" replace />
+  if (loading) {
+    return (
+      <div className="min-h-screen bg-[#f0eeff] flex items-center justify-center">
+        <p className="text-sm text-gray-400">Loading profile...</p>
+      </div>
+    )
+  }
+
+  if (error) {
+    return (
+      <div className="min-h-screen bg-[#f0eeff] flex items-center justify-center px-4">
+        <p className="text-sm text-red-500 text-center">{error}</p>
+      </div>
+    )
+  }
+
+  const displayName = profile?.display_name || activeUser.name
+  const profileLevel = profile?.level || activeUser.level
+  const workoutCalendar = getWorkoutCalendar(workouts)
+
+  return (
+    <div className="min-h-screen" style={{ background: "#F4F2FA" }}>
+      {/* Header */}
+      <div className="flex items-start justify-between px-4 pt-6 pb-3" style={{ background: "#F4F2FA" }}>
+        <div>
+          <h1 className="text-2xl font-black" style={{ color: "#1a1a2e" }}>
+            Hey {displayName}
+          </h1>
+          <p className="text-xs mt-0.5" style={{ color: "#8b8ba7" }}>
+            {activeUser.greeting}
+          </p>
+          <p className="text-xs mt-0.5" style={{ color: "#8b8ba7" }}>
+            Level: {profileLevel}
+          </p>
+        </div>
+        <div className="flex items-center gap-2 mt-1">
+          <button
+            onClick={() => { clearUser(); navigate("/login") }}
+            className="w-8 h-8 rounded-full flex items-center justify-center"
+            style={{ background: "#f0eeff" }}
+          >
+            <CalendarDays size={16} color="#6C5CE7" />
+          </button>
+          <button
+            className="w-8 h-8 rounded-full flex items-center justify-center"
+            style={{ background: "#f0eeff" }}
+          >
+            <Bell size={16} color="#6C5CE7" />
+          </button>
+        </div>
+      </div>
+
+      <WeekCalendar userId={activeUserId} calendar={workoutCalendar} />
+      <ReadyCTA />
+      <ProgressLadder userId={activeUserId} user={activeUser} />
+      <FormHistory userId={activeUserId} />
+    </div>
+  )
+}
+
+export default HomePage
+
