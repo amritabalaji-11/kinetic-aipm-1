@@ -1,0 +1,12 @@
+.DS_Store
+.env
+secrets/
+*.json
+venv
+__pycache__
+backend/credentials/
+backend/mediapipe_code/videos/
+backend/mediapipe_code/video_results/
+*.pyc
+*.mp4
+ffmpeg
