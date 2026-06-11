@@ -175,19 +175,6 @@ def init_db():
     
     cursor.execute(CREATE_USER_PROFILE_SQL)
 
-    # Seed the Demo User profile to prevent foreign key errors during upload fallbacks
-    demo_user_id = "00000000-0000-0000-0000-000000000000"
-    cursor.execute("""
-    INSERT INTO user_profiles (
-        profile_id, user_id, display_name, experience_level, annotated_frame_url, progress_ladder_image_url
-    ) VALUES (?, ?, ?, ?, ?, ?)
-    ON CONFLICT(user_id) DO UPDATE SET
-        display_name=excluded.display_name,
-        experience_level=excluded.experience_level,
-        annotated_frame_url=excluded.annotated_frame_url,
-        progress_ladder_image_url=excluded.progress_ladder_image_url
-    """, (demo_user_id, demo_user_id, "Demo User", "Intermediate", "for demo", "for demo"))
-    
     conn.commit()
     print("Local SQLite database initialized with 4 tables successfully.")
 
