@@ -128,6 +128,7 @@ async def run_mediapipe_analysis(analysis_id: str, file_location: str):
         # -------------------------------------------------
         # STEP 1 — get video onto local disk
         # -------------------------------------------------
+        print(file_location)
         if file_location.startswith("gs://"):
             local_path = _download_from_gcs(file_location, analysis_id)
         else:
