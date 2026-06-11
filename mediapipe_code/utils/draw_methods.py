@@ -523,6 +523,9 @@ def annotate_frame_front(
     valgus_flag = rep_data["stability_data"]["valgus_flag"]
     valgus_severity = rep_data["stability_data"]["valgus_severity"]
 
+    print(valgus_flag)
+    print(valgus_severity)
+
     valgus_distance = rep_data["stability_data"]["knee_valgus_distance"]
     
 
@@ -553,7 +556,7 @@ def annotate_frame_front(
         },
         {
             "label": "Knee Tracking",
-            "pass": valgus_flag,
+            "pass": valgus_flag == False,
             "text": f"{valgus_severity.title()}",
             "severity": 0.0 if valgus_severity.lower() == "none" else 1.0,
             "color": KNEE_POINT_COLOR,
@@ -1097,7 +1100,7 @@ def draw_valgus_status_label(
         text_x,
         text_y,
         prefix="Knee Tracking",
-        status="Good" if status else "Warning",
+        status="Good" if status == False else "Warning",
         font_size=25,
         color=KNEE_POINT_COLOR,
         camera_view=camera_view
