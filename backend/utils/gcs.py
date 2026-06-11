@@ -77,22 +77,45 @@ async def upload_image_to_gcs(
     destination_blob_name: str
 ):
     try:
-
         bucket = client.bucket(BUCKET_NAME)
-
         blob = bucket.blob(destination_blob_name)
 
-        blob.upload_from_filename(
-            _lock_path,
-            content_type="image/png"
+        file.file.seek(0)
+
+        blob.upload_from_file(
+            file.file,
+            content_type=file.content_type or "image/png",
+            timeout=300
         )
 
         blob.make_public()
 
         return blob.public_url
+
     except Exception as e:
         print("========== GCS ERROR ==========")
         print(str(e))
         print("================================")
-
         raise e
+    
+
+"""import asyncio
+
+async def main():
+
+    gcs_path = (
+        "images/user_001/"
+        "8227e043-592d-44ff-b916-5e1382c38da7/"
+        "user_001_front_17.5kg.jpg"
+    )
+
+    image_url = await upload_image_to_gcs(
+        "./backend/utils/user_001_front_17.5kg.jpg",
+        gcs_path
+    )
+
+    print(image_url)
+
+
+if __name__ == "__main__":
+    asyncio.run(main())"""
