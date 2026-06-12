@@ -196,14 +196,13 @@ function ParamCard({ label, score, observation, affirmation, correction, default
     movement_quality: "#9747FF"     // Purple (doesn't conflict with score colors)
   }
   const borderColor = paramColors[paramKey] || (score >= 80 ? "#22C55E" : score >= 65 ? "#F97316" : "#EF4444")
-  const observationPreview = observation ? observation.split('\n')[0].substring(0, 80) : ""
   return (
     <div className="rounded-2xl mb-2 overflow-hidden" style={{ background: "#fff", border: "1px solid #f3f4f6", borderLeft: `4px solid ${borderColor}`, boxShadow: "0 1px 3px rgba(0,0,0,0.05)" }}>
       <button type="button" onClick={() => setOpen(o => !o)} className="w-full flex items-center gap-3 px-4 py-3">
         <ScoreRing score={score} />
         <div className="flex-1 text-left">
           <div className="text-sm font-semibold text-gray-900">{label}</div>
-          {observationPreview && <div className="text-xs text-gray-400 mt-0.5 leading-snug">{observationPreview}...</div>}
+          {observation && <div className="text-xs text-gray-400 mt-0.5 leading-snug">{observation}</div>}
         </div>
         <svg className="w-4 h-4 flex-shrink-0 transition-transform" style={{ color: "#d1d5db", transform: open ? "rotate(180deg)" : "rotate(0deg)" }}
           fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
@@ -217,15 +216,7 @@ function ParamCard({ label, score, observation, affirmation, correction, default
               <svg className="w-4 h-4 text-green-500 mt-0.5 flex-shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
                 <path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" />
               </svg>
-              <TruncatedText text={affirmation} maxLines={3} />
-            </div>
-          )}
-          {observation && (
-            <div className="flex items-start gap-2">
-              <svg className="w-4 h-4 text-orange-400 mt-0.5 flex-shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-                <path strokeLinecap="round" strokeLinejoin="round" d="M12 9v2m0 4h.01M10.29 3.86L1.82 18a2 2 0 001.71 3h16.94a2 2 0 001.71-3L13.71 3.86a2 2 0 00-3.42 0z" />
-              </svg>
-              <TruncatedText text={observation} maxLines={3} />
+              <p className="text-xs text-gray-600 leading-relaxed">{affirmation}</p>
             </div>
           )}
           {correction && (
@@ -233,7 +224,7 @@ function ParamCard({ label, score, observation, affirmation, correction, default
               <svg className="w-4 h-4 text-blue-400 mt-0.5 flex-shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
                 <path strokeLinecap="round" strokeLinejoin="round" d="M13 16h-1v-4h-1m1-4h.01M12 2a10 10 0 100 20A10 10 0 0012 2z" />
               </svg>
-              <TruncatedText text={correction} maxLines={4} />
+              <p className="text-xs text-gray-700 leading-relaxed">{correction}</p>
             </div>
           )}
           {!correction && !affirmation && !observation && defaultNote && (
