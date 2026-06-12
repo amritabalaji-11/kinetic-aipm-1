@@ -63,12 +63,19 @@ export default function LoadingPage() {
   const [previousSession, setPreviousSession] = useState(null)
   const [currentAnalysis, setCurrentAnalysis] = useState(null)
   const [haikuCall2Data, setHaikuCall2Data] = useState(null)
+  const [haikuFetched, setHaikuFetched] = useState(false)  // <-- Add this guard
+  const [dataFetched, setDataFetched] = useState(false)
+
+
 
   // Fetch current analysis and previous session
   useEffect(() => {
-    if (!analysisId) return
+    if (!analysisId || dataFetched) return
     const fetchData = async () => {
       try {
+        // ADD THIS: Set flag BEFORE fetching
+        setDataFetched(true)
+
         // Fetch current analysis
         const analysisRes = await fetch(`${BASE_URL}/analysis/${analysisId}`)
         if (analysisRes.ok) {
@@ -105,17 +112,20 @@ export default function LoadingPage() {
           }
         }
       } catch (err) {
+        setDataFetched(false)
         console.error("Error fetching comparison data:", err)
       }
     }
     fetchData()
-  }, [analysisId])
+  }, [analysisId, dataFetched])
 
   // Fetch Haiku Call 2 data when analysis is complete
   useEffect(() => {
-    if (!isDone || !analysisId) return
+    if (!isDone || !analysisId || haikuFetched) return
     const fetchHaikuData = async () => {
       try {
+        
+        setHaikuFetched(true)  // ADD THIS: Set flag BEFORE fetching
         const res = await fetch(`${BASE_URL}/analysis/${analysisId}/progression`)
         if (res.ok) {
           const data = await res.json()
@@ -127,11 +137,12 @@ export default function LoadingPage() {
           })
         }
       } catch (err) {
+        setHaikuFetched(false)  // Reset on error to retry
         console.error("Error fetching Haiku Call 2 data:", err)
       }
     }
     fetchHaikuData()
-  }, [isDone, analysisId])
+  }, [isDone, analysisId, haikuFetched])
 
   useEffect(() => {
     const t = setTimeout(() => setBooted(true), 800)
