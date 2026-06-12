@@ -34,6 +34,7 @@ export default function UploadScanPage() {
   const fileInputRef = useRef(null)
 
   const [selectedMuscle,    setSelectedMuscle]    = useState(null)
+  const [hoveredMuscle,     setHoveredMuscle]     = useState(null)
   const [selectedExercise,  setSelectedExercise]  = useState(null)
   const [videoFile,         setVideoFile]         = useState(null)
   const [videoPreviewUrl,   setVideoPreviewUrl]   = useState(null)
@@ -126,12 +127,64 @@ export default function UploadScanPage() {
                 onError={e => { e.currentTarget.src = "/muscular_model2.png" }}
               />
             </div>
-            <button type="button" aria-label="SHOULDERS" className="absolute" style={{ left: "2%", top: "8%",    width: "38%", height: "14%", opacity: 0 }} onClick={() => { setSelectedMuscle(selectedMuscle === "SHOULDERS" ? null : "SHOULDERS"); setSelectedExercise(null) }} />
-            <button type="button" aria-label="BICEPS"    className="absolute" style={{ left: "2%", top: "24%",   width: "30%", height: "12%", opacity: 0 }} onClick={() => { setSelectedMuscle(m => m === "BICEPS"    ? null : "BICEPS");    setSelectedExercise(null) }} />
-            <button type="button" aria-label="FOREARMS"  className="absolute" style={{ left: "2%", top: "38%",   width: "34%", height: "12%", opacity: 0 }} onClick={() => { setSelectedMuscle(m => m === "FOREARMS"  ? null : "FOREARMS");  setSelectedExercise(null) }} />
-            <button type="button" aria-label="QUADS"     className="absolute" style={{ left: "2%", bottom: "20%", width: "46%", height: "22%", opacity: 0 }} onClick={() => { setSelectedMuscle(m => m === "QUADS"     ? null : "QUADS");     setSelectedExercise(null) }} />
-            <button type="button" aria-label="CHEST"     className="absolute" style={{ right: "2%", top: "14%",  width: "32%", height: "14%", opacity: 0 }} onClick={() => { setSelectedMuscle(m => m === "CHEST"     ? null : "CHEST");     setSelectedExercise(null) }} />
-            <button type="button" aria-label="ABS/CORE"  className="absolute" style={{ right: "2%", top: "30%",  width: "36%", height: "14%", opacity: 0 }} onClick={() => { setSelectedMuscle(m => m === "ABS/CORE"  ? null : "ABS/CORE");  setSelectedExercise(null) }} />
+            {[
+              { id: "SHOULDERS", label: "Shoulders", style: { left: "2%",   top: "8%",      width: "38%", height: "14%" } },
+              { id: "BICEPS",    label: "Biceps",    style: { left: "2%",   top: "24%",     width: "30%", height: "12%" } },
+              { id: "FOREARMS",  label: "Forearms",  style: { left: "2%",   top: "38%",     width: "34%", height: "12%" } },
+              { id: "QUADS",     label: "Quads",     style: { left: "2%",   bottom: "20%",  width: "46%", height: "22%" } },
+              { id: "CHEST",     label: "Chest",     style: { right: "2%",  top: "14%",     width: "32%", height: "14%" } },
+              { id: "ABS/CORE",  label: "Abs / Core",style: { right: "2%",  top: "30%",     width: "36%", height: "14%" } },
+            ].map(({ id, label, style }) => {
+              const isSelected = selectedMuscle === id
+              const isHovered  = hoveredMuscle  === id
+              return (
+                <button
+                  key={id}
+                  type="button"
+                  aria-label={id}
+                  onMouseEnter={() => setHoveredMuscle(id)}
+                  onMouseLeave={() => setHoveredMuscle(null)}
+                  onClick={() => { setSelectedMuscle(m => m === id ? null : id); setSelectedExercise(null) }}
+                  style={{
+                    position: "absolute",
+                    ...style,
+                    borderRadius: "8px",
+                    display: "flex",
+                    alignItems: "center",
+                    justifyContent: "center",
+                    fontSize: "10px",
+                    fontWeight: 700,
+                    letterSpacing: "0.05em",
+                    textTransform: "uppercase",
+                    cursor: "pointer",
+                    transition: "all 0.18s ease",
+                    background: isSelected
+                      ? "rgba(124, 58, 237, 0.45)"
+                      : isHovered
+                        ? "rgba(99, 102, 241, 0.25)"
+                        : "rgba(99, 102, 241, 0.08)",
+                    border: isSelected
+                      ? "2px solid rgba(124, 58, 237, 0.9)"
+                      : isHovered
+                        ? "2px solid rgba(99, 102, 241, 0.6)"
+                        : "2px solid rgba(99, 102, 241, 0.2)",
+                    color: isSelected
+                      ? "#fff"
+                      : isHovered
+                        ? "#4338CA"
+                        : "#6366F1",
+                    boxShadow: isSelected
+                      ? "0 0 12px rgba(124, 58, 237, 0.4)"
+                      : isHovered
+                        ? "0 0 8px rgba(99, 102, 241, 0.25)"
+                        : "none",
+                    textShadow: isSelected ? "0 1px 2px rgba(0,0,0,0.3)" : "none",
+                  }}
+                >
+                  {label}
+                </button>
+              )
+            })}
             <button type="button" className="absolute bottom-1 right-4 text-gray-400" aria-label="Rotate">
               <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
                 <path strokeLinecap="round" strokeLinejoin="round" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
