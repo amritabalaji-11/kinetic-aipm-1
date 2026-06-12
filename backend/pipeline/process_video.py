@@ -32,7 +32,7 @@ _haiku_call_1 = HaikuCall1(exercise="goblet_squat")
 
 # MediaPipe framework
 framework = LandmarkQualityFramework(
-    model_path="mediapipe_code/model/pose_landmarker_heavy.task"
+    model_path="mediapipe_code/model/pose_landmarker_full.task"
 )
 
 # Thread pool for CPU-heavy work (MediaPipe, sync Haiku client)
