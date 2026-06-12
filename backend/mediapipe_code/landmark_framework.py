@@ -1,25 +1,29 @@
 from collections import Counter
 import datetime
+import json
 import os
+import time
+import uuid
 import mediapipe as mp
 import cv2
-from mediapipe_code.mp_utils.pose.pose_landmarks import LEFT_HIP, LEFT_KNEE, RIGHT_HIP, RIGHT_KNEE
+#from llm_run_code import get_analysis_result, get_comparison_result, run_llm_analysis, run_llm_analysis_test, run_llm_comparison
+#from prompt_script_haiku_v2 import run_llm_analysis_test_haiku_v2
+from mediapipe_code.mp_utils.pose_landmarks import LEFT_HIP, LEFT_KNEE, RIGHT_HIP, RIGHT_KNEE
+from mediapipe_code.mp_utils.trackers.traker_configuration import THRESHOLD_DEEP
 from mediapipe_code.mp_utils.trackers.trend_analyzer import TrendAnalyzer
+from mediapipe_code.mp_utils.trackers.ankle_tracker import AnkleTracker
+from mediapipe_code.mp_utils.trackers.back_tracker import BackAngleTracker
+from mediapipe_code.mp_utils.trackers.depth_tracker import DepthTracker
 from mediapipe_code.mp_utils.trackers.rep_counter import RepCounter
-from mediapipe_code.mp_utils.trackers.exercise_trackers import (
-    PassiveAnkleTracker,
-    PassiveBackAngleTracker,
-    PassiveDepthTracker,
-    PassiveStabilityTracker,
-    PassiveTempoTracker,
-)
-from mediapipe_code.mp_utils.visualization.draw_methods import annotate_frame, extract_worst_frame, overlay_frame
-from mediapipe_code.mp_utils.geometry.angle_methods import detect_camera_view
-from mediapipe_code.mp_utils.quality.landmark_quality_configuration import (
-    LANDMARKS, MEDIAPIPE_MODEL, 
-    PRESENCE_THRESHOLD, 
+from mediapipe_code.mp_utils.trackers.stability_tracker import StabilityTracker
+from mediapipe_code.mp_utils.trackers.tempo_tracker import TempoTracker
+from mediapipe_code.mp_utils.draw_methods import add_text_lines, annotate_frame, draw_points_and_lines, extract_worst_frame, overlay_frame
+from mediapipe_code.mp_utils.angle_methods import detect_camera_view
+from mediapipe_code.mp_utils.landmark_quality_configuration import (
+    LANDMARKS, LEFT_SIDE, LEG_CONNECTIONS, LEG_CONNECTIONS_LEFT_SIDE, LEG_CONNECTIONS_RIGHT_SIDE, LEG_TARGET_LANDMARKS, MEDIAPIPE_MODEL, 
+    PRESENCE_THRESHOLD, RIGHT_SIDE, 
     VISIBILITY_THRESHOLD, FrameAssessment )
-from mediapipe_code.mp_utils.quality.landmark_quality_methods import (
+from mediapipe_code.mp_utils.landmark_quality_methods import (
     build_composite_from_frames,
     compute_composite_score, 
     compute_frame_reliability, compute_reliability,
@@ -120,7 +124,7 @@ class LandmarkQualityFramework:
         video_path,
         exercise,
         weight_kg,
-        analysis_id,
+        analysis_id
     ):
         
         """
@@ -146,12 +150,6 @@ class LandmarkQualityFramework:
         fps = 30.0
         width = int(cap.get(cv2.CAP_PROP_FRAME_WIDTH))
         height = int(cap.get(cv2.CAP_PROP_FRAME_HEIGHT))
-
-        # Setup temp annotated video output
-        temp_annotated_path = video_path + ".annotated_temp.mp4"
-        fourcc = cv2.VideoWriter_fourcc(*"mp4v")
-        # Since we downsample by skipping every 2nd frame, write at 10.0 FPS
-        out_video = cv2.VideoWriter(temp_annotated_path, fourcc, 10.0, (width, height))
 
         video_name = os.path.splitext(os.path.basename(resized_video_path))[0]
 
@@ -189,27 +187,18 @@ class LandmarkQualityFramework:
             detect_for_video = landmarker.detect_for_video
 
             rep_counter = RepCounter()
-            tempo_tracker = PassiveTempoTracker()
-            back_tracker = PassiveBackAngleTracker()
-            depth_tracker = PassiveDepthTracker()
-            stability_tracker = PassiveStabilityTracker()
-            ankle_tracker = PassiveAnkleTracker()
+            tempo_tracker = TempoTracker()
+            back_tracker = BackAngleTracker()
+            depth_tracker = DepthTracker()
+            stability_tracker = StabilityTracker()
+            ankle_tracker = AnkleTracker()
 
-            # -------------------------------------------------
-            # VIEW STABILIZATION & SIGNAL SMOOTHING CONFIG
-            # -------------------------------------------------
-            # View stabilization: We lock the camera view once a dominant view receives 
-            # VIEW_LOCK_FRAMES votes. This prevents camera view flapping/jittering 
-            # during rapid motions.
-            view_votes = {}
-            locked_view = None
-            VIEW_LOCK_FRAMES = 10
-
-            # Exponential Moving Average (EMA) smoothing for hip angle signal.
-            # Reduces noise from high-frequency coordinate fluctuations without introducing 
-            # significant phase delay.
-            ema_hip = None
-            EMA_ALPHA = 0.4
+            rep_update = rep_counter.update
+            tempo_update = tempo_tracker.update
+            back_update = back_tracker.update
+            depth_update = depth_tracker.update
+            stability_update = stability_tracker.update
+            ankle_update = ankle_tracker.update
 
             while True:
                 ok, frame_bgr = read()
@@ -257,8 +246,6 @@ class LandmarkQualityFramework:
                     annotated = frame_bgr.copy()
                     
                     append_annotated(annotated)
-                    if out_video.isOpened():
-                        out_video.write(annotated)
 
                     frame_index += 1
                     continue
@@ -267,18 +254,6 @@ class LandmarkQualityFramework:
                 # VIEW
                 # -------------------------------------------------
                 camera_view = detect_view(world_pose)
-
-                # View stabilization: During initial frames, compile votes for the observed view.
-                # Once VIEW_LOCK_FRAMES is reached, lock the camera_view to the majority vote 
-                # to prevent transient errors or side-to-side view swapping.
-                """if locked_view is None:
-                    view_votes[raw_view] = view_votes.get(raw_view, 0) + 1
-                    total_votes = sum(view_votes.values())
-                    if total_votes >= VIEW_LOCK_FRAMES:
-                        locked_view = max(view_votes, key=view_votes.get)
-                    camera_view = raw_view
-                else:
-                    camera_view = locked_view"""
 
                 active_landmarks, active_critical_landmarks = select_landmarks(
                     camera_view,
@@ -354,21 +329,9 @@ class LandmarkQualityFramework:
                     camera_view,
                 )
 
-                raw_hip_angle = metrics["hip_angle"]
+                hip_angle = metrics["hip_angle"]
                 knee_angle = metrics["knee_angle"]
                 back_angle_value = metrics["back_angle"]
-
-                # EMA smoothing for hip angle signal to reduce noise and frame-to-frame jitter.
-                # If it's the first frame with a valid hip angle, initialize the filter.
-                # Otherwise, calculate the new EMA value using EMA_ALPHA.
-                if raw_hip_angle is not None:
-                    if ema_hip is None:
-                        ema_hip = raw_hip_angle
-                    else:
-                        ema_hip = EMA_ALPHA * raw_hip_angle + (1 - EMA_ALPHA) * ema_hip
-                    hip_angle = ema_hip
-                else:
-                    hip_angle = raw_hip_angle
                 left_knee_valgus = metrics["left_knee_valgus"]
                 right_knee_valgus = metrics["right_knee_valgus"]
                 dorsiflexion = metrics["dorsiflexion"]
@@ -394,55 +357,63 @@ class LandmarkQualityFramework:
                     hip_y = sum(hip_vals) / len(hip_vals) if hip_vals else None
                     knee_y = sum(knee_vals) / len(knee_vals) if knee_vals else None
                     
-                # -------------------------------------------------
-                # CENTRAL LIFECYCLE EVENT BROADCASTER
-                # -------------------------------------------------
-                rep_event = None
-                rep_completed = False
+                rep_completed = None
                 if hip_angle is not None:
-                    rep_event, rep_count = rep_counter.update(hip_angle)
+                    rep_completed, rep_count = rep_update(
+                        hip_angle,
+                        knee_angle,
+                        camera_view=camera_view,
+                    )
 
-                is_standing = (rep_counter.state == "STANDING")
+                tempo_data = tempo_update(
+                    hip_angle,
+                    knee_angle,
+                    camera_view,
+                    timestamp_ms,
+                )
 
-                # Update frame-level trackers
-                ankle_tracker.update_frame(hip_angle, dorsiflexion, world_pose, is_standing)
-                back_tracker.update_frame(back_angle_value, hip_angle, torso_angle, timestamp_ms, is_standing)
-                depth_tracker.update_frame(hip_angle, knee_angle, hip_y, knee_y, is_standing)
-                stability_tracker.update_frame(norm_pose, is_standing)
+                if tempo_data is None:
+                    tempo_data = tempo_tracker.current_rep_tempo
 
-                # Broadcast transitional triggers
-                if rep_event is not None:
-                    if rep_event == "descending_started":
-                        ankle_tracker.on_descending(hip_angle, dorsiflexion)
-                        back_tracker.on_descending(back_angle_value, hip_angle, timestamp_ms)
-                        depth_tracker.on_descending(hip_angle, knee_angle, hip_y, knee_y)
-                        stability_tracker.on_descending(norm_pose)
-                        tempo_tracker.on_descending(timestamp_ms)
-                    elif rep_event == "bottom_reached":
-                        tempo_tracker.on_bottom_reached(timestamp_ms)
-                    elif rep_event == "ascending_started":
-                        tempo_tracker.on_ascending_started(timestamp_ms)
-                    elif rep_event == "reset":
-                        ankle_tracker.on_reset()
-                        back_tracker.on_reset()
-                        depth_tracker.on_reset()
-                        stability_tracker.on_reset()
-                        tempo_tracker.on_reset()
-                    elif rep_event == "rep_completed":
-                        rep_completed = True
+                back_data = back_update(
+                    back_angle_value,
+                    hip_angle,
+                    knee_angle,
+                    camera_view,
+                    timestamp_ms,
+                    torso_angle=torso_angle,
+                )
+
+                depth_data = depth_update(
+                    hip_angle,
+                    knee_angle,
+                    camera_view,
+                    hip_y,
+                    knee_y,
+                )
+
+                stability_data = stability_update(
+                    hip_angle,
+                    knee_angle,
+                    camera_view,
+                    norm_pose,
+                    timestamp_ms,
+                )
+
+                ankle_data = ankle_update(
+                    hip_angle,
+                    knee_angle,
+                    camera_view,
+                    dorsiflexion,
+                    world_pose,
+                )
 
                 # -------------------------------------------------
                 # BOTTOM FRAMES
                 # -------------------------------------------------
-                if rep_counter.state != "STANDING":
-                    active_rep_number = rep_counter.rep_count + 1
-                elif rep_completed:
-                    active_rep_number = rep_counter.rep_count
-                else:
-                    active_rep_number = 0
-
-                if active_rep_number > 0:
-                     append_bottom_frames(
+                
+                
+                append_bottom_frames(
                             {"frame_index": frame_index,
                              "frame_bgr": frame_bgr,
                              "camera_view":camera_view,
@@ -458,12 +429,6 @@ class LandmarkQualityFramework:
                 # REP COMPLETED
                 # -------------------------------------------------
                 if rep_completed:
-                    ankle_data = ankle_tracker.on_rep_completed(camera_view)
-                    back_data = back_tracker.on_rep_completed(camera_view)
-                    depth_data = depth_tracker.on_rep_completed(camera_view)
-                    stability_data = stability_tracker.on_rep_completed(camera_view)
-                    tempo_data = tempo_tracker.on_rep_completed(timestamp_ms)
-
                     rep_dict = format_rep_data(
                         rep_count,
                         tempo_data,
@@ -474,9 +439,18 @@ class LandmarkQualityFramework:
                         camera_view,
                     )
 
-                    rep_dict["rep_number"] = rep_count
-                    rep_dict["camera_view"] = camera_view
-                    append_rep(rep_dict)
+                    tempo_tracker.delete_current_rep()
+
+                    if rep_dict["tempo_data"]["total"] > 4:
+                        if rep_counter.rep_count > 1:
+                            rep_counter.reduce_rep()
+                        else:
+                            rep_counter.rep_to_zero()
+
+                    else:
+                        rep_dict["rep_number"] = rep_count
+                        rep_dict["camera_view"] = camera_view
+                        append_rep(rep_dict)
 
                 # -------------------------------------------------
                 # ANNOTATED FRAME FOR COLLAGE
@@ -493,19 +467,15 @@ class LandmarkQualityFramework:
                     left_knee_valgus=left_knee_valgus,
                     right_knee_valgus=right_knee_valgus,
                     rep_count=rep_counter.rep_count,
-                    tempo_state=rep_counter.state,
+                    tempo_state=tempo_tracker.state,
                 )
 
                 append_annotated(annotated)
-                if out_video.isOpened():
-                    out_video.write(annotated)
 
                 frame_index += 1
 
         cap.release()
         cv2.destroyAllWindows()
-        if out_video.isOpened():
-            out_video.release()
 
         # -------------------------------------------------
         # QUALITY SCORE
@@ -528,19 +498,9 @@ class LandmarkQualityFramework:
             len(reps_json_info),
         )
 
-        quality_result["analysis_id"] = analysis_id
-
-        #quality_result["event"] = "mediapipe_complete"
-
-        #print(quality_result)
-        
+        quality_result["analysis_id"] = analysis_id        
 
         if quality_result["event"] != "mediapipe_complete":
-            if os.path.exists(temp_annotated_path):
-                try:
-                    os.remove(temp_annotated_path)
-                except:
-                    pass
             return None, quality_result, None, None
 
         # -------------------------------------------------
@@ -575,6 +535,20 @@ class LandmarkQualityFramework:
             "consolidated": trend_results,
         }
 
+        final_json["reps"].pop()
+
+        output_dir = "./mediapipe_code/results"
+        os.makedirs(output_dir, exist_ok=True)
+
+        json_filename = os.path.join(output_dir, f"{video_name}.json")
+        with open(json_filename, "w", encoding="utf-8") as f:
+            json.dump(
+                final_json,
+                f,
+                indent=4,
+                ensure_ascii=False,
+            )
+
         # -------------------------------------------------
         # COLLAGE IMAGE
         # -------------------------------------------------
@@ -587,33 +561,35 @@ class LandmarkQualityFramework:
                 cols=4,
             )
 
-        # Clean up temporary resized video file
-        if os.path.exists(resized_video_path):
-            try:
-                os.remove(resized_video_path)
-            except Exception as clean_err:
-                print(f"Could not remove temporary resized video: {clean_err}")
-
         return final_json, quality_result, collage_b64, bottom_frames
-    
-    
+
+# How to use it
+"""framework = LandmarkQualityFramework(model_path=MEDIAPIPE_MODEL)
+input_dir = "./mediapipe_code/videos/user_002_videos/user_002_side_9.07kg.mov"
+analysis_path = "./mediapipe_code/results/call_1/user_002_video_side_97_analysis.json"
+json_path = "./mediapipe_code/results/otros/user_002_video_side_907_analysis.json"
+final_json = json.load(open(json_path))
+start = time.time()
+_, quality_result, collage_b64, rep_frames_list = framework.process_video_once(input_dir, "goblet-squat", 9.07)
 
 
+frame, frame_data, dominant_camera_view, rep_data = extract_worst_frame(input_dir, analysis_path, rep_frames_list, final_json)
 
-if __name__ == "__main__":
-    import sys
-    sys.path.insert(0, os.path.abspath(os.path.dirname(__file__)))
-    # How to use it
-    framework = LandmarkQualityFramework(model_path=MEDIAPIPE_MODEL)
-    input_dir = "./AB test videos/v1_depth_fault.mp4"
-    video_name = os.path.splitext(os.path.basename(input_dir))[0] + "_resized"
-    analysis_path = f"./backend/mediapipe_code/results/{video_name}.json"
+#print(rep_data)
 
-    final_json, quality_result, collage_b64, rep_frames_list = framework.process_video_once(input_dir, "goblet squat", 20, analysis_id)
+annotated_worst_frame = overlay_frame(frame, frame_data, dominant_camera_view, rep_data, output_filename="user_002_side_907")"""
 
-    if final_json and os.path.exists(analysis_path):
-        try:
-            frame, frame_data, dominant_camera_view, rep_data = extract_worst_frame(input_dir, analysis_path, rep_frames_list, final_json)
-            annotated_worst_frame = overlay_frame(frame, frame_data, dominant_camera_view, rep_data, output_filename="user_001_side_17.5kg")
-        except Exception as e:
-            print("Could not extract worst frame:", e)
+"""result = run_llm_analysis_test_haiku_v2(final_json, collage_b64, debug=True)
+
+output_dir = "./mediapipe_code/results/call_1"
+os.makedirs(output_dir, exist_ok=True)
+json_filename = os.path.join(output_dir, f"user_003_video_3.json")
+with open(json_filename, "w", encoding="utf-8") as f:
+        json.dump(
+            result,
+            f,
+            indent=4,
+            ensure_ascii=False,
+        )
+
+print("Total time:",time.time() - start)"""
