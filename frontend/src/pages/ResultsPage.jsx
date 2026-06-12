@@ -479,9 +479,12 @@ function FormHistorySection({ userId, exerciseId, currentAnalysisId }) {
   const [history, setHistory] = useState([])
   const [loading, setLoading] = useState(true)
   const BASE_URL = import.meta.env.VITE_API_URL || "http://localhost:8000"
+  const [historyFetched, setHistoryFetched] = useState(false)
+
 
   useEffect(() => {
-    if (!userId) return
+    if (!userId || historyFetched) return
+    setHistoryFetched(true)
     fetch(`${BASE_URL}/form_analysis_results/${userId}`)
       .then(r => r.ok ? r.json() : [])
       .then(data => {
@@ -492,7 +495,7 @@ function FormHistorySection({ userId, exerciseId, currentAnalysisId }) {
         setLoading(false)
       })
       .catch(() => setLoading(false))
-  }, [userId, currentAnalysisId])
+  }, [userId, currentAnalysisId, historyFetched])
 
   if (loading || history.length === 0) return null
 
@@ -556,10 +559,16 @@ export default function ResultsPage() {
   const [formHistory, setFormHistory] = useState([])
   const [formHistoryLoading, setFormHistoryLoading] = useState(true)
   const [expandedCards, setExpandedCards] = useState({})
+  const [initialDataFetched, setInitialDataFetched] = useState(false)
+
 
   const BASE_URL = import.meta.env.VITE_API_URL || "http://localhost:8000"
 
   useEffect(() => {
+    if (initialDataFetched) return
+    setInitialDataFetched(true)
+
+
     async function fetchUserData() {
       try {
         const userId = localStorage.getItem("active_user_id")
@@ -625,17 +634,17 @@ export default function ResultsPage() {
     fetchUserData()
     fetchSessions()
     fetchFormHistory()
-  }, [BASE_URL])
+  }, [BASE_URL, initialDataFetched])
 
   useEffect(() => {
     if (state?.analysisId) {
       handleLoadLiveSession(state.analysisId)
-    } else if (!liveCurrentData) {
+    } else if (!liveCurrentData && !sessionLoaded) {
       // Load default fixture when page opens without live data
       setLiveCurrentData(FIXTURE_CLEAN)
       setLiveCompData(null)
     }
-  }, [state?.analysisId, liveCurrentData])
+  }, [state?.analysisId])
 
   async function handleLoadLiveSession(sessionId) {
     if (!sessionId) {
