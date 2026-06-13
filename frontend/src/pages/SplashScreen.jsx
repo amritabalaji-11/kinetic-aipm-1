@@ -7,8 +7,11 @@ export default function SplashScreen() {
   const navRef    = useRef(navigate)
   const { clearUser } = useUser()
   const glowRef   = useRef(null)
+<<<<<<< HEAD
   const scannerRef = useRef(null)
   const kFillRef = useRef(null)
+=======
+>>>>>>> d409995e71d96a5a25eef9fae9b042cfd367da5e
 
   useEffect(() => {
     clearUser()
@@ -29,6 +32,7 @@ export default function SplashScreen() {
     fadeIn("sp-logo",    260)
     fadeIn("sp-tagline", 460)
 
+<<<<<<< HEAD
     // Start animations after frame fades in
     setTimeout(() => {
       // Animate corners (zoom in/out)
@@ -106,6 +110,16 @@ export default function SplashScreen() {
       // Animate glow effect
       const glowEl = glowRef.current
       if (glowEl) {
+=======
+    const glowEl = glowRef.current
+    if (glowEl) {
+      glowEl.style.opacity = "0"
+      setTimeout(() => {
+        glowEl.getBoundingClientRect()
+        glowEl.style.transition = "opacity 0.5s ease"
+        glowEl.style.opacity    = "1"
+
+>>>>>>> d409995e71d96a5a25eef9fae9b042cfd367da5e
         let scale = 1
         let dir   = 1
         setInterval(() => {
@@ -114,8 +128,13 @@ export default function SplashScreen() {
           if (scale <= 1.0)  dir =  1
           glowEl.style.transform = `scaleX(${scale}) scaleY(${scale})`
         }, 20)
+<<<<<<< HEAD
       }
     }, 600)
+=======
+      }, 900)
+    }
+>>>>>>> d409995e71d96a5a25eef9fae9b042cfd367da5e
 
     const t = setTimeout(() => navRef.current("/profile-screen"), 3400)
     return () => clearTimeout(t)
@@ -171,7 +190,11 @@ export default function SplashScreen() {
 
       <div
         id="sp-frame"
+<<<<<<< HEAD
         style={{ position: "relative", width: 210, height: 250, overflow: "hidden" }}
+=======
+        style={{ position: "relative", width: 210, height: 250 }}
+>>>>>>> d409995e71d96a5a25eef9fae9b042cfd367da5e
       >
         <Corner pos="tl" color="#3b82f6" />
         <Corner pos="tr" color="#8b5cf6" />
@@ -208,6 +231,7 @@ export default function SplashScreen() {
               K
             </text>
           </svg>
+<<<<<<< HEAD
           <div
             ref={kFillRef}
             style={{
@@ -258,6 +282,10 @@ export default function SplashScreen() {
           }}
         />
 
+=======
+        </div>
+
+>>>>>>> d409995e71d96a5a25eef9fae9b042cfd367da5e
         <div
           style={{
             position: "absolute",
@@ -313,14 +341,24 @@ function WaveIcon({ flip = false }) {
 
 function Corner({ pos, color }) {
   const size   = 36
+<<<<<<< HEAD
   const thick  = 7
   const radius = 5
   const base   = { position: "absolute", width: size, height: size, transformOrigin: "center" }
+=======
+  const thick  = 3.5
+  const radius = 5
+  const base   = { position: "absolute", width: size, height: size }
+>>>>>>> d409995e71d96a5a25eef9fae9b042cfd367da5e
   const posMap = {
     tl: { top: 0,    left: 0,   borderTop: thick + "px solid " + color, borderLeft: thick + "px solid " + color,      borderTopLeftRadius: radius },
     tr: { top: 0,    right: 0,  borderTop: thick + "px solid " + color, borderRight: thick + "px solid " + color,     borderTopRightRadius: radius },
     bl: { bottom: 0, left: 0,   borderBottom: thick + "px solid " + color, borderLeft: thick + "px solid " + color,   borderBottomLeftRadius: radius },
     br: { bottom: 0, right: 0,  borderBottom: thick + "px solid " + color, borderRight: thick + "px solid " + color,  borderBottomRightRadius: radius },
   }
+<<<<<<< HEAD
   return <div data-corner={pos} style={{ ...base, ...posMap[pos] }} />
+=======
+  return <div style={{ ...base, ...posMap[pos] }} />
+>>>>>>> d409995e71d96a5a25eef9fae9b042cfd367da5e
 }

@@ -1,0 +1,11 @@
+{
+  "_fixture": "form-comparison — Case 2 (no previous session)",
+  "_schema_ref": "S1-W5-04 · FE_Response_Schemas.md · section 8b",
+  "_notes": "Returned when user has no past analysis for this exercise. Frontend should show the empty_state_message and hide the comparison UI entirely.",
+
+  "has_comparison": false,
+  "empty_state_message": "Sorry you do not have any past form analysis done before this session. Try the next time you do a form analysis",
+  "current": null,
+  "previous": null,
+  "comparison_coaching": null
+}

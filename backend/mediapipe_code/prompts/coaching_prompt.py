@@ -244,6 +244,7 @@ NEXT SESSION FOCUS: What to do on the next training day. 2–3 points. Specific.
   GOOD: "Before next session: heel-elevated goblet squats (3×8) as warmup"
   BAD:  "Push knees out on ascent" — this is a within-set cue, belongs in feedback
 
+<<<<<<< HEAD
 WEIGHT RECOMMENDATIONS — CRITICAL RULE:
   If form deteriorates in later reps (RC4 — load deficit):
     - NEVER suggest a specific weight or numbers (e.g., "drop to 14kg", "use 16kg")
@@ -254,6 +255,8 @@ WEIGHT RECOMMENDATIONS — CRITICAL RULE:
       GOOD: "Before next session: perform this exercise with a lighter weight that lets you maintain control through all reps"
       BAD:  "Drop to 14kg on your next set"
 
+=======
+>>>>>>> d409995e71d96a5a25eef9fae9b042cfd367da5e
 ROOT CAUSE RULE: One root cause → address only the root cause in feedback.
   Do NOT list each downstream symptom as a separate correction.
 

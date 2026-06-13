@@ -1,0 +1,122 @@
+{
+  "_fixture": "form-progression — Case 1 (previous session exists)",
+  "_notes": "Matches Figma screenshots. Goblet Squat. Current: Apr 27 · 12kg. Previous: Apr 24 · 12kg.",
+
+  "available": true,
+
+  "current_session": {
+    "analysis_id": "550e8400-e29b-41d4-a716-446655440001",
+    "created_at": "2026-04-27T10:02:17.000Z",
+    "date_label": "Apr 27",
+    "weight_value": 12,
+    "weight_unit": "kg",
+    "overall_form_score": 76,
+    "rep_count": 8,
+    "parameters": {
+      "tempo":            { "score": 74 },
+      "stability":        { "score": 70 },
+      "posture":          { "score": 75 },
+      "movement_quality": { "score": 68 }
+    },
+    "rep_scores": [81, 79, 77, 76, 74, 72, 70, 69]
+  },
+
+  "previous_session": {
+    "analysis_id": "661f9511-f30c-52e5-b827-557766551002",
+    "created_at": "2026-04-24T09:14:33.000Z",
+    "date_label": "Apr 24",
+    "weight_value": 12,
+    "weight_unit": "kg",
+    "overall_form_score": 72,
+    "rep_count": 6,
+    "parameters": {
+      "tempo":            { "score": 70 },
+      "stability":        { "score": 63 },
+      "posture":          { "score": 68 },
+      "movement_quality": { "score": 73 }
+    },
+    "rep_scores": [78, 75, 73, 72, 70, 68]
+  },
+
+  "previous_next_session_focus": [
+    "Focus on ankle mobility — your dorsiflexion is limiting depth from rep 5. Try heel-elevated squats before your next session."
+  ],
+
+  "focus_tags": ["heel-elevated-squats", "banded-ankle-context"],
+
+  "progress_ladder_image_url": null,
+
+  "progress_ladder": [
+    {
+      "weight": 14,
+      "weight_unit": "kg",
+      "label": "Now",
+      "sessions": 2,
+      "scores": [76, 74],
+      "placeholders": 1
+    },
+    {
+      "weight": 12,
+      "weight_unit": "kg",
+      "label": "Current",
+      "sessions": 8,
+      "scores": [79, 82, 83, 80],
+      "placeholders": 2
+    },
+    {
+      "weight": 10,
+      "weight_unit": "kg",
+      "label": "Past",
+      "sessions": 2,
+      "scores": [83, 85],
+      "placeholders": 0
+    }
+  ],
+
+  "form_history": [
+    {
+      "analysis_id": "aaa-001",
+      "created_at": "2026-05-02T09:00:00.000Z",
+      "exercise_name": "Goblet Squat",
+      "weight_value": 12,
+      "weight_unit": "kg",
+      "rep_count": 8,
+      "overall_form_score": 78,
+      "annotated_frame_url": null,
+      "verdict": "Posture solid across 8 reps. One more clean set and you're ready for 14kg."
+    },
+    {
+      "analysis_id": "aaa-002",
+      "created_at": "2026-04-27T10:02:17.000Z",
+      "exercise_name": "Goblet Squat",
+      "weight_value": 12,
+      "weight_unit": "kg",
+      "rep_count": 8,
+      "overall_form_score": 76,
+      "annotated_frame_url": null,
+      "verdict": "Best tempo yet; minor knee drift on the final rep only."
+    },
+    {
+      "analysis_id": "aaa-003",
+      "created_at": "2026-04-10T08:30:00.000Z",
+      "exercise_name": "Goblet Squat",
+      "weight_value": 10,
+      "weight_unit": "kg",
+      "rep_count": 7,
+      "overall_form_score": 74,
+      "annotated_frame_url": null,
+      "verdict": "Depth held for 6 reps, ankle dorsiflexion limited reps 7-8."
+    }
+  ],
+
+  "ai_verdict": {
+    "progress_direction": "up",
+    "progression_verdict": "The ankle work is paying off — your depth is cleaner across all 8 reps. Knee valgus is still showing but a rep later than last time. You're moving in the right direction.",
+    "focus_this_week": "Work on ankle mobility — it's limiting your squat depth at heavier weights.",
+    "weight_recommendation": "Hold at 12kg",
+    "posture_trend": "Your posture has been consistent across your last 3 sessions.",
+    "stability_trend": "Knee valgus improving — dropped from rep 3 to rep 7 over 3 sessions.",
+    "movement_quality_trend": "Depth improving steadily each session.",
+    "range_of_motion_trend": "Ankle mobility limiting range — priority focus this week."
+  }
+}

@@ -9,15 +9,24 @@ export const DEMO_USERS = {
     levelColor: "#22c55e",
     levelBg: "#dcfce7",
     description: "Just getting started",
+<<<<<<< HEAD
     currentWeight: 60,
     avgScore: 72,
     progressNote: "6 Sessions Completed",
+=======
+    currentWeight: 12,
+    avgScore: 58,
+    progressNote: "2 Sessions Completed",
+>>>>>>> d409995e71d96a5a25eef9fae9b042cfd367da5e
     progressNoteColor: "#6b7280",
     progressIcon: null,
     avatarGradient: ["#4facfe", "#00f2fe"],
     greeting: "You're stronger than last week!",
+<<<<<<< HEAD
     workouts: 6,
     dayStreak: 3,
+=======
+>>>>>>> d409995e71d96a5a25eef9fae9b042cfd367da5e
     focus: {
       title: "Your focus this week",
       advice: "Keep your chest up throughout the squat. You're collapsing slightly at depth.",
@@ -32,15 +41,22 @@ export const DEMO_USERS = {
     levelColor: "#8b5cf6",
     levelBg: "#ede9fe",
     description: "Building Momentum",
+<<<<<<< HEAD
     currentWeight: 50,
+=======
+    currentWeight: 20,
+>>>>>>> d409995e71d96a5a25eef9fae9b042cfd367da5e
     avgScore: 74,
     progressNote: "Score up 12 pts in 4 weeks",
     progressNoteColor: "#22c55e",
     progressIcon: "up",
     avatarGradient: ["#f093fb", "#f5576c"],
     greeting: "Building momentum. Keep crushing it!",
+<<<<<<< HEAD
     workouts: 6,
     dayStreak: 3,
+=======
+>>>>>>> d409995e71d96a5a25eef9fae9b042cfd367da5e
     focus: {
       title: "Your focus this week",
       advice: "Increase time under tension. Your descents are too fast at 20 kg.",
@@ -55,15 +71,22 @@ export const DEMO_USERS = {
     levelColor: "#f59e0b",
     levelBg: "#fef3c7",
     description: "Ready to break through",
+<<<<<<< HEAD
     currentWeight: 65,
+=======
+    currentWeight: 22,
+>>>>>>> d409995e71d96a5a25eef9fae9b042cfd367da5e
     avgScore: 71,
     progressNote: "Stuck at 22 kg for 4 weeks",
     progressNoteColor: "#f59e0b",
     progressIcon: "right",
     avatarGradient: ["#a18cd1", "#fbc2eb"],
     greeting: "Time to break that plateau!",
+<<<<<<< HEAD
     workouts: 4,
     dayStreak: 3,
+=======
+>>>>>>> d409995e71d96a5a25eef9fae9b042cfd367da5e
     focus: {
       title: "Your focus this week",
       advice: "Work on ankle mobility. It's limiting your squat depth at heavier weights.",

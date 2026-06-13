@@ -1,5 +1,9 @@
 import { Link, useLocation } from "react-router-dom"
+<<<<<<< HEAD
 import { Home, Dumbbell, TrendingUp, User } from "lucide-react"
+=======
+import { Home, BookOpen, TrendingUp, User } from "lucide-react"
+>>>>>>> d409995e71d96a5a25eef9fae9b042cfd367da5e
 
 const scanStyle = `
   @keyframes scanLine {
@@ -43,6 +47,7 @@ function NavBar() {
       <Link
         to="/plan"
         className="flex flex-col items-center gap-0.5 py-1 px-3"
+<<<<<<< HEAD
       >
         <div style={{
           width: "20px",
@@ -106,6 +111,41 @@ function NavBar() {
           }} />
         </div>
         <span className="text-xs font-medium" style={{ color: "#0284C7", marginTop: "8px" }}>
+=======
+        style={{ color: isActive("/plan") ? "#6C5CE7" : "#9ca3af" }}
+      >
+        <BookOpen size={20} />
+        <span className="text-xs">Plan</span>
+      </Link>
+
+      {/* Analysis — circle clipped tightly to just the gradient circle */}
+      <Link to="/upload" className="flex flex-col items-center gap-0.5">
+        <div
+          style={{
+            width: 56,
+            height: 56,
+            borderRadius: "50%",
+            backgroundImage: "url('/lifter_icon.png')",
+            backgroundSize: "132%",
+            backgroundPosition: "55% center",
+            position: "relative",
+            overflow: "hidden",
+          }}
+        >
+          {/* Scan line */}
+          <div style={{
+            position: "absolute",
+            left: "28%",
+            right: "28%",
+            height: 2,
+            borderRadius: 1,
+            background: "linear-gradient(90deg, transparent, rgba(96,200,248,0.9), transparent)",
+            animation: "scanLine 1.8s ease-in-out infinite",
+            top: "8%",
+          }} />
+        </div>
+        <span className="text-xs" style={{ color: "#6C5CE7", fontWeight: 600 }}>
+>>>>>>> d409995e71d96a5a25eef9fae9b042cfd367da5e
           Analysis
         </span>
       </Link>

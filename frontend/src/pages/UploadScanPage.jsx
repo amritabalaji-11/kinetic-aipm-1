@@ -355,6 +355,7 @@ export default function UploadScanPage() {
         )}
       </div>
 
+<<<<<<< HEAD
       {/* Bottom nav */}
       <div className="fixed bottom-0 left-0 right-0 bg-white border-t border-gray-100 flex justify-around items-center py-2 px-4">
         {NAV_ITEMS.map(({ label, icon, path, active }) => (
@@ -377,3 +378,8 @@ export default function UploadScanPage() {
     </div>
   )
 }
+=======
+    </div>
+  )
+}
+>>>>>>> d409995e71d96a5a25eef9fae9b042cfd367da5e

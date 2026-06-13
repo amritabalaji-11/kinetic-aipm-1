@@ -107,12 +107,19 @@ function LoginPage() {
       <div className="w-full" style={{ maxWidth: 380 }}>
         {/* Branding */}
         <div className="text-center mb-4 mt-2">
+<<<<<<< HEAD
           <div className="mb-2">
             <span className="text-3xl font-black tracking-tight" style={{ color: "#1a1a2e" }}>
               Welcome to
             </span>
           </div>
           <div className="flex items-center justify-center gap-1 mb-2">
+=======
+          <div className="flex items-center justify-center gap-1 mb-1 flex-wrap">
+            <span className="text-3xl font-black tracking-tight" style={{ color: "#1a1a2e" }}>
+              Welcome to
+            </span>
+>>>>>>> d409995e71d96a5a25eef9fae9b042cfd367da5e
             <Barbell color="#4a90d9" />
             <h1
               className="font-black"

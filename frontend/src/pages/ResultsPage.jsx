@@ -351,7 +351,11 @@ function RepChart({ currentRepScores = [], previousRepScores = [] }) {
         {previous && (
           <polyline points={previousPts.map(([x, y]) => `${x},${y}`).join(" ")} fill="none" stroke="#0284C7" strokeWidth="1.5" strokeDasharray="4,4" opacity="0.8" />
         )}
+<<<<<<< HEAD
         <polyline points={currentPts.map(([x, y]) => `${x},${y}`).join(" ")} fill="none" stroke="#14b8a6" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" />
+=======
+        <polyline points={currentPts.map(([x, y]) => `${x},${y}`).join(" ")} fill="none" stroke="url(#currentGrad)" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" />
+>>>>>>> d409995e71d96a5a25eef9fae9b042cfd367da5e
         {currentPts.map(([x, y], i) => (
           <circle key={`curr-${i}`} cx={x} cy={y} r={3.5} fill="white" stroke={sc(current[i])} strokeWidth="1.5" />
         ))}
@@ -424,6 +428,7 @@ function IssueCard({ issue, faultDetail }) {
   )
 }
 
+<<<<<<< HEAD
 function FramePlaceholder({ highlight = false, label, weight, imageUrl = null, onImageClick = null, fallbackUrl = null }) {
   const [imageLoaded, setImageLoaded] = useState(false)
   const [currentSrc, setCurrentSrc] = useState(imageUrl)
@@ -434,6 +439,12 @@ function FramePlaceholder({ highlight = false, label, weight, imageUrl = null, o
     setImageLoaded(false)
   }, [imageUrl])
 
+=======
+function FramePlaceholder({ highlight = false, label, weight, imageUrl = null, onImageClick = null }) {
+  const [imageLoaded, setImageLoaded] = useState(false)
+  const isPrevious = label && label.toLowerCase().includes("previous")
+
+>>>>>>> d409995e71d96a5a25eef9fae9b042cfd367da5e
   return (
     <div className="flex flex-col items-center py-3 px-2 flex-1">
       <div className={`text-xs mb-0.5 ${isPrevious ? "text-purple-600 font-semibold" : "text-gray-600"}`}>{label}</div>
@@ -441,6 +452,7 @@ function FramePlaceholder({ highlight = false, label, weight, imageUrl = null, o
       <div className="relative h-28 w-full flex items-center justify-center bg-gray-50 rounded-xl overflow-hidden group">
         {imageUrl ? (
           <img
+<<<<<<< HEAD
             src={currentSrc}
             alt={label}
             className="w-full h-full object-cover cursor-pointer"
@@ -460,6 +472,23 @@ function FramePlaceholder({ highlight = false, label, weight, imageUrl = null, o
         {imageLoaded && currentSrc && (
           <button
             onClick={() => onImageClick?.(currentSrc)}
+=======
+            src={imageUrl}
+            alt={label}
+            className="w-full h-full object-cover cursor-pointer"
+            onLoad={() => setImageLoaded(true)}
+            onError={() => {
+              console.warn("⚠️ Failed to load image:", imageUrl)
+              setImageLoaded(false)
+            }}
+            onClick={() => onImageClick?.(imageUrl)}
+            style={{ display: imageLoaded ? 'block' : 'none' }}
+          />
+        ) : null}
+        {imageLoaded && imageUrl && (
+          <button
+            onClick={() => onImageClick?.(imageUrl)}
+>>>>>>> d409995e71d96a5a25eef9fae9b042cfd367da5e
             className="absolute top-3 right-3 bg-blue-500 hover:bg-blue-600 text-white p-2 rounded-lg transition-colors"
             title="Expand image"
           >
@@ -777,6 +806,7 @@ export default function ResultsPage() {
         parameters:         currentParameters,
       }
       let parsedReps = []
+<<<<<<< HEAD
 
       // Prefer Haiku rep_scores for consistency with overall_form_score
       if (haikuCall1.rep_scores || coachingOutput1.rep_scores) {
@@ -801,6 +831,28 @@ export default function ResultsPage() {
           }
         } catch (e) { console.warn("Failed to parse biomechanics_json:", e) }
       }
+=======
+      try {
+        const biomech = baseAnalysis.biomechanics_json ? JSON.parse(baseAnalysis.biomechanics_json) : null
+        if (biomech?.reps?.length) {
+          parsedReps = biomech.reps.map((rep) => {
+            let formScore = 100
+            if (rep.depth_data?.depth_classification === "Warning") formScore -= 20
+            if (rep.depth_data?.depth_insufficient_flag)             formScore -= 15
+            if (rep.back_data?.back_label === "Warning")             formScore -= 15
+            if (rep.back_data?.back_angle_at_bottom > 30)           formScore -= 20
+            if (rep.back_data?.back_angle_at_bottom > 45)           formScore -= 25
+            return { rep_number: rep.rep_number, form_score: Math.max(0, Math.min(100, formScore)) }
+          })
+        }
+      } catch (e) { console.warn("Failed to parse biomechanics_json:", e) }
+
+      // Fallback to Haiku rep_scores if biomechanics data not available
+      if (parsedReps.length === 0 && (haikuCall1.rep_scores || coachingOutput1.rep_scores)) {
+        const repsData = haikuCall1.rep_scores || coachingOutput1.rep_scores || []
+        parsedReps = repsData.map(r => ({ rep_number: r.rep_number, form_score: r.form_score }))
+      }
+>>>>>>> d409995e71d96a5a25eef9fae9b042cfd367da5e
       const parsedCurrentResult = {
         analysis_id:   baseAnalysis.analysis_id  || haikuCall1.analysis_id,
         session_id:    baseAnalysis.session_id   || haikuCall1.session_id,
@@ -824,11 +876,15 @@ export default function ResultsPage() {
       let previousAnalysis = null
       const userId = parsedCurrentResult.user_id
       const exerciseId = parsedCurrentResult.exercise_id
+<<<<<<< HEAD
       console.log("🔍 Fetching previous session - userId:", userId, "exerciseId:", exerciseId)
+=======
+>>>>>>> d409995e71d96a5a25eef9fae9b042cfd367da5e
       try {
         const histRes = await fetch(`${BASE_URL}/form_analysis_results/${userId}`)
         if (histRes.ok) {
           const allResults = await histRes.json()
+<<<<<<< HEAD
           console.log("📋 All results from API:", allResults)
           console.log("🔎 Filtering by exercise:", exerciseId, "Available fields in first result:", allResults[0] ? Object.keys(allResults[0]) : "no results")
           // Filter to get previous session for same exercise
@@ -852,6 +908,13 @@ export default function ResultsPage() {
               // If we only have one result (from fallback), use it
               prevResult = sameExerciseResults[0]
             }
+=======
+          // Filter to get previous session for same exercise
+          const sameExerciseResults = allResults.filter(r => r.exercise === exerciseId)
+          if (sameExerciseResults.length >= 2) {
+            // Get the second-most recent (first is current, second is previous)
+            const prevResult = sameExerciseResults[1]
+>>>>>>> d409995e71d96a5a25eef9fae9b042cfd367da5e
             // Now fetch the full previous analysis to get all haiku data
             const fullPrevRes = await fetch(`${BASE_URL}/analysis/${prevResult.analysis_id}`)
             if (fullPrevRes.ok) {
@@ -862,8 +925,11 @@ export default function ResultsPage() {
               }
               console.log("📊 Previous analysis found:", previousAnalysis)
             }
+<<<<<<< HEAD
           } else {
             console.log("⚠️  Not enough results to find previous session. Total sessions available:", allResults.length)
+=======
+>>>>>>> d409995e71d96a5a25eef9fae9b042cfd367da5e
           }
         }
       } catch (e) {
@@ -956,6 +1022,7 @@ export default function ResultsPage() {
           annotated_frame_url:    baseAnalysis.annotated_frame_url || haikuCall1.annotated_frame_url || null,
         },
         previous: {
+<<<<<<< HEAD
           date_label:             (previousAnalysis?.created_at || previousAnalysis?.analysis?.created_at)
             ? new Date(previousAnalysis?.created_at || previousAnalysis?.analysis?.created_at).toLocaleDateString("en-US", { month: "short", day: "numeric" })
             : (haikuCall2.previous_session_date
@@ -963,13 +1030,26 @@ export default function ResultsPage() {
             : (comp2PreviousScores.date_label || "Previous")),
           weight_value:           (previousAnalysis?.weight_value || previousAnalysis?.analysis?.weight_value) ?? comp2PreviousScores.weight_value ?? haikuCall2.previous_weight_value ?? null,
           weight_unit:            (previousAnalysis?.weight_unit || previousAnalysis?.analysis?.weight_unit) ?? comp2PreviousScores.weight_unit  ?? haikuCall2.previous_weight_unit  ?? "lbs",
+=======
+          date_label:             previousAnalysis?.created_at
+            ? new Date(previousAnalysis.created_at).toLocaleDateString("en-US", { month: "short", day: "numeric" })
+            : haikuCall2.previous_session_date
+            ? new Date(haikuCall2.previous_session_date).toLocaleDateString("en-US", { month: "short", day: "numeric" })
+            : comp2PreviousScores.date_label || "Previous",
+          weight_value:           previousAnalysis?.weight_value ?? comp2PreviousScores.weight_value ?? haikuCall2.previous_weight_value ?? null,
+          weight_unit:            previousAnalysis?.weight_unit ?? comp2PreviousScores.weight_unit  ?? haikuCall2.previous_weight_unit  ?? "lbs",
+>>>>>>> d409995e71d96a5a25eef9fae9b042cfd367da5e
           overall_form_score:     compPrevOverall,
           posture_score:          compPrevPosture,
           stability_score:        compPrevStability,
           movement_quality_score: compPrevMQ,
           range_of_motion_score:  compPrevROM,
           reps:                   parsedPreviousReps,
+<<<<<<< HEAD
           annotated_frame_url:    previousAnalysis?.annotated_frame_urls?.[0] ?? previousAnalysis?.analysis?.annotated_frame_url ?? previousAnalysis?.annotated_frame_url ?? comp2PreviousScores.annotated_frame_url ?? null,
+=======
+          annotated_frame_url:    previousAnalysis?.annotated_frame_urls?.[0] ?? previousAnalysis?.annotated_frame_url ?? comp2PreviousScores.annotated_frame_url ?? null,
+>>>>>>> d409995e71d96a5a25eef9fae9b042cfd367da5e
         },
         comparison_coaching: {
           summary_paragraph:
@@ -1081,6 +1161,7 @@ export default function ResultsPage() {
 
   const hasComparison = !!(compData.has_comparison || compData.progression_verdict || compData.progress_direction || compData.coaching_reasoning)
   const compCurrent   = compData.current  || {}
+<<<<<<< HEAD
   let compPrevious  = compData.previous || {}
   const compCoaching  = compData.comparison_coaching || {}
   const compParams    = compCoaching.parameters || {}
@@ -1098,6 +1179,12 @@ export default function ResultsPage() {
     }
   }
 
+=======
+  const compPrevious  = compData.previous || {}
+  const compCoaching  = compData.comparison_coaching || {}
+  const compParams    = compCoaching.parameters || {}
+
+>>>>>>> d409995e71d96a5a25eef9fae9b042cfd367da5e
   function delta(cur, prev) {
     if (cur == null || prev == null) return null
     return cur - prev
@@ -1140,7 +1227,11 @@ export default function ResultsPage() {
               <div className="mx-4 mb-4 bg-white rounded-2xl border border-gray-100 shadow-sm p-6 text-center">
                 <div className="text-3xl mb-3">📊</div>
                 <p className="text-sm text-gray-500 leading-relaxed">
+<<<<<<< HEAD
                   {compData.empty_state_message || "There are no past form analysis to compare with. Upload another form video to be able to compare your form across sessions."}
+=======
+                  {compData.empty_state_message || "No previous session found to compare against."}
+>>>>>>> d409995e71d96a5a25eef9fae9b042cfd367da5e
                 </p>
               </div>
             ) : (
@@ -1149,6 +1240,7 @@ export default function ResultsPage() {
                   {(() => {
                     const userId = localStorage.getItem("active_user_id") || "user_001";
 
+<<<<<<< HEAD
                     // Helper to get form history images
                     const getPreviousFormImage = (weight) => {
                       if (userId === "user_003") {
@@ -1173,6 +1265,19 @@ export default function ResultsPage() {
                     // In Progression tab, prioritize form reference images for consistency
                     const prevImageUrl = getPreviousFormImage(compPrevious?.weight_value || null);
                     const currImageUrl = getCurrentFormImage(compCurrent?.weight_value || null);
+=======
+                    // Helper to get formhistory image - use a single consistent image for all weights
+                    const getFormHistoryImage = (weight) => {
+                      // Use user-specific image
+                      if (userId === "user_003") {
+                        return `/formhistory/${userId}/user_003_1.jpg`;
+                      }
+                      return `/formhistory/${userId}/user_001_front_17.5kg.jpg`;
+                    };
+
+                    const prevImageUrl = compPrevious.annotated_frame_url || getFormHistoryImage(compPrevious.weight_value);
+                    const currImageUrl = userAnnotatedFrameUrl || compCurrent.annotated_frame_url || getFormHistoryImage(compCurrent.weight_value);
+>>>>>>> d409995e71d96a5a25eef9fae9b042cfd367da5e
 
                     console.log("🖼️ Comparison Frame URLs:", {
                       prevImageUrl,
@@ -1181,9 +1286,12 @@ export default function ResultsPage() {
                       currWeight: compCurrent.weight_value
                     })
 
+<<<<<<< HEAD
                     const getPreviousFallback = () => getPreviousFormImage();
                     const getCurrentFallback = () => getCurrentFormImage();
 
+=======
+>>>>>>> d409995e71d96a5a25eef9fae9b042cfd367da5e
                     return (
                       <>
                         <FramePlaceholder
@@ -1191,7 +1299,10 @@ export default function ResultsPage() {
                           weight={compPrevious.weight_value != null ? `${compPrevious.weight_value}${(compPrevious.weight_unit || "lbs").toUpperCase()}` : "—"}
                           highlight={false}
                           imageUrl={prevImageUrl}
+<<<<<<< HEAD
                           fallbackUrl={getPreviousFallback()}
+=======
+>>>>>>> d409995e71d96a5a25eef9fae9b042cfd367da5e
                           onImageClick={setFullscreenImage}
                         />
                         <FramePlaceholder
@@ -1199,7 +1310,10 @@ export default function ResultsPage() {
                           weight={compCurrent.weight_value != null ? `${compCurrent.weight_value}${(compCurrent.weight_unit || "lbs").toUpperCase()}` : "—"}
                           highlight={true}
                           imageUrl={currImageUrl}
+<<<<<<< HEAD
                           fallbackUrl={getCurrentFallback()}
+=======
+>>>>>>> d409995e71d96a5a25eef9fae9b042cfd367da5e
                           onImageClick={setFullscreenImage}
                         />
                       </>
@@ -1382,11 +1496,17 @@ export default function ResultsPage() {
                         if (!formHistoryImageUrl) {
                           if (userId === "user_003") {
                             formHistoryImageUrl = `/formhistory/${userId}/user_003_${index + 1}.jpg`;
+<<<<<<< HEAD
                           } else if (userId === "user_002") {
                             formHistoryImageUrl = `/formhistory/${userId}/user_002_front_1133.jpg`;
                           } else {
                             // Use same image for all user_001 analyses regardless of weight
                             formHistoryImageUrl = `/formhistory/${userId}/user_001_1.jpg`;
+=======
+                          } else {
+                            // Use same image for all user_001 analyses regardless of weight
+                            formHistoryImageUrl = `/formhistory/${userId}/user_001_front_17.5kg.jpg`;
+>>>>>>> d409995e71d96a5a25eef9fae9b042cfd367da5e
                           }
                         }
 
@@ -1496,6 +1616,7 @@ export default function ResultsPage() {
         {/* ── ANALYSIS TAB ── */}
         {!isProgression && (
           <>
+<<<<<<< HEAD
             {(() => {
               const userId = localStorage.getItem("active_user_id");
               const isUser001 = userId === "user_001";
@@ -1548,6 +1669,36 @@ export default function ResultsPage() {
                 </div>
               );
             })()}
+=======
+            <div className="mx-4 mb-4 rounded-2xl overflow-hidden relative group">
+              {userAnnotatedFrameUrl ? (
+                <>
+                  <img src={userAnnotatedFrameUrl} alt="User annotated frame" className="w-full object-cover cursor-pointer" style={{ display: "block", maxHeight: 300, borderRadius: "1rem" }} onClick={() => setFullscreenImage(userAnnotatedFrameUrl)} />
+                  <button onClick={() => setFullscreenImage(userAnnotatedFrameUrl)} className="absolute top-3 right-3 bg-blue-500 hover:bg-blue-600 text-white p-2 rounded-lg transition-colors" title="Expand image">
+                    <svg className="w-6 h-6" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24">
+                      <path d="M3 3v6h6M21 21v-6h-6M3 21h6v-6M21 3h-6v6"/>
+                    </svg>
+                  </button>
+                </>
+              ) : frameSrc ? (
+                <>
+                  <img src={frameSrc} alt="Annotated analysis frame" className="w-full object-cover cursor-pointer" style={{ display: "block", maxHeight: 300, borderRadius: "1rem" }} onClick={() => setFullscreenImage(frameSrc)} />
+                  <button onClick={() => setFullscreenImage(frameSrc)} className="absolute top-3 right-3 bg-blue-500 hover:bg-blue-600 text-white p-2 rounded-lg transition-colors" title="Expand image">
+                    <svg className="w-5 h-5" fill="currentColor" viewBox="0 0 24 24"><path d="M7 14c-1.66 0-3 1.34-3 3 0 1.31-1.16 2-2 2s-2-.69-2-2c0-2.61 2.91-5 5-5 1.31 0 2 1.16 2 2s-.69 2-2 2zm13.71-9.71L19 6.41V3h-3v2h2.59L13 9.59 15.59 12 21 6.41V9h2V4h-5V1h-3v4h2.59z"/></svg>
+                  </button>
+                </>
+              ) : videoSrc ? (
+                <VideoPlayer src={videoSrc} />
+              ) : (
+                <div className="h-52 flex flex-col items-center justify-center gap-3" style={{ background: "#0f0f1a", borderRadius: "1rem" }}>
+                  <div className="w-14 h-14 rounded-full flex items-center justify-center" style={{ background: "#14b8a6", boxShadow: "0 0 0 6px rgba(20,184,166,0.25)" }}>
+                    <svg className="w-6 h-6 text-white ml-1" fill="currentColor" viewBox="0 0 24 24"><path d="M8 5v14l11-7z" /></svg>
+                  </div>
+                  <p className="text-xs text-gray-500">Frame analysis coming soon</p>
+                </div>
+              )}
+            </div>
+>>>>>>> d409995e71d96a5a25eef9fae9b042cfd367da5e
 
             {/* Failed banner */}
             {statusFailed && (
@@ -1704,6 +1855,28 @@ export default function ResultsPage() {
           />
         </div>
       )}
+<<<<<<< HEAD
+=======
+
+      <div className="fixed bottom-0 left-0 right-0 bg-white border-t border-gray-100 flex justify-around items-center py-2 px-4" style={{ colorScheme: "light" }}>
+        {NAV_ITEMS.map(({ label, icon, path, active }) => (
+          <button key={label} type="button" onClick={() => navigate(path)} className="flex flex-col items-center gap-0.5">
+            {active ? (
+              <div className="w-10 h-10 rounded-full flex items-center justify-center -mt-4 shadow-lg" style={{ background: "linear-gradient(135deg, #6366f1, #818cf8)" }}>
+                <svg className="w-5 h-5 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                  <path strokeLinecap="round" strokeLinejoin="round" d={icon} />
+                </svg>
+              </div>
+            ) : (
+              <svg className="w-5 h-5 text-gray-400" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                <path strokeLinecap="round" strokeLinejoin="round" d={icon} />
+              </svg>
+            )}
+            <span className="text-[10px]" style={{ color: active ? "#6366f1" : "#9ca3af" }}>{label}</span>
+          </button>
+        ))}
+      </div>
+>>>>>>> d409995e71d96a5a25eef9fae9b042cfd367da5e
     </div>
   )
 }
