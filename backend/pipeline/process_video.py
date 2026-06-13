@@ -12,8 +12,6 @@ import asyncio
 import os
 import json
 import shutil
-import base64
-from io import BytesIO
 from concurrent.futures import ThreadPoolExecutor
 from datetime import datetime, timezone
 
@@ -34,7 +32,7 @@ _haiku_call_1 = HaikuCall1(exercise="goblet_squat")
 
 # MediaPipe framework
 framework = LandmarkQualityFramework(
-    model_path="mediapipe_code/model/pose_landmarker_full.task"
+    model_path="mediapipe_code/model/pose_landmarker_heavy.task"
 )
 
 # Thread pool for CPU-heavy work (MediaPipe, sync Haiku client)
@@ -100,7 +98,8 @@ async def run_mediapipe_analysis(analysis_id: str, file_location: str):
     # Fetch all context fields needed for SSE payloads and Haiku Call 1
     record = await db.fetch_one(
         """
-        SELECT session_id, user_id, exercise_name, video_url, filename, size_mb, created_at
+        SELECT session_id, user_id, exercise_name, video_url, filename, size_mb, created_at,
+               weight_value, weight_unit
         FROM form_analyses
         WHERE analysis_id = :aid
         """,
@@ -113,6 +112,8 @@ async def run_mediapipe_analysis(analysis_id: str, file_location: str):
     filename   = record["filename"]   if record else None
     size_mb    = record["size_mb"]    if record else None
     created_at = record["created_at"] if record else None
+    weight_value = record["weight_value"] if record and record["weight_value"] else None
+    weight_unit = record["weight_unit"] if record else None
 
     ctx = {"session_id": session_id, "user_id": user_id}
 
@@ -178,8 +179,8 @@ async def run_mediapipe_analysis(analysis_id: str, file_location: str):
             return
 
         mp_result = {**final_json, **quality_result}
-        # collage_b64 is kept separate — uploaded to GCS later, NOT merged into
-        # mp_result so it doesn't bloat biomechanics_json in the DB.
+        if collage_b64 is not None:
+            mp_result["collage_b64"] = collage_b64
 
         # -------------------------------------------------
         # STEP 3 — check for error event from MediaPipe
@@ -243,12 +244,20 @@ async def run_mediapipe_analysis(analysis_id: str, file_location: str):
         await sse_manager.send_event(analysis_id, "haiku_started", 65, extra=ctx)
 
         # Build session metadata for Haiku Call 1
+        # Use actual weight from form if available, otherwise fall back to MediaPipe estimate
+        actual_weight_kg = None
+        if weight_value and weight_unit:
+            if weight_unit.lower() in ["lbs", "lb"]:
+                actual_weight_kg = round(weight_value * 0.453592, 2)
+            else:
+                actual_weight_kg = weight_value
+
         session_data = {
             "exercise":     record["exercise_name"] if record else "goblet_squat",
             "camera_angle": "side_right",
             "set_number":   1,
             "rep_count":    rep_count,
-            "load_kg":      mp_result.get("weight_kg_normalised", 0.0),
+            "load_kg":      actual_weight_kg if actual_weight_kg else mp_result.get("weight_kg_normalised", 0.0),
             "pain_level":   0,
             "user_id":      user_id,
         }
@@ -264,12 +273,12 @@ async def run_mediapipe_analysis(analysis_id: str, file_location: str):
                 session_data=session_data,
                 biomechanics_json=biomechanics_slim,
                 frame_images=None,
-                max_tokens=3000,
+                max_tokens=4096,
             )
         )
 
         # Write to form_analysis_results — required for Haiku Call 2 to find this session
-        await _store_analysis_results(analysis_id, user_id, session_id, record, mp_result, coaching_output, collage_b64)
+        await _store_analysis_results(analysis_id, user_id, session_id, record, mp_result, coaching_output)
 
         overall_score = coaching_output.get("overall_form_score", 0)
 
@@ -343,71 +352,6 @@ async def run_mediapipe_analysis(analysis_id: str, file_location: str):
 
 
 # =========================================================
-# LOCAL WORST-FRAME LOOKUP
-# =========================================================
-
-# Maps uploaded video filename stem → pre-created worst frame filename.
-# URL is assembled at runtime: /formhistory/{user_id}/{frame_filename}
-_VIDEO_STEM_TO_FRAME: dict[str, str] = {
-    # user_001
-    "user_001_front_17.5kg":  "user_001_front_17.5kg.jpg",
-    "user_001_side_12.5kg":   "user_001_side_12.5kg.jpg",
-    "user_001_side_17.5kg":   "user_001_side_17.5kg.jpg",
-    # user_002
-    "user_002_front_11.33kg": "user_002_front_11.33kg.jpg",
-    "user_002_front_4.5kg":   "user_002_front_4.5kg.jpg",
-    "user_002_side_9.07kg":   "user_002_side_9.07kg.jpg",
-    # user_003
-    "user_003_video_1":       "user_003_1.jpg",
-    "user_003_video_2":       "user_003_2.jpg",
-    "user_003_video_3":       "user_003_3.jpg",
-}
-
-def _find_local_worst_frame(user_id: str, filename: str) -> str | None:
-    """Return the frontend URL for a pre-created worst-frame image, or None."""
-    if not filename or not user_id:
-        return None
-    stem  = os.path.splitext(filename)[0]
-    frame = _VIDEO_STEM_TO_FRAME.get(stem)
-    if frame:
-        url = f"/formhistory/{user_id}/{frame}"
-        print(f"[FRAME] Matched worst frame: {url}")
-        return url
-    print(f"[FRAME] No pre-created worst frame for '{stem}'")
-    return None
-
-
-# =========================================================
-# GCS COLLAGE HELPER (retained for future use)
-# =========================================================
-
-async def _save_collage_to_gcs(user_id: str, analysis_id: str, collage_b64: str):
-    """
-    Decode the base64 collage image from MediaPipe and upload it to GCS.
-    Makes the blob public and returns the HTTPS URL, or None on failure.
-    Stored under formhistory/{user_id}/{analysis_id}.png — kept out of the
-    GitHub repo since the bucket is private-by-default and access is controlled.
-    """
-    from utils.gcs import client as gcs_client, BUCKET_NAME
-
-    def _upload():
-        image_bytes = base64.b64decode(collage_b64)
-        bucket = gcs_client.bucket(BUCKET_NAME)
-        blob   = bucket.blob(f"formhistory/{user_id}/{analysis_id}.png")
-        blob.upload_from_file(BytesIO(image_bytes), content_type="image/png")
-        blob.make_public()
-        return blob.public_url
-
-    try:
-        url = await asyncio.to_thread(_upload)
-        print(f"[COLLAGE] Uploaded to GCS: {url}")
-        return url
-    except Exception as e:
-        print(f"[COLLAGE] GCS upload failed (non-fatal): {e}")
-        return None
-
-
-# =========================================================
 # DB HELPERS
 # =========================================================
 
@@ -466,7 +410,6 @@ async def _store_analysis_results(
     record: dict,
     mp_result: dict,
     coaching_output: dict,
-    collage_b64: str | None = None,
 ):
     """
     Write Haiku Call 1 output to form_analysis_results.
@@ -485,12 +428,7 @@ async def _store_analysis_results(
     #weight_value = weight_row.get("weight_value") if weight_row else None
     #weight_unit = weight_row.get("weight_unit") if weight_row else None
     weight_value = weight_row["weight_value"] if weight_row else None
-    weight_unit  = weight_row["weight_unit"]  if weight_row else None
-
-    # Match against pre-created worst-frame images using the original upload filename.
-    # Falls back to None if no match found (frontend uses getFormHistoryImage fallback).
-    upload_filename    = record["filename"] if record else None
-    annotated_frame_url = _find_local_worst_frame(user_id, upload_filename)
+    weight_unit = weight_row["weight_unit"] if weight_row else None
 
     await db.execute(
         """
@@ -509,8 +447,7 @@ async def _store_analysis_results(
             tempo_score,
             rep_count,
             rep_scores,
-            coaching_output,
-            annotated_frame_url
+            coaching_output
         ) VALUES (
             :analysis_id,
             :session_id,
@@ -526,8 +463,7 @@ async def _store_analysis_results(
             :range_of_motion_score,
             :rep_count,
             :rep_scores,
-            :coaching_output,
-            :annotated_frame_url
+            :coaching_output
         )
         """,
         values={
@@ -546,7 +482,6 @@ async def _store_analysis_results(
             "rep_count":              session.get("rep_count"),
             "rep_scores":             json.dumps(coaching_output.get("rep_scores", [])),
             "coaching_output":        json.dumps(coaching_output),
-            "annotated_frame_url":    annotated_frame_url,
         },
     )
     print(f"[Haiku Call 1] Stored form_analysis_results for {analysis_id}")

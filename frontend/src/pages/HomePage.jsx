@@ -4,6 +4,28 @@ import { useUser } from "../context/UserContext"
 
 const BASE_URL = import.meta.env.VITE_API_URL || "http://localhost:8000"
 
+const scanStyle = `
+  @keyframes scanLine {
+    0%   { top: 10%; }
+    50%  { top: 80%; }
+    100% { top: 10%; }
+  }
+  .scan-animation {
+    animation: scanLine 2s infinite;
+  }
+`
+
+function Barbell({ color, flip }) {
+  const heights = flip ? [30, 22, 14] : [14, 22, 30]
+  return (
+    <div className="flex items-center gap-0.5">
+      {heights.map((h, i) => (
+        <div key={i} style={{ width: 3.5, height: h, background: color, borderRadius: 2, opacity: 1 }} />
+      ))}
+    </div>
+  )
+}
+
 function HistoryCard({ session }) {
   const navigate = useNavigate()
   const exerciseName = (session.exercise_name || "Session")
@@ -72,6 +94,7 @@ export default function HomePage() {
 
   return (
     <div style={{ background: "#F4F2FA", colorScheme: "light", minHeight: "100vh", paddingBottom: "140px" }}>
+      <style>{scanStyle}</style>
       {/* Status Bar */}
       <div style={{ padding: "21px 0px 0px", height: "50px", display: "flex", justifyContent: "space-between", alignItems: "center", paddingX: "20px" }}>
         <span style={{ fontSize: "17px", fontWeight: 600, fontFamily: "'Bricolage Grotesque'" }}>9:41</span>
@@ -86,14 +109,31 @@ export default function HomePage() {
       <div style={{ maxWidth: "430px", margin: "0 auto", padding: "0px 20px" }}>
 
         {/* Header */}
-        <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: "20px", gap: "10px" }}>
+        <div style={{ display: "flex", alignItems: "flex-start", justifyContent: "space-between", marginBottom: "20px", gap: "12px" }}>
           <div>
-            <p style={{ fontSize: "14px", fontWeight: 400, color: "#64748B", fontFamily: "'DM Sans'" }}>You're stronger than last week!</p>
-            <h1 style={{ fontSize: "24px", fontWeight: 700, fontFamily: "'Bricolage Grotesque'", color: "#0F172A", marginTop: "8px" }}>Hey {activeUser?.name?.split(" ")[0] || "There"}</h1>
+            <div style={{ display: "flex", alignItems: "center", gap: "8px", marginBottom: "8px" }}>
+              <h1 style={{ fontSize: "24px", fontWeight: 700, fontFamily: "'Bricolage Grotesque'", color: "#0F172A", margin: "0" }}>Hey {activeUser?.name?.split(" ")[0] || "There"}</h1>
+            </div>
+            <p style={{ fontSize: "14px", fontWeight: 400, color: "#64748B", fontFamily: "'DM Sans'", margin: "0" }}>You're stronger than last week!</p>
           </div>
-          <button type="button" onClick={() => navigate("/profile")} style={{ width: "38px", height: "38px", background: "#FFFFFF", borderRadius: "8px", border: "none", cursor: "pointer", display: "flex", alignItems: "center", justifyContent: "center" }}>
-            <svg width="28" height="28" viewBox="0 0 24 24" fill="#0F172A"><path d="M7 10a3 3 0 100-6 3 3 0 000 6zM17 16a4 4 0 11-8 0 4 4 0 018 0z" /></svg>
-          </button>
+          <div style={{ display: "flex", alignItems: "center", gap: "4px", flexShrink: 0 }}>
+            <Barbell color="#4a90d9" />
+            <span
+              style={{
+                fontSize: "18px",
+                fontWeight: 900,
+                background: "linear-gradient(90deg, #4a90d9 0%, #7c5ce7 100%)",
+                WebkitBackgroundClip: "text",
+                WebkitTextFillColor: "transparent",
+                backgroundClip: "text",
+                letterSpacing: "0.04em",
+                fontFamily: "'Bricolage Grotesque'"
+              }}
+            >
+              KINETIC
+            </span>
+            <Barbell color="#4a90d9" flip />
+          </div>
         </div>
 
         {/* This Week Card */}
@@ -110,13 +150,112 @@ export default function HomePage() {
               <p style={{ fontSize: "14px", fontFamily: "'DM Sans'", color: "#000000", marginBottom: "6px" }}>Last 7 Days</p>
               <p style={{ fontSize: "16px", fontWeight: 700, fontFamily: "'Bricolage Grotesque'", color: "#000000" }}>June 10 - 16</p>
             </div>
-            <div style={{ textAlign: "right", background: "rgba(255, 255, 255, 0.8)", borderRadius: "999px", padding: "8px 16px", display: "flex", alignItems: "center", gap: "8px" }}>
-              <svg width="18" height="18" viewBox="0 0 24 24" fill="#0284C7" style={{ opacity: 0.8 }}>
-                <path d="M12 2.69l5.66 5.66a8 8 0 1 1-11.31 0z" />
-              </svg>
-              <div>
-                <div style={{ fontSize: "16px", fontWeight: 700, color: "#0284C7" }}>3</div>
-                <p style={{ fontSize: "12px", fontWeight: 600, color: "#0284C7", margin: "0" }}>Day Streak</p>
+            <div style={{
+              boxSizing: "border-box",
+              display: "flex",
+              flexDirection: "row",
+              alignItems: "center",
+              padding: "5px 20px",
+              gap: "10px",
+              width: "166px",
+              height: "40px",
+              background: "rgba(255, 255, 255, 0.15)",
+              boxShadow: "0px 4px 4px rgba(0, 0, 0, 0.14)",
+              borderRadius: "999px"
+            }}>
+              <div style={{
+                display: "flex",
+                flexDirection: "column",
+                alignItems: "flex-start",
+                padding: "0px",
+                gap: "10px",
+                width: "18px",
+                height: "30px",
+              }}>
+                <svg width="18" height="30" viewBox="0 0 24 24" fill="none" strokeWidth="2" style={{
+                  background: "linear-gradient(338.8deg, rgba(102, 76, 226, 0.7) 21.58%, rgba(2, 132, 199, 0.7) 100%)",
+                  WebkitBackgroundClip: "text",
+                  WebkitTextFillColor: "transparent",
+                  backgroundClip: "text",
+                  stroke: "url(#grad)",
+                  color: "transparent"
+                }}>
+                  <defs>
+                    <linearGradient id="grad" x1="0%" y1="0%" x2="100%" y2="100%">
+                      <stop offset="0%" style={{ stopColor: "rgba(102, 76, 226, 0.7)" }} />
+                      <stop offset="100%" style={{ stopColor: "rgba(2, 132, 199, 0.7)" }} />
+                    </linearGradient>
+                  </defs>
+                  <path d="M12 2.69l5.66 5.66a8 8 0 1 1-11.31 0z" stroke="url(#grad)" fill="none" />
+                </svg>
+              </div>
+              <div style={{
+                display: "flex",
+                flexDirection: "row",
+                alignItems: "center",
+                padding: "0px",
+                width: "98px",
+                height: "29px",
+                gap: "10px"
+              }}>
+                <div style={{
+                  display: "flex",
+                  flexDirection: "column",
+                  justifyContent: "center",
+                  alignItems: "center",
+                  padding: "0px",
+                  gap: "10px",
+                  width: "15px",
+                  height: "29px",
+                }}>
+                  <span style={{
+                    width: "15px",
+                    height: "29px",
+                    fontFamily: "'Bricolage Grotesque'",
+                    fontStyle: "normal",
+                    fontWeight: 800,
+                    fontSize: "24px",
+                    lineHeight: "29px",
+                    display: "flex",
+                    alignItems: "center",
+                    textAlign: "center",
+                    background: "linear-gradient(338.8deg, rgba(102, 76, 226, 0.7) 21.58%, rgba(2, 132, 199, 0.7) 100%)",
+                    WebkitBackgroundClip: "text",
+                    WebkitTextFillColor: "transparent",
+                    backgroundClip: "text"
+                  }}>
+                    3
+                  </span>
+                </div>
+                <div style={{
+                  display: "flex",
+                  flexDirection: "column",
+                  justifyContent: "center",
+                  alignItems: "center",
+                  padding: "0px",
+                  gap: "10px",
+                  width: "83px",
+                  height: "21px",
+                }}>
+                  <span style={{
+                    width: "83px",
+                    height: "21px",
+                    fontFamily: "'Bricolage Grotesque'",
+                    fontStyle: "normal",
+                    fontWeight: 800,
+                    fontSize: "12px",
+                    lineHeight: "19px",
+                    display: "flex",
+                    alignItems: "center",
+                    textAlign: "center",
+                    background: "linear-gradient(338.8deg, rgba(102, 76, 226, 0.7) 21.58%, rgba(2, 132, 199, 0.7) 100%)",
+                    WebkitBackgroundClip: "text",
+                    WebkitTextFillColor: "transparent",
+                    backgroundClip: "text"
+                  }}>
+                    Day Streak
+                  </span>
+                </div>
               </div>
             </div>
           </div>
@@ -151,41 +290,59 @@ export default function HomePage() {
         {/* Ready to work out */}
         <div style={{
           background: "#F4F2FA",
-          boxShadow: "0px 4px 4px rgba(0, 0, 0, 0.14)",
-          borderRadius: "8px",
+          borderRadius: "16px",
           padding: "20px",
-          marginBottom: "20px"
+          marginBottom: "20px",
+          border: "2px solid",
+          borderImage: "linear-gradient(92.52deg, #0284C7 0%, #9747FF 100%) 1"
         }}>
-          <h2 style={{ fontSize: "24px", fontWeight: 700, fontFamily: "'Bricolage Grotesque'", color: "#000000", marginBottom: "20px" }}>Let's get you to work.</h2>
+          <div style={{ display: "flex", alignItems: "flex-start", justifyContent: "space-between", gap: "12px", marginBottom: "15px" }}>
+            <div style={{ flex: 1 }}>
+              <h2 style={{ fontSize: "24px", fontWeight: 700, fontFamily: "'Bricolage Grotesque'", color: "#000000", margin: "0 0 8px 0", lineHeight: "1.2" }}>Let's get you to work.</h2>
+              <p style={{ fontSize: "12px", color: "#8b8ba7", margin: "0", fontFamily: "'DM Sans'" }}>
+                Build your sessions in seconds, then log every set as you crush it.
+              </p>
+            </div>
+            <img
+              src="/workout_hero.png"
+              alt=""
+              style={{ height: "80px", width: "96px", objectFit: "contain", pointerEvents: "none", userSelect: "none", marginTop: "-6px", marginRight: "-6px", flexShrink: 0 }}
+            />
+          </div>
 
           {/* CTA Cards */}
-          <div style={{ display: "flex", flexDirection: "column", gap: "12px" }}>
+          <div style={{ display: "flex", flexDirection: "column", gap: "12px", marginBottom: "12px" }}>
             {/* Build Your Workout */}
             <button onClick={() => navigate("/plan")} style={{
               display: "flex",
               alignItems: "center",
-              gap: "12px",
-              padding: "12px",
-              background: "linear-gradient(92.52deg, #0284C7 0%, #9747FF 100%)",
-              borderRadius: "8px",
+              justifyContent: "space-between",
+              padding: "12px 16px",
+              background: "linear-gradient(90deg, #60c8f8 0%, #3b8ef8 30%, #6C5CE7 65%, #a78bfa 100%)",
+              borderRadius: "12px",
               border: "none",
               cursor: "pointer",
               textAlign: "left"
             }}>
-              <div style={{ width: "40px", height: "40px", background: "linear-gradient(157.27deg, rgba(249, 218, 210, 0.9) 0%, rgba(151, 71, 255, 0.9) 94.21%, rgba(86, 98, 231, 0.9) 116.73%, rgba(2, 132, 199, 0.9) 164.73%)", borderRadius: "8px", display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0 }}>
-                <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="#FFFFFF" strokeWidth="2">
-                  <line x1="8" y1="6" x2="21" y2="6" />
-                  <line x1="8" y1="12" x2="21" y2="12" />
-                  <line x1="8" y1="18" x2="21" y2="18" />
-                  <line x1="3" y1="6" x2="3.01" y2="6" />
-                  <line x1="3" y1="12" x2="3.01" y2="12" />
-                  <line x1="3" y1="18" x2="3.01" y2="18" />
-                </svg>
+              <div style={{ display: "flex", alignItems: "center", gap: "12px" }}>
+                <div style={{ width: "28px", height: "28px", background: "rgba(255,255,255,0.2)", borderRadius: "8px", display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0 }}>
+                  <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#FFFFFF" strokeWidth="2">
+                    <line x1="8" y1="6" x2="21" y2="6" />
+                    <line x1="8" y1="12" x2="21" y2="12" />
+                    <line x1="8" y1="18" x2="21" y2="18" />
+                    <line x1="3" y1="6" x2="3.01" y2="6" />
+                    <line x1="3" y1="12" x2="3.01" y2="12" />
+                    <line x1="3" y1="18" x2="3.01" y2="18" />
+                  </svg>
+                </div>
+                <div>
+                  <p style={{ fontSize: "14px", fontWeight: 600, color: "#FFFFFF", margin: "0", fontFamily: "'Bricolage Grotesque'" }}>Build Your Workout</p>
+                  <p style={{ fontSize: "10px", color: "rgba(255,255,255,0.6)", margin: "0", fontFamily: "'DM Sans'" }}>Quick exercise picker, then hit start</p>
+                </div>
               </div>
-              <div>
-                <p style={{ fontSize: "16px", fontWeight: 600, color: "#FFFFFF", margin: "0 0 4px 0", fontFamily: "'Bricolage Grotesque'" }}>Build Your Workout</p>
-                <p style={{ fontSize: "11px", color: "#FFFFFF", margin: "0", opacity: 0.9, fontFamily: "'Bricolage Grotesque'" }}>Quick exercise picker, then hit start</p>
-              </div>
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#FFFFFF" strokeWidth="2" style={{ flexShrink: 0 }}>
+                <polyline points="9 18 15 12 9 6"></polyline>
+              </svg>
             </button>
 
             {/* Log Your Workout */}
@@ -305,16 +462,16 @@ export default function HomePage() {
                   <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#000" strokeWidth="2.5"><line x1="6" y1="12" x2="18" y2="12" /><circle cx="4" cy="12" r="2" /><circle cx="20" cy="12" r="2" /></svg>
                   <span style={{ fontSize: "12px", fontWeight: 700, fontFamily: "'Bricolage Grotesque'", color: "#000000" }}>12 Kg</span>
                 </div>
-                <span style={{ fontSize: "12px", fontWeight: 600, fontFamily: "'Bricolage Grotesque'", background: "linear-gradient(92.52deg, #0284C7 0%, #9747FF 100%)", WebkitBackgroundClip: "text", WebkitTextFillColor: "transparent", backgroundClip: "text" }}>Avg 72</span>
+                <span style={{ fontSize: "12px", fontWeight: 600, fontFamily: "'Bricolage Grotesque'", background: "linear-gradient(92.52deg, #0284C7 0%, #9747FF 100%)", WebkitBackgroundClip: "text", WebkitTextFillColor: "transparent", backgroundClip: "text" }}>Avg 74</span>
               </div>
               <div style={{ display: "flex", gap: "6px", justifyContent: "space-between", flex: 1 }}>
                 <div style={{ flex: 1, height: "32px", background: "#FD9D53", borderRadius: "6px", display: "flex", alignItems: "center", justifyContent: "center" }}><span style={{ fontSize: "11px", fontWeight: 700, color: "#FFFFFF", fontFamily: "'Bricolage Grotesque'" }}>72</span></div>
-                <div style={{ flex: 1, height: "32px", border: "1px dashed #000000", borderRadius: "6px", display: "flex", alignItems: "center", justifyContent: "center" }}></div>
+                <div style={{ flex: 1, height: "32px", background: "#FD9D53", borderRadius: "6px", display: "flex", alignItems: "center", justifyContent: "center" }}><span style={{ fontSize: "11px", fontWeight: 700, color: "#FFFFFF", fontFamily: "'Bricolage Grotesque'" }}>76</span></div>
                 <div style={{ flex: 1, height: "32px", border: "1px dashed #000000", borderRadius: "6px", display: "flex", alignItems: "center", justifyContent: "center" }}></div>
                 <div style={{ flex: 1, height: "32px", border: "1px dashed #000000", borderRadius: "6px", display: "flex", alignItems: "center", justifyContent: "center" }}></div>
                 <div style={{ flex: 1, height: "32px", border: "1px dashed #000000", borderRadius: "6px", display: "flex", alignItems: "center", justifyContent: "center" }}></div>
               </div>
-              <p style={{ fontSize: "8px", fontFamily: "'Bricolage Grotesque'", color: "#000000", margin: "0" }}>1 session analyzed</p>
+              <p style={{ fontSize: "8px", fontFamily: "'Bricolage Grotesque'", color: "#000000", margin: "0" }}>2 sessions analyzed</p>
             </div>
 
             {/* 10 Kg Card */}
@@ -324,16 +481,16 @@ export default function HomePage() {
                   <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#000" strokeWidth="2.5"><line x1="6" y1="12" x2="18" y2="12" /><circle cx="4" cy="12" r="2" /><circle cx="20" cy="12" r="2" /></svg>
                   <span style={{ fontSize: "12px", fontWeight: 700, fontFamily: "'Bricolage Grotesque'", color: "#000000" }}>10 Kg</span>
                 </div>
-                <span style={{ fontSize: "12px", fontWeight: 600, fontFamily: "'Bricolage Grotesque'", background: "linear-gradient(92.52deg, #0284C7 0%, #9747FF 100%)", WebkitBackgroundClip: "text", WebkitTextFillColor: "transparent", backgroundClip: "text" }}>Avg 83</span>
+                <span style={{ fontSize: "12px", fontWeight: 600, fontFamily: "'Bricolage Grotesque'", background: "linear-gradient(92.52deg, #0284C7 0%, #9747FF 100%)", WebkitBackgroundClip: "text", WebkitTextFillColor: "transparent", backgroundClip: "text" }}>Avg 81</span>
               </div>
               <div style={{ display: "flex", gap: "6px", justifyContent: "space-between", flex: 1 }}>
-                <div style={{ flex: 1, height: "32px", border: "1px dashed #000000", borderRadius: "6px", display: "flex", alignItems: "center", justifyContent: "center" }}></div>
-                <div style={{ flex: 1, height: "32px", background: "#2BC95B", borderRadius: "6px", display: "flex", alignItems: "center", justifyContent: "center" }}><span style={{ fontSize: "11px", fontWeight: 700, color: "#FFFFFF", fontFamily: "'Bricolage Grotesque'" }}>83</span></div>
-                <div style={{ flex: 1, height: "32px", border: "1px dashed #000000", borderRadius: "6px", display: "flex", alignItems: "center", justifyContent: "center" }}></div>
+                <div style={{ flex: 1, height: "32px", background: "#FD9D53", borderRadius: "6px", display: "flex", alignItems: "center", justifyContent: "center" }}><span style={{ fontSize: "11px", fontWeight: 700, color: "#FFFFFF", fontFamily: "'Bricolage Grotesque'" }}>68</span></div>
+                <div style={{ flex: 1, height: "32px", background: "#FD9D53", borderRadius: "6px", display: "flex", alignItems: "center", justifyContent: "center" }}><span style={{ fontSize: "11px", fontWeight: 700, color: "#FFFFFF", fontFamily: "'Bricolage Grotesque'" }}>74</span></div>
+                <div style={{ flex: 1, height: "32px", background: "#2BC95B", borderRadius: "6px", display: "flex", alignItems: "center", justifyContent: "center" }}><span style={{ fontSize: "11px", fontWeight: 700, color: "#FFFFFF", fontFamily: "'Bricolage Grotesque'" }}>82</span></div>
                 <div style={{ flex: 1, height: "32px", border: "1px dashed #000000", borderRadius: "6px", display: "flex", alignItems: "center", justifyContent: "center" }}></div>
                 <div style={{ flex: 1, height: "32px", background: "#34C759", borderRadius: "6px", display: "flex", alignItems: "center", justifyContent: "center" }}><span style={{ fontSize: "11px", fontWeight: 700, color: "#FFFFFF", fontFamily: "'Bricolage Grotesque'" }}>85</span></div>
               </div>
-              <p style={{ fontSize: "8px", fontFamily: "'Bricolage Grotesque'", color: "#000000", margin: "0" }}>1 session analyzed</p>
+              <p style={{ fontSize: "8px", fontFamily: "'Bricolage Grotesque'", color: "#000000", margin: "0" }}>4 sessions analyzed</p>
             </div>
           </div>
         </div>
@@ -393,12 +550,20 @@ export default function HomePage() {
 
                 // Construct image URL from formhistory folder if available
                 const userId = localStorage.getItem("active_user_id") || "user_001";
+                console.log(`Processing history item ${index}, userId:`, userId, "s.image_url:", s.image_url);
                 let imageUrl = s.image_url;
                 if (!imageUrl) {
-                  if (userId === "user_003") {
+                  if (userId === "user_001") {
+                    imageUrl = `/formhistory/${userId}/user_001_${index + 1}.jpg`;
+                  } else if (userId === "user_003") {
                     imageUrl = `/formhistory/${userId}/user_003_${index + 1}.jpg`;
+                  } else if (userId === "user_002") {
+                    const user002Images = ["user_002_front_1133.jpg", "user_002_front_45.jpg"];
+                    imageUrl = `/formhistory/${userId}/${user002Images[index % user002Images.length]}`;
+                    console.log(`📸 user_002 image URL for index ${index}:`, imageUrl);
                   }
                 }
+                console.log(`Final imageUrl for index ${index}:`, imageUrl);
 
                 // Check if feedback is long enough to warrant truncation
                 const lines = feedback.split('\n');
@@ -437,13 +602,15 @@ export default function HomePage() {
                             objectFit: "cover"
                           }}
                           onError={(e) => {
+                            console.warn("Failed to load image:", imageUrl);
                             e.target.style.display = "none";
-                            e.target.nextSibling?.style.setProperty('display', 'flex');
+                          }}
+                          onLoad={() => {
+                            console.log("Image loaded:", imageUrl);
                           }}
                         />
-                      ) : (
-                        <svg width="40" height="40" viewBox="0 0 24 24" fill="none" stroke="#9747FF" strokeWidth="1.5"><path d="M23 19a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h4l2-3h6l2 3h4a2 2 0 0 1 2 2z"/><circle cx="12" cy="13" r="4"/></svg>
-                      )}
+                      ) : null}
+                      <svg width="40" height="40" viewBox="0 0 24 24" fill="none" stroke="#9747FF" strokeWidth="1.5" style={{ display: imageUrl ? "none" : "block" }}><path d="M23 19a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h4l2-3h6l2 3h4a2 2 0 0 1 2 2z"/><circle cx="12" cy="13" r="4"/></svg>
                     </div>
 
                     {/* Content */}

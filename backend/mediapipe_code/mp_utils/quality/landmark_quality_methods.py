@@ -401,13 +401,13 @@ def evaluate_quality_gate(
             "message": "We couldn't detect any squats in your video",
         }
 
-    if complete_reps < 1:
+    if complete_reps < 3:
         return {
             "event": "error",
             "error_stage": "quality_gate",
             "retryable": False,
             "error_code": "insufficient_reps",
-            "message": "We couldn't detect any complete reps in your video. Make sure your full body is visible.",
+            "message": "We need at least 3 complete reps to give you meaningful feedback",
         }
 
     quality_gate_status = "GOOD" if video_score >= 0.85 else "ACCEPTABLE"
@@ -718,10 +718,8 @@ def extract_frames_from_memory(
 
 def resize_video(video_path: str):
 
-        name = video_path.replace("\\", "/")
-        name = name.split("/")[-1]
-        full_name = os.path.splitext(name)[0]
-
+        name = video_path.split("/")[-1]
+        full_name = name.split(".")[0]
         os.makedirs("./mediapipe_code/video_results", exist_ok=True)
         output_path = f"./mediapipe_code/video_results/{full_name}_resized.mp4"
 
