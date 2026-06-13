@@ -4,7 +4,6 @@ import { useUser } from "../context/UserContext"
 
 const BASE_URL = import.meta.env.VITE_API_URL || "http://localhost:8000"
 
-<<<<<<< HEAD
 const scanStyle = `
   @keyframes scanLine {
     0%   { top: 10%; }
@@ -27,8 +26,6 @@ function Barbell({ color, flip }) {
   )
 }
 
-=======
->>>>>>> d409995e71d96a5a25eef9fae9b042cfd367da5e
 function HistoryCard({ session }) {
   const navigate = useNavigate()
   const exerciseName = (session.exercise_name || "Session")
@@ -97,10 +94,7 @@ export default function HomePage() {
 
   return (
     <div style={{ background: "#F4F2FA", colorScheme: "light", minHeight: "100vh", paddingBottom: "140px" }}>
-<<<<<<< HEAD
       <style>{scanStyle}</style>
-=======
->>>>>>> d409995e71d96a5a25eef9fae9b042cfd367da5e
       {/* Status Bar */}
       <div style={{ padding: "21px 0px 0px", height: "50px", display: "flex", justifyContent: "space-between", alignItems: "center", paddingX: "20px" }}>
         <span style={{ fontSize: "17px", fontWeight: 600, fontFamily: "'Bricolage Grotesque'" }}>9:41</span>
@@ -115,7 +109,6 @@ export default function HomePage() {
       <div style={{ maxWidth: "430px", margin: "0 auto", padding: "0px 20px" }}>
 
         {/* Header */}
-<<<<<<< HEAD
         <div style={{ display: "flex", alignItems: "flex-start", justifyContent: "space-between", marginBottom: "20px", gap: "12px" }}>
           <div>
             <div style={{ display: "flex", alignItems: "center", gap: "8px", marginBottom: "8px" }}>
@@ -141,16 +134,6 @@ export default function HomePage() {
             </span>
             <Barbell color="#4a90d9" flip />
           </div>
-=======
-        <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: "20px", gap: "10px" }}>
-          <div>
-            <p style={{ fontSize: "14px", fontWeight: 400, color: "#64748B", fontFamily: "'DM Sans'" }}>You're stronger than last week!</p>
-            <h1 style={{ fontSize: "24px", fontWeight: 700, fontFamily: "'Bricolage Grotesque'", color: "#0F172A", marginTop: "8px" }}>Hey {activeUser?.name?.split(" ")[0] || "There"}</h1>
-          </div>
-          <button type="button" onClick={() => navigate("/profile")} style={{ width: "38px", height: "38px", background: "#FFFFFF", borderRadius: "8px", border: "none", cursor: "pointer", display: "flex", alignItems: "center", justifyContent: "center" }}>
-            <svg width="28" height="28" viewBox="0 0 24 24" fill="#0F172A"><path d="M7 10a3 3 0 100-6 3 3 0 000 6zM17 16a4 4 0 11-8 0 4 4 0 018 0z" /></svg>
-          </button>
->>>>>>> d409995e71d96a5a25eef9fae9b042cfd367da5e
         </div>
 
         {/* This Week Card */}
@@ -167,7 +150,6 @@ export default function HomePage() {
               <p style={{ fontSize: "14px", fontFamily: "'DM Sans'", color: "#000000", marginBottom: "6px" }}>Last 7 Days</p>
               <p style={{ fontSize: "16px", fontWeight: 700, fontFamily: "'Bricolage Grotesque'", color: "#000000" }}>June 10 - 16</p>
             </div>
-<<<<<<< HEAD
             <div style={{
               boxSizing: "border-box",
               display: "flex",
@@ -274,15 +256,6 @@ export default function HomePage() {
                     Day Streak
                   </span>
                 </div>
-=======
-            <div style={{ textAlign: "right", background: "rgba(255, 255, 255, 0.8)", borderRadius: "999px", padding: "8px 16px", display: "flex", alignItems: "center", gap: "8px" }}>
-              <svg width="18" height="18" viewBox="0 0 24 24" fill="#0284C7" style={{ opacity: 0.8 }}>
-                <path d="M12 2.69l5.66 5.66a8 8 0 1 1-11.31 0z" />
-              </svg>
-              <div>
-                <div style={{ fontSize: "16px", fontWeight: 700, color: "#0284C7" }}>3</div>
-                <p style={{ fontSize: "12px", fontWeight: 600, color: "#0284C7", margin: "0" }}>Day Streak</p>
->>>>>>> d409995e71d96a5a25eef9fae9b042cfd367da5e
               </div>
             </div>
           </div>
@@ -300,16 +273,11 @@ export default function HomePage() {
                 <p style={{ fontSize: "14px", fontWeight: 400, color: dayData.isWorkout ? "#000000" : "#9C9C9C", fontFamily: "'DM Sans'" }}>{dayData.day}</p>
                 <p style={{ fontSize: "12px", fontWeight: 400, color: dayData.isWorkout ? "#000000" : "#9C9C9C", marginBottom: "4px" }}>{dayData.date}</p>
                 {dayData.isWorkout ? (
-<<<<<<< HEAD
-                  <svg width="16" height="16" viewBox="0 0 24 24" fill="#0284C7">
-                    <polygon points="5 3 19 12 5 21 5 3" />
-=======
                   <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#0284C7" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
                     <rect x="2" y="4" width="4" height="16" rx="0.5" />
                     <rect x="9" y="9" width="2" height="6" />
                     <rect x="13" y="9" width="2" height="6" />
                     <rect x="18" y="4" width="4" height="16" rx="0.5" />
->>>>>>> d409995e71d96a5a25eef9fae9b042cfd367da5e
                   </svg>
                 ) : (
                   <div style={{ width: "20px", height: "20px", background: "rgba(156, 156, 156, 0.3)", borderRadius: "50%" }}></div>
@@ -322,7 +290,6 @@ export default function HomePage() {
         {/* Ready to work out */}
         <div style={{
           background: "#F4F2FA",
-<<<<<<< HEAD
           borderRadius: "16px",
           padding: "20px",
           marginBottom: "20px",
@@ -345,37 +312,18 @@ export default function HomePage() {
 
           {/* CTA Cards */}
           <div style={{ display: "flex", flexDirection: "column", gap: "12px", marginBottom: "12px" }}>
-=======
-          boxShadow: "0px 4px 4px rgba(0, 0, 0, 0.14)",
-          borderRadius: "8px",
-          padding: "20px",
-          marginBottom: "20px"
-        }}>
-          <h2 style={{ fontSize: "24px", fontWeight: 700, fontFamily: "'Bricolage Grotesque'", color: "#000000", marginBottom: "20px" }}>Let's get you to work.</h2>
-
-          {/* CTA Cards */}
-          <div style={{ display: "flex", flexDirection: "column", gap: "12px" }}>
->>>>>>> d409995e71d96a5a25eef9fae9b042cfd367da5e
             {/* Build Your Workout */}
             <button onClick={() => navigate("/plan")} style={{
               display: "flex",
               alignItems: "center",
-<<<<<<< HEAD
               justifyContent: "space-between",
               padding: "12px 16px",
               background: "linear-gradient(90deg, #60c8f8 0%, #3b8ef8 30%, #6C5CE7 65%, #a78bfa 100%)",
               borderRadius: "12px",
-=======
-              gap: "12px",
-              padding: "12px",
-              background: "linear-gradient(92.52deg, #0284C7 0%, #9747FF 100%)",
-              borderRadius: "8px",
->>>>>>> d409995e71d96a5a25eef9fae9b042cfd367da5e
               border: "none",
               cursor: "pointer",
               textAlign: "left"
             }}>
-<<<<<<< HEAD
               <div style={{ display: "flex", alignItems: "center", gap: "12px" }}>
                 <div style={{ width: "28px", height: "28px", background: "rgba(255,255,255,0.2)", borderRadius: "8px", display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0 }}>
                   <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#FFFFFF" strokeWidth="2">
@@ -395,22 +343,6 @@ export default function HomePage() {
               <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#FFFFFF" strokeWidth="2" style={{ flexShrink: 0 }}>
                 <polyline points="9 18 15 12 9 6"></polyline>
               </svg>
-=======
-              <div style={{ width: "40px", height: "40px", background: "linear-gradient(157.27deg, rgba(249, 218, 210, 0.9) 0%, rgba(151, 71, 255, 0.9) 94.21%, rgba(86, 98, 231, 0.9) 116.73%, rgba(2, 132, 199, 0.9) 164.73%)", borderRadius: "8px", display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0 }}>
-                <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="#FFFFFF" strokeWidth="2">
-                  <line x1="8" y1="6" x2="21" y2="6" />
-                  <line x1="8" y1="12" x2="21" y2="12" />
-                  <line x1="8" y1="18" x2="21" y2="18" />
-                  <line x1="3" y1="6" x2="3.01" y2="6" />
-                  <line x1="3" y1="12" x2="3.01" y2="12" />
-                  <line x1="3" y1="18" x2="3.01" y2="18" />
-                </svg>
-              </div>
-              <div>
-                <p style={{ fontSize: "16px", fontWeight: 600, color: "#FFFFFF", margin: "0 0 4px 0", fontFamily: "'Bricolage Grotesque'" }}>Build Your Workout</p>
-                <p style={{ fontSize: "11px", color: "#FFFFFF", margin: "0", opacity: 0.9, fontFamily: "'Bricolage Grotesque'" }}>Quick exercise picker, then hit start</p>
-              </div>
->>>>>>> d409995e71d96a5a25eef9fae9b042cfd367da5e
             </button>
 
             {/* Log Your Workout */}
@@ -419,101 +351,13 @@ export default function HomePage() {
               if (activeWorkout) {
                 navigate("/workout/active")
               } else {
-<<<<<<< HEAD
-=======
                 // No active workout - navigate to plan to create one
                 alert("Start a new workout first! Click 'Build Your Workout' to get started.")
->>>>>>> d409995e71d96a5a25eef9fae9b042cfd367da5e
                 navigate("/plan")
               }
             }} style={{
               display: "flex",
               alignItems: "center",
-<<<<<<< HEAD
-              justifyContent: "space-between",
-              padding: "12px 16px",
-              background: "#e8e4ff",
-              borderRadius: "12px",
-              border: "none",
-              cursor: "pointer",
-              textAlign: "left"
-            }}>
-              <div style={{ display: "flex", alignItems: "center", gap: "12px" }}>
-                <div style={{ width: "28px", height: "28px", background: "#d4ccff", borderRadius: "8px", display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0 }}>
-                  <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#6C5CE7" strokeWidth="2">
-                    <path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7" />
-                    <path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z" />
-                  </svg>
-                </div>
-                <div>
-                  <p style={{ fontSize: "14px", fontWeight: 600, color: "#000000", margin: "0", fontFamily: "'Bricolage Grotesque'" }}>Log Your Workout</p>
-                  <p style={{ fontSize: "10px", color: "#8b8ba7", margin: "0", fontFamily: "'DM Sans'" }}>Track sets, reps, and weights</p>
-                </div>
-              </div>
-              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#8b8ba7" strokeWidth="2" style={{ flexShrink: 0 }}>
-                <polyline points="9 18 15 12 9 6"></polyline>
-              </svg>
-            </button>
-          </div>
-
-          {/* When in doubt section with lifter icon and scan animation */}
-          <div style={{ display: "flex", alignItems: "center", gap: "16px", marginTop: "8px" }}>
-            <div
-              onClick={() => navigate("/upload")}
-              style={{
-                position: "relative",
-                width: "48px",
-                height: "48px",
-                borderRadius: "50%",
-                background: "linear-gradient(135deg, #60c8f8 0%, #0284C7 100%)",
-                flexShrink: 0,
-                display: "flex",
-                alignItems: "center",
-                justifyContent: "center",
-                overflow: "hidden",
-                cursor: "pointer"
-              }}
-            >
-              <img
-                src="/lifter_icon_nobg.png"
-                alt="lifter"
-                style={{
-                  width: "45px",
-                  height: "45px",
-                  objectFit: "contain",
-                  filter: "brightness(0) invert(1)"
-                }}
-              />
-              <div className="scan-animation" style={{
-                position: "absolute",
-                top: "10%",
-                left: "0",
-                right: "0",
-                height: "2px",
-                background: "linear-gradient(90deg, transparent, rgba(255,255,255,0.9), transparent)",
-                width: "100%"
-              }} />
-            </div>
-            <button
-              onClick={() => navigate("/upload")}
-              style={{
-                background: "none",
-                border: "none",
-                padding: "0",
-                cursor: "pointer",
-                textAlign: "left",
-                flex: 1
-              }}
-            >
-              <p style={{ fontSize: "11px", color: "#8b8ba7", margin: "0", fontFamily: "'DM Sans'" }}>
-                When in doubt?
-              </p>
-              <p style={{ fontSize: "11px", color: "#8b8ba7", margin: "4px 0 0 0", fontFamily: "'DM Sans'" }}>
-                <span style={{ textDecoration: "underline", fontWeight: 600, color: "#6C5CE7" }}>
-                  Upload your video to get your form analyzed
-                </span>
-              </p>
-=======
               gap: "12px",
               padding: "12px",
               background: "linear-gradient(158.8deg, rgba(255, 35, 38, 0.2) 0%, rgba(151, 71, 255, 0.2) 22.39%, rgba(2, 132, 199, 0.2) 100.81%)",
@@ -557,7 +401,6 @@ export default function HomePage() {
                 <p style={{ fontSize: "16px", fontWeight: 600, color: "#000000", margin: "0 0 4px 0", fontFamily: "'Bricolage Grotesque'" }}>Upload for Analysis</p>
                 <p style={{ fontSize: "11px", color: "#000000", margin: "0", opacity: 0.7, fontFamily: "'Bricolage Grotesque'" }}>Get your form analyzed instantly</p>
               </div>
->>>>>>> d409995e71d96a5a25eef9fae9b042cfd367da5e
             </button>
           </div>
         </div>
@@ -619,28 +462,16 @@ export default function HomePage() {
                   <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#000" strokeWidth="2.5"><line x1="6" y1="12" x2="18" y2="12" /><circle cx="4" cy="12" r="2" /><circle cx="20" cy="12" r="2" /></svg>
                   <span style={{ fontSize: "12px", fontWeight: 700, fontFamily: "'Bricolage Grotesque'", color: "#000000" }}>12 Kg</span>
                 </div>
-<<<<<<< HEAD
                 <span style={{ fontSize: "12px", fontWeight: 600, fontFamily: "'Bricolage Grotesque'", background: "linear-gradient(92.52deg, #0284C7 0%, #9747FF 100%)", WebkitBackgroundClip: "text", WebkitTextFillColor: "transparent", backgroundClip: "text" }}>Avg 74</span>
               </div>
               <div style={{ display: "flex", gap: "6px", justifyContent: "space-between", flex: 1 }}>
                 <div style={{ flex: 1, height: "32px", background: "#FD9D53", borderRadius: "6px", display: "flex", alignItems: "center", justifyContent: "center" }}><span style={{ fontSize: "11px", fontWeight: 700, color: "#FFFFFF", fontFamily: "'Bricolage Grotesque'" }}>72</span></div>
                 <div style={{ flex: 1, height: "32px", background: "#FD9D53", borderRadius: "6px", display: "flex", alignItems: "center", justifyContent: "center" }}><span style={{ fontSize: "11px", fontWeight: 700, color: "#FFFFFF", fontFamily: "'Bricolage Grotesque'" }}>76</span></div>
-=======
-                <span style={{ fontSize: "12px", fontWeight: 600, fontFamily: "'Bricolage Grotesque'", background: "linear-gradient(92.52deg, #0284C7 0%, #9747FF 100%)", WebkitBackgroundClip: "text", WebkitTextFillColor: "transparent", backgroundClip: "text" }}>Avg 72</span>
-              </div>
-              <div style={{ display: "flex", gap: "6px", justifyContent: "space-between", flex: 1 }}>
-                <div style={{ flex: 1, height: "32px", background: "#FD9D53", borderRadius: "6px", display: "flex", alignItems: "center", justifyContent: "center" }}><span style={{ fontSize: "11px", fontWeight: 700, color: "#FFFFFF", fontFamily: "'Bricolage Grotesque'" }}>72</span></div>
-                <div style={{ flex: 1, height: "32px", border: "1px dashed #000000", borderRadius: "6px", display: "flex", alignItems: "center", justifyContent: "center" }}></div>
->>>>>>> d409995e71d96a5a25eef9fae9b042cfd367da5e
                 <div style={{ flex: 1, height: "32px", border: "1px dashed #000000", borderRadius: "6px", display: "flex", alignItems: "center", justifyContent: "center" }}></div>
                 <div style={{ flex: 1, height: "32px", border: "1px dashed #000000", borderRadius: "6px", display: "flex", alignItems: "center", justifyContent: "center" }}></div>
                 <div style={{ flex: 1, height: "32px", border: "1px dashed #000000", borderRadius: "6px", display: "flex", alignItems: "center", justifyContent: "center" }}></div>
               </div>
-<<<<<<< HEAD
               <p style={{ fontSize: "8px", fontFamily: "'Bricolage Grotesque'", color: "#000000", margin: "0" }}>2 sessions analyzed</p>
-=======
-              <p style={{ fontSize: "8px", fontFamily: "'Bricolage Grotesque'", color: "#000000", margin: "0" }}>1 session analyzed</p>
->>>>>>> d409995e71d96a5a25eef9fae9b042cfd367da5e
             </div>
 
             {/* 10 Kg Card */}
@@ -650,7 +481,6 @@ export default function HomePage() {
                   <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#000" strokeWidth="2.5"><line x1="6" y1="12" x2="18" y2="12" /><circle cx="4" cy="12" r="2" /><circle cx="20" cy="12" r="2" /></svg>
                   <span style={{ fontSize: "12px", fontWeight: 700, fontFamily: "'Bricolage Grotesque'", color: "#000000" }}>10 Kg</span>
                 </div>
-<<<<<<< HEAD
                 <span style={{ fontSize: "12px", fontWeight: 600, fontFamily: "'Bricolage Grotesque'", background: "linear-gradient(92.52deg, #0284C7 0%, #9747FF 100%)", WebkitBackgroundClip: "text", WebkitTextFillColor: "transparent", backgroundClip: "text" }}>Avg 81</span>
               </div>
               <div style={{ display: "flex", gap: "6px", justifyContent: "space-between", flex: 1 }}>
@@ -661,18 +491,6 @@ export default function HomePage() {
                 <div style={{ flex: 1, height: "32px", background: "#34C759", borderRadius: "6px", display: "flex", alignItems: "center", justifyContent: "center" }}><span style={{ fontSize: "11px", fontWeight: 700, color: "#FFFFFF", fontFamily: "'Bricolage Grotesque'" }}>85</span></div>
               </div>
               <p style={{ fontSize: "8px", fontFamily: "'Bricolage Grotesque'", color: "#000000", margin: "0" }}>4 sessions analyzed</p>
-=======
-                <span style={{ fontSize: "12px", fontWeight: 600, fontFamily: "'Bricolage Grotesque'", background: "linear-gradient(92.52deg, #0284C7 0%, #9747FF 100%)", WebkitBackgroundClip: "text", WebkitTextFillColor: "transparent", backgroundClip: "text" }}>Avg 83</span>
-              </div>
-              <div style={{ display: "flex", gap: "6px", justifyContent: "space-between", flex: 1 }}>
-                <div style={{ flex: 1, height: "32px", border: "1px dashed #000000", borderRadius: "6px", display: "flex", alignItems: "center", justifyContent: "center" }}></div>
-                <div style={{ flex: 1, height: "32px", background: "#2BC95B", borderRadius: "6px", display: "flex", alignItems: "center", justifyContent: "center" }}><span style={{ fontSize: "11px", fontWeight: 700, color: "#FFFFFF", fontFamily: "'Bricolage Grotesque'" }}>83</span></div>
-                <div style={{ flex: 1, height: "32px", border: "1px dashed #000000", borderRadius: "6px", display: "flex", alignItems: "center", justifyContent: "center" }}></div>
-                <div style={{ flex: 1, height: "32px", border: "1px dashed #000000", borderRadius: "6px", display: "flex", alignItems: "center", justifyContent: "center" }}></div>
-                <div style={{ flex: 1, height: "32px", background: "#34C759", borderRadius: "6px", display: "flex", alignItems: "center", justifyContent: "center" }}><span style={{ fontSize: "11px", fontWeight: 700, color: "#FFFFFF", fontFamily: "'Bricolage Grotesque'" }}>85</span></div>
-              </div>
-              <p style={{ fontSize: "8px", fontFamily: "'Bricolage Grotesque'", color: "#000000", margin: "0" }}>1 session analyzed</p>
->>>>>>> d409995e71d96a5a25eef9fae9b042cfd367da5e
             </div>
           </div>
         </div>
@@ -732,7 +550,6 @@ export default function HomePage() {
 
                 // Construct image URL from formhistory folder if available
                 const userId = localStorage.getItem("active_user_id") || "user_001";
-<<<<<<< HEAD
                 console.log(`Processing history item ${index}, userId:`, userId, "s.image_url:", s.image_url);
                 let imageUrl = s.image_url;
                 if (!imageUrl) {
@@ -747,14 +564,6 @@ export default function HomePage() {
                   }
                 }
                 console.log(`Final imageUrl for index ${index}:`, imageUrl);
-=======
-                let imageUrl = s.image_url;
-                if (!imageUrl) {
-                  if (userId === "user_003") {
-                    imageUrl = `/formhistory/${userId}/user_003_${index + 1}.jpg`;
-                  }
-                }
->>>>>>> d409995e71d96a5a25eef9fae9b042cfd367da5e
 
                 // Check if feedback is long enough to warrant truncation
                 const lines = feedback.split('\n');
@@ -793,7 +602,6 @@ export default function HomePage() {
                             objectFit: "cover"
                           }}
                           onError={(e) => {
-<<<<<<< HEAD
                             console.warn("Failed to load image:", imageUrl);
                             e.target.style.display = "none";
                           }}
@@ -803,15 +611,6 @@ export default function HomePage() {
                         />
                       ) : null}
                       <svg width="40" height="40" viewBox="0 0 24 24" fill="none" stroke="#9747FF" strokeWidth="1.5" style={{ display: imageUrl ? "none" : "block" }}><path d="M23 19a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h4l2-3h6l2 3h4a2 2 0 0 1 2 2z"/><circle cx="12" cy="13" r="4"/></svg>
-=======
-                            e.target.style.display = "none";
-                            e.target.nextSibling?.style.setProperty('display', 'flex');
-                          }}
-                        />
-                      ) : (
-                        <svg width="40" height="40" viewBox="0 0 24 24" fill="none" stroke="#9747FF" strokeWidth="1.5"><path d="M23 19a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h4l2-3h6l2 3h4a2 2 0 0 1 2 2z"/><circle cx="12" cy="13" r="4"/></svg>
-                      )}
->>>>>>> d409995e71d96a5a25eef9fae9b042cfd367da5e
                     </div>
 
                     {/* Content */}

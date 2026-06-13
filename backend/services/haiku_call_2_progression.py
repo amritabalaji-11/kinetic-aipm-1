@@ -272,7 +272,7 @@ async def run_haiku_call_2(analysis_id: str) -> None:
                 },
             )
 
-            print(f"[Haiku Call 2] Previous session: weight={previous.get('weight_kg') if previous else None}kg, exercise_id={previous.get('exercise_id') if previous else None}, exercise_name={previous.get('exercise_name') if previous else None}")
+           # print(f"[Haiku Call 2] Previous session: weight={previous.get('weight_kg') if previous else None}kg, exercise_id={previous.get('exercise_id') if previous else None}, exercise_name={previous.get('exercise_name') if previous else None}")
 
             print("[Haiku Call 2] Previous session loaded")
 
