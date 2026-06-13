@@ -10,3 +10,4 @@ backend/mediapipe_code/video_results/
 *.pyc
 *.mp4
 ffmpeg
+echo "backend/backend.log" >> .gitignore
