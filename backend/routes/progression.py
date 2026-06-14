@@ -81,7 +81,13 @@ async def get_progression(analysis_id: str):
     current_rep_scores = []
     if current["rep_scores"]:
         try:
-            current_rep_scores = json.loads(current["rep_scores"])
+            raw = json.loads(current["rep_scores"])
+
+            current_rep_scores  = [
+            r.get("score", 0)
+            for r in raw
+            if isinstance(r, dict)
+        ]
         except Exception:
             current_rep_scores = []
 

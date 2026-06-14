@@ -236,34 +236,43 @@ async def run_haiku_call_2(analysis_id: str) -> None:
             exercise_id = current["exercise_id"] if current["exercise_id"] else exercise_name
 
             # ── Fetch most recent previous session ────────────────────────
+            # Match by exercise_id first, then exercise_name as fallback
             previous = await db.fetch_one(
                 """
                 SELECT
                     fa.weight_kg,
                     fa.created_at,
+                    fa.exercise_name,
                     far.overall_form_score,
                     far.posture_score,
                     far.stability_score,
                     COALESCE(far.range_of_motion_score, far.tempo_score) as range_of_motion_score,
                     far.movement_quality_score,
                     far.rep_scores,
-                    far.coaching_output
+                    far.coaching_output,
+                    far.exercise_id
                 FROM form_analyses fa
                 LEFT JOIN form_analysis_results far
                        ON fa.analysis_id = far.analysis_id
                 WHERE fa.user_id      = :uid
-                  AND far.exercise_id = :exercise_id
                   AND fa.analysis_id  != :aid
                   AND fa.status IN ('complete', 'completed')
+                  AND (
+                    far.exercise_id = :exercise_id
+                    OR (far.exercise_id IS NULL AND fa.exercise_name = :exercise_name)
+                  )
                 ORDER BY fa.created_at DESC
                 LIMIT 1
                 """,
                 {
-                    "uid":         user_id,
-                    "exercise_id": exercise_id,
-                    "aid":         analysis_id,
+                    "uid":            user_id,
+                    "exercise_id":    exercise_id,
+                    "exercise_name":  exercise_name,
+                    "aid":            analysis_id,
                 },
             )
+
+           # print(f"[Haiku Call 2] Previous session: weight={previous.get('weight_kg') if previous else None}kg, exercise_id={previous.get('exercise_id') if previous else None}, exercise_name={previous.get('exercise_name') if previous else None}")
 
             print("[Haiku Call 2] Previous session loaded")
 

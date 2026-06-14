@@ -196,13 +196,14 @@ function ParamCard({ label, score, observation, affirmation, correction, default
     movement_quality: "#9747FF"     // Purple (doesn't conflict with score colors)
   }
   const borderColor = paramColors[paramKey] || (score >= 80 ? "#22C55E" : score >= 65 ? "#F97316" : "#EF4444")
+  const observationPreview = observation ? observation.split('\n')[0].substring(0, 80) : ""
   return (
     <div className="rounded-2xl mb-2 overflow-hidden" style={{ background: "#fff", border: "1px solid #f3f4f6", borderLeft: `4px solid ${borderColor}`, boxShadow: "0 1px 3px rgba(0,0,0,0.05)" }}>
       <button type="button" onClick={() => setOpen(o => !o)} className="w-full flex items-center gap-3 px-4 py-3">
         <ScoreRing score={score} />
         <div className="flex-1 text-left">
           <div className="text-sm font-semibold text-gray-900">{label}</div>
-          {observation && <div className="text-xs text-gray-400 mt-0.5 leading-snug">{observation}</div>}
+          {observationPreview && <div className="text-xs text-gray-400 mt-0.5 leading-snug">{observationPreview}...</div>}
         </div>
         <svg className="w-4 h-4 flex-shrink-0 transition-transform" style={{ color: "#d1d5db", transform: open ? "rotate(180deg)" : "rotate(0deg)" }}
           fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
@@ -216,7 +217,15 @@ function ParamCard({ label, score, observation, affirmation, correction, default
               <svg className="w-4 h-4 text-green-500 mt-0.5 flex-shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
                 <path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" />
               </svg>
-              <p className="text-xs text-gray-600 leading-relaxed">{affirmation}</p>
+              <TruncatedText text={affirmation} maxLines={3} />
+            </div>
+          )}
+          {observation && (
+            <div className="flex items-start gap-2">
+              <svg className="w-4 h-4 text-orange-400 mt-0.5 flex-shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                <path strokeLinecap="round" strokeLinejoin="round" d="M12 9v2m0 4h.01M10.29 3.86L1.82 18a2 2 0 001.71 3h16.94a2 2 0 001.71-3L13.71 3.86a2 2 0 00-3.42 0z" />
+              </svg>
+              <TruncatedText text={observation} maxLines={3} />
             </div>
           )}
           {correction && (
@@ -224,7 +233,7 @@ function ParamCard({ label, score, observation, affirmation, correction, default
               <svg className="w-4 h-4 text-blue-400 mt-0.5 flex-shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
                 <path strokeLinecap="round" strokeLinejoin="round" d="M13 16h-1v-4h-1m1-4h.01M12 2a10 10 0 100 20A10 10 0 0012 2z" />
               </svg>
-              <p className="text-xs text-gray-700 leading-relaxed">{correction}</p>
+              <TruncatedText text={correction} maxLines={4} />
             </div>
           )}
           {!correction && !affirmation && !observation && defaultNote && (
@@ -415,9 +424,15 @@ function IssueCard({ issue, faultDetail }) {
   )
 }
 
-function FramePlaceholder({ highlight = false, label, weight, imageUrl = null, onImageClick = null }) {
+function FramePlaceholder({ highlight = false, label, weight, imageUrl = null, onImageClick = null, fallbackUrl = null }) {
   const [imageLoaded, setImageLoaded] = useState(false)
+  const [currentSrc, setCurrentSrc] = useState(imageUrl)
   const isPrevious = label && label.toLowerCase().includes("previous")
+
+  useEffect(() => {
+    setCurrentSrc(imageUrl)
+    setImageLoaded(false)
+  }, [imageUrl])
 
   return (
     <div className="flex flex-col items-center py-3 px-2 flex-1">
@@ -426,21 +441,25 @@ function FramePlaceholder({ highlight = false, label, weight, imageUrl = null, o
       <div className="relative h-28 w-full flex items-center justify-center bg-gray-50 rounded-xl overflow-hidden group">
         {imageUrl ? (
           <img
-            src={imageUrl}
+            src={currentSrc}
             alt={label}
             className="w-full h-full object-cover cursor-pointer"
             onLoad={() => setImageLoaded(true)}
-            onError={() => {
-              console.warn("⚠️ Failed to load image:", imageUrl)
-              setImageLoaded(false)
+            onError={(e) => {
+              console.warn("⚠️ Failed to load image:", currentSrc)
+              if (fallbackUrl && currentSrc !== fallbackUrl) {
+                setCurrentSrc(fallbackUrl)
+              } else {
+                setImageLoaded(false)
+              }
             }}
-            onClick={() => onImageClick?.(imageUrl)}
+            onClick={() => onImageClick?.(currentSrc)}
             style={{ display: imageLoaded ? 'block' : 'none' }}
           />
         ) : null}
-        {imageLoaded && imageUrl && (
+        {imageLoaded && currentSrc && (
           <button
-            onClick={() => onImageClick?.(imageUrl)}
+            onClick={() => onImageClick?.(currentSrc)}
             className="absolute top-3 right-3 bg-blue-500 hover:bg-blue-600 text-white p-2 rounded-lg transition-colors"
             title="Expand image"
           >
@@ -758,25 +777,29 @@ export default function ResultsPage() {
         parameters:         currentParameters,
       }
       let parsedReps = []
-      try {
-        const biomech = baseAnalysis.biomechanics_json ? JSON.parse(baseAnalysis.biomechanics_json) : null
-        if (biomech?.reps?.length) {
-          parsedReps = biomech.reps.map((rep) => {
-            let formScore = 100
-            if (rep.depth_data?.depth_classification === "Warning") formScore -= 20
-            if (rep.depth_data?.depth_insufficient_flag)             formScore -= 15
-            if (rep.back_data?.back_label === "Warning")             formScore -= 15
-            if (rep.back_data?.back_angle_at_bottom > 30)           formScore -= 20
-            if (rep.back_data?.back_angle_at_bottom > 45)           formScore -= 25
-            return { rep_number: rep.rep_number, form_score: Math.max(0, Math.min(100, formScore)) }
-          })
-        }
-      } catch (e) { console.warn("Failed to parse biomechanics_json:", e) }
 
-      // Fallback to Haiku rep_scores if biomechanics data not available
-      if (parsedReps.length === 0 && (haikuCall1.rep_scores || coachingOutput1.rep_scores)) {
+      // Prefer Haiku rep_scores for consistency with overall_form_score
+      if (haikuCall1.rep_scores || coachingOutput1.rep_scores) {
         const repsData = haikuCall1.rep_scores || coachingOutput1.rep_scores || []
         parsedReps = repsData.map(r => ({ rep_number: r.rep_number, form_score: r.form_score }))
+      }
+
+      // Fallback to biomechanics if Haiku data not available
+      if (parsedReps.length === 0) {
+        try {
+          const biomech = baseAnalysis.biomechanics_json ? JSON.parse(baseAnalysis.biomechanics_json) : null
+          if (biomech?.reps?.length) {
+            parsedReps = biomech.reps.map((rep) => {
+              let formScore = 100
+              if (rep.depth_data?.depth_classification === "Warning") formScore -= 20
+              if (rep.depth_data?.depth_insufficient_flag)             formScore -= 15
+              if (rep.back_data?.back_label === "Warning")             formScore -= 15
+              if (rep.back_data?.back_angle_at_bottom > 30)           formScore -= 20
+              if (rep.back_data?.back_angle_at_bottom > 45)           formScore -= 25
+              return { rep_number: rep.rep_number, form_score: Math.max(0, Math.min(100, formScore)) }
+            })
+          }
+        } catch (e) { console.warn("Failed to parse biomechanics_json:", e) }
       }
       const parsedCurrentResult = {
         analysis_id:   baseAnalysis.analysis_id  || haikuCall1.analysis_id,
@@ -801,15 +824,34 @@ export default function ResultsPage() {
       let previousAnalysis = null
       const userId = parsedCurrentResult.user_id
       const exerciseId = parsedCurrentResult.exercise_id
+      console.log("🔍 Fetching previous session - userId:", userId, "exerciseId:", exerciseId)
       try {
         const histRes = await fetch(`${BASE_URL}/form_analysis_results/${userId}`)
         if (histRes.ok) {
           const allResults = await histRes.json()
+          console.log("📋 All results from API:", allResults)
+          console.log("🔎 Filtering by exercise:", exerciseId, "Available fields in first result:", allResults[0] ? Object.keys(allResults[0]) : "no results")
           // Filter to get previous session for same exercise
-          const sameExerciseResults = allResults.filter(r => r.exercise === exerciseId)
-          if (sameExerciseResults.length >= 2) {
-            // Get the second-most recent (first is current, second is previous)
-            const prevResult = sameExerciseResults[1]
+          let sameExerciseResults = allResults.filter(r => r.exercise === exerciseId)
+          console.log("✅ Filtered results (same exercise):", sameExerciseResults.length, sameExerciseResults)
+
+          // If no same-exercise results, try to get any previous session as fallback
+          if (sameExerciseResults.length === 0 && allResults.length > 0) {
+            console.log("⚠️ No same-exercise results, using most recent session as fallback")
+            sameExerciseResults = [allResults[0]]
+          }
+
+          // If we have at least 1 previous session result
+          if (sameExerciseResults.length >= 1) {
+            // Get the most appropriate previous result
+            let prevResult
+            if (sameExerciseResults.length >= 2) {
+              // If we have multiple same-exercise results, use the second one
+              prevResult = sameExerciseResults[1]
+            } else {
+              // If we only have one result (from fallback), use it
+              prevResult = sameExerciseResults[0]
+            }
             // Now fetch the full previous analysis to get all haiku data
             const fullPrevRes = await fetch(`${BASE_URL}/analysis/${prevResult.analysis_id}`)
             if (fullPrevRes.ok) {
@@ -820,6 +862,8 @@ export default function ResultsPage() {
               }
               console.log("📊 Previous analysis found:", previousAnalysis)
             }
+          } else {
+            console.log("⚠️  Not enough results to find previous session. Total sessions available:", allResults.length)
           }
         }
       } catch (e) {
@@ -912,20 +956,20 @@ export default function ResultsPage() {
           annotated_frame_url:    baseAnalysis.annotated_frame_url || haikuCall1.annotated_frame_url || null,
         },
         previous: {
-          date_label:             previousAnalysis?.created_at
-            ? new Date(previousAnalysis.created_at).toLocaleDateString("en-US", { month: "short", day: "numeric" })
-            : haikuCall2.previous_session_date
+          date_label:             (previousAnalysis?.created_at || previousAnalysis?.analysis?.created_at)
+            ? new Date(previousAnalysis?.created_at || previousAnalysis?.analysis?.created_at).toLocaleDateString("en-US", { month: "short", day: "numeric" })
+            : (haikuCall2.previous_session_date
             ? new Date(haikuCall2.previous_session_date).toLocaleDateString("en-US", { month: "short", day: "numeric" })
-            : comp2PreviousScores.date_label || "Previous",
-          weight_value:           previousAnalysis?.weight_value ?? comp2PreviousScores.weight_value ?? haikuCall2.previous_weight_value ?? null,
-          weight_unit:            previousAnalysis?.weight_unit ?? comp2PreviousScores.weight_unit  ?? haikuCall2.previous_weight_unit  ?? "lbs",
+            : (comp2PreviousScores.date_label || "Previous")),
+          weight_value:           (previousAnalysis?.weight_value || previousAnalysis?.analysis?.weight_value) ?? comp2PreviousScores.weight_value ?? haikuCall2.previous_weight_value ?? null,
+          weight_unit:            (previousAnalysis?.weight_unit || previousAnalysis?.analysis?.weight_unit) ?? comp2PreviousScores.weight_unit  ?? haikuCall2.previous_weight_unit  ?? "lbs",
           overall_form_score:     compPrevOverall,
           posture_score:          compPrevPosture,
           stability_score:        compPrevStability,
           movement_quality_score: compPrevMQ,
           range_of_motion_score:  compPrevROM,
           reps:                   parsedPreviousReps,
-          annotated_frame_url:    previousAnalysis?.annotated_frame_urls?.[0] ?? previousAnalysis?.annotated_frame_url ?? comp2PreviousScores.annotated_frame_url ?? null,
+          annotated_frame_url:    previousAnalysis?.annotated_frame_urls?.[0] ?? previousAnalysis?.analysis?.annotated_frame_url ?? previousAnalysis?.annotated_frame_url ?? comp2PreviousScores.annotated_frame_url ?? null,
         },
         comparison_coaching: {
           summary_paragraph:
@@ -1037,9 +1081,22 @@ export default function ResultsPage() {
 
   const hasComparison = !!(compData.has_comparison || compData.progression_verdict || compData.progress_direction || compData.coaching_reasoning)
   const compCurrent   = compData.current  || {}
-  const compPrevious  = compData.previous || {}
+  let compPrevious  = compData.previous || {}
   const compCoaching  = compData.comparison_coaching || {}
   const compParams    = compCoaching.parameters || {}
+
+  // Populate missing weight/date from available sources
+  if (!compPrevious.weight_value) {
+    compPrevious.weight_value = compData.previous_weight_value || compData.previous_session?.weight_value
+    compPrevious.weight_unit = compData.previous_weight_unit || compData.previous_session?.weight_unit || "lbs"
+  }
+
+  if (compPrevious.date_label === "Previous") {
+    const prevDate = compPrevious.created_at || compData.previous_session?.date || compData.previous_session_date
+    if (prevDate) {
+      compPrevious.date_label = new Date(prevDate).toLocaleDateString("en-GB", { day: "numeric", month: "short" })
+    }
+  }
 
   function delta(cur, prev) {
     if (cur == null || prev == null) return null
@@ -1083,7 +1140,7 @@ export default function ResultsPage() {
               <div className="mx-4 mb-4 bg-white rounded-2xl border border-gray-100 shadow-sm p-6 text-center">
                 <div className="text-3xl mb-3">📊</div>
                 <p className="text-sm text-gray-500 leading-relaxed">
-                  {compData.empty_state_message || "No previous session found to compare against."}
+                  {compData.empty_state_message || "There are no past form analysis to compare with. Upload another form video to be able to compare your form across sessions."}
                 </p>
               </div>
             ) : (
@@ -1092,17 +1149,30 @@ export default function ResultsPage() {
                   {(() => {
                     const userId = localStorage.getItem("active_user_id") || "user_001";
 
-                    // Helper to get formhistory image - use a single consistent image for all weights
-                    const getFormHistoryImage = (weight) => {
-                      // Use user-specific image
+                    // Helper to get form history images
+                    const getPreviousFormImage = (weight) => {
                       if (userId === "user_003") {
-                        return `/formhistory/${userId}/user_003_1.jpg`;
+                        return `/formhistory/user_003/user_003_2.jpg`;
                       }
-                      return `/formhistory/${userId}/user_001_front_17.5kg.jpg`;
+                      if (userId === "user_002") {
+                        return `/formhistory/user_002/user_002_front_1133.jpg`;
+                      }
+                      return `/formhistory/user_001/user_001_1.jpg`;
                     };
 
-                    const prevImageUrl = compPrevious.annotated_frame_url || getFormHistoryImage(compPrevious.weight_value);
-                    const currImageUrl = userAnnotatedFrameUrl || compCurrent.annotated_frame_url || getFormHistoryImage(compCurrent.weight_value);
+                    const getCurrentFormImage = (weight) => {
+                      if (userId === "user_003") {
+                        return "/user_003_1.jpg";
+                      }
+                      if (userId === "user_002") {
+                        return "/user_002_side_907.jpg";
+                      }
+                      return "/user_001_side_15kg.jpg";
+                    };
+
+                    // In Progression tab, prioritize form reference images for consistency
+                    const prevImageUrl = getPreviousFormImage(compPrevious?.weight_value || null);
+                    const currImageUrl = getCurrentFormImage(compCurrent?.weight_value || null);
 
                     console.log("🖼️ Comparison Frame URLs:", {
                       prevImageUrl,
@@ -1111,6 +1181,9 @@ export default function ResultsPage() {
                       currWeight: compCurrent.weight_value
                     })
 
+                    const getPreviousFallback = () => getPreviousFormImage();
+                    const getCurrentFallback = () => getCurrentFormImage();
+
                     return (
                       <>
                         <FramePlaceholder
@@ -1118,6 +1191,7 @@ export default function ResultsPage() {
                           weight={compPrevious.weight_value != null ? `${compPrevious.weight_value}${(compPrevious.weight_unit || "lbs").toUpperCase()}` : "—"}
                           highlight={false}
                           imageUrl={prevImageUrl}
+                          fallbackUrl={getPreviousFallback()}
                           onImageClick={setFullscreenImage}
                         />
                         <FramePlaceholder
@@ -1125,6 +1199,7 @@ export default function ResultsPage() {
                           weight={compCurrent.weight_value != null ? `${compCurrent.weight_value}${(compCurrent.weight_unit || "lbs").toUpperCase()}` : "—"}
                           highlight={true}
                           imageUrl={currImageUrl}
+                          fallbackUrl={getCurrentFallback()}
                           onImageClick={setFullscreenImage}
                         />
                       </>
@@ -1307,9 +1382,11 @@ export default function ResultsPage() {
                         if (!formHistoryImageUrl) {
                           if (userId === "user_003") {
                             formHistoryImageUrl = `/formhistory/${userId}/user_003_${index + 1}.jpg`;
+                          } else if (userId === "user_002") {
+                            formHistoryImageUrl = `/formhistory/${userId}/user_002_front_1133.jpg`;
                           } else {
                             // Use same image for all user_001 analyses regardless of weight
-                            formHistoryImageUrl = `/formhistory/${userId}/user_001_front_17.5kg.jpg`;
+                            formHistoryImageUrl = `/formhistory/${userId}/user_001_1.jpg`;
                           }
                         }
 
@@ -1419,34 +1496,58 @@ export default function ResultsPage() {
         {/* ── ANALYSIS TAB ── */}
         {!isProgression && (
           <>
-            <div className="mx-4 mb-4 rounded-2xl overflow-hidden relative group">
-              {userAnnotatedFrameUrl ? (
-                <>
-                  <img src={userAnnotatedFrameUrl} alt="User annotated frame" className="w-full object-cover cursor-pointer" style={{ display: "block", maxHeight: 300, borderRadius: "1rem" }} onClick={() => setFullscreenImage(userAnnotatedFrameUrl)} />
-                  <button onClick={() => setFullscreenImage(userAnnotatedFrameUrl)} className="absolute top-3 right-3 bg-blue-500 hover:bg-blue-600 text-white p-2 rounded-lg transition-colors" title="Expand image">
-                    <svg className="w-6 h-6" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24">
-                      <path d="M3 3v6h6M21 21v-6h-6M3 21h6v-6M21 3h-6v6"/>
-                    </svg>
-                  </button>
-                </>
-              ) : frameSrc ? (
-                <>
-                  <img src={frameSrc} alt="Annotated analysis frame" className="w-full object-cover cursor-pointer" style={{ display: "block", maxHeight: 300, borderRadius: "1rem" }} onClick={() => setFullscreenImage(frameSrc)} />
-                  <button onClick={() => setFullscreenImage(frameSrc)} className="absolute top-3 right-3 bg-blue-500 hover:bg-blue-600 text-white p-2 rounded-lg transition-colors" title="Expand image">
-                    <svg className="w-5 h-5" fill="currentColor" viewBox="0 0 24 24"><path d="M7 14c-1.66 0-3 1.34-3 3 0 1.31-1.16 2-2 2s-2-.69-2-2c0-2.61 2.91-5 5-5 1.31 0 2 1.16 2 2s-.69 2-2 2zm13.71-9.71L19 6.41V3h-3v2h2.59L13 9.59 15.59 12 21 6.41V9h2V4h-5V1h-3v4h2.59z"/></svg>
-                  </button>
-                </>
-              ) : videoSrc ? (
-                <VideoPlayer src={videoSrc} />
-              ) : (
-                <div className="h-52 flex flex-col items-center justify-center gap-3" style={{ background: "#0f0f1a", borderRadius: "1rem" }}>
-                  <div className="w-14 h-14 rounded-full flex items-center justify-center" style={{ background: "#14b8a6", boxShadow: "0 0 0 6px rgba(20,184,166,0.25)" }}>
-                    <svg className="w-6 h-6 text-white ml-1" fill="currentColor" viewBox="0 0 24 24"><path d="M8 5v14l11-7z" /></svg>
-                  </div>
-                  <p className="text-xs text-gray-500">Frame analysis coming soon</p>
+            {(() => {
+              const userId = localStorage.getItem("active_user_id");
+              const isUser001 = userId === "user_001";
+              const isUser002 = userId === "user_002";
+              const user001ImageUrl = "/user_001_side_15kg.jpg";
+              const user002ImageUrl = "/user_002_side_907.jpg";
+
+              return (
+                <div className="mx-4 mb-4 rounded-2xl overflow-hidden relative group">
+                  {userAnnotatedFrameUrl ? (
+                    <>
+                      <img src={userAnnotatedFrameUrl} alt="User annotated frame" className="w-full object-cover cursor-pointer" style={{ display: "block", maxHeight: 300, borderRadius: "1rem", objectPosition: "center" }} onClick={() => setFullscreenImage(userAnnotatedFrameUrl)} onError={(e) => { e.target.src = isUser001 ? user001ImageUrl : (isUser002 ? user002ImageUrl : userAnnotatedFrameUrl); }} />
+                      <button onClick={() => setFullscreenImage(userAnnotatedFrameUrl)} className="absolute top-3 right-3 bg-blue-500 hover:bg-blue-600 text-white p-2 rounded-lg transition-colors" title="Expand image">
+                        <svg className="w-6 h-6" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24">
+                          <path d="M3 3v6h6M21 21v-6h-6M3 21h6v-6M21 3h-6v6"/>
+                        </svg>
+                      </button>
+                    </>
+                  ) : frameSrc ? (
+                    <>
+                      <img src={frameSrc} alt="Annotated analysis frame" className="w-full object-cover cursor-pointer" style={{ display: "block", maxHeight: 300, borderRadius: "1rem", objectPosition: "center" }} onClick={() => setFullscreenImage(frameSrc)} />
+                      <button onClick={() => setFullscreenImage(frameSrc)} className="absolute top-3 right-3 bg-blue-500 hover:bg-blue-600 text-white p-2 rounded-lg transition-colors" title="Expand image">
+                        <svg className="w-5 h-5" fill="currentColor" viewBox="0 0 24 24"><path d="M7 14c-1.66 0-3 1.34-3 3 0 1.31-1.16 2-2 2s-2-.69-2-2c0-2.61 2.91-5 5-5 1.31 0 2 1.16 2 2s-.69 2-2 2zm13.71-9.71L19 6.41V3h-3v2h2.59L13 9.59 15.59 12 21 6.41V9h2V4h-5V1h-3v4h2.59z"/></svg>
+                      </button>
+                    </>
+                  ) : isUser001 ? (
+                    <>
+                      <img src={user001ImageUrl} alt="User 001 form" className="w-full object-cover cursor-pointer" style={{ display: "block", maxHeight: 300, borderRadius: "1rem", objectPosition: "center" }} onClick={() => setFullscreenImage(user001ImageUrl)} />
+                      <button onClick={() => setFullscreenImage(user001ImageUrl)} className="absolute top-3 right-3 bg-blue-500 hover:bg-blue-600 text-white p-2 rounded-lg transition-colors" title="Expand image">
+                        <svg className="w-5 h-5" fill="currentColor" viewBox="0 0 24 24"><path d="M7 14c-1.66 0-3 1.34-3 3 0 1.31-1.16 2-2 2s-2-.69-2-2c0-2.61 2.91-5 5-5 1.31 0 2 1.16 2 2s-.69 2-2 2zm13.71-9.71L19 6.41V3h-3v2h2.59L13 9.59 15.59 12 21 6.41V9h2V4h-5V1h-3v4h2.59z"/></svg>
+                      </button>
+                    </>
+                  ) : isUser002 ? (
+                    <>
+                      <img src={user002ImageUrl} alt="User 002 form" className="w-full object-cover cursor-pointer" style={{ display: "block", maxHeight: 300, borderRadius: "1rem", objectPosition: "center" }} onClick={() => setFullscreenImage(user002ImageUrl)} />
+                      <button onClick={() => setFullscreenImage(user002ImageUrl)} className="absolute top-3 right-3 bg-blue-500 hover:bg-blue-600 text-white p-2 rounded-lg transition-colors" title="Expand image">
+                        <svg className="w-5 h-5" fill="currentColor" viewBox="0 0 24 24"><path d="M7 14c-1.66 0-3 1.34-3 3 0 1.31-1.16 2-2 2s-2-.69-2-2c0-2.61 2.91-5 5-5 1.31 0 2 1.16 2 2s-.69 2-2 2zm13.71-9.71L19 6.41V3h-3v2h2.59L13 9.59 15.59 12 21 6.41V9h2V4h-5V1h-3v4h2.59z"/></svg>
+                      </button>
+                    </>
+                  ) : !isUser001 && !isUser002 && videoSrc ? (
+                    <VideoPlayer src={videoSrc} />
+                  ) : (
+                    <div className="h-52 flex flex-col items-center justify-center gap-3" style={{ background: "#0f0f1a", borderRadius: "1rem" }}>
+                      <div className="w-14 h-14 rounded-full flex items-center justify-center" style={{ background: "#14b8a6", boxShadow: "0 0 0 6px rgba(20,184,166,0.25)" }}>
+                        <svg className="w-6 h-6 text-white ml-1" fill="currentColor" viewBox="0 0 24 24"><path d="M8 5v14l11-7z" /></svg>
+                      </div>
+                      <p className="text-xs text-gray-500">Frame analysis coming soon</p>
+                    </div>
+                  )}
                 </div>
-              )}
-            </div>
+              );
+            })()}
 
             {/* Failed banner */}
             {statusFailed && (
