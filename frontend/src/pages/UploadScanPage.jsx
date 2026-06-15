@@ -114,7 +114,7 @@ export default function UploadScanPage() {
               transition: "all 0.3s ease",
             }}>
               <img
-                src="/muscular_quads.png"
+                src="/muscular_model2.png"
                 alt="Body diagram"
                 className="w-full object-contain"
                 style={{
