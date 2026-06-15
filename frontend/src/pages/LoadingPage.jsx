@@ -184,7 +184,8 @@ export default function LoadingPage() {
       let progressionData = null
 
       try {
-        const res = await fetch(`http://localhost:8000/analysis/${analysisId}`)
+       // const res = await fetch(`http://localhost:8000/analysis/${analysisId}`)
+        const res = await fetch(`${BASE_URL}/analysis/${analysisId}`)
         if (res.ok) {
           analysisRecord = await res.json()
           if (analysisRecord?.biomechanics_json && typeof analysisRecord.biomechanics_json === "string") {
@@ -194,7 +195,8 @@ export default function LoadingPage() {
       } catch (_) {}
 
       try {
-        const res = await fetch(`http://localhost:8000/analysis/${analysisId}/progression`)
+       // const res = await fetch(`http://localhost:8000/analysis/${analysisId}/progression`)
+        const res = await fetch(`${BASE_URL}/analysis/${analysisId}/progression`)
         if (res.ok) {
           const body = await res.json()
           if (body?.has_comparison !== undefined) progressionData = body
