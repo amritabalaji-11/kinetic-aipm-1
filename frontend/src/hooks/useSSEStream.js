@@ -87,6 +87,7 @@ function useSSEStream(analysisId) {
       let parsed
       try {
         parsed = JSON.parse(e.data)
+        console.log("SSE EVENT:", parsed)
       } catch {
         return
       }
