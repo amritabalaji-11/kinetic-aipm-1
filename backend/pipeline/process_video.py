@@ -21,6 +21,7 @@ from utils.sse_manager import sse_manager
 from mediapipe_code.llm_run_code import run_llm_analysis
 from mediapipe_code.llm_run_code import run_llm_comparison
 from services.haiku_call_1_integration import HaikuCall1
+import traceback
 
 
 # =========================================================
@@ -339,6 +340,7 @@ async def run_mediapipe_analysis(analysis_id: str, file_location: str):
 
     except Exception as e:
         print(f"[pipeline] Unexpected error: {e}")
+        traceback.print_exc()
         await _store_failed(analysis_id, "BIOMECHANICS_COMPUTE_ERROR", str(e))
         await sse_manager.send_error_event(
             analysis_id=analysis_id,
