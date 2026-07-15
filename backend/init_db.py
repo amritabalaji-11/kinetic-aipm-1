@@ -97,6 +97,12 @@ CREATE TABLE IF NOT EXISTS form_analysis_results (
         session_tags TEXT, 
         comparison_coaching_output TEXT,
         annotated_frame_url TEXT,
+        
+        annotated_frame_gcs_url TEXT,
+        annotated_frame_gcs_path TEXT,
+        annotated_frame_file_size_bytes INTEGER,
+        annotated_frame_format TEXT DEFAULT 'jpg',
+        annotated_frame_created_at TIMESTAMP
 
           -- Haiku Call 2 async tracking
         job_status TEXT DEFAULT 'queued'

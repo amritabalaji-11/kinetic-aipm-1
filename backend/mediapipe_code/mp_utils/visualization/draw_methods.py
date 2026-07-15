@@ -1,4 +1,5 @@
 import json
+import math
 import os
 
 import cv2
@@ -523,6 +524,11 @@ def annotate_frame_front(
     valgus_severity = rep_data["stability_data"]["valgus_severity"]
 
     valgus_distance = rep_data["stability_data"]["knee_valgus_distance"]
+
+    if depth_angle <= 90:
+        depth_classification = "Excellent"
+    elif depth_angle <= 105:
+        depth_classification = "Good"
     
 
     faults_info = [
@@ -751,12 +757,26 @@ def overlay_frame(frame, frame_info, camera_view, rep_data, output_filename):
         f"{output_filename}.jpg"
     )
 
-    cv2.imwrite(output_path, annotated_worst_frame)
+    MAX_SIZE = 500 * 1024
 
-    return annotated_worst_frame
+    quality = 95
+
+    while quality >= 40:
+        cv2.imwrite(
+            output_path,
+            annotated_worst_frame,
+            [cv2.IMWRITE_JPEG_QUALITY, quality]
+        )
+
+        if os.path.getsize(output_path) <= MAX_SIZE:
+            break
+
+        quality -= 5
+
+    return annotated_worst_frame, output_path
 
 
-def extract_worst_frame(video_url, analysis_path, rep_frames, bio_json):
+def extract_worst_frame(video_url, score_list, rep_frames, bio_json):
     """
     Extract and visualize the most critical frame from the worst rep.
 
@@ -764,14 +784,12 @@ def extract_worst_frame(video_url, analysis_path, rep_frames, bio_json):
         video_url (str):
             The URL of the video.
 
-        analysis_path (str):
+        score_list (list[dict]):
             Path to the JSON analysis file containing the
             detected worst rep and critical problem.
 
         rep_frames (list[dict]):
-            List of stored frame dictionaries collected during
-            video processing. Each frame contains pose landmarks,
-            biomechanical metrics, and metadata.
+            List of the scores of the frames.
 
         output_filename (str):
             The name of the file output.
@@ -788,14 +806,7 @@ def extract_worst_frame(video_url, analysis_path, rep_frames, bio_json):
         dominant_camera_view:
             The dominant camera view in all the frames of the worst rep
     """
-
-    with open(analysis_path, "r") as f:
-        json_analysis = json.load(f)
-
-    
-    worst_rep_index = json_analysis["db_output"]["worst_rep_index"]
-    worse_rep = json_analysis["db_output"]["rep_scores"][worst_rep_index]["rep_number"]
-
+    worse_rep = min(score_list, key=lambda x: x["form_score"])["rep_number"]
 
     filtered_frames_worse_rep = [
         frame

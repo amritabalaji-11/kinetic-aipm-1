@@ -15,6 +15,8 @@ import shutil
 from concurrent.futures import ThreadPoolExecutor
 from datetime import datetime, timezone
 
+from utils.gcs import upload_image_to_gcs
+from mediapipe_code.mp_utils.visualization.draw_methods import extract_worst_frame, overlay_frame
 from services.haiku_call_2_progression import run_haiku_call_2
 from mediapipe_code.landmark_framework import LandmarkQualityFramework
 from utils.sse_manager import sse_manager
@@ -151,7 +153,7 @@ async def run_mediapipe_analysis(analysis_id: str, file_location: str):
 
         # run_in_executor moves the CPU-heavy MediaPipe work into a thread
         # so the async event loop stays responsive for other requests
-        final_json, quality_result, collage_b64, bottom_frames = await loop.run_in_executor(
+        final_json, quality_result, collage_b64, rep_frames_list = await loop.run_in_executor(
             _executor,
             framework.process_video_once,
             local_path,
@@ -234,13 +236,7 @@ async def run_mediapipe_analysis(analysis_id: str, file_location: str):
         })
 
         # -------------------------------------------------
-        # STEP 6 — clean up temp video file
-        # -------------------------------------------------
-        if local_path and "incoming" in local_path:
-            shutil.rmtree(os.path.dirname(local_path), ignore_errors=True)
-
-        # -------------------------------------------------
-        # STEP 7 — haiku_started → Haiku Call 1 → analysis_ready
+        # STEP 6 — haiku_started → Haiku Call 1 → analysis_ready
         # -------------------------------------------------
         await sse_manager.send_event(analysis_id, "haiku_started", 65, extra=ctx)
 
@@ -277,6 +273,31 @@ async def run_mediapipe_analysis(analysis_id: str, file_location: str):
                 max_tokens=4096,
             )
         )
+
+        rep_scores = coaching_output.get("rep_scores", [])
+
+        # Worst Image Generation
+        try:
+            frame, frame_data, dominant_camera_view, rep_data = extract_worst_frame(local_path, rep_scores, rep_frames_list, final_json)
+
+            _, image_path = overlay_frame(frame, frame_data, dominant_camera_view, rep_data, output_filename="worst_frame")
+
+            image_info = await upload_image_to_gcs(
+                image_path,
+                f"kinetic-annotated-frames/{analysis_id}/worst_frame.jpg"
+            )
+
+        except Exception as e:
+            print("--------------------------------------------------------")
+            print("ERROR IN IMAGE GENERATION")
+            print(e)
+            print("--------------------------------------------------------")
+
+        # -------------------------------------------------
+        # STEP 7 — clean up temp video file
+        # -------------------------------------------------
+        if local_path and "incoming" in local_path:
+            shutil.rmtree(os.path.dirname(local_path), ignore_errors=True)
 
         # Write to form_analysis_results — required for Haiku Call 2 to find this session
         await _store_analysis_results(analysis_id, user_id, session_id, record, mp_result, coaching_output)
@@ -323,6 +344,20 @@ async def run_mediapipe_analysis(analysis_id: str, file_location: str):
         asyncio.create_task(run_haiku_call_2(analysis_id))
 
         print(f"[pipeline] Completed analysis_id={analysis_id}, reps={rep_count}")
+
+
+        # Add the image URL to the database
+        await db.execute(
+                """
+                UPDATE form_analysis_results
+                SET annotated_frame_url = :url
+                WHERE analysis_id = :analysis_id
+                """,
+                values={
+                    "url": image_info["gcs_url"],
+                    "analysis_id": analysis_id,
+                },
+            )
         return mp_result
 
     except FileNotFoundError as e:

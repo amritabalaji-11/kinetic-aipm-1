@@ -73,26 +73,27 @@ async def upload_file_to_gcs(
 # =========================================================
 
 async def upload_image_to_gcs(
-    file: UploadFile,
+    local_path: str,
     destination_blob_name: str
 ):
     try:
-
         bucket = client.bucket(BUCKET_NAME)
-
         blob = bucket.blob(destination_blob_name)
 
         blob.upload_from_filename(
-            _lock_path,
-            content_type="image/png"
+            local_path,
+            content_type="image/jpeg"
         )
 
-        blob.make_public()
+        return {
+            "gcs_path": destination_blob_name,
+            "gcs_url": f"gs://{BUCKET_NAME}/{destination_blob_name}",
+            "file_size_bytes": os.path.getsize(local_path),
+            "format": "jpg"
+        }
 
-        return blob.public_url
     except Exception as e:
         print("========== GCS ERROR ==========")
         print(str(e))
         print("================================")
-
-        raise e
+        raise

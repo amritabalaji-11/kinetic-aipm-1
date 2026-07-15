@@ -717,33 +717,36 @@ def extract_frames_from_memory(
 
 
 def resize_video(video_path: str):
+    filename = os.path.basename(video_path)
+    full_name = os.path.splitext(filename)[0]
 
-        name = video_path.split("/")[-1]
-        full_name = name.split(".")[0]
-        os.makedirs("./mediapipe_code/video_results", exist_ok=True)
-        output_path = f"./mediapipe_code/video_results/{full_name}_resized.mp4"
+    os.makedirs("./mediapipe_code/video_results", exist_ok=True)
 
-        command = [
-            str(FFMPEG_PATH),
+    output_path = os.path.join(
+        "mediapipe_code",
+        "video_results",
+        f"{full_name}_resized.mp4"
+    )
 
-            "-y",
-            "-i", video_path,
-            "-loglevel", "quiet",
-            "-vf",
-            "fps=30,"
-            "scale=720:1280:force_original_aspect_ratio=decrease,"
-            "pad=720:1280:(ow-iw)/2:(oh-ih)/2",
-            "-threads", "0",
-            "-c:v", "libx264",
-            "-preset", "ultrafast",
-            "-crf", "28",
+    command = [
+        str(FFMPEG_PATH),
+        "-y",
+        "-i", video_path,
+        "-loglevel", "quiet",
+        "-vf",
+        "fps=30,"
+        "scale=720:1280:force_original_aspect_ratio=decrease,"
+        "pad=720:1280:(ow-iw)/2:(oh-ih)/2",
+        "-threads", "0",
+        "-c:v", "libx264",
+        "-preset", "ultrafast",
+        "-crf", "28",
+        output_path,
+    ]
 
-            output_path
-        ]
+    subprocess.run(command, check=True)
 
-        subprocess.run(command)
-
-        return output_path
+    return output_path
 
 
 def get_y(norm_pose, idx):
