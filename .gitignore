@@ -11,3 +11,4 @@ backend/mediapipe_code/video_results/
 *.mp4
 ffmpeg
 echo "backend/backend.log" >> .gitignore
+backend/kinetic.db
