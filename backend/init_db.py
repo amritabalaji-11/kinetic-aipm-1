@@ -265,6 +265,13 @@ def init_db():
         ("workout_sessions_log", "exercise_name", "TEXT"),
         ("workout_sessions_log", "weight_value", "REAL"),
         ("workout_sessions_log", "weight_unit", "TEXT"),
+        
+          # auth
+        ("user_profiles", "email", "TEXT"),
+        ("user_profiles", "hashed_password", "TEXT"),
+        ("user_profiles", "auth_provider", "TEXT DEFAULT 'email'"),  # 'email' | 'google' | 'apple' | 'facebook'
+        ("user_profiles", "oauth_sub", "TEXT"),   # provider's unique user id
+        ("user_profiles", "email_verified", "INTEGER DEFAULT 0"),
         ]
 
     for table, column, definition in migrations:
@@ -282,6 +289,14 @@ def init_db():
         except sqlite3.OperationalError:
             pass
 
+    cursor.execute("""
+    CREATE UNIQUE INDEX IF NOT EXISTS idx_user_profiles_email
+    ON user_profiles(email) WHERE email IS NOT NULL
+    """)
+    cursor.execute("""
+    CREATE UNIQUE INDEX IF NOT EXISTS idx_user_profiles_oauth
+    ON user_profiles(auth_provider, oauth_sub) WHERE oauth_sub IS NOT NULL
+    """)
     conn.commit()
 
     conn.close()
