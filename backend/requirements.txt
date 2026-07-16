@@ -9,3 +9,10 @@ numpy
 opencv-python
 mediapipe
 anthropic
+
+passlib[bcrypt]
+bcrypt<5.0
+python-jose[cryptography]
+email-validator
+google-auth
+httpx
