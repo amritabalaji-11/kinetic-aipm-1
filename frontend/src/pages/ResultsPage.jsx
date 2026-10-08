@@ -272,6 +272,60 @@ function LastSessionCard({ date, weight, unit, whatWeToldYou }) {
   )
 }
 
+// Reads the coaching summary + next-session focus aloud via the backend /tts route (ElevenLabs)
+function ListenButton({ summary, focusItems }) {
+  const BASE_URL = import.meta.env.VITE_API_URL || "http://localhost:8000"
+  const [status, setStatus] = useState("idle") // idle | loading | playing | error
+  const audioRef = useRef(null)
+
+  const text = [summary, ...(focusItems || []).map((item, i) => `Focus ${i + 1}. ${item}`)]
+    .filter(Boolean)
+    .join(" ")
+
+  function stop() {
+    if (audioRef.current) {
+      audioRef.current.pause()
+      audioRef.current = null
+    }
+    setStatus("idle")
+  }
+
+  useEffect(() => stop, [])
+
+  async function handleClick() {
+    if (status === "playing") return stop()
+    if (status === "loading" || !text) return
+    setStatus("loading")
+    try {
+      const res = await fetch(`${BASE_URL}/tts`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ text }),
+      })
+      if (!res.ok) throw new Error(`TTS failed: ${res.status}`)
+      const url = URL.createObjectURL(await res.blob())
+      const audio = new Audio(url)
+      audio.onended = () => { URL.revokeObjectURL(url); setStatus("idle") }
+      audioRef.current = audio
+      await audio.play()
+      setStatus("playing")
+    } catch (err) {
+      console.error("❌ Listen failed:", err)
+      setStatus("error")
+    }
+  }
+
+  if (!text) return null
+  const label = { idle: "Listen", loading: "Loading…", playing: "Stop", error: "Try again" }[status]
+  return (
+    <button type="button" onClick={handleClick}
+      className="text-xs font-semibold px-3 py-1 rounded-full text-white hover:opacity-90"
+      style={{ background: "rgba(255,255,255,0.2)" }}>
+      🔊 {label}
+    </button>
+  )
+}
+
 function NextSessionFocusBox({ focusItems }) {
   const [expanded, setExpanded] = useState(false)
   if (!focusItems || focusItems.length === 0) return null
@@ -1568,6 +1622,7 @@ export default function ResultsPage() {
                     {coaching.summary_paragraph || "Keep it up — your form is consistent."}
                   </p>
                   <div className="flex flex-wrap gap-2">
+                    <ListenButton summary={coaching.summary_paragraph} focusItems={coaching.next_session_focus} />
                     {createdAt && (
                       <span className="text-xs font-semibold px-3 py-1 rounded-full text-white" style={{ background: "rgba(255,255,255,0.2)" }}>{createdAt}</span>
                     )}

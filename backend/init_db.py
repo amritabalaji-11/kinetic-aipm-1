@@ -76,7 +76,7 @@ CREATE TABLE IF NOT EXISTS form_analysis_results (
         progression_recommendation TEXT NULL,
         annotated_frame_urls TEXT NULL,
         camera_angle TEXT NULL,
-        model_version TEXT NOT NULL DEFAULT 'claude-3-5-haiku-20241022',
+        model_version TEXT NOT NULL DEFAULT 'claude-haiku-5-5',
         created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
         issue_tags TEXT NULL,
         faults_detected TEXT NULL,

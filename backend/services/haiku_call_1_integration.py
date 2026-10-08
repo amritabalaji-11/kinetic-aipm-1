@@ -117,15 +117,30 @@ class HaikuCall1:
         # Call Haiku with cached system prompt
         logger.debug(f"Calling Haiku with {len(user_message['content'])} tokens")
         response = self.client.messages.create(
-            #model="claude-3-5-haiku-20241022",
-            model="claude-haiku-4-5-20251001",
+            model="claude-haiku-5-5",
             max_tokens=max_tokens,
+            output_config={"effort": "low"},
+            # The prompt already asks for reasoning inside the JSON, so skip separate thinking
+            thinking={"type": "disabled"},
             system=self.system_prompt,  # Cached, static
             messages=[{"role": "user", "content": user_message["content"]}],
         )
 
-        # Parse response JSON
-        response_text = response.content[0].text
+        # Log real token usage so costs can be measured per analysis
+        print(
+            f"[Haiku Call 1] usage: input={response.usage.input_tokens} "
+            f"output={response.usage.output_tokens}"
+        )
+        if response.stop_reason == "max_tokens":
+            raise ValueError(
+                f"Haiku Call 1 truncated — increase max_tokens "
+                f"(output_tokens={response.usage.output_tokens}, "
+                f"blocks={[b.type for b in response.content]})"
+            )
+
+        # Parse response JSON. Haiku 5.5 may start with a thinking block,
+        # so pick the text block by type instead of assuming content[0].
+        response_text = next(b.text for b in response.content if b.type == "text")
         logger.debug(f"Haiku response: {len(response_text)} chars")
 
         try:

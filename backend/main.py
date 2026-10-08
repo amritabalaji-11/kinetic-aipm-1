@@ -7,7 +7,7 @@ from routes.health import router as health_router
 from init_db import init_db
 
 from routes.analysis_haiku_integration_example import router as haiku_router
-from routes import upload, stream, analysis, progression, history, stream
+from routes import upload, stream, analysis, progression, history, tts
 from routes.user import router as user_router
 from routes.auth import router as auth_router
 
@@ -24,7 +24,7 @@ def root():
 # CORS config
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["*"],
+    allow_origins=[FRONTEND_ORIGIN],
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
@@ -40,6 +40,7 @@ app.include_router(haiku_router)
 app.include_router(progression.router)
 app.include_router(user_router)
 app.include_router(auth_router)
+app.include_router(tts.router)
 
 
 #DB connection management
