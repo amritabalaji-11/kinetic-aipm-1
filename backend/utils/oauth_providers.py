@@ -15,6 +15,9 @@ APPLE_KEYS_URL = "https://appleid.apple.com/auth/keys"
 
 
 def verify_google_token(id_token_str: str) -> dict:
+    # Without an audience the library skips the "issued for our app" check
+    if not GOOGLE_CLIENT_ID:
+        raise HTTPException(status_code=503, detail="Google sign-in is not configured")
     try:
         info = google_id_token.verify_oauth2_token(
             id_token_str, google_requests.Request(), GOOGLE_CLIENT_ID

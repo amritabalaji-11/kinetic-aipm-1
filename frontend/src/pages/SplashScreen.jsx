@@ -1,17 +1,36 @@
-import { useEffect, useRef } from "react"
+import { useEffect, useRef, useState } from "react"
 import { useNavigate } from "react-router-dom"
 import { useUser } from "../context/UserContext"
+import { fetchMe, getToken } from "../services/authService"
+import GoogleSignInButton from "../components/GoogleSignInButton"
 
 export default function SplashScreen() {
   const navigate  = useNavigate()
   const navRef    = useRef(navigate)
-  const { clearUser } = useUser()
+  const { clearUser, loginWithGoogle } = useUser()
+  const [showAuth, setShowAuth] = useState(false)
+  const [signInError, setSignInError] = useState(null)
+  const [signingIn, setSigningIn] = useState(false)
   const glowRef   = useRef(null)
   const scannerRef = useRef(null)
   const kFillRef = useRef(null)
 
+  const handleCredential = async (idToken) => {
+    setSigningIn(true)
+    setSignInError(null)
+    try {
+      await loginWithGoogle(idToken)
+      navigate("/home")
+    } catch (e) {
+      setSignInError(e.message)
+      setSigningIn(false)
+    }
+  }
+
   useEffect(() => {
-    clearUser()
+    // Keep a saved Google session; otherwise start signed out (demo picks are cleared too)
+    const hasSession = !!getToken()
+    if (!hasSession) clearUser()
     const fadeIn = (id, delay) => {
       const el = document.getElementById(id)
       if (!el) return
@@ -117,7 +136,15 @@ export default function SplashScreen() {
       }
     }, 600)
 
-    const t = setTimeout(() => navRef.current("/profile-screen"), 3400)
+    // After the animation: go Home if the saved session is still valid, else show sign-in
+    const t = setTimeout(async () => {
+      if (hasSession && (await fetchMe())) {
+        navRef.current("/home")
+      } else {
+        if (hasSession) clearUser()
+        setShowAuth(true)
+      }
+    }, 3400)
     return () => clearTimeout(t)
   }, [])
 
@@ -277,6 +304,48 @@ export default function SplashScreen() {
             }}
           />
         </div>
+      </div>
+
+      {/* Sign-in block: appears once the animation finishes */}
+      <div
+        style={{
+          width: "100%",
+          maxWidth: 362,
+          padding: "0 20px",
+          boxSizing: "content-box",
+          marginTop: 40,
+          minHeight: 110,
+          display: "flex",
+          flexDirection: "column",
+          alignItems: "center",
+          gap: 14,
+          opacity: showAuth ? 1 : 0,
+          transform: showAuth ? "translateY(0)" : "translateY(12px)",
+          transition: "opacity 0.5s ease, transform 0.5s ease",
+          pointerEvents: showAuth ? "auto" : "none",
+        }}
+      >
+        {showAuth && (
+          <>
+            {signingIn ? (
+              <p style={{ fontSize: 14, color: "#64748b", margin: "13px 0" }}>Signing you in…</p>
+            ) : (
+              <GoogleSignInButton onCredential={handleCredential} />
+            )}
+            {signInError && (
+              <p style={{ fontSize: 12, color: "#dc2626", margin: 0, textAlign: "center" }}>{signInError}</p>
+            )}
+            <p style={{ fontSize: 11, color: "#737888", margin: 0, textAlign: "center" }}>
+              By continuing you agree to our Terms &amp; Privacy Policy
+            </p>
+            <button
+              onClick={() => navigate("/select-profile")}
+              style={{ fontSize: 12, color: "#64748b", textDecoration: "underline", background: "none", border: "none", cursor: "pointer" }}
+            >
+              Try demo
+            </button>
+          </>
+        )}
       </div>
     </div>
   )

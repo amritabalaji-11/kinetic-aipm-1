@@ -1,4 +1,5 @@
-import { createContext, useContext, useState } from "react"
+import { createContext, useContext, useEffect, useState } from "react"
+import { TOKEN_KEY, signInWithGoogle, fetchMe } from "../services/authService"
 
 export const DEMO_USERS = {
   user_001: {
@@ -74,25 +75,58 @@ export const DEMO_USERS = {
 
 const UserContext = createContext(null)
 
+// Shape a real (Google) account like a demo user so pages can read the same fields
+function toActiveUser(me) {
+  const name = me.display_name || (me.email ? me.email.split("@")[0] : "You")
+  return { id: me.user_id, name, initials: name.slice(0, 2).toUpperCase(), email: me.email }
+}
+
 export function UserProvider({ children }) {
   const [activeUserId, setActiveUserId] = useState(
     () => localStorage.getItem("active_user_id") || null
   )
+  const [authUser, setAuthUser] = useState(null)
 
-  const setUser = (userId) => {
+  const activate = (userId) => {
     localStorage.setItem("active_user_id", userId)
     setActiveUserId(userId)
   }
 
-  const clearUser = () => {
-    localStorage.removeItem("active_user_id")
-    setActiveUserId(null)
+  // Demo profile pick: drop any Google session so the two flows never mix
+  const setUser = (userId) => {
+    localStorage.removeItem(TOKEN_KEY)
+    setAuthUser(null)
+    activate(userId)
   }
 
-  const activeUser = activeUserId ? DEMO_USERS[activeUserId] : null
+  const clearUser = () => {
+    localStorage.removeItem("active_user_id")
+    localStorage.removeItem(TOKEN_KEY)
+    setActiveUserId(null)
+    setAuthUser(null)
+  }
+
+  // Real account signed in with Google: remember the user id and load their profile
+  const loginWithGoogle = async (idToken) => {
+    const userId = await signInWithGoogle(idToken)
+    activate(userId)
+    const me = await fetchMe()
+    if (me) setAuthUser(toActiveUser(me))
+    return userId
+  }
+
+  // After a page reload, restore the real user's profile from the saved token
+  useEffect(() => {
+    if (!activeUserId || DEMO_USERS[activeUserId] || authUser) return
+    fetchMe().then((me) => me && setAuthUser(toActiveUser(me)))
+  }, [activeUserId, authUser])
+
+  const activeUser = activeUserId
+    ? DEMO_USERS[activeUserId] || (authUser?.id === activeUserId ? authUser : null)
+    : null
 
   return (
-    <UserContext.Provider value={{ activeUser, activeUserId, setUser, clearUser, DEMO_USERS }}>
+    <UserContext.Provider value={{ activeUser, activeUserId, setUser, clearUser, loginWithGoogle, DEMO_USERS }}>
       {children}
     </UserContext.Provider>
   )
