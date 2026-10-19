@@ -49,15 +49,17 @@ export default function WorkoutOrderPage() {
       startDate: new Date().toLocaleDateString(),
       startTime: new Date().toLocaleTimeString(),
       muscles: selectedMuscles,
-      exercises: exercises.map(ex => ({
+      presetTitle: location.state?.presetTitle ?? null,
+      exercises: exercises.map((ex, exIdx) => ({
         id: ex.id,
         name: ex.name,
         muscles: ex.muscles,
-        sets: [
-          { id: Date.now() + 1, setNumber: 1, weight: "", reps: "", videoUrl: null, completed: false },
-          { id: Date.now() + 2, setNumber: 2, weight: "", reps: "", videoUrl: null, completed: false },
-          { id: Date.now() + 3, setNumber: 3, weight: "", reps: "", videoUrl: null, completed: false }
-        ]
+        // Presets suggest a number of sets and reps; hand-built workouts get 3 sets
+        targetSets: ex.targetSets ?? null,
+        targetReps: ex.targetReps ?? null,
+        sets: Array.from({ length: ex.targetSets ?? 3 }, (_, i) => ({
+          id: Date.now() + exIdx * 100 + i + 1, setNumber: i + 1, weight: "", reps: "", videoUrl: null, completed: false,
+        })),
       })),
       focusLabel: selectedMuscles.length === 1
         ? FOCUS_LABEL[selectedMuscles[0]] ?? "Mixed"
@@ -139,7 +141,9 @@ export default function WorkoutOrderPage() {
             {/* Info */}
             <div className="flex-1 min-w-0">
               <p className="font-semibold text-sm text-gray-900">{ex.name}</p>
-              <p className="text-xs text-gray-400 truncate">{ex.muscles.join(", ")}</p>
+              <p className="text-xs text-gray-400 truncate">
+                {ex.targetSets ? `${ex.targetSets} × ${ex.targetReps} · ` : ""}{ex.muscles.join(", ")}
+              </p>
             </div>
 
             {/* Remove */}

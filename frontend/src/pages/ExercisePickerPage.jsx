@@ -110,7 +110,9 @@ export default function ExercisePickerPage() {
               </div>
               <div className="flex-1 min-w-0">
                 <p className="font-semibold text-sm text-gray-900">{ex.name}</p>
-                <p className="text-xs text-gray-400 truncate">{ex.muscles.join(", ")}</p>
+                <p className="text-xs text-gray-400 truncate">
+                  <span style={{ textTransform: "capitalize" }}>{ex.equipment}</span> · {ex.muscles.join(", ")}
+                </p>
               </div>
               <button
                 onClick={() => toggle(ex.id)}

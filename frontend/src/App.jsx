@@ -5,6 +5,8 @@ import SplashScreen from "./pages/SplashScreen"
 import HomePage from "./pages/HomePage"
 import LoginPage from "./pages/LoginPage"
 import PlanPage from "./pages/PlanPage"
+import WorkoutPlannerPage from "./pages/WorkoutPlannerPage"
+import BuilderPage from "./pages/BuilderPage"
 import ExercisePickerPage from "./pages/ExercisePickerPage"
 import WorkoutOrderPage from "./pages/WorkoutOrderPage"
 import TimelinePage from "./pages/TimelinePage"
@@ -41,6 +43,8 @@ function App() {
           <Route path="/login" element={<LoginPage />} />
           <Route path="/home" element={<Layout><HomePage /></Layout>} />
           <Route path="/plan" element={<Layout><PlanPage /></Layout>} />
+          <Route path="/plan/custom" element={<Layout><BuilderPage /></Layout>} />
+          <Route path="/plan/workout/:presetId" element={<Layout><WorkoutPlannerPage /></Layout>} />
           <Route path="/plan/exercises" element={<Layout><ExercisePickerPage /></Layout>} />
           <Route path="/plan/order" element={<Layout><WorkoutOrderPage /></Layout>} />
           <Route path="/timeline" element={<Layout><TimelinePage /></Layout>} />
