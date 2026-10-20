@@ -1,3 +1,5 @@
+import { apiFetch } from "./api"
+
 const BASE_URL = import.meta.env.VITE_API_URL || "http://localhost:8000"
 const UPLOAD_TIMEOUT_MS = 60_000
 
@@ -35,7 +37,7 @@ async function uploadVideo(videoFile, exercise, weight, weightUnit = "kg") {
     const timeoutId = setTimeout(() => controller.abort(), UPLOAD_TIMEOUT_MS)
 
     try {
-        const response = await fetch(`${BASE_URL}/upload`, {
+        const response = await apiFetch(`${BASE_URL}/upload`, {
             method: "POST",
             body: formData,
             signal: controller.signal,

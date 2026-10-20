@@ -1,6 +1,8 @@
 import { useEffect, useState } from "react"
+import { apiFetch } from "../services/api"
 import { useNavigate } from "react-router-dom"
 import { useUser } from "../context/UserContext"
+import { listWorkouts, fromDbTime } from "../services/workoutService"
 
 const BASE_URL = import.meta.env.VITE_API_URL || "http://localhost:8000"
 
@@ -23,6 +25,69 @@ function Barbell({ color, flip }) {
         <div key={i} style={{ width: 3.5, height: h, background: color, borderRadius: 2, opacity: 1 }} />
       ))}
     </div>
+  )
+}
+
+// --- Last 7 Days helpers ---
+const dayKey = (d) => `${d.getFullYear()}-${d.getMonth()}-${d.getDate()}`
+
+// The 7 days ending today (oldest first), each marked when a workout was logged that day
+function buildWeek(workouts, today = new Date()) {
+  const logged = new Set(
+    workouts.map(w => fromDbTime(w.started_at || w.created_at)).filter(Boolean).map(dayKey)
+  )
+  return Array.from({ length: 7 }, (_, i) => {
+    const d = new Date(today.getFullYear(), today.getMonth(), today.getDate() - (6 - i))
+    return {
+      day: d.toLocaleDateString("en-US", { weekday: "narrow" }),
+      date: d.getDate(),
+      fullDate: d,
+      isToday: i === 6,
+      isWorkout: logged.has(dayKey(d)),
+    }
+  })
+}
+
+// Consecutive days with a workout. Today not logged yet doesn't break the streak.
+function currentStreak(workouts, today = new Date()) {
+  const logged = new Set(
+    workouts.map(w => fromDbTime(w.started_at || w.created_at)).filter(Boolean).map(dayKey)
+  )
+  let streak = 0
+  let offset = logged.has(dayKey(today)) ? 0 : 1
+  for (;;) {
+    const d = new Date(today.getFullYear(), today.getMonth(), today.getDate() - offset)
+    if (!logged.has(dayKey(d))) return streak
+    streak += 1
+    offset += 1
+  }
+}
+
+function weekRangeLabel(week) {
+  const first = week[0].fullDate
+  const last = week[6].fullDate
+  const month = (d) => d.toLocaleDateString("en-US", { month: "short" })
+  return first.getMonth() === last.getMonth()
+    ? `${month(first)} ${first.getDate()} - ${last.getDate()}`
+    : `${month(first)} ${first.getDate()} - ${month(last)} ${last.getDate()}`
+}
+
+// Filled dumbbell in the brand blue-to-purple gradient
+function Dumbbell({ size = 28 }) {
+  return (
+    <svg width={size} height={size * 0.625} viewBox="0 0 32 20" fill="none" aria-hidden="true">
+      <defs>
+        <linearGradient id="dumbbellGrad" x1="0" y1="0" x2="32" y2="20" gradientUnits="userSpaceOnUse">
+          <stop offset="0%" stopColor="#0284C7" />
+          <stop offset="100%" stopColor="#7C5CE7" />
+        </linearGradient>
+      </defs>
+      <rect x="9" y="8.5" width="14" height="3" rx="1.5" fill="url(#dumbbellGrad)" />
+      <rect x="5.5" y="3" width="4" height="14" rx="1.5" fill="url(#dumbbellGrad)" />
+      <rect x="22.5" y="3" width="4" height="14" rx="1.5" fill="url(#dumbbellGrad)" />
+      <rect x="1" y="6" width="3.5" height="8" rx="1.25" fill="url(#dumbbellGrad)" opacity="0.75" />
+      <rect x="27.5" y="6" width="3.5" height="8" rx="1.25" fill="url(#dumbbellGrad)" opacity="0.75" />
+    </svg>
   )
 }
 
@@ -74,10 +139,19 @@ export default function HomePage() {
   const [history, setHistory] = useState([])
   const [historyLoading, setHistoryLoading] = useState(true)
   const [expandedCards, setExpandedCards] = useState({})
+  const [workouts, setWorkouts] = useState([])
+
+  // Logged workouts drive the "Last 7 Days" card
+  useEffect(() => {
+    listWorkouts().then(setWorkouts).catch(() => setWorkouts([]))
+  }, [])
+
+  const week = buildWeek(workouts)
+  const streak = currentStreak(workouts)
 
   useEffect(() => {
     const userId = localStorage.getItem("active_user_id") || "user_001"
-    fetch(`${BASE_URL}/form_analysis_results/${userId}`)
+    apiFetch(`${BASE_URL}/form_analysis_results/${userId}`)
       .then(r => r.ok ? r.json() : [])
       .then(data => {
         console.log("Form history data:", data)
@@ -148,7 +222,7 @@ export default function HomePage() {
           <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", marginBottom: "15px" }}>
             <div>
               <p style={{ fontSize: "14px", fontFamily: "'DM Sans'", color: "#000000", marginBottom: "6px" }}>Last 7 Days</p>
-              <p style={{ fontSize: "16px", fontWeight: 700, fontFamily: "'Bricolage Grotesque'", color: "#000000" }}>June 10 - 16</p>
+              <p style={{ fontSize: "16px", fontWeight: 700, fontFamily: "'Bricolage Grotesque'", color: "#000000" }}>{weekRangeLabel(week)}</p>
             </div>
             <div style={{
               boxSizing: "border-box",
@@ -205,11 +279,11 @@ export default function HomePage() {
                   alignItems: "center",
                   padding: "0px",
                   gap: "10px",
-                  width: "15px",
+                  minWidth: "15px",
                   height: "29px",
                 }}>
                   <span style={{
-                    width: "15px",
+                    minWidth: "15px",
                     height: "29px",
                     fontFamily: "'Bricolage Grotesque'",
                     fontStyle: "normal",
@@ -224,7 +298,7 @@ export default function HomePage() {
                     WebkitTextFillColor: "transparent",
                     backgroundClip: "text"
                   }}>
-                    3
+                    {streak}
                   </span>
                 </div>
                 <div style={{
@@ -260,27 +334,23 @@ export default function HomePage() {
             </div>
           </div>
           <div style={{ display: "flex", gap: "10px", justifyContent: "center" }}>
-            {[
-              { day: "W", date: 10, isWorkout: false },
-              { day: "T", date: 11, isWorkout: true },
-              { day: "F", date: 12, isWorkout: false },
-              { day: "S", date: 13, isWorkout: true },
-              { day: "S", date: 14, isWorkout: false },
-              { day: "M", date: 15, isWorkout: true },
-              { day: "T", date: 16, isWorkout: false }
-            ].map((dayData, i) => (
-              <div key={i} style={{ display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", padding: "10px 8px", gap: "6px", flex: 1, background: dayData.isWorkout ? "#FFFFFF" : "rgba(255, 255, 255, 0.2)", borderRadius: "8px", border: !dayData.isWorkout ? "1px dashed rgba(156, 156, 156, 0.4)" : "none", minHeight: "80px" }}>
-                <p style={{ fontSize: "14px", fontWeight: 400, color: dayData.isWorkout ? "#000000" : "#9C9C9C", fontFamily: "'DM Sans'" }}>{dayData.day}</p>
-                <p style={{ fontSize: "12px", fontWeight: 400, color: dayData.isWorkout ? "#000000" : "#9C9C9C", marginBottom: "4px" }}>{dayData.date}</p>
+            {week.map((dayData) => (
+              <div
+                key={dayData.fullDate.toISOString()}
+                style={{
+                  display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center",
+                  padding: "10px 8px", gap: "6px", flex: 1, minHeight: "80px", borderRadius: "8px",
+                  background: dayData.isWorkout ? "#FFFFFF" : "rgba(255, 255, 255, 0.2)",
+                  border: dayData.isToday ? "1.5px solid #7C5CE7" : !dayData.isWorkout ? "1px dashed rgba(156, 156, 156, 0.4)" : "1px solid transparent",
+                  boxShadow: dayData.isWorkout ? "0px 4px 10px rgba(102, 76, 226, 0.15)" : "none",
+                }}
+              >
+                <p style={{ fontSize: "14px", fontWeight: 400, margin: 0, color: dayData.isWorkout ? "#000000" : "#9C9C9C", fontFamily: "'DM Sans'" }}>{dayData.day}</p>
+                <p style={{ fontSize: "12px", fontWeight: dayData.isToday ? 700 : 400, margin: "0 0 4px", color: dayData.isWorkout ? "#000000" : "#9C9C9C" }}>{dayData.date}</p>
                 {dayData.isWorkout ? (
-                  <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#0284C7" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
-                    <rect x="2" y="4" width="4" height="16" rx="0.5" />
-                    <rect x="9" y="9" width="2" height="6" />
-                    <rect x="13" y="9" width="2" height="6" />
-                    <rect x="18" y="4" width="4" height="16" rx="0.5" />
-                  </svg>
+                  <Dumbbell />
                 ) : (
-                  <div style={{ width: "20px", height: "20px", background: "rgba(156, 156, 156, 0.3)", borderRadius: "50%" }}></div>
+                  <div style={{ width: "10px", height: "10px", background: "rgba(156, 156, 156, 0.3)", borderRadius: "50%" }}></div>
                 )}
               </div>
             ))}

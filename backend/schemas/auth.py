@@ -17,6 +17,11 @@ class SocialLoginRequest(BaseModel):
     display_name: str | None = None
 
 
+class DemoLoginRequest(BaseModel):
+    user_id: str        # one of the sample profiles
+    passcode: str | None = None
+
+
 class TokenResponse(BaseModel):
     access_token: str
     token_type: str = "bearer"

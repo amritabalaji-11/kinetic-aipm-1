@@ -4,6 +4,7 @@ import sqlite3
 
 from fastapi import (
     APIRouter,
+    Depends,
     UploadFile,
     File,
     Form,
@@ -12,6 +13,7 @@ from fastapi import (
 )
 
 from db.database import db
+from utils.security import get_current_user_id, require_same_user
 from utils.gcs import upload_file_to_gcs
 from services.pipeline_stream import run_pipeline
 
@@ -40,7 +42,8 @@ async def upload(
     #user_id: str = Form("00000000-0000-0000-0000-000000000000"),
     user_id: str = Form(...),
     session_id: str = Form(None),
-    background_tasks: BackgroundTasks = BackgroundTasks()
+    background_tasks: BackgroundTasks = BackgroundTasks(),
+    current_user: str = Depends(get_current_user_id),
   #  background_tasks: BackgroundTasks,
   #  file: UploadFile = File(...),
   #  exercise_name: str = Form(...),
@@ -49,6 +52,9 @@ async def upload(
   #  user_id: str = Form(...),
   #  session_id: str = Form(...)
 ):
+
+    # you can only upload for your own account
+    require_same_user(user_id, current_user)
 
     # =========================================================
     # MIME TYPE VALIDATION

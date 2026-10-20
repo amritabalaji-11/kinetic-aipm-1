@@ -274,7 +274,7 @@ async def run_mediapipe_analysis(analysis_id: str, file_location: str):
                 session_data=session_data,
                 biomechanics_json=biomechanics_slim,
                 frame_images=None,
-                max_tokens=4096,
+                max_tokens=8192,
             )
         )
 

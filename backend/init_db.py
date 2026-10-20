@@ -1,5 +1,8 @@
+import json
 import sqlite3
 from pathlib import Path
+
+from db.exercise_catalog import EXERCISES
 
 BASE_DIR = Path(__file__).resolve().parent
 DATABASE_PATH = BASE_DIR / "kinetic.db"
@@ -76,7 +79,7 @@ CREATE TABLE IF NOT EXISTS form_analysis_results (
         progression_recommendation TEXT NULL,
         annotated_frame_urls TEXT NULL,
         camera_angle TEXT NULL,
-        model_version TEXT NOT NULL DEFAULT 'claude-3-5-haiku-20241022',
+        model_version TEXT NOT NULL DEFAULT 'claude-haiku-5-5',
         created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
         issue_tags TEXT NULL,
         faults_detected TEXT NULL,
@@ -166,6 +169,75 @@ CREATE TABLE IF NOT EXISTS workout_sessions_log (
 )
 """
 
+# A workout (one gym session) -> its exercises -> the sets of each exercise.
+# Sets live in workout_sessions_log; session_id there = workout_exercise_id below.
+CREATE_WORKOUTS_SQL = """
+CREATE TABLE IF NOT EXISTS workouts (
+    workout_id    TEXT PRIMARY KEY,
+    user_id       TEXT NOT NULL,
+    name          TEXT,
+    focus_label   TEXT,
+    muscles       TEXT,
+    notes         TEXT,
+    started_at    TEXT,
+    ended_at      TEXT,
+    duration_min  INTEGER,
+    status        TEXT DEFAULT 'completed',
+    created_at    TEXT DEFAULT CURRENT_TIMESTAMP
+)
+"""
+
+CREATE_WORKOUT_EXERCISES_SQL = """
+CREATE TABLE IF NOT EXISTS workout_exercises (
+    workout_exercise_id TEXT PRIMARY KEY,
+    workout_id          TEXT NOT NULL,
+    exercise_id         TEXT NOT NULL,
+    exercise_name       TEXT,
+    position            INTEGER,
+    notes               TEXT,
+    FOREIGN KEY (workout_id) REFERENCES workouts(workout_id) ON DELETE CASCADE
+)
+"""
+
+# One row per exercise AND equipment variant (dumbbell vs barbell goblet squat are separate ids).
+# workout_exercises.exercise_id / workout_sessions_log.exercise_id refer to exercises.exercise_id.
+CREATE_EXERCISES_SQL = """
+CREATE TABLE IF NOT EXISTS exercises (
+    exercise_id      TEXT PRIMARY KEY,
+    name             TEXT NOT NULL UNIQUE,
+    movement         TEXT NOT NULL,      -- shared by equipment variants, e.g. 'goblet-squat'
+    equipment        TEXT NOT NULL,      -- barbell | dumbbell | kettlebell | machine | cable | bodyweight
+    muscle_group     TEXT NOT NULL,      -- primary: legs | chest | back | shoulders | arms | full_body
+    secondary_groups TEXT,               -- JSON list of other groups that also include this exercise
+    muscles          TEXT,               -- JSON list of specific muscles, e.g. ["Quads", "Glutes"]
+    category         TEXT,               -- Compound | Isolation
+    image            TEXT,
+    created_at       TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    UNIQUE (movement, equipment)
+)
+"""
+
+
+def seed_exercises(cursor):
+    """Insert or update the catalogue from db/exercise_catalog.py. Safe to run on every start."""
+    for exercise_id, name, movement, equipment, groups, muscles, category, image in EXERCISES:
+        cursor.execute(
+            """
+            INSERT INTO exercises (
+                exercise_id, name, movement, equipment, muscle_group,
+                secondary_groups, muscles, category, image
+            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
+            ON CONFLICT(exercise_id) DO UPDATE SET
+                name=excluded.name, movement=excluded.movement, equipment=excluded.equipment,
+                muscle_group=excluded.muscle_group, secondary_groups=excluded.secondary_groups,
+                muscles=excluded.muscles, category=excluded.category, image=excluded.image
+            """,
+            (exercise_id, name, movement, equipment, groups[0],
+             json.dumps(groups[1:]), json.dumps(muscles), category, image),
+        )
+    cursor.execute("CREATE INDEX IF NOT EXISTS idx_exercises_muscle_group ON exercises(muscle_group)")
+
+
 def init_db():
     conn = sqlite3.connect(DATABASE_PATH)
 
@@ -215,6 +287,10 @@ def init_db():
             pass  # column already exists
 
     cursor.execute(CREATE_WORKOUT_SESSIONS_LOG_SQL)
+    cursor.execute(CREATE_WORKOUTS_SQL)
+    cursor.execute(CREATE_WORKOUT_EXERCISES_SQL)
+    cursor.execute(CREATE_EXERCISES_SQL)
+    seed_exercises(cursor)
 
     cursor.execute(CREATE_FORM_ANALYSIS_RESULTS_SQL)
 
@@ -265,7 +341,12 @@ def init_db():
         ("workout_sessions_log", "exercise_name", "TEXT"),
         ("workout_sessions_log", "weight_value", "REAL"),
         ("workout_sessions_log", "weight_unit", "TEXT"),
-        
+        ("workout_sessions_log", "workout_id", "TEXT"),   # links a set to its workout (NULL for old demo rows)
+        ("workout_sessions_log", "set_notes", "TEXT"),
+
+        # workouts: the name shown in history (plan name, or what the user called it)
+        ("workouts", "name", "TEXT"),
+
           # auth
         ("user_profiles", "email", "TEXT"),
         ("user_profiles", "hashed_password", "TEXT"),

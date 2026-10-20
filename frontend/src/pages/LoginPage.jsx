@@ -1,5 +1,7 @@
 import { Navigate, useNavigate } from "react-router-dom"
+import { useEffect, useState } from "react"
 import { useUser, DEMO_USERS } from "../context/UserContext"
+import { getDemoStatus } from "../services/authService"
 import { Leaf, BarChart2, Rocket } from "lucide-react"
 
 const USER_ICONS = {
@@ -87,14 +89,31 @@ function ProfileCard({ user, onSelect }) {
 }
 
 function LoginPage() {
-  const { activeUser, setUser } = useUser()
+  const { activeUser, loginAsDemo } = useUser()
   const navigate = useNavigate()
+  const [needsPasscode, setNeedsPasscode] = useState(false)
+  const [passcode, setPasscode] = useState(() => sessionStorage.getItem("demo_passcode") || "")
+  const [error, setError] = useState("")
+
+  useEffect(() => {
+    getDemoStatus().then((s) => setNeedsPasscode(!!s.passcode_required))
+  }, [])
 
   if (activeUser) return <Navigate to="/home" replace />
 
-  const handleSelect = (userId) => {
-    setUser(userId)
-    navigate("/home")
+  const handleSelect = async (userId) => {
+    setError("")
+    if (needsPasscode && !passcode.trim()) {
+      setError("Enter the demo passcode first.")
+      return
+    }
+    try {
+      await loginAsDemo(userId, passcode.trim())
+      sessionStorage.setItem("demo_passcode", passcode.trim()) // so you don't retype it for each profile
+      navigate("/home")
+    } catch (e) {
+      setError(e.message)
+    }
   }
 
   return (
@@ -145,6 +164,22 @@ function LoginPage() {
           </p>
         </div>
 
+        {needsPasscode && (
+          <div className="mb-4">
+            <input
+              type="password"
+              value={passcode}
+              onChange={(e) => { setPasscode(e.target.value); setError("") }}
+              placeholder="Demo passcode"
+              aria-label="Demo passcode"
+              autoComplete="off"
+              className="w-full rounded-xl px-4 py-3 text-sm outline-none"
+              style={{ background: "#fff", border: "1.5px solid #E6E3F8", color: "#1a1a2e" }}
+            />
+          </div>
+        )}
+        {error && <p className="text-sm text-center mb-3" style={{ color: "#DC2626" }}>{error}</p>}
+
         {/* Profile cards */}
         <div className="space-y-3">
           {Object.values(DEMO_USERS).map((user) => (
@@ -153,7 +188,7 @@ function LoginPage() {
         </div>
 
         <p className="text-center text-xs mt-6" style={{ color: "#9ca3af" }}>
-          Demo Mode • No Login
+          {needsPasscode ? "Demo Mode • Passcode required" : "Demo Mode • No Login"}
         </p>
       </div>
     </div>

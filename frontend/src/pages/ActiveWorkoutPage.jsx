@@ -1,523 +1,481 @@
-import { useState, useEffect } from "react"
-import { useNavigate, useLocation } from "react-router-dom"
-import { ChevronDown, Plus, VideoIcon, Check } from "lucide-react"
+import { useEffect, useState } from "react"
+import { useNavigate } from "react-router-dom"
+import { ArrowLeftRight, Check, ChevronDown, ChevronRight, Plus, Timer, VideoIcon } from "lucide-react"
+import FormGuide from "../components/FormGuide"
+import RestTimer from "../components/RestTimer"
+import SwapSheet from "../components/SwapSheet"
+import AddExerciseSheet from "../components/AddExerciseSheet"
+import { hasGuidance } from "../data/exerciseGuidance"
+import { saveWorkout } from "../services/workoutService"
+import { equipmentLabel } from "../utils/exerciseCatalog"
+import {
+  allSetsTicked, currentBlockIndex, emptySet, ensureBlocks, flattenForSave, isActionable, isBlockComplete,
+  itemHasEntries, restSecondsFromNote,
+} from "../utils/workoutModel"
+import { BRICOLAGE, DM_SANS, GRADIENT, GRAY, INK, PURPLE } from "../components/planUi"
+
+const GREEN = "#22C55E"
+const DARK_GREEN = "#15803D"
+const INPUT_BG = "#EDEBF7"
+
+const readWorkout = () => {
+  try {
+    return ensureBlocks(JSON.parse(localStorage.getItem("activeWorkout") || "null"))
+  } catch {
+    return null
+  }
+}
+
+const letter = (i) => String.fromCharCode(65 + i)
+
+function Tag({ children, state }) {
+  const bg = state === "done" ? DARK_GREEN : state === "current" ? PURPLE : "rgba(129,51,255,0.4)"
+  return (
+    <span style={{ padding: "4px 8px", borderRadius: 6, background: bg, color: "#fff", fontFamily: DM_SANS, fontSize: 11, fontWeight: 600, whiteSpace: "nowrap" }}>
+      {children}
+    </span>
+  )
+}
+
+function SwapButton({ locked, onClick, name }) {
+  return (
+    <button
+      type="button"
+      onClick={locked ? undefined : onClick}
+      disabled={locked}
+      aria-label={locked ? `Can't swap ${name} after logging` : `Swap ${name}`}
+      title={locked ? "Can't swap once reps have been entered" : "Swap exercise"}
+      style={{
+        width: 26, height: 26, borderRadius: 13, border: "none", flexShrink: 0,
+        display: "flex", alignItems: "center", justifyContent: "center",
+        background: locked ? "rgba(100,116,139,0.12)" : "rgba(129,51,255,0.1)",
+        cursor: locked ? "not-allowed" : "pointer", opacity: locked ? 0.6 : 1,
+      }}
+    >
+      <ArrowLeftRight size={13} color={locked ? "#94A3B8" : PURPLE} strokeWidth={2.2} />
+    </button>
+  )
+}
+
+function TickCircle({ done, onClick, label, size = 24 }) {
+  return (
+    <button
+      type="button"
+      onClick={onClick}
+      aria-label={label}
+      style={{
+        width: size, height: size, borderRadius: size / 2, flexShrink: 0, cursor: "pointer",
+        display: "flex", alignItems: "center", justifyContent: "center",
+        background: done ? GREEN : "transparent", border: done ? "none" : "1.5px solid rgba(100,116,139,0.5)",
+      }}
+    >
+      {done && <Check size={Math.round(size * 0.55)} color="#fff" strokeWidth={3} />}
+    </button>
+  )
+}
+
+const focusNext = (e) => {
+  if (e.key !== "Enter") return
+  e.preventDefault()
+  const all = [...document.querySelectorAll("input[data-set-input]")]
+  const next = all[all.indexOf(e.currentTarget) + 1]
+  if (next) next.focus()
+  else e.currentTarget.blur()
+}
+
+function SetRow({ label, set, onChange, onTick, onRecord, labelColor }) {
+  const done = set.completed
+  const canTick = set.reps !== ""
+  const box = (field, value) => (
+    <input
+      type="number"
+      inputMode="decimal"
+      enterKeyHint="next"
+      data-set-input
+      value={value}
+      placeholder="–"
+      onChange={(e) => onChange(field, e.target.value)}
+      onKeyDown={focusNext}
+      style={{
+        flex: 1, minWidth: 0, height: 28, borderRadius: 6, border: "none", textAlign: "center",
+        background: done ? "#fff" : INPUT_BG, fontFamily: DM_SANS, fontSize: 14, fontWeight: value ? 600 : 400,
+        color: done ? DARK_GREEN : INK, outline: "none",
+      }}
+    />
+  )
+  return (
+    <div style={{ display: "flex", alignItems: "center", gap: 8, padding: "2px 0", borderRadius: 8, background: done ? "rgba(34,197,94,0.14)" : "transparent" }}>
+      <span style={{ width: 22, textAlign: "center", fontFamily: DM_SANS, fontWeight: 600, fontSize: 13, color: done ? DARK_GREEN : labelColor || INK }}>{label}</span>
+      <button type="button" aria-label="Record video" onClick={onRecord} style={{ width: 52, height: 28, borderRadius: 6, border: "none", cursor: "pointer", background: GRADIENT, opacity: done ? 0.5 : 1, display: "flex", alignItems: "center", justifyContent: "center" }}>
+        <VideoIcon size={15} color="#fff" />
+      </button>
+      {box("weight", set.weight)}
+      {box("reps", set.reps)}
+      <button
+        type="button"
+        aria-label={done ? "Mark set not done" : "Mark set done"}
+        disabled={!done && !canTick}
+        onClick={onTick}
+        style={{ width: 36, height: 28, borderRadius: 6, border: "none", cursor: done || canTick ? "pointer" : "not-allowed", background: done ? GREEN : INPUT_BG, display: "flex", alignItems: "center", justifyContent: "center" }}
+      >
+        <Check size={16} color={done ? "#fff" : "#94A3B8"} strokeWidth={3} />
+      </button>
+    </div>
+  )
+}
+
+function ColumnHeaders({ first }) {
+  const h = { fontFamily: DM_SANS, fontSize: 11, fontWeight: 600, color: GRAY, textAlign: "center" }
+  return (
+    <div style={{ display: "flex", gap: 8 }}>
+      <span style={{ ...h, width: 22 }}>{first}</span>
+      <span style={{ ...h, width: 52 }}>Record</span>
+      <span style={{ ...h, flex: 1 }}>kg</span>
+      <span style={{ ...h, flex: 1 }}>Reps</span>
+      <span style={{ ...h, width: 36 }}>✓</span>
+    </div>
+  )
+}
+
+const outlineBtn = (disabled) => ({
+  flex: 1, padding: "10px 12px", borderRadius: 8, background: "rgba(255,255,255,0.6)", fontFamily: DM_SANS, fontWeight: 600, fontSize: 13,
+  border: `1.2px solid ${disabled ? "rgba(100,116,139,0.3)" : "rgba(129,51,255,0.7)"}`, color: disabled ? "#94A3B8" : PURPLE, cursor: disabled ? "not-allowed" : "pointer",
+})
 
 export default function ActiveWorkoutPage() {
   const navigate = useNavigate()
-  const location = useLocation()
-  const [workout, setWorkout] = useState(null)
-  const [expandedExercise, setExpandedExercise] = useState(0)
+  const [workout, setWorkout] = useState(readWorkout)
+  // Which sections are open (by id). Several can be open at once, so looking back at a finished
+  // section never folds the current one away.
+  const [openIds, setOpenIds] = useState(() => {
+    const w = readWorkout()
+    const i = w ? currentBlockIndex(w.blocks) : -1
+    return i >= 0 ? [w.blocks[i].id] : []
+  })
+  const [restEndsAt, setRestEndsAt] = useState(null)
+  const [swapping, setSwapping] = useState(null) // { bi, ii }
+  const [adding, setAdding] = useState(false)
+  const [notice, setNotice] = useState("")
+  const [celebrate, setCelebrate] = useState(null)
+  const [toast, setToast] = useState("")
 
+  // A workout started on an older screen is upgraded to blocks once, then kept that way
   useEffect(() => {
-    const activeWorkout = JSON.parse(localStorage.getItem("activeWorkout") || "{}")
-    setWorkout(activeWorkout)
-  }, [])
+    if (workout) localStorage.setItem("activeWorkout", JSON.stringify(workout))
+  }, [workout])
 
-  const updateSet = (exerciseIndex, setIndex, field, value) => {
-    if (!workout) return
-    const updated = { ...workout }
-    updated.exercises[exerciseIndex].sets[setIndex][field] = value
-    setWorkout(updated)
-    localStorage.setItem("activeWorkout", JSON.stringify(updated))
+  if (!workout) {
+    return (
+      <div style={{ padding: 24, textAlign: "center", fontFamily: DM_SANS }}>
+        <p>No workout in progress.</p>
+        <button type="button" onClick={() => navigate("/plan")} style={{ ...outlineBtn(false), flex: "none" }}>Pick a workout</button>
+      </div>
+    )
   }
 
-  const [savedNotification, setSavedNotification] = useState(null)
-  const [notificationPos, setNotificationPos] = useState({ top: 0, left: 0 })
-  const [showConfetti, setShowConfetti] = useState(false)
+  const blocks = workout.blocks
+  const current = currentBlockIndex(blocks)
 
-  const isSetComplete = (set) => {
-    return set.weight && set.reps && set.weight !== "" && set.reps !== ""
-  }
-
-  const handleRecordClick = () => {
-    navigate("/upload")
-  }
-
-  const handleSaveSet = (exerciseIndex, setIndex, event) => {
-    if (!workout) return
-
-    // Get button position
-    const button = event.currentTarget
-    const rect = button.getBoundingClientRect()
-
-    const updated = { ...workout }
-    updated.exercises[exerciseIndex].sets[setIndex].completed = true
-    setWorkout(updated)
-    localStorage.setItem("activeWorkout", JSON.stringify(updated))
-
-    // Show notification near button
-    setNotificationPos({
-      top: rect.top - 50,
-      left: rect.left - 40
-    })
-    setSavedNotification(`Set ${workout.exercises[exerciseIndex].sets[setIndex].setNumber} saved!`)
-    setTimeout(() => setSavedNotification(null), 2000)
-  }
-
-  const toggleExercise = (index) => {
-    setExpandedExercise(expandedExercise === index ? -1 : index)
-  }
-
-  const addSet = (exerciseIndex) => {
-    if (!workout) return
-    const updated = { ...workout }
-    const newSet = {
-      id: Date.now(),
-      setNumber: updated.exercises[exerciseIndex].sets.length + 1,
-      weight: "",
-      reps: "",
-      videoUrl: null,
-      completed: false
+  // Every change goes through here: save it, and move on to the next block when one is finished
+  const commit = (next) => {
+    const before = currentBlockIndex(blocks)
+    const after = currentBlockIndex(next.blocks)
+    setWorkout(next)
+    setNotice("")
+    if (after !== before && after !== -1) {
+      const id = next.blocks[after].id
+      setOpenIds((o) => (o.includes(id) ? o : [...o, id]))
     }
-    updated.exercises[exerciseIndex].sets.push(newSet)
-    setWorkout(updated)
-    localStorage.setItem("activeWorkout", JSON.stringify(updated))
   }
+  const toggleOpen = (id) => setOpenIds((o) => (o.includes(id) ? o.filter((x) => x !== id) : [...o, id]))
+  const mapItem = (bi, ii, fn) =>
+    commit({ ...workout, blocks: blocks.map((b, i) => (i !== bi ? b : { ...b, items: b.items.map((it, j) => (j !== ii ? it : fn(it))) })) })
+  const mapBlock = (bi, fn) => commit({ ...workout, blocks: blocks.map((b, i) => (i !== bi ? b : fn(b))) })
 
-  const finishExercise = (exerciseIndex, event) => {
-    if (!workout) return
-    const updated = { ...workout }
-    updated.exercises[exerciseIndex].finished = true
-    setWorkout(updated)
-    localStorage.setItem("activeWorkout", JSON.stringify(updated))
+  const setField = (bi, ii, si, field, value) =>
+    mapItem(bi, ii, (it) => ({ ...it, sets: it.sets.map((s, k) => (k !== si ? s : { ...s, [field]: value })) }))
+  const toggleSet = (bi, ii, si) =>
+    mapItem(bi, ii, (it) => ({ ...it, sets: it.sets.map((s, k) => (k !== si ? s : { ...s, completed: !s.completed })) }))
+  const toggleDone = (bi, ii) => mapItem(bi, ii, (it) => ({ ...it, done: !it.done }))
 
-    // Get button position
-    const button = event.currentTarget
-    const rect = button.getBoundingClientRect()
+  const addRound = (bi) =>
+    mapBlock(bi, (b) => ({ ...b, items: b.items.map((it) => (it.logged ? { ...it, sets: [...it.sets, emptySet()] } : it)) }))
+  const lastRoundHasWork = (b) => b.items.some((it) => it.logged && it.sets.length && (it.sets[it.sets.length - 1].completed || it.sets[it.sets.length - 1].reps !== "" || it.sets[it.sets.length - 1].weight !== ""))
+  const removeRound = (bi) =>
+    mapBlock(bi, (b) => ({ ...b, items: b.items.map((it) => (it.logged && it.sets.length > 1 ? { ...it, sets: it.sets.slice(0, -1) } : it)) }))
 
-    // Show celebratory notification
-    setNotificationPos({
-      top: rect.top - 50,
-      left: rect.left - 60
+  // The user says the section is done: green, folded up, and the next one opens.
+  // Timed / follow-along items are marked done with it; unticked sets are simply not saved.
+  const completeBlock = (bi) => {
+    const block = blocks[bi]
+    const ready = allSetsTicked(block)
+    const nextIdx = blocks.findIndex((b, i) => i > bi && b.items.some(isActionable) && !b.completed)
+    mapBlock(bi, (b) => ({ ...b, completed: true, items: b.items.map((it) => (!it.logged && !it.rest && ready ? { ...it, done: true } : it)) }))
+    setToast(`${block.tag} completed`)
+    setTimeout(() => setToast(""), 2200)
+    // fold the finished section, open the next one and scroll to it
+    setOpenIds((o) => {
+      const rest = o.filter((id) => id !== block.id)
+      return nextIdx !== -1 && !rest.includes(blocks[nextIdx].id) ? [...rest, blocks[nextIdx].id] : rest
     })
-    setSavedNotification(`👍 Good job! Move to next exercise`)
-    setTimeout(() => setSavedNotification(null), 2500)
-
-    // Auto-expand next exercise after a short delay
-    setTimeout(() => {
-      if (exerciseIndex + 1 < updated.exercises.length) {
-        setExpandedExercise(exerciseIndex + 1)
-      }
-    }, 500)
+    if (nextIdx !== -1) setTimeout(() => document.getElementById(`block-${blocks[nextIdx].id}`)?.scrollIntoView({ behavior: "smooth", block: "start" }), 120)
   }
 
-  const addExercise = () => {
-    navigate("/plan/exercises", { state: { selectedMuscles: workout.muscles, inWorkout: true } })
+  // Finished a section by mistake? Reopen it and carry on.
+  const reopenBlock = (bi) => {
+    mapBlock(bi, (b) => ({ ...b, completed: false }))
+    setOpenIds((o) => (o.includes(blocks[bi].id) ? o : [...o, blocks[bi].id]))
   }
 
-  const finishWorkout = () => {
-    if (!workout) return
+  const swapItem = (exercise) => {
+    const { bi, ii } = swapping
+    mapItem(bi, ii, (it) => ({
+      ...it,
+      name: exercise.name,
+      exerciseId: exercise.id,
+      alternatives: [],
+      sub: `${(it.sub || "").split(" · ")[0]} · ${equipmentLabel(exercise)}`.replace(/^ · /, ""),
+    }))
+    setSwapping(null)
+  }
 
-    // Show confetti and celebration
-    setShowConfetti(true)
+  const addExercises = (exercises) => {
+    const at = current === -1 ? blocks.length : current + 1
+    const added = exercises.map((ex) => ({
+      id: `${Date.now()}-${ex.id}`, section: "workout", tag: "ADDED", note: "3 sets",
+      items: [{
+        key: `${Date.now()}-${ex.id}-i`, name: ex.name, sub: equipmentLabel(ex), exerciseId: ex.id, rest: false,
+        alternatives: [], logged: true, targetReps: null, done: false, sets: [emptySet(), emptySet(), emptySet()],
+      }],
+    }))
+    const next = [...blocks.slice(0, at), ...added, ...blocks.slice(at)]
+    setWorkout({ ...workout, blocks: next })
+    setOpenIds((o) => [...o, ...added.map((b) => b.id)])
+    setAdding(false)
+  }
 
-    // Show celebration toast
-    setSavedNotification(`🎉 Great job, you had a strong ${workout.focusLabel.toLowerCase()} day!`)
+  const startRest = (note) => setRestEndsAt(Date.now() + restSecondsFromNote(note) * 1000)
 
-    // Save completed workout to history after celebration
+  const finish = () => {
+    const toSave = flattenForSave(workout)
+    if (toSave.exercises.length === 0) {
+      setNotice("Tick at least one set before you finish.")
+      return
+    }
+    const endedAtMs = Date.now()
+    setCelebrate(`🎉 Great job, you had a strong ${workout.focusLabel.toLowerCase()} day!`)
+    // Save to the server. If that fails, keep a copy on this device; the Workout Logger offers to sync it later.
+    saveWorkout(toSave).catch((err) => {
+      console.error("Could not save workout to the server, keeping it on this device:", err)
+      const existing = JSON.parse(localStorage.getItem("workouts") || "[]")
+      existing.push({ ...toSave, status: "completed", endedAtMs })
+      localStorage.setItem("workouts", JSON.stringify(existing))
+    })
     setTimeout(() => {
-      const completedWorkout = {
-        ...workout,
-        status: "completed",
-        endDate: new Date().toLocaleDateString(),
-        endTime: new Date().toLocaleTimeString()
-      }
-
-      const existingWorkouts = JSON.parse(localStorage.getItem("workouts") || "[]")
-      existingWorkouts.push(completedWorkout)
-      localStorage.setItem("workouts", JSON.stringify(existingWorkouts))
-
-      // Clear active workout
       localStorage.removeItem("activeWorkout")
-
       navigate("/workout-logger")
     }, 3000)
   }
 
-  if (!workout) return <div style={{ padding: "24px", textAlign: "center" }}>Loading workout...</div>
-
-  const focusLabel = workout.muscles.length === 1 ? workout.muscles[0].toUpperCase() : "Mixed"
+  const swapTarget = swapping ? blocks[swapping.bi].items[swapping.ii] : null
 
   return (
-    <div style={{ minHeight: "100vh", background: "#F0EFFE", padding: "24px 24px 140px 24px" }}>
-      {/* Notification Toast */}
-      {savedNotification && (
-        <div
-          style={{
-            position: "fixed",
-            top: showConfetti ? "50%" : `${notificationPos.top}px`,
-            left: "50%",
-            transform: showConfetti ? "translate(-50%, -50%)" : `translate(calc(-50% + ${notificationPos.left - window.innerWidth / 2}px), 0)`,
-            padding: showConfetti ? "24px 32px" : "8px 12px",
-            background: "#2ECD70",
-            color: "#FFFFFF",
-            borderRadius: showConfetti ? "16px" : "6px",
-            fontSize: showConfetti ? "18px" : "12px",
-            fontWeight: 600,
-            fontFamily: "'Bricolage Grotesque'",
-            zIndex: 1000,
-            animation: showConfetti ? "popUpBig 0.5s ease-in-out" : "popUp 0.3s ease-in-out",
-            whiteSpace: "nowrap",
-            boxShadow: showConfetti ? "0 8px 32px rgba(46, 205, 112, 0.5)" : "0 4px 12px rgba(46, 205, 112, 0.4)",
-          }}
-        >
-          {showConfetti ? savedNotification : `✓ ${savedNotification}`}
-        </div>
-      )}
-
-      {/* Confetti */}
-      {showConfetti && (
-        <div style={{ position: "fixed", inset: 0, pointerEvents: "none", zIndex: 999 }}>
-          {[...Array(50)].map((_, i) => (
-            <div
-              key={i}
-              style={{
-                position: "absolute",
-                left: `${Math.random() * 100}%`,
-                top: "-10px",
-                width: "10px",
-                height: "10px",
-                background: ["#2ECD70", "#0284C7", "#9747FF", "#F586FF", "#FFD700"][Math.floor(Math.random() * 5)],
-                borderRadius: "50%",
-                animation: `fall ${2 + Math.random() * 1}s linear forwards`,
-                animationDelay: `${Math.random() * 0.5}s`,
-              }}
-            />
-          ))}
-        </div>
-      )}
-
+    <div style={{ minHeight: "100vh", background: "#F0EFFE", padding: "24px 20px 140px" }}>
       <style>{`
-        @keyframes popUp {
-          from {
-            opacity: 0;
-            transform: scale(0.8) translateY(10px);
-          }
-          to {
-            opacity: 1;
-            transform: scale(1) translateY(0);
-          }
-        }
-
-        @keyframes popUpBig {
-          from {
-            opacity: 0;
-            transform: translate(-50%, -50%) scale(0.5);
-          }
-          to {
-            opacity: 1;
-            transform: translate(-50%, -50%) scale(1);
-          }
-        }
-
-        @keyframes fall {
-          to {
-            transform: translateY(100vh) rotate(360deg);
-            opacity: 0;
-          }
-        }
+        @keyframes popUpBig { from { opacity: 0; transform: translate(-50%, -50%) scale(0.5) } to { opacity: 1; transform: translate(-50%, -50%) scale(1) } }
+        @keyframes fall { to { transform: translateY(100vh) rotate(360deg); opacity: 0 } }
+        .next-section-btn:active { transform: scale(0.98); filter: brightness(0.95); }
       `}</style>
 
-      {/* Header */}
-      <div style={{ marginBottom: "32px" }}>
-        <h1 style={{
-          fontSize: "24px",
-          fontWeight: 600,
-          fontFamily: "'Bricolage Grotesque'",
-          color: "#0F172A",
-          margin: "0 0 8px 0",
-        }}>
-          You got this!!
-        </h1>
-        <p style={{
-          fontSize: "14px",
-          fontWeight: 400,
-          fontFamily: "'DM Sans'",
-          color: "#454850",
-          margin: 0,
-        }}>
-          Strong {focusLabel.toLowerCase()} on your way!
-        </p>
-      </div>
+      {toast && (
+        <div style={{ position: "fixed", top: 16, left: "50%", transform: "translateX(-50%)", padding: "10px 16px", borderRadius: 10, background: GREEN, color: "#fff", fontFamily: DM_SANS, fontWeight: 600, fontSize: 14, zIndex: 1000, boxShadow: "0 4px 14px rgba(34,197,94,0.4)", whiteSpace: "nowrap" }}>
+          ✓ {toast}
+        </div>
+      )}
 
-      {/* Exercises */}
-      <div style={{ display: "flex", flexDirection: "column", gap: "12px", marginBottom: "24px" }}>
-        {workout.exercises.map((exercise, exIdx) => (
-          <div
-            key={exercise.id}
-            style={{
-              background: "#FFFFFF",
-              border: "1px solid #C4A7FF",
-              borderRadius: "8px",
-              overflow: "hidden",
-            }}
-          >
-            {/* Exercise Header */}
-            <button
-              onClick={() => toggleExercise(exIdx)}
-              style={{
-                width: "100%",
-                padding: "16px",
-                display: "flex",
-                alignItems: "center",
-                justifyContent: "space-between",
-                background: exercise.finished
-                  ? "#DBF0E5"
-                  : expandedExercise === exIdx
-                  ? "linear-gradient(92.52deg, rgba(2, 132, 199, 0.15) 0%, rgba(147, 71, 255, 0.15) 100%)"
-                  : "transparent",
-                border: "none",
-                cursor: "pointer",
-                transition: "background 0.3s ease",
-              }}
-            >
-              <span style={{
-                fontSize: "16px",
-                fontWeight: 600,
-                fontFamily: "'Bricolage Grotesque'",
-                color: "#0F172A",
-              }}>
-                {exercise.name}
-                {exercise.finished && " ✓"}
-              </span>
-              <ChevronDown
-                size={24}
-                style={{
-                  transform: expandedExercise === exIdx ? "rotate(180deg)" : "rotate(0)",
-                  transition: "transform 0.2s",
-                  color: "#1E293B",
-                }}
-              />
-            </button>
-
-            {/* Expanded Content */}
-            {expandedExercise === exIdx && (
-              <div style={{ borderTop: "1px solid #C4A7FF", padding: "16px" }}>
-                {/* Set Headers */}
-                <div style={{
-                  display: "grid",
-                  gridTemplateColumns: "40px 70px 70px 70px 50px",
-                  gap: "12px",
-                  marginBottom: "12px",
-                  fontSize: "12px",
-                  fontWeight: 500,
-                  color: "#0F172A",
-                  fontFamily: "'DM Sans'",
-                }}>
-                  <div>Set</div>
-                  <div>Record</div>
-                  <div>kg</div>
-                  <div>Reps</div>
-                  <div>Check</div>
-                </div>
-
-                {/* Sets */}
-                {exercise.sets.map((set, setIdx) => {
-                  const isComplete = isSetComplete(set)
-                  return (
-                    <div
-                      key={set.id}
-                      style={{
-                        display: "grid",
-                        gridTemplateColumns: "40px 70px 70px 70px 50px",
-                        gap: "12px",
-                        marginBottom: "12px",
-                        alignItems: "center",
-                        padding: "8px",
-                        background: isComplete ? "#DBF0E5" : "transparent",
-                        borderRadius: "4px",
-                      }}
-                    >
-                      {/* Set Number */}
-                      <div style={{ fontSize: "14px", fontWeight: 500, color: "#0F172A" }}>
-                        {set.setNumber}
-                      </div>
-
-                      {/* Record Button */}
-                      <button
-                        onClick={handleRecordClick}
-                        style={{
-                          padding: "8px",
-                          background: "linear-gradient(105.93deg, #F586FF 0%, #7063FF 95.82%)",
-                          border: "none",
-                          borderRadius: "4px",
-                          cursor: "pointer",
-                          display: "flex",
-                          alignItems: "center",
-                          justifyContent: "center",
-                        }}
-                      >
-                        <VideoIcon size={16} color="white" />
-                      </button>
-
-                      {/* Weight Input */}
-                      <input
-                        type="number"
-                        value={set.weight || ""}
-                        onChange={(e) => updateSet(exIdx, setIdx, "weight", e.target.value)}
-                        placeholder="15"
-                        style={{
-                          padding: "8px 12px",
-                          background: "#EAEAEA",
-                          border: "none",
-                          borderRadius: "4px",
-                          fontSize: "14px",
-                          color: set.weight ? "#252525" : "#949494",
-                        }}
-                      />
-
-                      {/* Reps Input */}
-                      <input
-                        type="number"
-                        value={set.reps || ""}
-                        onChange={(e) => updateSet(exIdx, setIdx, "reps", e.target.value)}
-                        placeholder="10"
-                        style={{
-                          padding: "8px 12px",
-                          background: "#EAEAEA",
-                          border: "none",
-                          borderRadius: "4px",
-                          fontSize: "14px",
-                          color: set.reps ? "#2E2E2E" : "#949494",
-                        }}
-                      />
-
-                      {/* Check Button */}
-                      <button
-                        onClick={(e) => handleSaveSet(exIdx, setIdx, e)}
-                        disabled={!isComplete}
-                        style={{
-                          padding: "8px",
-                          background: isComplete ? "#2ECD70" : "#E6E6E6",
-                          border: "none",
-                          borderRadius: "4px",
-                          cursor: isComplete ? "pointer" : "not-allowed",
-                          display: "flex",
-                          alignItems: "center",
-                          justifyContent: "center",
-                          transition: "all 0.3s",
-                        }}
-                      >
-                        <Check size={16} color={isComplete ? "#FFFFFF" : "#494343"} />
-                      </button>
-                    </div>
-                  )
-                })}
-
-                {/* Action Buttons */}
-                <div style={{
-                  display: "flex",
-                  gap: "12px",
-                  marginTop: "12px",
-                }}>
-                  {/* Add Set Button */}
-                  <button
-                    onClick={() => addSet(exIdx)}
-                    style={{
-                      flex: 1,
-                      padding: "12px",
-                      background: "#FCF9FF",
-                      border: "1px solid #A36CFB",
-                      borderRadius: "8px",
-                      cursor: "pointer",
-                      fontSize: "16px",
-                      fontWeight: 600,
-                      fontFamily: "'Bricolage Grotesque'",
-                      color: "#8133FF",
-                      display: "flex",
-                      alignItems: "center",
-                      justifyContent: "center",
-                      gap: "8px",
-                    }}
-                  >
-                    <Plus size={18} />
-                    Add Set
-                  </button>
-
-                  {/* Finish Exercise Button */}
-                  <button
-                    onClick={(e) => finishExercise(exIdx, e)}
-                    style={{
-                      flex: 1,
-                      padding: "12px",
-                      background: "#FCF9FF",
-                      border: "1px solid #A36CFB",
-                      borderRadius: "8px",
-                      cursor: "pointer",
-                      fontSize: "16px",
-                      fontWeight: 600,
-                      fontFamily: "'Bricolage Grotesque'",
-                      color: "#8133FF",
-                      display: "flex",
-                      alignItems: "center",
-                      justifyContent: "center",
-                      gap: "8px",
-                    }}
-                  >
-                    <Check size={18} />
-                    Finish Exercise
-                  </button>
-                </div>
-              </div>
-            )}
+      {celebrate && (
+        <>
+          <div style={{ position: "fixed", top: "50%", left: "50%", transform: "translate(-50%, -50%)", padding: "24px 32px", background: GREEN, color: "#fff", borderRadius: 16, fontSize: 18, fontWeight: 600, fontFamily: BRICOLAGE, zIndex: 1000, animation: "popUpBig 0.5s ease-in-out", boxShadow: "0 8px 32px rgba(46,205,112,0.5)", textAlign: "center", maxWidth: "80vw" }}>
+            {celebrate}
           </div>
-        ))}
+          <div style={{ position: "fixed", inset: 0, pointerEvents: "none", zIndex: 999 }}>
+            {[...Array(40)].map((_, i) => (
+              <div key={i} style={{ position: "absolute", left: `${Math.random() * 100}%`, top: -10, width: 10, height: 10, borderRadius: "50%", background: [GREEN, "#0284C7", "#9747FF", "#F586FF", "#FFD700"][i % 5], animation: `fall ${2 + Math.random()}s linear forwards`, animationDelay: `${Math.random() * 0.5}s` }} />
+            ))}
+          </div>
+        </>
+      )}
+
+      <div style={{ marginBottom: 10 }}>
+        <h1 style={{ fontFamily: BRICOLAGE, fontWeight: 600, fontSize: 22, color: INK, margin: "0 0 2px" }}>You got this!!</h1>
+        <p style={{ fontFamily: DM_SANS, fontSize: 14, color: GRAY, margin: 0 }}>{workout.presetTitle || `Strong ${workout.focusLabel.toLowerCase()} on your way!`}</p>
       </div>
 
-      {/* Add Exercise Button */}
-      <button
-        onClick={addExercise}
-        style={{
-          width: "100%",
-          padding: "16px",
-          marginBottom: "12px",
-          background: "#FCF9FF",
-          border: "1px solid #A36CFB",
-          borderRadius: "8px",
-          cursor: "pointer",
-          fontSize: "16px",
-          fontWeight: 600,
-          fontFamily: "'Bricolage Grotesque'",
-          color: "#8133FF",
-          display: "flex",
-          alignItems: "center",
-          justifyContent: "center",
-          gap: "8px",
-        }}
-      >
-        <Plus size={18} />
-        Add new exercise
+      <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
+        {blocks.map((block, bi) => {
+          const actionable = block.items.filter(isActionable)
+          if (actionable.length === 0) {
+            // a rest-only block, e.g. "REST · 2 mins": nothing to do, just shown in order
+            return (
+              <div key={block.id} style={{ display: "flex", alignItems: "center", gap: 8, padding: "2px 6px", fontFamily: DM_SANS, fontSize: 12, color: GRAY }}>
+                <Timer size={14} /> {block.tag} · {block.note}
+              </div>
+            )
+          }
+          const done = isBlockComplete(block)
+          const state = done ? "done" : bi === current ? "current" : "upcoming"
+          const isOpen = openIds.includes(block.id)
+          const logged = actionable.filter((it) => it.logged)
+          const rounds = Math.max(0, ...logged.map((it) => it.sets.length))
+          const multi = logged.length > 1
+                    const cardStyle =
+            state === "done" ? { border: `1.5px solid rgba(34,197,94,0.7)`, background: "#F0FDF4" }
+            : state === "current" ? { border: "2.5px solid transparent", background: "linear-gradient(#fff,#fff) padding-box, linear-gradient(135deg,#0284C7,#9747FF) border-box", boxShadow: "0 4px 18px rgba(129,51,255,0.28)" }
+            : { border: "1px solid rgba(129,51,255,0.22)", background: "#fff", opacity: 0.92 }
+
+          return (
+            <div key={block.id} id={`block-${block.id}`} style={{ borderRadius: 12, padding: 12, ...cardStyle }}>
+              <button type="button" onClick={() => toggleOpen(block.id)} style={{ all: "unset", display: "flex", alignItems: "center", gap: 8, width: "100%", cursor: "pointer", boxSizing: "border-box" }}>
+                <Tag state={state}>{block.tag}</Tag>
+                <span style={{ fontFamily: DM_SANS, fontSize: 11, color: GRAY, flex: 1 }}>{block.note}</span>
+                {state === "done" && <span style={{ width: 24, height: 24, borderRadius: 12, background: GREEN, display: "flex", alignItems: "center", justifyContent: "center" }}><Check size={13} color="#fff" strokeWidth={3} /></span>}
+                {state === "current" && <span style={{ padding: "3px 9px", borderRadius: 10, background: GRADIENT, color: "#fff", fontFamily: DM_SANS, fontSize: 10, fontWeight: 600 }}>NOW</span>}
+                <ChevronDown size={18} color={GRAY} style={{ transform: isOpen ? "rotate(180deg)" : "none", flexShrink: 0 }} />
+              </button>
+
+              {isOpen && (
+                <div style={{ display: "flex", flexDirection: "column", gap: 8, marginTop: 8 }}>
+                  {logged.length > 0 && (
+                    <button type="button" onClick={() => startRest(block.note)} style={{ alignSelf: "flex-start", display: "flex", alignItems: "center", gap: 6, padding: "6px 12px", borderRadius: 16, background: "transparent", border: "1.2px solid rgba(129,51,255,0.6)", color: PURPLE, fontFamily: DM_SANS, fontWeight: 600, fontSize: 12, cursor: "pointer" }}>
+                      <Timer size={14} /> Start rest timer
+                    </button>
+                  )}
+
+                  {/* the exercises in this block, in the plan's order */}
+                  <div style={{ display: "flex", flexDirection: "column", gap: 4 }}>
+                    {block.items.map((it, ii) => {
+                      if (it.rest) {
+                        return <div key={it.key} style={{ fontFamily: DM_SANS, fontSize: 11, color: GRAY }}>{it.name} · {it.sub}</div>
+                      }
+                      if (!it.logged) {
+                        // follow-along: one line with a tick on the left
+                        return (
+                          <div key={it.key} style={{ display: "flex", alignItems: "center", gap: 8, padding: "2px 0" }}>
+                            <TickCircle size={20} done={it.done} onClick={() => toggleDone(bi, ii)} label={it.done ? `Mark ${it.name} not done` : `Mark ${it.name} done`} />
+                            <div style={{ flex: 1, minWidth: 0, fontFamily: DM_SANS, fontSize: 13, lineHeight: 1.3 }}>
+                              <span style={{ fontWeight: 600, color: it.done ? DARK_GREEN : PURPLE }}>{it.name}</span>
+                              {it.sub && <span style={{ color: GRAY }}> · {it.sub}</span>}
+                            </div>
+                          </div>
+                        )
+                      }
+                      return (
+                        <div key={it.key} style={{ display: "flex", alignItems: "center", gap: 8 }}>
+                          {multi && <span style={{ width: 20, height: 20, borderRadius: 5, background: PURPLE, color: "#fff", fontFamily: DM_SANS, fontWeight: 600, fontSize: 11, display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0 }}>{letter(logged.indexOf(it))}</span>}
+                          <div style={{ flex: 1, minWidth: 0, lineHeight: 1.3 }}>
+                            <div style={{ fontFamily: DM_SANS, fontWeight: 600, fontSize: 15, color: PURPLE }}>{it.name}</div>
+                            {it.sub && <div style={{ fontFamily: DM_SANS, fontSize: 12, color: GRAY }}>{it.sub}</div>}
+                          </div>
+                          {it.exerciseId && <SwapButton name={it.name} locked={itemHasEntries(it)} onClick={() => setSwapping({ bi, ii })} />}
+                        </div>
+                      )
+                    })}
+                  </div>
+
+                  {/* a single exercise: sets. several: round by round (A then B) */}
+                  {logged.length === 1 && (() => {
+                    const it = logged[0]
+                    const ii = block.items.indexOf(it)
+                    return (
+                      <>
+                        {hasGuidance(it.exerciseId) && <FormGuide exerciseId={it.exerciseId} name={it.name} startOpen={false} />}
+                        <ColumnHeaders first="Set" />
+                        {it.sets.map((s, si) => (
+                          <SetRow key={s.id} label={si + 1} set={s} onChange={(f, v) => setField(bi, ii, si, f, v)} onTick={() => toggleSet(bi, ii, si)} onRecord={() => navigate("/upload")} />
+                        ))}
+                      </>
+                    )
+                  })()}
+                  {multi && (
+                    <>
+                      <ColumnHeaders first="" />
+                      {Array.from({ length: rounds }, (_, r) => {
+                        const roundDone = logged.every((it) => !it.sets[r] || it.sets[r].completed)
+                        return (
+                          <div key={r} style={{ display: "flex", flexDirection: "column", gap: 2 }}>
+                            <div style={{ display: "flex", alignItems: "center", gap: 6, paddingTop: 4, fontFamily: DM_SANS, fontSize: 11, fontWeight: 600, color: roundDone ? DARK_GREEN : GRAY }}>
+                              ROUND {r + 1}
+                              {roundDone && <span style={{ width: 16, height: 16, borderRadius: 8, background: GREEN, display: "flex", alignItems: "center", justifyContent: "center" }}><Check size={10} color="#fff" strokeWidth={3.2} /></span>}
+                            </div>
+                            {logged.map((it) => {
+                              const ii = block.items.indexOf(it)
+                              const s = it.sets[r]
+                              if (!s) return null
+                              return <SetRow key={s.id} label={letter(logged.indexOf(it))} labelColor={INK} set={s} onChange={(f, v) => setField(bi, ii, r, f, v)} onTick={() => toggleSet(bi, ii, r)} onRecord={() => navigate("/upload")} />
+                            })}
+                          </div>
+                        )
+                      })}
+                    </>
+                  )}
+
+                  {logged.length > 0 && (
+                    <div style={{ display: "flex", gap: 8 }}>
+                      <button type="button" onClick={() => addRound(bi)} style={outlineBtn(false)}>{multi ? "+ Add Round" : "+ Add Set"}</button>
+                      <button type="button" disabled={rounds <= 1 || lastRoundHasWork(block)} onClick={() => removeRound(bi)} style={outlineBtn(rounds <= 1 || lastRoundHasWork(block))}>{multi ? "– Remove Round" : "– Remove Set"}</button>
+                    </div>
+                  )}
+
+                  {state === "done" && (
+                    <button type="button" onClick={() => reopenBlock(bi)} style={{ alignSelf: "flex-start", padding: "6px 12px", borderRadius: 16, background: "transparent", border: "1.2px solid rgba(21,128,61,0.5)", color: DARK_GREEN, fontFamily: DM_SANS, fontWeight: 600, fontSize: 12, cursor: "pointer" }}>
+                      Reopen {block.tag}
+                    </button>
+                  )}
+
+                  {state !== "done" && (() => {
+                    const ready = allSetsTicked(block)
+                    const next = blocks.find((b, i) => i > bi && b.items.some(isActionable) && !b.completed)
+                    return (
+                      <div style={{ marginTop: 2 }}>
+                        <button
+                          type="button"
+                          className="next-section-btn"
+                          onClick={() => completeBlock(bi)}
+                          style={ready
+                            ? { width: "100%", height: 44, borderRadius: 10, border: "none", background: GRADIENT, color: "#fff", fontFamily: BRICOLAGE, fontWeight: 600, fontSize: 15, cursor: "pointer", display: "flex", alignItems: "center", justifyContent: "center", gap: 6, boxShadow: "0 3px 10px rgba(129,51,255,0.35)", whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis", padding: "0 12px" }
+                            : { width: "100%", height: 38, borderRadius: 10, background: "transparent", border: "1.2px solid rgba(129,51,255,0.55)", color: PURPLE, fontFamily: DM_SANS, fontWeight: 600, fontSize: 13, cursor: "pointer", display: "flex", alignItems: "center", justifyContent: "center", gap: 6, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis", padding: "0 12px" }}
+                        >
+                          {ready ? <Check size={16} strokeWidth={3} /> : null}
+                          {ready ? (next ? `Done · Next: ${next.tag}` : "Done") : next ? `Skip · Next: ${next.tag}` : "Skip"}
+                          {next ? <ChevronRight size={16} strokeWidth={2.6} /> : null}
+                        </button>
+                        {!ready && <div style={{ fontFamily: DM_SANS, fontSize: 11, color: GRAY, textAlign: "center", marginTop: 4 }}>Unticked sets won't be saved.</div>}
+                      </div>
+                    )
+                  })()}
+                </div>
+              )}
+            </div>
+          )
+        })}
+      </div>
+
+      {restEndsAt && <RestTimer endsAt={restEndsAt} onAdd={(s) => setRestEndsAt(restEndsAt + s * 1000)} onSkip={() => setRestEndsAt(null)} />}
+
+      <button type="button" onClick={() => setAdding(true)} style={{ width: "100%", marginTop: 14, padding: 14, borderRadius: 12, background: "rgba(255,255,255,0.6)", border: "1.2px solid rgba(129,51,255,0.7)", color: PURPLE, fontFamily: DM_SANS, fontWeight: 600, fontSize: 15, cursor: "pointer", display: "flex", alignItems: "center", justifyContent: "center", gap: 8 }}>
+        <Plus size={16} /> Add new exercise
       </button>
 
-      {/* Finish Workout Button */}
-      <div style={{
-        position: "fixed",
-        bottom: "140px",
-        left: "0",
-        right: "0",
-        display: "flex",
-        justifyContent: "center",
-        padding: "0 24px",
-      }}>
-        <button
-          onClick={finishWorkout}
-          style={{
-            width: "100%",
-            maxWidth: "400px",
-            padding: "16px",
-            background: "linear-gradient(92.52deg, #0284C7 0%, #9747FF 100%)",
-            border: "none",
-            borderRadius: "8px",
-            cursor: "pointer",
-            fontSize: "16px",
-            fontWeight: 600,
-            fontFamily: "'Bricolage Grotesque'",
-            color: "#FFFFFF",
-          }}
-        >
-          Finish Workout
-        </button>
-      </div>
+      {notice && <p style={{ fontFamily: DM_SANS, fontSize: 13, color: "#DC2626", margin: "10px 0 0", textAlign: "center" }}>{notice}</p>}
+
+      <button type="button" onClick={finish} disabled={Boolean(celebrate)} style={{ width: "100%", marginTop: 12, padding: 16, borderRadius: 12, border: "none", background: GRADIENT, color: "#fff", fontFamily: BRICOLAGE, fontWeight: 600, fontSize: 16, cursor: celebrate ? "default" : "pointer" }}>
+        Finish Workout
+      </button>
+
+      {adding && <AddExerciseSheet onAdd={addExercises} onClose={() => setAdding(false)} />}
+      {swapping && swapTarget && (
+        <SwapSheet currentId={swapTarget.exerciseId} planAlternativeIds={swapTarget.alternatives ?? []} onPick={swapItem} onClose={() => setSwapping(null)} />
+      )}
     </div>
   )
 }

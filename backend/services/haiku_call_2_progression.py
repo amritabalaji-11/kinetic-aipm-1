@@ -404,8 +404,10 @@ Return ONLY valid JSON matching this exact schema:
             # HAIKU CALL (RATE SAFE + RETRY)
             # -----------------------------------------
             response = await call_haiku_with_retry({
-                "model": "claude-haiku-4-5-20251001",
-                "max_tokens": 800,
+                "model": "claude-haiku-5-5",
+                "max_tokens": 1500,  # thinking counts toward max_tokens on Haiku 5.5
+                "output_config": {"effort": "low"},
+                "thinking": {"type": "disabled"},  # JSON-only output; keeps all tokens for the answer
                 "messages": [
                     {"role": "user", "content": prompt}
                 ]
@@ -418,7 +420,16 @@ Return ONLY valid JSON matching this exact schema:
                     "Haiku Call 2 exceeded 120 seconds"
                 )
 
-            result = safe_json_load(response.content[0].text)
+            print(
+                f"[Haiku Call 2] usage: input={response.usage.input_tokens} "
+                f"output={response.usage.output_tokens}"
+            )
+            if response.stop_reason == "max_tokens":
+                raise ValueError("Haiku Call 2 truncated — increase max_tokens")
+
+            # Haiku 5.5 may start with a thinking block, so pick the text block by type
+            response_text = next(b.text for b in response.content if b.type == "text")
+            result = safe_json_load(response_text)
             print("[Haiku Call 2] Response received")
 
             allowed_actions = {"hold", "increase", "decrease"}

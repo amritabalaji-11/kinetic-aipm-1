@@ -6,10 +6,12 @@ from utils.config import FRONTEND_ORIGIN
 from routes.health import router as health_router
 from init_db import init_db
 
-from routes.analysis_haiku_integration_example import router as haiku_router
-from routes import upload, stream, analysis, progression, history, stream
+# routes/analysis_haiku_integration_example.py is a developer example (calls Claude with no login, costs money).
+# It is deliberately NOT registered. To try it locally, import its router and include it, then remove it again.
+from routes import upload, stream, analysis, progression, history, tts, workouts
 from routes.user import router as user_router
 from routes.auth import router as auth_router
+from routes.exercises import router as exercises_router
 
 
 app = FastAPI()
@@ -24,7 +26,7 @@ def root():
 # CORS config
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["*"],
+    allow_origins=[FRONTEND_ORIGIN],
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
@@ -36,10 +38,12 @@ app.include_router(upload.router)
 app.include_router(stream.router)
 app.include_router(history.router)
 app.include_router(analysis.router)
-app.include_router(haiku_router)
 app.include_router(progression.router)
 app.include_router(user_router)
 app.include_router(auth_router)
+app.include_router(exercises_router)
+app.include_router(tts.router)
+app.include_router(workouts.router)
 
 
 #DB connection management
