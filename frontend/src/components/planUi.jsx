@@ -2,8 +2,8 @@ import { X } from "lucide-react"
 
 // Small building blocks shared by the planner, swap sheet and builder screens.
 export const GRADIENT = "linear-gradient(92.52deg, #0284C7 0%, #9747FF 100%)"
-export const BRICOLAGE = "'Bricolage Grotesque'"
-export const DM_SANS = "'DM Sans'"
+export const BRICOLAGE = "'Bricolage Grotesque', sans-serif"
+export const DM_SANS = "'DM Sans', sans-serif"
 export const PURPLE = "#8133FF"
 export const GRAY = "#64748B"
 export const INK = "#0F172A"

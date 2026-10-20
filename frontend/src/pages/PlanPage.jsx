@@ -8,8 +8,8 @@ import { lastDoneText, matchesQuery, planProfile, suggestions, trainingHistory }
 import { FilterSheet, HeroCard, PlanCard, PreviewSheet, Shelf } from "../components/PlanDiscovery"
 
 const GRADIENT = "linear-gradient(92.52deg, #0284C7 0%, #9747FF 100%)"
-const BRICOLAGE = "'Bricolage Grotesque'"
-const DM_SANS = "'DM Sans'"
+const BRICOLAGE = "'Bricolage Grotesque', sans-serif"
+const DM_SANS = "'DM Sans', sans-serif"
 const PREFS_KEY = "plan_screen_prefs"
 
 // "Cardio & sweat" isn't a body area, so it is added to the chips from the data file
@@ -195,8 +195,8 @@ export default function PlanPage() {
       ) : (
         <div style={{ marginTop: 14 }}>
           <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 10 }}>
-            <span style={{ fontFamily: DM_SANS, fontSize: 13, fontWeight: 600, color: "#64748B" }}>
-              {visible.length} workout{visible.length === 1 ? "" : "s"}
+            <span style={{ fontFamily: DM_SANS, fontSize: 12, fontWeight: 600, color: "#64748B" }}>
+              {visible.length} WORKOUT{visible.length === 1 ? "" : "S"}
             </span>
             <button type="button" onClick={clearAll} style={{ padding: 0, background: "none", border: "none", color: "#8133FF", fontFamily: DM_SANS, fontSize: 13, fontWeight: 600, cursor: "pointer" }}>
               Clear all

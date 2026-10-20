@@ -61,7 +61,7 @@ export function PlanCard({ plan, onOpen, lastDone, shelf = false }) {
         <img src={plan.image} alt="" style={{ maxWidth: 38, maxHeight: 48, objectFit: "contain" }} />
       </div>
       <div style={{ flex: 1, minWidth: 0 }}>
-        <div style={{ fontFamily: BRICOLAGE, fontWeight: 700, fontSize: 15, color: INK, lineHeight: 1.25, display: "-webkit-box", WebkitLineClamp: 2, WebkitBoxOrient: "vertical", overflow: "hidden" }}>
+        <div style={{ fontFamily: BRICOLAGE, fontWeight: 700, fontSize: 16, color: INK, lineHeight: 1.25, display: "-webkit-box", WebkitLineClamp: 2, WebkitBoxOrient: "vertical", overflow: "hidden" }}>
           {plan.title}
         </div>
         <div style={{ fontFamily: DM_SANS, fontSize: 12, fontWeight: 600, color: PURPLE, marginTop: 3 }}>{headline(plan)}</div>
@@ -78,10 +78,11 @@ export function Shelf({ title, subtitle, plans, onOpen, onSeeAll, lastDoneOf }) 
   if (!plans.length) return null
   return (
     <section style={{ marginTop: 22 }}>
-      <div style={{ display: "flex", alignItems: "baseline", justifyContent: "space-between", marginBottom: 10 }}>
-        <div>
-          <span style={{ fontFamily: BRICOLAGE, fontWeight: 700, fontSize: 18, color: INK }}>{title}</span>
-          {subtitle && <span style={{ fontFamily: DM_SANS, fontSize: 12, color: GRAY, marginLeft: 8 }}>{subtitle}</span>}
+      <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 10 }}>
+        <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+          <span style={{ width: 4, height: 18, borderRadius: 2, background: GRADIENT }} />
+          <span style={{ fontFamily: BRICOLAGE, fontWeight: 700, fontSize: 17, color: INK }}>{title}</span>
+          {subtitle && <span style={{ fontFamily: DM_SANS, fontSize: 12, color: GRAY }}>{subtitle}</span>}
         </div>
         {onSeeAll && (
           <button type="button" onClick={onSeeAll} style={{ padding: 0, background: "none", border: "none", color: PURPLE, fontFamily: DM_SANS, fontSize: 13, fontWeight: 600, cursor: "pointer" }}>
