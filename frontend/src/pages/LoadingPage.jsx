@@ -61,6 +61,8 @@ export default function LoadingPage() {
   const { steps, isDone, error, cancel, resultUrl, analysisData, lastEvent } = useSSEStream(analysisId)
 
   const [booted, setBooted] = useState(false)
+  // the preview is a temporary browser link to the chosen file; it stops working if the page is reloaded
+  const [previewFailed, setPreviewFailed] = useState(false)
   const [previousSession, setPreviousSession] = useState(null)
   const [currentAnalysis, setCurrentAnalysis] = useState(null)
   const [haikuCall2Data, setHaikuCall2Data] = useState(null)
@@ -229,11 +231,11 @@ export default function LoadingPage() {
 
       <div className="pt-4 px-4">
         <div className="rounded-2xl overflow-hidden w-full">
-          {videoPreviewUrl ? (
-            <video src={videoPreviewUrl} className="w-full" style={{ display: "block" }} autoPlay muted loop playsInline />
+          {videoPreviewUrl && !previewFailed ? (
+            <video src={videoPreviewUrl} className="w-full" style={{ display: "block" }} autoPlay muted loop playsInline onError={() => setPreviewFailed(true)} />
           ) : (
             <div className="w-full flex items-center justify-center bg-gray-900" style={{ height: 260 }}>
-              <p className="text-gray-500 text-sm">Preview unavailable</p>
+              <p className="text-gray-500 text-sm">{previewFailed ? "Preview ended. Your analysis is still running" : "Preview unavailable"}</p>
             </div>
           )}
         </div>
