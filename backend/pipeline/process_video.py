@@ -15,6 +15,9 @@ import shutil
 from concurrent.futures import ThreadPoolExecutor
 from datetime import datetime, timezone
 
+from utils.gcs import upload_image_to_gcs
+from mediapipe_code.mp_utils.visualization.draw_methods import extract_worst_frame, overlay_frame
+from mediapipe_code.mp_utils.visualization.hybrid_overlay import overlay_frame_hybrid
 from services.haiku_call_2_progression import run_haiku_call_2
 from mediapipe_code.landmark_framework import LandmarkQualityFramework
 from utils.sse_manager import sse_manager
@@ -151,7 +154,7 @@ async def run_mediapipe_analysis(analysis_id: str, file_location: str):
 
         # run_in_executor moves the CPU-heavy MediaPipe work into a thread
         # so the async event loop stays responsive for other requests
-        final_json, quality_result, collage_b64, bottom_frames = await loop.run_in_executor(
+        final_json, quality_result, collage_b64, rep_frames_list = await loop.run_in_executor(
             _executor,
             framework.process_video_once,
             local_path,
@@ -234,13 +237,7 @@ async def run_mediapipe_analysis(analysis_id: str, file_location: str):
         })
 
         # -------------------------------------------------
-        # STEP 6 — clean up temp video file
-        # -------------------------------------------------
-        if local_path and "incoming" in local_path:
-            shutil.rmtree(os.path.dirname(local_path), ignore_errors=True)
-
-        # -------------------------------------------------
-        # STEP 7 — haiku_started → Haiku Call 1 → analysis_ready
+        # STEP 6 — haiku_started → Haiku Call 1 → analysis_ready
         # -------------------------------------------------
         await sse_manager.send_event(analysis_id, "haiku_started", 65, extra=ctx)
 
@@ -278,6 +275,8 @@ async def run_mediapipe_analysis(analysis_id: str, file_location: str):
             )
         )
 
+        rep_scores = coaching_output.get("rep_scores", [])
+
         # Write to form_analysis_results — required for Haiku Call 2 to find this session
         await _store_analysis_results(analysis_id, user_id, session_id, record, mp_result, coaching_output)
 
@@ -287,6 +286,15 @@ async def run_mediapipe_analysis(analysis_id: str, file_location: str):
             **ctx,
             "overall_score": overall_score,
         })
+
+        # -------------------------------------------------
+        # STEP 7 — annotated picture, in the background
+        # The results text is already saved, so the picture must not hold anything up. It runs
+        # as its own task; it saves the image address when ready and deletes the temp video.
+        # -------------------------------------------------
+        asyncio.create_task(_make_annotated_image(
+            analysis_id, local_path, rep_scores, rep_frames_list, final_json, loop,
+        ))
 
         # -------------------------------------------------
         # STEP 8 — Enqueue Haiku Call 2 (async, does not block analysis_ready)
@@ -323,6 +331,8 @@ async def run_mediapipe_analysis(analysis_id: str, file_location: str):
         asyncio.create_task(run_haiku_call_2(analysis_id))
 
         print(f"[pipeline] Completed analysis_id={analysis_id}, reps={rep_count}")
+
+
         return mp_result
 
     except FileNotFoundError as e:
@@ -351,6 +361,55 @@ async def run_mediapipe_analysis(analysis_id: str, file_location: str):
             session_id=session_id,
             user_id=user_id,
         )
+
+
+async def _make_annotated_image(analysis_id, local_path, rep_scores, rep_frames_list, final_json, loop):
+    """
+    Worst-rep picture with angle overlay -> bucket -> address saved on the results row.
+    The picture is a bonus: any failure here is logged and the analysis is unaffected.
+    The temp video is deleted here, because this is the last step that needs it.
+    """
+    from db.database import db
+    image_path = None
+    try:
+        def build():
+            frame, frame_data, camera_view, rep_data = extract_worst_frame(local_path, rep_scores, rep_frames_list, final_json)
+            # named by analysis id so two uploads at once never overwrite each other's picture
+            try:
+                return overlay_frame_hybrid(frame, frame_data, camera_view, rep_data, output_filename=analysis_id)
+            except Exception as e:  # new design failed: fall back to the original overlay rather than lose the picture
+                print(f"[pipeline] hybrid overlay failed ({e}); using the original overlay")
+                return overlay_frame(frame, frame_data, camera_view, rep_data, output_filename=analysis_id)
+
+        # OpenCV work goes to the thread pool so the server stays responsive
+        _, image_path = await loop.run_in_executor(_executor, build)
+
+        image_info = await upload_image_to_gcs(
+            image_path,
+            f"kinetic-annotated-frames/{analysis_id}/{analysis_id}.jpg"
+        )
+
+        # Save the bucket address (gs://...); the API turns it into a viewing link on the way out
+        await db.execute(
+            """
+            UPDATE form_analysis_results
+            SET annotated_frame_url = :url
+            WHERE analysis_id = :analysis_id
+            """,
+            values={"url": image_info["gcs_url"], "analysis_id": analysis_id},
+        )
+        print(f"[pipeline] Annotated image saved for analysis_id={analysis_id}")
+
+    except Exception as e:
+        print("--------------------------------------------------------")
+        print("ERROR IN IMAGE GENERATION (analysis continues without the image)")
+        print(e)
+        print("--------------------------------------------------------")
+    finally:
+        if image_path and os.path.exists(image_path):
+            os.remove(image_path)
+        if local_path and "incoming" in local_path:
+            shutil.rmtree(os.path.dirname(local_path), ignore_errors=True)
 
 
 # =========================================================

@@ -434,15 +434,15 @@ class LandmarkQualityFramework:
                 # -------------------------------------------------
                 # BOTTOM FRAMES
                 # -------------------------------------------------
-                if rep_counter.state != "STANDING":
+                """if rep_counter.state != "STANDING":
                     active_rep_number = rep_counter.rep_count + 1
                 elif rep_completed:
                     active_rep_number = rep_counter.rep_count
                 else:
                     active_rep_number = 0
 
-                if active_rep_number > 0:
-                     append_bottom_frames(
+                if active_rep_number > 0:"""
+                append_bottom_frames(
                             {"frame_index": frame_index,
                              "frame_bgr": frame_bgr,
                              "camera_view":camera_view,
@@ -547,6 +547,9 @@ class LandmarkQualityFramework:
         # FINAL JSON
         # -------------------------------------------------
         trend_analyzer = TrendAnalyzer()
+        
+        # Delete final rep, because it can be for the end video setup
+        reps_json_info.pop()
 
         if reps_json_info:
             camera_view = Counter(
@@ -611,9 +614,9 @@ if __name__ == "__main__":
 
     final_json, quality_result, collage_b64, rep_frames_list = framework.process_video_once(input_dir, "goblet squat", 20, analysis_id)
 
-    if final_json and os.path.exists(analysis_path):
-        try:
-            frame, frame_data, dominant_camera_view, rep_data = extract_worst_frame(input_dir, analysis_path, rep_frames_list, final_json)
-            annotated_worst_frame = overlay_frame(frame, frame_data, dominant_camera_view, rep_data, output_filename="user_001_side_17.5kg")
-        except Exception as e:
-            print("Could not extract worst frame:", e)
+    #if final_json and os.path.exists(analysis_path):
+        #try:
+            #frame, frame_data, dominant_camera_view, rep_data = extract_worst_frame(input_dir, analysis_path, rep_frames_list, final_json)
+            #annotated_worst_frame = overlay_frame(frame, frame_data, dominant_camera_view, rep_data, output_filename="user_001_side_17.5kg")
+        #except Exception as e:
+            #print("Could not extract worst frame:", e)
