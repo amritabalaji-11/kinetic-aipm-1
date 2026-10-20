@@ -1,4 +1,5 @@
 import { useEffect, useState } from "react"
+import { apiFetch } from "../services/api"
 import { useNavigate } from "react-router-dom"
 import { useUser } from "../context/UserContext"
 import { listWorkouts, fromDbTime } from "../services/workoutService"
@@ -150,7 +151,7 @@ export default function HomePage() {
 
   useEffect(() => {
     const userId = localStorage.getItem("active_user_id") || "user_001"
-    fetch(`${BASE_URL}/form_analysis_results/${userId}`)
+    apiFetch(`${BASE_URL}/form_analysis_results/${userId}`)
       .then(r => r.ok ? r.json() : [])
       .then(data => {
         console.log("Form history data:", data)

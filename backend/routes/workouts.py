@@ -2,10 +2,11 @@ import json
 import uuid
 from typing import Optional
 
-from fastapi import APIRouter, HTTPException
+from fastapi import APIRouter, Depends, HTTPException
 from pydantic import BaseModel, Field
 
 from db.database import db
+from utils.security import get_current_user_id
 
 router = APIRouter(prefix="/workouts", tags=["workouts"])
 
@@ -28,7 +29,7 @@ class ExerciseIn(BaseModel):
 
 
 class WorkoutIn(BaseModel):
-    user_id: str
+    user_id: Optional[str] = None  # ignored: the signed-in user is always used
     name: Optional[str] = None
     focus_label: Optional[str] = None
     muscles: list[str] = Field(default_factory=list)
@@ -134,11 +135,10 @@ async def _owner_of(workout_id: str) -> Optional[str]:
 
 
 # ----- routes -----
-# NOTE: like the other /user routes, these trust the user_id the frontend sends.
-# Add a login check (JWT) here before the app is used by anyone but you.
+# Every route here works on the signed-in user's own workouts only (user id comes from the login token).
 
 @router.post("")
-async def create_workout(body: WorkoutIn):
+async def create_workout(body: WorkoutIn, user_id: str = Depends(get_current_user_id)):
     workout_id = str(uuid.uuid4())
     async with db.transaction():
         await db.execute(
@@ -147,22 +147,22 @@ async def create_workout(body: WorkoutIn):
                                   started_at, ended_at, duration_min, status)
             VALUES (:wid, :uid, :name, :focus, :muscles, :notes, :started, :ended, :dur, 'completed')
             """,
-            {"wid": workout_id, "uid": body.user_id, "name": body.name, "focus": body.focus_label,
+            {"wid": workout_id, "uid": user_id, "name": body.name, "focus": body.focus_label,
              "muscles": json.dumps(body.muscles), "notes": body.notes,
              "started": body.started_at, "ended": body.ended_at, "dur": body.duration_min},
         )
-        await _insert_exercises(workout_id, body.user_id, body.exercises, body.started_at)
-    return (await _load_for_user(body.user_id, workout_id))[0]
+        await _insert_exercises(workout_id, user_id, body.exercises, body.started_at)
+    return (await _load_for_user(user_id, workout_id))[0]
 
 
 @router.get("")
-async def list_workouts(user_id: str):
+async def list_workouts(user_id: str = Depends(get_current_user_id)):
     return await _load_for_user(user_id)
 
 
 # Defined before "/{workout_id}" so "progress" isn't read as a workout id.
-@router.get("/progress/{user_id}")
-async def exercise_progress(user_id: str, exercise_name: str):
+@router.get("/progress")
+async def exercise_progress(exercise_name: str, user_id: str = Depends(get_current_user_id)):
     """Per-session summary for one exercise: best weight, total volume, estimated 1RM.
     Includes older demo rows (no workout_id) because it matches on exercise name."""
     rows = await db.fetch_all(
@@ -190,7 +190,7 @@ async def exercise_progress(user_id: str, exercise_name: str):
 
 
 @router.get("/{workout_id}")
-async def get_workout(workout_id: str, user_id: str):
+async def get_workout(workout_id: str, user_id: str = Depends(get_current_user_id)):
     found = await _load_for_user(user_id, workout_id)
     if not found:
         raise HTTPException(status_code=404, detail="Workout not found")
@@ -198,9 +198,9 @@ async def get_workout(workout_id: str, user_id: str):
 
 
 @router.put("/{workout_id}")
-async def update_workout(workout_id: str, body: WorkoutIn):
+async def update_workout(workout_id: str, body: WorkoutIn, user_id: str = Depends(get_current_user_id)):
     owner = await _owner_of(workout_id)
-    if owner is None or owner != body.user_id:
+    if owner is None or owner != user_id:
         raise HTTPException(status_code=404, detail="Workout not found")
     async with db.transaction():
         await db.execute(
@@ -214,12 +214,12 @@ async def update_workout(workout_id: str, body: WorkoutIn):
              "dur": body.duration_min},
         )
         await _delete_children(workout_id)
-        await _insert_exercises(workout_id, body.user_id, body.exercises, body.started_at)
-    return (await _load_for_user(body.user_id, workout_id))[0]
+        await _insert_exercises(workout_id, user_id, body.exercises, body.started_at)
+    return (await _load_for_user(user_id, workout_id))[0]
 
 
 @router.delete("/{workout_id}")
-async def delete_workout(workout_id: str, user_id: str):
+async def delete_workout(workout_id: str, user_id: str = Depends(get_current_user_id)):
     owner = await _owner_of(workout_id)
     if owner is None or owner != user_id:
         raise HTTPException(status_code=404, detail="Workout not found")

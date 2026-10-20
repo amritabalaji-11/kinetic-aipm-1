@@ -1,4 +1,5 @@
 import { useState, useMemo, useEffect, useRef } from "react"
+import { apiFetch } from "../services/api"
 import { useLocation, useNavigate } from "react-router-dom"
 import ListenButton from "../components/ListenButton"
 
@@ -496,7 +497,7 @@ function FormHistorySection({ userId, exerciseId, currentAnalysisId }) {
   useEffect(() => {
     if (!userId || historyFetched) return
     setHistoryFetched(true)
-    fetch(`${BASE_URL}/form_analysis_results/${userId}`)
+    apiFetch(`${BASE_URL}/form_analysis_results/${userId}`)
       .then(r => r.ok ? r.json() : [])
       .then(data => {
         if (Array.isArray(data)) {
@@ -584,7 +585,7 @@ export default function ResultsPage() {
       try {
         const userId = localStorage.getItem("active_user_id")
         if (!userId) return
-        const r = await fetch(`${BASE_URL}/users/${userId}/profile`)
+        const r = await apiFetch(`${BASE_URL}/users/${userId}/profile`)
         if (r.ok) {
           const profile = await r.json()
           if (profile.annotated_frame_url) {
@@ -609,7 +610,7 @@ export default function ResultsPage() {
       try {
         const userId = localStorage.getItem("active_user_id")
         if (!userId) return
-        const r1 = await fetch(`${BASE_URL}/history/${userId}`)
+        const r1 = await apiFetch(`${BASE_URL}/history/${userId}`)
         if (r1.ok) {
           const list = await r1.json()
           if (Array.isArray(list)) {
@@ -626,7 +627,7 @@ export default function ResultsPage() {
         const userId = localStorage.getItem("active_user_id") || "user_001"
         const url = `${BASE_URL}/form_analysis_results/${userId}`
         console.log("🔄 Fetching form history from:", url)
-        const r = await fetch(url)
+        const r = await apiFetch(url)
         console.log("📡 Form history response status:", r.status)
         const data = await (r.ok ? r.json() : [])
         console.log("📊 Form history data received:", data)
@@ -664,7 +665,7 @@ export default function ResultsPage() {
       return
     }
     try {
-      const response = await fetch(`${BASE_URL}/analysis/${sessionId}`)
+      const response = await apiFetch(`${BASE_URL}/analysis/${sessionId}`)
       if (!response.ok) return
       const record = await response.json()
       console.log("📦 Full API response:", record)
@@ -675,7 +676,7 @@ export default function ResultsPage() {
       // Fetch progression data for comparison (includes "What We Told You")
       let progressionData = {}
       try {
-        const progRes = await fetch(`${BASE_URL}/analysis/${sessionId}/progression`)
+        const progRes = await apiFetch(`${BASE_URL}/analysis/${sessionId}/progression`)
         if (progRes.ok) {
           progressionData = await progRes.json()
           console.log("📊 Progression data:", progressionData)
@@ -827,7 +828,7 @@ export default function ResultsPage() {
       const exerciseId = parsedCurrentResult.exercise_id
       console.log("🔍 Fetching previous session - userId:", userId, "exerciseId:", exerciseId)
       try {
-        const histRes = await fetch(`${BASE_URL}/form_analysis_results/${userId}`)
+        const histRes = await apiFetch(`${BASE_URL}/form_analysis_results/${userId}`)
         if (histRes.ok) {
           const allResults = await histRes.json()
           console.log("📋 All results from API:", allResults)
@@ -854,7 +855,7 @@ export default function ResultsPage() {
               prevResult = sameExerciseResults[0]
             }
             // Now fetch the full previous analysis to get all haiku data
-            const fullPrevRes = await fetch(`${BASE_URL}/analysis/${prevResult.analysis_id}`)
+            const fullPrevRes = await apiFetch(`${BASE_URL}/analysis/${prevResult.analysis_id}`)
             if (fullPrevRes.ok) {
               previousAnalysis = await fullPrevRes.json()
               // Map tempo → range_of_motion if tempo is present but range_of_motion is missing

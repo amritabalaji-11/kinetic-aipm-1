@@ -1,4 +1,5 @@
 import { useState, useRef, useEffect } from "react"
+import { apiFetch } from "../services/api"
 
 // Reads `text` aloud via the backend /tts route (ElevenLabs).
 // Audio is cached in the browser per text, so replaying the same text doesn't cost another call.
@@ -32,7 +33,7 @@ export default function ListenButton({ text, variant = "onDark" }) {
     try {
       let url = audioCache.get(text)
       if (!url) {
-        const res = await fetch(`${BASE_URL}/tts`, {
+        const res = await apiFetch(`${BASE_URL}/tts`, {
           method: "POST",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({ text }),

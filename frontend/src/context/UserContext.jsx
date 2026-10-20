@@ -1,5 +1,5 @@
 import { createContext, useContext, useEffect, useState } from "react"
-import { TOKEN_KEY, signInWithGoogle, fetchMe } from "../services/authService"
+import { TOKEN_KEY, signInWithGoogle, signInAsDemo, fetchMe } from "../services/authService"
 
 export const DEMO_USERS = {
   user_001: {
@@ -92,9 +92,9 @@ export function UserProvider({ children }) {
     setActiveUserId(userId)
   }
 
-  // Demo profile pick: drop any Google session so the two flows never mix
-  const setUser = (userId) => {
-    localStorage.removeItem(TOKEN_KEY)
+  // Demo profile pick: get a guest token for that sample profile (replaces any Google session)
+  const loginAsDemo = async (userId, passcode) => {
+    await signInAsDemo(userId, passcode)
     setAuthUser(null)
     activate(userId)
   }
@@ -126,7 +126,7 @@ export function UserProvider({ children }) {
     : null
 
   return (
-    <UserContext.Provider value={{ activeUser, activeUserId, setUser, clearUser, loginWithGoogle, DEMO_USERS }}>
+    <UserContext.Provider value={{ activeUser, activeUserId, loginAsDemo, clearUser, loginWithGoogle, DEMO_USERS }}>
       {children}
     </UserContext.Provider>
   )

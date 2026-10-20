@@ -1,6 +1,7 @@
 import json
 
-from fastapi import APIRouter, HTTPException, Header
+from fastapi import APIRouter, Depends, HTTPException, Header
+from utils.security import get_current_user_id, require_same_user
 from db.database import db
 
 router = APIRouter()
@@ -186,8 +187,9 @@ async def get_haiku_status(analysis_id: str):
 
 
 @router.get("/form_analysis_results/{user_id}")
-async def get_user_form_analysis(user_id: str):
+async def get_user_form_analysis(user_id: str, current_user: str = Depends(get_current_user_id)):
     """Fetch latest 3 form analysis results for a user"""
+    require_same_user(user_id, current_user)
     results = await db.fetch_all(
         """
         SELECT

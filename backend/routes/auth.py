@@ -1,9 +1,13 @@
-from fastapi import APIRouter, HTTPException, Depends
+import secrets
+import time
+
+from fastapi import APIRouter, HTTPException, Depends, Request
 from db.database import db
 from schemas.auth import (
-    SignUpRequest, LoginRequest, SocialLoginRequest,
+    SignUpRequest, LoginRequest, SocialLoginRequest, DemoLoginRequest,
     TokenResponse, UserOut,
 )
+from utils.config import ALLOW_DEMO_LOGIN, DEMO_USER_IDS, DEMO_PASSCODE
 from utils.security import (
     hash_password, verify_password, create_access_token,
     get_current_user_id, new_uuid,
@@ -116,6 +120,43 @@ async def _social_login(provider: str, sub: str, email: str | None, name: str | 
     )
     token = create_access_token(user_id)
     return TokenResponse(access_token=token, user_id=user_id)
+
+
+# Too many wrong passcodes from one address = locked out for a while (kept in memory, resets on restart)
+_FAILED_PASSCODES: dict[str, list[float]] = {}
+_MAX_FAILURES, _WINDOW_SECONDS = 8, 10 * 60
+
+
+def _recent_failures(host: str) -> list[float]:
+    cutoff = time.time() - _WINDOW_SECONDS
+    recent = [t for t in _FAILED_PASSCODES.get(host, []) if t > cutoff]
+    _FAILED_PASSCODES[host] = recent
+    return recent
+
+
+@router.get("/demo/status")
+async def demo_status():
+    """Tells the login screen whether demo is available and whether it asks for a passcode."""
+    return {"enabled": ALLOW_DEMO_LOGIN, "passcode_required": bool(DEMO_PASSCODE)}
+
+
+@router.post("/demo", response_model=TokenResponse)
+async def login_demo(payload: DemoLoginRequest, request: Request):
+    """Guest login for the three sample profiles only (needs the demo passcode when one is set).
+    The token lasts 12 hours and only ever grants access to that one sample profile's data."""
+    if not ALLOW_DEMO_LOGIN or payload.user_id not in DEMO_USER_IDS:
+        raise HTTPException(status_code=404, detail="Not found")
+    if DEMO_PASSCODE:
+        host = request.client.host if request.client else "unknown"
+        if len(_recent_failures(host)) >= _MAX_FAILURES:
+            raise HTTPException(status_code=429, detail="Too many wrong passcodes. Try again in a few minutes.")
+        if not payload.passcode:
+            raise HTTPException(status_code=401, detail="Demo passcode required")
+        if not secrets.compare_digest(payload.passcode.encode(), DEMO_PASSCODE.encode()):
+            _FAILED_PASSCODES.setdefault(host, []).append(time.time())
+            raise HTTPException(status_code=403, detail="Wrong demo passcode")
+    token = create_access_token(payload.user_id, minutes=60 * 12, guest=True)
+    return TokenResponse(access_token=token, user_id=payload.user_id)
 
 
 @router.post("/google", response_model=TokenResponse)

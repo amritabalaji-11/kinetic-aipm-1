@@ -1,11 +1,11 @@
 // Talks to the backend /workouts routes. Workouts used to live only in localStorage.
 
-const BASE_URL = import.meta.env.VITE_API_URL || "http://localhost:8000"
+import { apiFetch, BASE_URL } from "./api"
 
 export const getUserId = () => localStorage.getItem("active_user_id") || "user_001"
 
 async function request(path, options = {}) {
-  const res = await fetch(`${BASE_URL}${path}`, {
+  const res = await apiFetch(`${BASE_URL}${path}`, {
     headers: { "Content-Type": "application/json" },
     ...options,
   })
@@ -65,13 +65,13 @@ export const saveWorkout = (workout) =>
 export const syncLocalWorkout = (workout) =>
   request("/workouts", { method: "POST", body: JSON.stringify(toApiWorkout(workout)) })
 
-export const listWorkouts = () => request(`/workouts?user_id=${encodeURIComponent(getUserId())}`)
+export const listWorkouts = () => request("/workouts")
 
 export const updateWorkout = (workoutId, apiWorkout) =>
-  request(`/workouts/${workoutId}`, { method: "PUT", body: JSON.stringify({ ...apiWorkout, user_id: getUserId() }) })
+  request(`/workouts/${workoutId}`, { method: "PUT", body: JSON.stringify(apiWorkout) })
 
 export const deleteWorkout = (workoutId) =>
-  request(`/workouts/${workoutId}?user_id=${encodeURIComponent(getUserId())}`, { method: "DELETE" })
+  request(`/workouts/${workoutId}`, { method: "DELETE" })
 
 export const getExerciseProgress = (exerciseName) =>
-  request(`/workouts/progress/${encodeURIComponent(getUserId())}?exercise_name=${encodeURIComponent(exerciseName)}`)
+  request(`/workouts/progress?exercise_name=${encodeURIComponent(exerciseName)}`)

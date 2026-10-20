@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useState } from "react"
+import { apiFetch } from "../services/api"
 import { useNavigate, useLocation } from "react-router-dom"
 import { useSSEStream } from "../hooks/useSSEStream"
 
@@ -77,7 +78,7 @@ export default function LoadingPage() {
         setDataFetched(true)
 
         // Fetch current analysis
-        const analysisRes = await fetch(`${BASE_URL}/analysis/${analysisId}`)
+        const analysisRes = await apiFetch(`${BASE_URL}/analysis/${analysisId}`)
         if (analysisRes.ok) {
           const data = await analysisRes.json()
           const analysis = data.analysis || data
@@ -93,7 +94,7 @@ export default function LoadingPage() {
         // Fetch previous session for comparison
         const userId = localStorage.getItem("active_user_id") || localStorage.getItem("user_id") || "user_001"
         console.log("[DEBUG] Fetching history for userId:", userId)
-        const historyRes = await fetch(`${BASE_URL}/form_analysis_results/${userId}`)
+        const historyRes = await apiFetch(`${BASE_URL}/form_analysis_results/${userId}`)
         if (historyRes.ok) {
           const history = await historyRes.json()
           console.log("[DEBUG] History response:", history)
@@ -126,7 +127,7 @@ export default function LoadingPage() {
       try {
         
         setHaikuFetched(true)  // ADD THIS: Set flag BEFORE fetching
-        const res = await fetch(`${BASE_URL}/analysis/${analysisId}/progression`)
+        const res = await apiFetch(`${BASE_URL}/analysis/${analysisId}/progression`)
         if (res.ok) {
           const data = await res.json()
           console.log("[DEBUG] Haiku Call 2 data:", data)
@@ -185,7 +186,7 @@ export default function LoadingPage() {
 
       try {
        // const res = await fetch(`http://localhost:8000/analysis/${analysisId}`)
-        const res = await fetch(`${BASE_URL}/analysis/${analysisId}`)
+        const res = await apiFetch(`${BASE_URL}/analysis/${analysisId}`)
         if (res.ok) {
           analysisRecord = await res.json()
           if (analysisRecord?.biomechanics_json && typeof analysisRecord.biomechanics_json === "string") {
@@ -196,7 +197,7 @@ export default function LoadingPage() {
 
       try {
        // const res = await fetch(`http://localhost:8000/analysis/${analysisId}/progression`)
-        const res = await fetch(`${BASE_URL}/analysis/${analysisId}/progression`)
+        const res = await apiFetch(`${BASE_URL}/analysis/${analysisId}/progression`)
         if (res.ok) {
           const body = await res.json()
           if (body?.has_comparison !== undefined) progressionData = body

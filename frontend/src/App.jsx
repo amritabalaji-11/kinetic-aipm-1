@@ -1,5 +1,6 @@
-import { BrowserRouter, Routes, Route } from "react-router-dom"
+import { BrowserRouter, Routes, Route, Navigate } from "react-router-dom"
 import { UserProvider } from "./context/UserContext"
+import { getToken } from "./services/authService"
 import NavBar from "./components/NavBar"
 import SplashScreen from "./pages/SplashScreen"
 import HomePage from "./pages/HomePage"
@@ -32,6 +33,11 @@ function Layout({ children }) {
   )
 }
 
+// App screens need a login (Google, or a demo guest login). Without one, back to the splash screen.
+function ProtectedLayout({ children }) {
+  return getToken() ? <Layout>{children}</Layout> : <Navigate to="/" replace />
+}
+
 function App() {
   return (
     <UserProvider>
@@ -41,21 +47,21 @@ function App() {
           <Route path="/profile-screen" element={<LoginPage />} />
           <Route path="/select-profile" element={<LoginPage />} />
           <Route path="/login" element={<LoginPage />} />
-          <Route path="/home" element={<Layout><HomePage /></Layout>} />
-          <Route path="/plan" element={<Layout><PlanPage /></Layout>} />
-          <Route path="/plan/custom" element={<Layout><BuilderPage /></Layout>} />
-          <Route path="/plan/workout/:presetId" element={<Layout><WorkoutPlannerPage /></Layout>} />
-          <Route path="/plan/exercises" element={<Layout><ExercisePickerPage /></Layout>} />
-          <Route path="/plan/order" element={<Layout><WorkoutOrderPage /></Layout>} />
-          <Route path="/timeline" element={<Layout><TimelinePage /></Layout>} />
-          <Route path="/profile" element={<Layout><ProfilePage /></Layout>} />
-          <Route path="/upload" element={<Layout><UploadScanPage /></Layout>} />
-          <Route path="/upload/loading" element={<Layout><LoadingPage /></Layout>} />
-          <Route path="/upload/results" element={<Layout><ResultsPage /></Layout>} />
-          <Route path="/upload/comparison" element={<Layout><ComparisonPage /></Layout>} />
-          <Route path="/profile/subscription" element={<Layout><SubscriptionPage /></Layout>} />
-          <Route path="/workout/active" element={<Layout><ActiveWorkoutPage /></Layout>} />
-          <Route path="/workout-logger" element={<Layout><WorkoutLoggerPage /></Layout>} />
+          <Route path="/home" element={<ProtectedLayout><HomePage /></ProtectedLayout>} />
+          <Route path="/plan" element={<ProtectedLayout><PlanPage /></ProtectedLayout>} />
+          <Route path="/plan/custom" element={<ProtectedLayout><BuilderPage /></ProtectedLayout>} />
+          <Route path="/plan/workout/:presetId" element={<ProtectedLayout><WorkoutPlannerPage /></ProtectedLayout>} />
+          <Route path="/plan/exercises" element={<ProtectedLayout><ExercisePickerPage /></ProtectedLayout>} />
+          <Route path="/plan/order" element={<ProtectedLayout><WorkoutOrderPage /></ProtectedLayout>} />
+          <Route path="/timeline" element={<ProtectedLayout><TimelinePage /></ProtectedLayout>} />
+          <Route path="/profile" element={<ProtectedLayout><ProfilePage /></ProtectedLayout>} />
+          <Route path="/upload" element={<ProtectedLayout><UploadScanPage /></ProtectedLayout>} />
+          <Route path="/upload/loading" element={<ProtectedLayout><LoadingPage /></ProtectedLayout>} />
+          <Route path="/upload/results" element={<ProtectedLayout><ResultsPage /></ProtectedLayout>} />
+          <Route path="/upload/comparison" element={<ProtectedLayout><ComparisonPage /></ProtectedLayout>} />
+          <Route path="/profile/subscription" element={<ProtectedLayout><SubscriptionPage /></ProtectedLayout>} />
+          <Route path="/workout/active" element={<ProtectedLayout><ActiveWorkoutPage /></ProtectedLayout>} />
+          <Route path="/workout-logger" element={<ProtectedLayout><WorkoutLoggerPage /></ProtectedLayout>} />
         </Routes>
       </BrowserRouter>
     </UserProvider>

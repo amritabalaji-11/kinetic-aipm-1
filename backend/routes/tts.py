@@ -1,11 +1,12 @@
 import os
 
 import httpx
-from fastapi import APIRouter, HTTPException
+from fastapi import APIRouter, Depends, HTTPException
 from fastapi.responses import Response
 from pydantic import BaseModel
 
 import utils.config  # makes sure backend/.env is loaded
+from utils.security import get_current_user_id
 
 router = APIRouter()
 
@@ -17,7 +18,7 @@ class TTSRequest(BaseModel):
 
 
 @router.post("/tts")
-async def text_to_speech(body: TTSRequest):
+async def text_to_speech(body: TTSRequest, _user: str = Depends(get_current_user_id)):  # login required: each call costs money
     api_key = os.getenv("ELEVENLABS_API_KEY")
     voice_id = os.getenv("ELEVENLABS_VOICE_ID")
 

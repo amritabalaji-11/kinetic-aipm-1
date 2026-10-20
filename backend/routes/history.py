@@ -1,13 +1,15 @@
 import json
-from fastapi import APIRouter, HTTPException
+from fastapi import APIRouter, Depends, HTTPException
 from db.database import db
+from utils.security import get_current_user_id, require_same_user
 
 router = APIRouter()
 
 
 
 @router.get("/history/{user_id}")
-async def get_history(user_id: str):
+async def get_history(user_id: str, current_user: str = Depends(get_current_user_id)):
+    require_same_user(user_id, current_user)
     try:
         async with db.connection() as conn:
 
