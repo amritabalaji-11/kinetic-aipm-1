@@ -1,8 +1,9 @@
-from fastapi import FastAPI
+from fastapi import FastAPI, Request, Response
 from fastapi.middleware.cors import CORSMiddleware
 from db.database import db
 
 from utils.config import FRONTEND_ORIGIN
+from utils.media_links import sign_media_links
 from routes.health import router as health_router
 from init_db import init_db
 
@@ -22,6 +23,21 @@ def root():
         "status": "ok",
         "message": "Kinetic backend is running 🚀"
     }
+
+# Videos and annotated photos live in a private bucket. Swap their gs:// addresses for
+# 15-minute viewing links on the way out, so the browser can show them.
+@app.middleware("http")
+async def add_media_links(request: Request, call_next):
+    response = await call_next(request)
+    if "application/json" not in response.headers.get("content-type", ""):
+        return response  # streams (SSE), files etc. pass through untouched
+    body = b"".join([chunk async for chunk in response.body_iterator])
+    text = body.decode("utf-8", errors="ignore")
+    if "gs://" in text:
+        body = sign_media_links(text).encode("utf-8")
+    headers = {k: v for k, v in response.headers.items() if k.lower() != "content-length"}
+    return Response(content=body, status_code=response.status_code, headers=headers, media_type="application/json")
+
 
 # CORS config
 app.add_middleware(

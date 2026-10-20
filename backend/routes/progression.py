@@ -1,8 +1,9 @@
 import json
 
-from fastapi import APIRouter, HTTPException, Header
+from fastapi import APIRouter, Depends, HTTPException, Header
 
 from db.database import db
+from utils.security import get_current_user_id
 
 router = APIRouter()
 
@@ -14,7 +15,7 @@ def _safe_delta(a, b):
 
 
 @router.get("/analysis/{analysis_id}/progression")
-async def get_progression(analysis_id: str):
+async def get_progression(analysis_id: str, viewer: str = Depends(get_current_user_id)):
 
     current = await db.fetch_one(
         """
@@ -40,7 +41,8 @@ async def get_progression(analysis_id: str):
         values={"analysis_id": analysis_id}
     )
 
-    if not current:
+    # someone else's analysis looks exactly like one that doesn't exist
+    if not current or current["user_id"] != viewer:
         raise HTTPException(status_code=404, detail="Analysis not found")
 
     previous = await db.fetch_one(
