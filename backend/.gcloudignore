@@ -1,0 +1,25 @@
+# What `gcloud run deploy --source backend` uploads. Everything NOT listed here is sent.
+# (Do not use "#!include:.gitignore": the repo's *.json rule would drop credentials/*.json, which the server needs.)
+
+# local environment and caches
+venv/
+__pycache__/
+*.pyc
+.DS_Store
+.git/
+.env
+backend.log
+*.log
+
+# sample / test media (not needed at runtime, ~600 MB)
+*.mp4
+*.mov
+uploads/
+worst_frames/
+mediapipe_code/videos/
+mediapipe_code/video_results/
+mediapipe_code/processed videos/
+
+# developer scripts and tests
+scripts/
+test_*.py
