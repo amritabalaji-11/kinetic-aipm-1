@@ -1,4 +1,7 @@
+from pathlib import Path
 import json
+import math
+import re
 import os
 
 import cv2
@@ -9,8 +12,13 @@ from mediapipe_code.mp_utils.pose.pose_landmarks import LEFT_ANKLE, LEFT_HIP, LE
 from mediapipe_code.mp_utils.quality.landmark_quality_methods import safe_get_landmark
 from mediapipe_code.mp_utils.quality.landmark_quality_configuration import LEFT_SIDE, LEG_CONNECTIONS, LEG_CONNECTIONS_LEFT_SIDE, LEG_CONNECTIONS_RIGHT_SIDE, LEG_TARGET_LANDMARKS, RIGHT_SIDE
 
-FONT_PATH = "segoeui.ttf"
-FONT_SIZE = 25
+# Bundled font (Apache 2.0, see assets/fonts/LICENSE.txt). The old "segoeui.ttf" only exists on Windows,
+# so on a Mac or the Linux server the overlay text fell back to a tiny built-in font.
+FONT_PATH = str(Path(__file__).resolve().parents[3] / "assets" / "fonts" / "Roboto-Bold.ttf")
+FONT_SIZE = 34        # text in the angle panel (image is 720 px wide, so this reads ~18 px on a phone)
+CHIP_FONT_SIZE = 28   # text inside the little "Back / Warning" boxes on the body
+CHIP_W = 220
+CHIP_H = 44
 LEFT_LABEL_X = 12
 BLUE = (255, 180, 30)
 GREEN = (0, 255, 0)
@@ -121,7 +129,7 @@ def draw_points_and_lines(
     ankle_knee_color=DORSIFLEXION_COLOR,  
     knee_hip_color=DEPTH_COLOR,       
     hip_shoulder_color=BACK_COLOR,
-    thickness=4,
+    thickness=6,
 ):
     """Draw selected landmarks and connections with different colors per body segment."""
 
@@ -148,7 +156,7 @@ def draw_points_and_lines(
         else:
             current_color = point_color
 
-        circle(image, (x, y), 10, current_color, -1)
+        circle(image, (x, y), 12, current_color, -1)
 
     # -----------------------------
     # Helper to choose segment color
@@ -275,7 +283,11 @@ def _load_font(size=FONT_SIZE):
     try:
         return ImageFont.truetype(FONT_PATH, size)
     except OSError:
-        return ImageFont.load_default()
+        print(f"[overlay] WARNING: font not found at {FONT_PATH}; text will be tiny")
+        try:
+            return ImageFont.load_default(size)
+        except TypeError:
+            return ImageFont.load_default()
 
 
 def draw_check(draw, x, y, color, width=4):
@@ -362,15 +374,27 @@ def draw_panel(image, x, y, w, h, color=(0, 0, 0)):
     )
 
 
+def _short_fault_text(fault):
+    """'Warning - 106° (target <= 90°)' -> '106° (aim ≤ 90°)'. The colour/icon already says pass or fail."""
+    text = fault.get("text", "")
+    if fault.get("kind") != "info" and " - " in text:
+        text = text.split(" - ", 1)[1]
+    return text.replace("target <=", "aim ≤").replace("target >=", "aim ≥")
+
+
 def add_side_faults_panel(
     annotated,
     faults_info,
     start_x=12,
     start_y=12,
-    padding=12,
-    line_h=36,
+    padding=16,
+    line_h=56,
 ):
-    """Semi-transparent top-left panel."""
+    """
+    Legend panel (top-left). One row per measurement:
+    [line-colour swatch]  Label  value (aim ...)  [green tick = fine / red ! = fix this]
+    The swatch is the same colour as the angle line drawn on the body, so users can match them.
+    """
 
     def sort_key(fault):
         kind = fault.get("kind", "fault")
@@ -382,104 +406,62 @@ def add_side_faults_panel(
         return (group, severity)
 
     ordered = sorted(faults_info, key=sort_key)
-
-    dummy_img = Image.new("RGB", (10, 10))
-    dummy_draw = ImageDraw.Draw(dummy_img)
-    font = _load_font(FONT_SIZE)
-
-    max_text_w = 0
-    for fault in ordered:
-        preview = f"{fault['label']} — {fault['text']}"
-        bbox = dummy_draw.textbbox((0, 0), preview, font=font)
-        text_w = bbox[2] - bbox[0]
-        max_text_w = max(max_text_w, text_w)
+    if not ordered:
+        return
+    rows = [f"{f['label']}  {_short_fault_text(f)}" for f in ordered]
 
     img_h, img_w = annotated.shape[:2]
+    max_w = img_w - start_x * 2
+    swatch_w, icon_d, gap = 44, 34, 14
 
-    panel_w = max(420, max_text_w + padding * 2 + 200)
-
-    # límite derecho con margen de 12 px
-    max_allowed_w = img_w - start_x - 12
-
-    # clamp del ancho
-    panel_w = min(panel_w, max_allowed_w)
-
+    measure = ImageDraw.Draw(Image.new("RGB", (10, 10)))
+    size = FONT_SIZE
+    while True:
+        font = _load_font(size)
+        text_w = max(measure.textlength(r, font=font) for r in rows)
+        panel_w = int(padding * 2 + swatch_w + gap + text_w + gap + icon_d)
+        if panel_w <= max_w or size <= 20:
+            break
+        size -= 2
+    panel_w = min(panel_w, max_w)
     panel_h = padding * 2 + line_h * len(ordered)
 
-    draw_panel(
-        annotated,
-        start_x,
-        start_y,
-        panel_w,
-        panel_h,
-        color=(0, 0, 0),
-    )
+    base = Image.fromarray(cv2.cvtColor(annotated, cv2.COLOR_BGR2RGB)).convert("RGBA")
+    layer = Image.new("RGBA", base.size, (0, 0, 0, 0))
+    d = ImageDraw.Draw(layer)
+    d.rounded_rectangle((start_x, start_y, start_x + panel_w, start_y + panel_h), radius=18, fill=(0, 0, 0, 190))
 
-    pil_img = Image.fromarray(cv2.cvtColor(annotated, cv2.COLOR_BGR2RGB))
-    draw = ImageDraw.Draw(pil_img)
+    ok_rgb, bad_rgb = (46, 204, 113), (231, 76, 60)
+    icon_font = _load_font(int(icon_d * 0.8))
 
-    y = start_y + padding + 24
+    for i, fault in enumerate(ordered):
+        cy = start_y + padding + line_h * i + line_h // 2
+        line_rgb = bgr_to_rgb(fault.get("color", BLUE))
+        x = start_x + padding
 
-    for fault in ordered:
-        kind = fault.get("kind", "fault")
-        label = f"{fault['label']} - {fault['text']}"
-        font = _load_font(FONT_SIZE)
-
-        # Use the same vertical center for icon and text
-        row_center_y = y
-        icon_size = 20
-        icon_x = start_x + padding
-        icon_y = row_center_y - icon_size // 2
-
-        if kind == "info":
-            color_bgr = fault.get("color", BLUE)
-            color_rgb = bgr_to_rgb(color_bgr)
-            style = fault.get("style", "solid")
-
-            marker_x1 = icon_x
-            marker_x2 = marker_x1 + 28
-            marker_y = row_center_y
-
-            if style == "dashed":
-                dash = 5
-                gap = 3
-                x = marker_x1
-                while x < marker_x2:
-                    x_end = min(x + dash, marker_x2)
-                    draw.line((x, marker_y, x_end, marker_y), fill=color_rgb, width=3)
-                    x += dash + gap
-            else:
-                draw.line((marker_x1, marker_y, marker_x2, marker_y), fill=color_rgb, width=3)
-
-            draw.text(
-                (marker_x2 + 10, row_center_y - 18),
-                label,
-                font=font,
-                stroke_width=1,
-                fill=color_rgb,
-            )
-
+        # swatch in the colour of the matching line on the body (dashed if the line is dashed)
+        if fault.get("style") == "dashed":
+            xx = x
+            while xx < x + swatch_w:
+                d.line((xx, cy, min(xx + 10, x + swatch_w), cy), fill=line_rgb, width=7)
+                xx += 16
         else:
-            is_pass = fault.get("pass", True)
-            color_bgr = (0, 255, 0) if is_pass else (0, 0, 255)
-            color_rgb = bgr_to_rgb(color_bgr)
+            d.line((x, cy, x + swatch_w, cy), fill=line_rgb, width=7)
 
-            if is_pass:
-                draw_check(draw, icon_x, icon_y, color_rgb)
+        text_x = x + swatch_w + gap
+        d.text((text_x, cy), rows[i], font=font, fill=(255, 255, 255), anchor="lm")
+
+        if fault.get("kind") != "info":
+            ix = start_x + panel_w - padding - icon_d
+            passed = fault.get("pass", True)
+            d.ellipse((ix, cy - icon_d // 2, ix + icon_d, cy + icon_d // 2), fill=ok_rgb if passed else bad_rgb)
+            if passed:  # tick drawn with lines (the font has no tick glyph)
+                d.line((ix + 8, cy, ix + 15, cy + 7, ix + 27, cy - 8), fill=(255, 255, 255), width=5, joint="curve")
             else:
-                draw_cross(draw, icon_x, icon_y, color_rgb)
+                d.text((ix + icon_d / 2, cy), "!", font=icon_font, fill=(255, 255, 255), anchor="mm")
 
-            draw.text(
-                (icon_x + 40, row_center_y - 18),
-                label,
-                font=font,
-                stroke_width=1,
-                fill=bgr_to_rgb(fault.get("color")),
-            )
-
-        y += line_h
-
-    annotated[:] = cv2.cvtColor(np.array(pil_img), cv2.COLOR_RGB2BGR)
+    out = Image.alpha_composite(base, layer).convert("RGB")
+    annotated[:] = cv2.cvtColor(np.array(out), cv2.COLOR_RGB2BGR)
 
 
 def _fmt_angle(value):
@@ -523,8 +505,20 @@ def annotate_frame_front(
     valgus_severity = rep_data["stability_data"]["valgus_severity"]
 
     valgus_distance = rep_data["stability_data"]["knee_valgus_distance"]
+
+    if depth_angle is None:
+        pass  # no measurement: handled below (row and label are skipped)
+    elif depth_angle <= 90:
+        depth_classification = "Excellent"
+    elif depth_angle <= 105:
+        depth_classification = "Good"
     
 
+    # A measurement can be missing for the worst rep. Show nothing for it instead of crashing.
+    dorsiflexion_status = dorsiflexion_status or "unknown"
+    depth_classification = depth_classification or "unknown"
+    back_label = back_label or "unknown"
+    valgus_severity = valgus_severity or "unknown"
     faults_info = [
         {
             "label": "Dorsiflexion",
@@ -560,6 +554,8 @@ def annotate_frame_front(
     ]
 
     
+    faults_info = [f for f in faults_info if not f["text"].lower().startswith("unknown")]
+
     annotated = draw_dorsiflexion_status_label(
             annotated,
             frame_info["norm_pose"],
@@ -654,6 +650,10 @@ def annotate_frame_side(
     back_angle_value = rep_data["back_data"]["back_angle_at_bottom"]
     
 
+    # A measurement can be missing for the worst rep. Show nothing for it instead of crashing.
+    dorsiflexion_status = dorsiflexion_status or "unknown"
+    depth_classification = depth_classification or "unknown"
+    back_label = back_label or "unknown"
     faults_info = [
         {
             "label": "Dorsiflexion",
@@ -682,6 +682,8 @@ def annotate_frame_side(
     ]
 
     
+    faults_info = [f for f in faults_info if not f["text"].lower().startswith("unknown")]
+
     annotated = draw_dorsiflexion_status_label(
             annotated,
             frame_info["norm_pose"],
@@ -751,12 +753,26 @@ def overlay_frame(frame, frame_info, camera_view, rep_data, output_filename):
         f"{output_filename}.jpg"
     )
 
-    cv2.imwrite(output_path, annotated_worst_frame)
+    MAX_SIZE = 500 * 1024
 
-    return annotated_worst_frame
+    quality = 95
+
+    while quality >= 40:
+        cv2.imwrite(
+            output_path,
+            annotated_worst_frame,
+            [cv2.IMWRITE_JPEG_QUALITY, quality]
+        )
+
+        if os.path.getsize(output_path) <= MAX_SIZE:
+            break
+
+        quality -= 5
+
+    return annotated_worst_frame, output_path
 
 
-def extract_worst_frame(video_url, analysis_path, rep_frames, bio_json):
+def extract_worst_frame(video_url, score_list, rep_frames, bio_json):
     """
     Extract and visualize the most critical frame from the worst rep.
 
@@ -764,14 +780,12 @@ def extract_worst_frame(video_url, analysis_path, rep_frames, bio_json):
         video_url (str):
             The URL of the video.
 
-        analysis_path (str):
+        score_list (list[dict]):
             Path to the JSON analysis file containing the
             detected worst rep and critical problem.
 
         rep_frames (list[dict]):
-            List of stored frame dictionaries collected during
-            video processing. Each frame contains pose landmarks,
-            biomechanical metrics, and metadata.
+            List of the scores of the frames.
 
         output_filename (str):
             The name of the file output.
@@ -788,14 +802,7 @@ def extract_worst_frame(video_url, analysis_path, rep_frames, bio_json):
         dominant_camera_view:
             The dominant camera view in all the frames of the worst rep
     """
-
-    with open(analysis_path, "r") as f:
-        json_analysis = json.load(f)
-
-    
-    worst_rep_index = json_analysis["db_output"]["worst_rep_index"]
-    worse_rep = json_analysis["db_output"]["rep_scores"][worst_rep_index]["rep_number"]
-
+    worse_rep = min(score_list, key=lambda x: x["form_score"])["rep_number"]
 
     filtered_frames_worse_rep = [
         frame
@@ -805,16 +812,13 @@ def extract_worst_frame(video_url, analysis_path, rep_frames, bio_json):
 
     dominant_camera_view = get_dominant_camera_view_worst_frame(filtered_frames_worse_rep)
 
-    if "side" in dominant_camera_view:
-        filtered_frame_critical = min(
-            filtered_frames_worse_rep,
-            key=lambda x: x.get("knee_angle", float("inf"))
-        )
-    else:
-        filtered_frame_critical = min(
-            filtered_frames_worse_rep,
-            key=lambda x: x.get("hip_angle", float("inf"))
-        )
+    # Deepest point of the rep = smallest knee angle, in every camera view. This is the same moment the
+    # analysis uses for its "at bottom" numbers (depth, back lean, ankle), so picture and numbers match.
+    # (Using the smallest hip angle for non-side views used to pick a mid-stand frame.)
+    filtered_frame_critical = min(
+        filtered_frames_worse_rep,
+        key=lambda x: x.get("knee_angle") if x.get("knee_angle") is not None else float("inf")
+    )
 
     
     cap = cv2.VideoCapture(video_url)
@@ -885,6 +889,8 @@ def draw_dorsiflexion_status_label(
     if ankle is None or knee is None:
         return annotated
 
+    if str(dorsiflexion_status or "unknown").strip().lower() == "unknown":
+        return annotated
     status = str(dorsiflexion_status or "").strip().lower()
 
     if status not in ("good", "excellent"):
@@ -900,7 +906,7 @@ def draw_dorsiflexion_status_label(
     text_y = int((ay + ky) / 2)
 
     if camera_view == "side_left":
-        chip_width = 170
+        chip_width = CHIP_W
         right_padding = 12
 
         text_x = width - chip_width - right_padding
@@ -911,7 +917,7 @@ def draw_dorsiflexion_status_label(
         text_y,
         prefix="Dorsiflexion",
         status=status,
-        font_size=25,
+        font_size=CHIP_FONT_SIZE,
         color=(255, 220, 0),
         camera_view=camera_view
     )
@@ -961,6 +967,8 @@ def draw_depth_status_label(
     if hip is None or knee is None:
         return annotated
 
+    if str(depth_classification or "unknown").strip().lower() == "unknown":
+        return annotated
     status = str(depth_classification or "").strip()
 
     _, ky = knee
@@ -969,7 +977,7 @@ def draw_depth_status_label(
     text_y = ky - 35
 
     if camera_view == "side_left":
-        chip_width = 170
+        chip_width = CHIP_W
         right_padding = 12
 
         text_x = width - chip_width - right_padding
@@ -980,7 +988,7 @@ def draw_depth_status_label(
         text_y,
         prefix="Depth",
         status=status or "Warning",
-        font_size=25,
+        font_size=CHIP_FONT_SIZE,
         color=(0, 220, 0),
         camera_view=camera_view
     )
@@ -1033,6 +1041,8 @@ def draw_back_status_label(
     if hip is None or shoulder is None:
         return annotated
 
+    if str(back_label or "unknown").strip().lower() == "unknown":
+        return annotated
     status = str(back_label or "").strip()
 
     _, hy = hip
@@ -1042,7 +1052,7 @@ def draw_back_status_label(
     text_y = int((hy + sy) / 2) - 100
 
     if camera_view == "side_left":
-        chip_width = 170
+        chip_width = CHIP_W
         right_padding = 12
 
         text_x = width - chip_width - right_padding
@@ -1054,7 +1064,7 @@ def draw_back_status_label(
         text_y,
         prefix="Back",
         status=status,
-        font_size=25,
+        font_size=CHIP_FONT_SIZE,
         color=(0, 255, 255),
         camera_view=camera_view
     )
@@ -1083,9 +1093,11 @@ def draw_valgus_status_label(
     if not knee_points:
         return annotated
 
+    if valgus_label is None:
+        return annotated
     status = valgus_label
 
-    chip_width = 170
+    chip_width = CHIP_W
     right_padding = 12
 
     text_x = width - chip_width - right_padding
@@ -1097,7 +1109,7 @@ def draw_valgus_status_label(
         text_y,
         prefix="Knee Tracking",
         status="Good" if status else "Warning",
-        font_size=25,
+        font_size=CHIP_FONT_SIZE,
         color=KNEE_POINT_COLOR,
         camera_view=camera_view
     )
@@ -1109,7 +1121,7 @@ def draw_label_with_warning_chip(
     text_y,
     prefix,
     status,
-    font_size=25,
+    font_size=CHIP_FONT_SIZE,
     color=None,
     camera_view=None
 ):
@@ -1169,8 +1181,8 @@ def draw_label_with_warning_chip(
     status_fill = red_rgb if status_lower == "warning" else black_rgb
     status_text_color = white_rgb
 
-    box_w = 170
-    box_h = 40
+    box_w = CHIP_W
+    box_h = CHIP_H
     gap = 6
 
     prefix_text = prefix
@@ -1183,8 +1195,8 @@ def draw_label_with_warning_chip(
         green_rgb if status_lower in ("good", "excellent") else white_rgb
     )
 
-    box_w = 180
-    box_h = 40
+    box_w = CHIP_W
+    box_h = CHIP_H
     gap = 6
 
         # prefix on top

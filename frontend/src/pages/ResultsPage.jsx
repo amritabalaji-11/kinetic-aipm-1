@@ -566,6 +566,7 @@ export default function ResultsPage() {
   const [selectedLiveSessionId,   setSelectedLiveSessionId]   = useState("")
   const [selectedLiveSessionData, setSelectedLiveSessionData] = useState(null)
   const [liveCurrentData,  setLiveCurrentData]  = useState(null)
+  const [framePending,    setFramePending]    = useState(false) // annotated picture still being made
   const [liveCompData,     setLiveCompData]      = useState(null)
   const [userAnnotatedFrameUrl, setUserAnnotatedFrameUrl] = useState(null)
   const [formHistory, setFormHistory] = useState([])
@@ -657,6 +658,36 @@ export default function ResultsPage() {
       setLiveCompData(null)
     }
   }, [state?.analysisId])
+
+  // The annotated picture is made in the background after the coaching text is ready.
+  // Until it exists, show a placeholder and check every 3 seconds (up to ~90 seconds).
+  const hasLiveFrame = !!liveCurrentData?.annotated_frame_url
+  useEffect(() => {
+    const id = state?.analysisId
+    if (!id || !liveCurrentData || hasLiveFrame || id === "dev-test") { setFramePending(false); return }
+    let cancelled = false
+    let tries = 0
+    setFramePending(true)
+    const timer = setInterval(async () => {
+      tries += 1
+      try {
+        const r = await apiFetch(`${BASE_URL}/analysis/${id}`)
+        if (r.ok) {
+          const rec = await r.json()
+          const url = rec.haiku_call_1?.annotated_frame_url || rec.analysis?.annotated_frame_url
+          if (url && !cancelled) {
+            setLiveCurrentData(prev => prev ? { ...prev, annotated_frame_url: url } : prev)
+            setLiveCompData(prev => prev ? { ...prev, current: { ...prev.current, annotated_frame_url: url } } : prev)
+            setFramePending(false)
+            clearInterval(timer)
+            return
+          }
+        }
+      } catch (_) {}
+      if (tries >= 30 && !cancelled) { setFramePending(false); clearInterval(timer) }
+    }, 3000)
+    return () => { cancelled = true; clearInterval(timer) }
+  }, [state?.analysisId, !!liveCurrentData, hasLiveFrame])
 
   async function handleLoadLiveSession(sessionId) {
     if (!sessionId) {
@@ -846,18 +877,17 @@ export default function ResultsPage() {
           // If we have at least 1 previous session result
           if (sameExerciseResults.length >= 1) {
             // Get the most appropriate previous result
-            let prevResult
-            if (sameExerciseResults.length >= 2) {
-              // If we have multiple same-exercise results, use the second one
-              prevResult = sameExerciseResults[1]
-            } else {
-              // If we only have one result (from fallback), use it
+            // Newest session (the list is newest first) that is not the one we are looking at
+            let prevResult = sameExerciseResults.find(r => r.analysis_id !== sessionId)
+            if (!prevResult && sameExerciseResults.length === 1 && sameExerciseResults[0].analysis_id !== sessionId) {
               prevResult = sameExerciseResults[0]
             }
+            if (!prevResult) prevResult = null
             // Now fetch the full previous analysis to get all haiku data
-            const fullPrevRes = await apiFetch(`${BASE_URL}/analysis/${prevResult.analysis_id}`)
+            const fullPrevRes = prevResult ? await apiFetch(`${BASE_URL}/analysis/${prevResult.analysis_id}`) : { ok: false }
             if (fullPrevRes.ok) {
               previousAnalysis = await fullPrevRes.json()
+              previousAnalysis.history_image_url = prevResult.image_url || null
               // Map tempo → range_of_motion if tempo is present but range_of_motion is missing
               if (previousAnalysis?.haiku_call_1?.tempo_score && !previousAnalysis?.haiku_call_1?.range_of_motion_score) {
                 previousAnalysis.haiku_call_1.range_of_motion_score = previousAnalysis.haiku_call_1.tempo_score
@@ -971,7 +1001,7 @@ export default function ResultsPage() {
           movement_quality_score: compPrevMQ,
           range_of_motion_score:  compPrevROM,
           reps:                   parsedPreviousReps,
-          annotated_frame_url:    previousAnalysis?.annotated_frame_urls?.[0] ?? previousAnalysis?.analysis?.annotated_frame_url ?? previousAnalysis?.annotated_frame_url ?? comp2PreviousScores.annotated_frame_url ?? null,
+          annotated_frame_url:    previousAnalysis?.haiku_call_1?.annotated_frame_url || previousAnalysis?.history_image_url || previousAnalysis?.analysis?.annotated_frame_url || previousAnalysis?.annotated_frame_url || comp2PreviousScores.annotated_frame_url || null,
         },
         comparison_coaching: {
           summary_paragraph:
@@ -1039,7 +1069,11 @@ export default function ResultsPage() {
     console.log("💾 Full data object keys:", Object.keys(data).slice(0, 20))
   }, [data, liveCurrentData, state?.analysisResult, devFixture, summary, params, coaching])
 
-  const videoSrc    = state?.videoPreviewUrl || (data.video_url ? `${BASE_URL}/${data.video_url}` : null)
+  // The server sends a 15-minute viewing link (https://...) for the saved video. Prefer it: the browser-only
+  // preview link from the upload screen stops working after a page reload, which gave a black box.
+  const videoSrc    = data.video_url?.startsWith("http")
+    ? data.video_url
+    : (state?.videoPreviewUrl || (data.video_url ? `${BASE_URL}/${data.video_url}` : null))
   const frameSrc    = data.annotated_frame_url
     ? (function() {
         if (data.annotated_frame_url.startsWith('http')) return data.annotated_frame_url
@@ -1173,8 +1207,10 @@ export default function ResultsPage() {
                     };
 
                     // In Progression tab, prioritize form reference images for consistency
-                    const prevImageUrl = getPreviousFormImage(compPrevious?.weight_value || null);
-                    const currImageUrl = getCurrentFormImage(compCurrent?.weight_value || null);
+                    // Real annotated pictures first. The sample photos are only for the demo profiles.
+                    const isDemoProfile = ["user_001", "user_002", "user_003"].includes(userId)
+                    const prevImageUrl = compPrevious?.annotated_frame_url || (isDemoProfile ? getPreviousFormImage(compPrevious?.weight_value || null) : null);
+                    const currImageUrl = compCurrent?.annotated_frame_url || (isDemoProfile ? getCurrentFormImage(compCurrent?.weight_value || null) : null);
 
                     console.log("🖼️ Comparison Frame URLs:", {
                       prevImageUrl,
@@ -1183,8 +1219,8 @@ export default function ResultsPage() {
                       currWeight: compCurrent.weight_value
                     })
 
-                    const getPreviousFallback = () => getPreviousFormImage();
-                    const getCurrentFallback = () => getCurrentFormImage();
+                    const getPreviousFallback = () => (isDemoProfile ? getPreviousFormImage() : null);
+                    const getCurrentFallback = () => (isDemoProfile ? getCurrentFormImage() : null);
 
                     return (
                       <>
@@ -1537,6 +1573,11 @@ export default function ResultsPage() {
                         <svg className="w-5 h-5" fill="currentColor" viewBox="0 0 24 24"><path d="M7 14c-1.66 0-3 1.34-3 3 0 1.31-1.16 2-2 2s-2-.69-2-2c0-2.61 2.91-5 5-5 1.31 0 2 1.16 2 2s-.69 2-2 2zm13.71-9.71L19 6.41V3h-3v2h2.59L13 9.59 15.59 12 21 6.41V9h2V4h-5V1h-3v4h2.59z"/></svg>
                       </button>
                     </>
+                  ) : framePending ? (
+                    <div className="h-52 flex flex-col items-center justify-center gap-3" style={{ background: "#0f0f1a", borderRadius: "1rem" }}>
+                      <div className="w-8 h-8 rounded-full animate-spin" style={{ border: "3px solid rgba(20,184,166,0.25)", borderTopColor: "#14b8a6" }} />
+                      <p className="text-xs text-gray-400">Preparing your annotated frame…</p>
+                    </div>
                   ) : !isUser001 && !isUser002 && videoSrc ? (
                     <VideoPlayer src={videoSrc} />
                   ) : (

@@ -19,7 +19,7 @@ def safe_json(val):
 
 
 @router.get("/analysis/{analysis_id}")
-async def get_analysis(analysis_id: str):
+async def get_analysis(analysis_id: str, current_user: str = Depends(get_current_user_id)):
 
     # =====================================================
     # 1. BASE SESSION
@@ -33,7 +33,8 @@ async def get_analysis(analysis_id: str):
         {"analysis_id": analysis_id}
     )
 
-    if not analysis:
+    # someone else's analysis looks exactly like one that doesn't exist
+    if not analysis or analysis["user_id"] != current_user:
         raise HTTPException(status_code=404, detail="Analysis not found")
 
     analysis = dict(analysis)

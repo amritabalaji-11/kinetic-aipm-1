@@ -1,12 +1,13 @@
 import json
-from fastapi import APIRouter, HTTPException
+from fastapi import APIRouter, Depends, HTTPException
 from db.database import db
+from utils.security import get_current_user_id
 
 router = APIRouter()
 
 
 @router.get("/results/{session_id}")
-async def get_results(session_id: str):
+async def get_results(session_id: str, _viewer: str = Depends(get_current_user_id)):
     try:
         async with db.connection() as conn:
             # Query session data joined with results and progression tables
