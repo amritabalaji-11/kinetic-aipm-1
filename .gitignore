@@ -2,6 +2,7 @@
 .env
 secrets/
 *.json
+!frontend/vercel.json
 venv
 __pycache__
 backend/credentials/
