@@ -19,7 +19,7 @@ export function HeroCard({ suggestion, onStart, onDetails, onNext, canCycle }) {
   if (!suggestion) return null
   const { plan, reason } = suggestion
   return (
-    <div style={{ borderRadius: 20, padding: 18, background: GRADIENT, color: "#fff", boxShadow: "0px 8px 24px rgba(129,51,255,0.25)" }}>
+    <div style={{ borderRadius: 20, padding: 18, background: "linear-gradient(100deg, #0284C7 0%, #5E45E8 55%, #7A2CE0 100%)", border: "1.5px solid rgba(255,255,255,0.85)", color: "#fff", boxShadow: "0px 12px 28px rgba(76,29,149,0.38)" }}>
       <div style={{ fontFamily: DM_SANS, fontSize: 11, fontWeight: 700, letterSpacing: 0.6, opacity: 0.85 }}>SUGGESTED FOR YOU</div>
       <div style={{ fontFamily: BRICOLAGE, fontWeight: 700, fontSize: 22, lineHeight: 1.2, margin: "6px 0 4px" }}>{plan.title}</div>
       <div style={{ fontFamily: DM_SANS, fontSize: 13, opacity: 0.95 }}>{headline(plan)} · {styleLine(plan)}</div>
@@ -85,7 +85,7 @@ export function Shelf({ title, subtitle, plans, onOpen, onSeeAll, lastDoneOf }) 
           {subtitle && <span style={{ fontFamily: DM_SANS, fontSize: 12, color: GRAY }}>{subtitle}</span>}
         </div>
         {onSeeAll && (
-          <button type="button" onClick={onSeeAll} style={{ padding: 0, background: "none", border: "none", color: PURPLE, fontFamily: DM_SANS, fontSize: 13, fontWeight: 600, cursor: "pointer" }}>
+          <button type="button" onClick={onSeeAll} style={{ padding: 0, background: "none", border: "none", color: "#6A1FD6", fontFamily: DM_SANS, fontSize: 13, fontWeight: 700, cursor: "pointer" }}>
             See all
           </button>
         )}

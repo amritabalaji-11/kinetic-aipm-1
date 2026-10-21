@@ -4,6 +4,7 @@ import { ChevronRight, Plus, Search, SlidersHorizontal, X } from "lucide-react"
 import { PRESET_CATEGORIES, PRESET_WORKOUTS } from "../data/presetWorkouts"
 import { getMyWorkouts } from "../utils/myWorkouts"
 import { listWorkouts } from "../services/workoutService"
+import { TOP_FADE_BACKGROUND } from "../utils/pageBackground"
 import { lastDoneText, matchesQuery, planProfile, suggestions, trainingHistory } from "../utils/planProfile"
 import { FilterSheet, HeroCard, PlanCard, PreviewSheet, Shelf } from "../components/PlanDiscovery"
 
@@ -11,6 +12,7 @@ const GRADIENT = "linear-gradient(92.52deg, #0284C7 0%, #9747FF 100%)"
 const BRICOLAGE = "'Bricolage Grotesque', sans-serif"
 const DM_SANS = "'DM Sans', sans-serif"
 const PREFS_KEY = "plan_screen_prefs"
+const LINK_PURPLE = "#6A1FD6" // a little darker than the brand purple so text links stay readable on the gradient
 
 // "Cardio & sweat" isn't a body area, so it is added to the chips from the data file
 const FOCUS = [...PRESET_CATEGORIES, { id: "cardio", label: "Cardio & sweat", icon: null }]
@@ -27,8 +29,8 @@ function CategoryChip({ category, active, onClick }) {
         borderRadius: 32, cursor: "pointer", fontFamily: DM_SANS, fontSize: 14,
         fontWeight: active ? 600 : 400,
         color: active ? "#FFFFFF" : "#0F172A",
-        background: active ? GRADIENT : "transparent",
-        border: active ? "1px solid transparent" : "1px solid #D3D3D3",
+        background: active ? GRADIENT : "rgba(255,255,255,0.78)",
+        border: active ? "1px solid transparent" : "1px solid rgba(129,51,255,0.28)",
       }}
     >
       {category.icon && (
@@ -107,7 +109,7 @@ export default function PlanPage() {
   const cardio = PRESET_WORKOUTS.filter((p) => ["cardio", "sweat"].includes(planProfile(p).goal))
 
   return (
-    <div style={{ minHeight: "100vh", background: "#F0EFFE", padding: "24px 24px 140px 24px" }}>
+    <div style={{ minHeight: "100vh", background: TOP_FADE_BACKGROUND, colorScheme: "light", padding: "24px 24px 140px 24px" }}>
       <h1 style={{ fontSize: 24, fontWeight: 600, fontFamily: BRICOLAGE, color: "#0F172A", margin: "0 0 6px 0" }}>
         Today, I’m in the mood for…
       </h1>
@@ -198,7 +200,7 @@ export default function PlanPage() {
             <span style={{ fontFamily: DM_SANS, fontSize: 12, fontWeight: 600, color: "#64748B" }}>
               {visible.length} WORKOUT{visible.length === 1 ? "" : "S"}
             </span>
-            <button type="button" onClick={clearAll} style={{ padding: 0, background: "none", border: "none", color: "#8133FF", fontFamily: DM_SANS, fontSize: 13, fontWeight: 600, cursor: "pointer" }}>
+            <button type="button" onClick={clearAll} style={{ padding: 0, background: "none", border: "none", color: LINK_PURPLE, fontFamily: DM_SANS, fontSize: 13, fontWeight: 700, cursor: "pointer" }}>
               Clear all
             </button>
           </div>
