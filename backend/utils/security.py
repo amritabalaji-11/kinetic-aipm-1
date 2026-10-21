@@ -1,7 +1,8 @@
+import os
 import uuid
 from datetime import datetime, timedelta, timezone
 
-from fastapi import Depends, HTTPException, status
+from fastapi import Depends, HTTPException, Request, status
 from fastapi.security import HTTPBearer, HTTPAuthorizationCredentials
 from jose import jwt, JWTError
 from passlib.context import CryptContext
@@ -59,3 +60,44 @@ def require_same_user(requested_user_id: str, current_user_id: str) -> None:
 
 def new_uuid() -> str:
     return str(uuid.uuid4())
+
+
+def client_ip(request: Request) -> str:
+    """The visitor's real address. On Cloud Run every request arrives through Google's proxy, so
+    request.client is the proxy for everybody; the real address is the last entry of X-Forwarded-For
+    (added by Google, so a visitor can't fake it). Only trusted when running on Cloud Run (K_SERVICE is set)."""
+    if os.getenv("K_SERVICE"):
+        forwarded = request.headers.get("x-forwarded-for", "")
+        parts = [p.strip() for p in forwarded.split(",") if p.strip()]
+        if parts:
+            return parts[-1]
+    return request.client.host if request.client else "unknown"
+
+
+# Demo (guest) accounts can use features that cost money, but only a few times a day.
+# Kept in memory, so it resets when the server restarts; real accounts are not limited.
+_GUEST_USAGE: dict[tuple[str, str, str], int] = {}
+
+
+def limit_guest(action: str, per_day: int):
+    """Like get_current_user_id, but demo accounts get at most `per_day` uses of `action` a day."""
+
+    async def dependency(
+        credentials: HTTPAuthorizationCredentials | None = Depends(bearer_scheme),
+    ) -> str:
+        user_id = await get_current_user_id(credentials)
+        payload = jwt.get_unverified_claims(credentials.credentials)  # already verified just above
+        if payload.get("guest"):
+            today = datetime.now(timezone.utc).date().isoformat()
+            for key in [k for k in _GUEST_USAGE if k[2] != today]:  # forget yesterday's counts
+                del _GUEST_USAGE[key]
+            key = (user_id, action, today)
+            if _GUEST_USAGE.get(key, 0) >= per_day:
+                raise HTTPException(
+                    status_code=status.HTTP_429_TOO_MANY_REQUESTS,
+                    detail=f"Demo accounts are limited to {per_day} {action} a day. Sign in to keep going.",
+                )
+            _GUEST_USAGE[key] = _GUEST_USAGE.get(key, 0) + 1
+        return user_id
+
+    return dependency
