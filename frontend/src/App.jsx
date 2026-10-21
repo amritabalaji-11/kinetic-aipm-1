@@ -22,7 +22,7 @@ import ActiveWorkoutPage from "./pages/ActiveWorkoutPage"
 
 function Layout({ children }) {
   return (
-    <div className="min-h-screen" style={{ background: "#f0eeff" }}>
+    <div className="min-h-screen" style={{ background: "#F0EFFE" }}>
       <div className="mx-auto pb-24" style={{ maxWidth: 430 }}>
         <NavBar />
         <main className="min-h-screen" style={{ background: "white" }}>

@@ -1,3 +1,4 @@
+import { TOP_FADE_BACKGROUND } from "../utils/pageBackground"
 import { useNavigate } from "react-router-dom"
 import { useUser } from "../context/UserContext"
 
@@ -39,7 +40,7 @@ export default function ProfilePage() {
 
   return (
     <div className="min-h-screen" style={{
-      background: "radial-gradient(ellipse at 0% 0%, #F5DAD3 0%, transparent 55%), radial-gradient(ellipse at 100% 15%, #BCABFF 0%, transparent 65%), radial-gradient(ellipse at 55% 50%, #D2CAFE 0%, transparent 60%), radial-gradient(ellipse at 30% 100%, #BBEEE8 0%, transparent 40%), radial-gradient(ellipse at 100% 100%, #BBEEE8 0%, transparent 40%), #F0EEFF",
+      background: TOP_FADE_BACKGROUND,
       colorScheme: "light"
     }}>
       <div className="pb-8">

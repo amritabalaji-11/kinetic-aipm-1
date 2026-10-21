@@ -1,3 +1,4 @@
+import { TOP_FADE_BACKGROUND } from "../utils/pageBackground"
 import { useEffect, useState } from "react"
 import { apiFetch } from "../services/api"
 import { useNavigate } from "react-router-dom"
@@ -167,7 +168,7 @@ export default function HomePage() {
   }, [])
 
   return (
-    <div style={{ background: "#F4F2FA", colorScheme: "light", minHeight: "100vh", paddingBottom: "140px" }}>
+    <div style={{ background: TOP_FADE_BACKGROUND, colorScheme: "light", minHeight: "100vh", paddingBottom: "140px" }}>
       <style>{scanStyle}</style>
       {/* Status Bar */}
       <div style={{ padding: "21px 0px 0px", height: "50px", display: "flex", justifyContent: "space-between", alignItems: "center", paddingX: "20px" }}>
@@ -213,7 +214,7 @@ export default function HomePage() {
         {/* This Week Card */}
         <div style={{
           background: "linear-gradient(158.8deg, rgba(255, 35, 38, 0.2) 0%, rgba(151, 71, 255, 0.2) 22.39%, rgba(2, 132, 199, 0.2) 100.81%)",
-          border: "1px solid #D9CEFF",
+          border: "1.5px solid #FFFFFF", // white edge so the card stays distinct against the gradient behind it
           boxShadow: "0px 4px 20px rgba(221, 162, 255, 0.14)",
           borderRadius: "8px",
           padding: "10px",
