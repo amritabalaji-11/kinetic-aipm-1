@@ -7,7 +7,7 @@ from anthropic import (
     RateLimitError,
     BadRequestError
     )
-from db.database import db
+from db.database import db, NOW_TEXT
 from utils.sse_manager import sse_manager
 from services.errors import map_exception_to_error_code
 from utils.logging import log_job_failure
@@ -472,7 +472,7 @@ Return ONLY valid JSON matching this exact schema:
             # ── Write to progression_results ───────────────────────────────
             await db.execute(
                 """
-                INSERT OR REPLACE INTO progression_results (
+                INSERT INTO progression_results (
                     analysis_id,
                     session_id,
                     user_id,
@@ -493,6 +493,19 @@ Return ONLY valid JSON matching this exact schema:
                     :posture,    :stability,
                     :rom,        :mq
                 )
+                ON CONFLICT (analysis_id) DO UPDATE SET
+                    session_id = excluded.session_id,
+                    user_id = excluded.user_id,
+                    exercise_id = excluded.exercise_id,
+                    available = excluded.available,
+                    progression_verdict = excluded.progression_verdict,
+                    progress_direction = excluded.progress_direction,
+                    weight_recommendation = excluded.weight_recommendation,
+                    focus_this_week = excluded.focus_this_week,
+                    posture_trend = excluded.posture_trend,
+                    stability_trend = excluded.stability_trend,
+                    range_of_motion_trend = excluded.range_of_motion_trend,
+                    movement_quality_trend = excluded.movement_quality_trend
                 """,
                 values={
                     "aid":         analysis_id,
@@ -591,11 +604,11 @@ Return ONLY valid JSON matching this exact schema:
             if existing:
 
                 await db.execute(
-                    """
+                    f"""
                     UPDATE progression_results
                     SET error_code = :error_code,
                         retryable = :retryable,
-                        last_error_at = CURRENT_TIMESTAMP,
+                        last_error_at = {NOW_TEXT},
                         available = 0
                     WHERE analysis_id = :analysis_id
                     """,

@@ -5,7 +5,7 @@ from typing import Optional
 from fastapi import APIRouter, Depends, HTTPException
 from pydantic import BaseModel, Field
 
-from db.database import db
+from db.database import db, NOW_TEXT
 from utils.security import get_current_user_id
 
 router = APIRouter(prefix="/workouts", tags=["workouts"])
@@ -58,11 +58,11 @@ async def _insert_exercises(workout_id: str, user_id: str, exercises: list[Exerc
         )
         for s in ex.sets:
             await db.execute(
-                """
+                f"""
                 INSERT INTO workout_sessions_log
                     (user_id, exercise_id, exercise_name, session_id, workout_id, logged_at,
                      set_number, weight_use, weight_unit, weight_value, rep_count, set_notes)
-                VALUES (:uid, :eid, :ename, :sid, :wid, COALESCE(:logged_at, CURRENT_TIMESTAMP),
+                VALUES (:uid, :eid, :ename, :sid, :wid, COALESCE(CAST(:logged_at AS TEXT), {NOW_TEXT}),
                         :set_number, :weight, :unit, :weight, :reps, :notes)
                 """,
                 {"uid": user_id, "eid": ex.exercise_id, "ename": ex.exercise_name,

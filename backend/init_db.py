@@ -1,11 +1,81 @@
 import json
+import re
 import sqlite3
 from pathlib import Path
 
+from db.database import IS_POSTGRES, NOW_TEXT, POSTGRES_DSN
 from db.exercise_catalog import EXERCISES
 
 BASE_DIR = Path(__file__).resolve().parent
 DATABASE_PATH = BASE_DIR / "kinetic.db"
+
+
+def to_postgres(sql: str) -> str:
+    """The table definitions below are written for SQLite. This rewrites one statement for Postgres:
+    - the auto-numbering column and text-based dates become their Postgres equivalents
+    - REAL becomes DOUBLE PRECISION (Postgres REAL is only 7 digits)
+    - score columns allow decimals (SQLite let a 85.5 into an INTEGER column; Postgres refuses it)
+    - "must point at a real parent row" rules are dropped, because SQLite never enforced them for the running app
+      and some saved analyses belong to demo users that have no profile row
+    """
+    sql = sql.replace("INTEGER PRIMARY KEY AUTOINCREMENT", "BIGSERIAL PRIMARY KEY")
+    sql = re.sub(r"\bREAL\b", "DOUBLE PRECISION", sql)
+    sql = re.sub(r"\b(\w*_score)\s+INTEGER\b", r"\1 DOUBLE PRECISION", sql)
+    sql = sql.replace("DEFAULT CURRENT_TIMESTAMP", f"DEFAULT ({NOW_TEXT})")
+    sql = re.sub(r"\bTIMESTAMP NULL\b", "TEXT NULL", sql)
+    sql = re.sub(r",\s*FOREIGN KEY\s*\([^)]*\)\s*REFERENCES\s+\w+\s*\([^)]*\)(\s+ON DELETE CASCADE)?", "", sql)
+    sql = re.sub(r"\s+REFERENCES\s+\w+\s*\([^)]*\)(\s+ON DELETE CASCADE)?", "", sql)
+    return sql.replace("?", "%s")
+
+
+class _Connection:
+    """One small wrapper so init_db reads the same for SQLite (local) and Postgres (live)."""
+
+    def __init__(self):
+        if IS_POSTGRES:
+            import psycopg
+            self.conn = psycopg.connect(POSTGRES_DSN, autocommit=True)  # each statement stands alone
+        else:
+            self.conn = sqlite3.connect(DATABASE_PATH)
+            self.conn.execute("PRAGMA foreign_keys = ON;")
+        self.cursor = self.conn.cursor()
+
+    def run(self, sql, params=()):
+        self.cursor.execute(to_postgres(sql) if IS_POSTGRES else sql, params)
+
+    def run_many(self, sql, rows):
+        """Same statement for many rows. On Postgres they are sent in one batch instead of one trip each."""
+        if IS_POSTGRES:
+            self.cursor.executemany(to_postgres(sql), rows)
+        else:
+            self.cursor.executemany(sql, rows)
+
+    def existing_columns(self):
+        """{(table, column), ...} that already exist (Postgres only; one query instead of one per column)."""
+        self.cursor.execute(
+            "SELECT table_name, column_name FROM information_schema.columns WHERE table_schema = current_schema()"
+        )
+        return set(self.cursor.fetchall())
+
+    def add_column(self, table, column, definition, existing=None):
+        """Add a column if the table does not have it yet. Returns True when it was added."""
+        if IS_POSTGRES:
+            if existing is not None and (table, column) in existing:
+                return False
+            self.run(f"ALTER TABLE {table} ADD COLUMN IF NOT EXISTS {column} {to_postgres(definition)}")
+            return True
+        try:
+            self.cursor.execute(f"ALTER TABLE {table} ADD COLUMN {column} {definition}")
+            self.conn.commit()
+            return True
+        except sqlite3.OperationalError:
+            return False  # column already exists
+
+    def commit(self):
+        self.conn.commit()
+
+    def close(self):
+        self.conn.close()
 
 
 CREATE_USER_PROFILE_SQL = """
@@ -218,38 +288,79 @@ CREATE TABLE IF NOT EXISTS exercises (
 """
 
 
-def seed_exercises(cursor):
+def seed_exercises(db_):
     """Insert or update the catalogue from db/exercise_catalog.py. Safe to run on every start."""
-    for exercise_id, name, movement, equipment, groups, muscles, category, image in EXERCISES:
-        cursor.execute(
-            """
-            INSERT INTO exercises (
-                exercise_id, name, movement, equipment, muscle_group,
-                secondary_groups, muscles, category, image
-            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
-            ON CONFLICT(exercise_id) DO UPDATE SET
-                name=excluded.name, movement=excluded.movement, equipment=excluded.equipment,
-                muscle_group=excluded.muscle_group, secondary_groups=excluded.secondary_groups,
-                muscles=excluded.muscles, category=excluded.category, image=excluded.image
-            """,
-            (exercise_id, name, movement, equipment, groups[0],
-             json.dumps(groups[1:]), json.dumps(muscles), category, image),
-        )
-    cursor.execute("CREATE INDEX IF NOT EXISTS idx_exercises_muscle_group ON exercises(muscle_group)")
+    db_.run_many(
+        """
+        INSERT INTO exercises (
+            exercise_id, name, movement, equipment, muscle_group,
+            secondary_groups, muscles, category, image
+        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
+        ON CONFLICT(exercise_id) DO UPDATE SET
+            name=excluded.name, movement=excluded.movement, equipment=excluded.equipment,
+            muscle_group=excluded.muscle_group, secondary_groups=excluded.secondary_groups,
+            muscles=excluded.muscles, category=excluded.category, image=excluded.image
+        """,
+        [(exercise_id, name, movement, equipment, groups[0],
+          json.dumps(groups[1:]), json.dumps(muscles), category, image)
+         for exercise_id, name, movement, equipment, groups, muscles, category, image in EXERCISES],
+    )
+    db_.run("CREATE INDEX IF NOT EXISTS idx_exercises_muscle_group ON exercises(muscle_group)")
+
+
+# Columns added after the first version of each table. New databases get them here; older ones are topped up.
+MIGRATIONS = [
+    # form_analyses
+    ("form_analyses", "progression_output", "TEXT"),
+    ("form_analyses", "filename", "TEXT"),
+    ("form_analyses", "size_mb", "REAL"),
+    # S2-W8-01: Haiku Call 2 async job tracking fields
+    ("form_analyses", "haiku_call_2_status", "TEXT DEFAULT 'queued'"),
+    ("form_analyses", "haiku_call_2_queued_at", "TEXT"),
+    ("form_analyses", "haiku_call_2_started_at", "TEXT"),
+    ("form_analyses", "haiku_call_2_completed_at", "TEXT"),
+    ("form_analyses", "haiku_call_2_error", "TEXT"),
+
+    # user_profile
+    ("user_profiles", "annotated_frame_url", "TEXT"),
+    ("user_profiles", "progress_ladder_image_url", "TEXT"),
+
+    # form_analysis_results
+    ("form_analysis_results", "annotated_frame_url", "TEXT"),
+    ("form_analysis_results", "job_status", "TEXT DEFAULT 'queued'"),
+    ("form_analysis_results", "queued_at", "TEXT"),
+    ("form_analysis_results", "started_at", "TEXT"),
+    ("form_analysis_results", "completed_at", "TEXT"),
+    ("form_analysis_results", "haiku_call_2_output", "TEXT"),
+    ("form_analysis_results", "haiku_call_2_error", "TEXT"),
+
+    # workout_sessions_log
+    ("workout_sessions_log", "exercise_name", "TEXT"),
+    ("workout_sessions_log", "weight_value", "REAL"),
+    ("workout_sessions_log", "weight_unit", "TEXT"),
+    ("workout_sessions_log", "workout_id", "TEXT"),   # links a set to its workout (NULL for old demo rows)
+    ("workout_sessions_log", "set_notes", "TEXT"),
+
+    # workouts: the name shown in history (plan name, or what the user called it)
+    ("workouts", "name", "TEXT"),
+
+    # auth
+    ("user_profiles", "email", "TEXT"),
+    ("user_profiles", "hashed_password", "TEXT"),
+    ("user_profiles", "auth_provider", "TEXT DEFAULT 'email'"),  # 'email' | 'google' | 'apple' | 'facebook'
+    ("user_profiles", "oauth_sub", "TEXT"),   # provider's unique user id
+    ("user_profiles", "email_verified", "INTEGER DEFAULT 0"),
+]
 
 
 def init_db():
-    conn = sqlite3.connect(DATABASE_PATH)
+    db_ = _Connection()
 
-    cursor = conn.cursor()
-    
-    cursor.execute("PRAGMA foreign_keys = ON;")
-    
-    cursor.execute(CREATE_USER_PROFILE_SQL)
+    db_.run(CREATE_USER_PROFILE_SQL)
 
     # Seed the Demo User profile to prevent foreign key errors during upload fallbacks
     demo_user_id = "00000000-0000-0000-0000-000000000000"
-    cursor.execute("""
+    db_.run("""
     INSERT INTO user_profiles (
         profile_id, user_id, display_name, experience_level, annotated_frame_url, progress_ladder_image_url
     ) VALUES (?, ?, ?, ?, ?, ?)
@@ -259,131 +370,45 @@ def init_db():
         annotated_frame_url=excluded.annotated_frame_url,
         progress_ladder_image_url=excluded.progress_ladder_image_url
     """, (demo_user_id, demo_user_id, "Demo User", "Intermediate", "for demo", "for demo"))
-    
-    conn.commit()
-    print("Local SQLite database initialized with 4 tables successfully.")
+
+    db_.commit()
 
     # =====================================================
     # CREATE TABLES
     # =====================================================
 
-    cursor.execute(CREATE_FORM_ANALYSES_SQL)
-    for col, definition in [
-        ("progression_output",       "TEXT"),
-        ("filename",                 "TEXT"),
-        ("size_mb",                  "REAL"),
-        # S2-W8-01: Haiku Call 2 async job tracking fields
-        ("haiku_call_2_status",      "TEXT DEFAULT 'queued'"),
-        ("haiku_call_2_queued_at",   "TEXT"),
-        ("haiku_call_2_started_at",  "TEXT"),
-        ("haiku_call_2_completed_at","TEXT"),
-        ("haiku_call_2_error",       "TEXT"),
-    ]:
-        try:
-            cursor.execute(f"ALTER TABLE form_analyses ADD COLUMN {col} {definition}")
-            conn.commit()
-            print(f"Migrated: added {col} column.")
-        except sqlite3.OperationalError:
-            pass  # column already exists
+    db_.run(CREATE_FORM_ANALYSES_SQL)
+    db_.run(CREATE_WORKOUT_SESSIONS_LOG_SQL)
+    db_.run(CREATE_WORKOUTS_SQL)
+    db_.run(CREATE_WORKOUT_EXERCISES_SQL)
+    db_.run(CREATE_EXERCISES_SQL)
+    seed_exercises(db_)
 
-    cursor.execute(CREATE_WORKOUT_SESSIONS_LOG_SQL)
-    cursor.execute(CREATE_WORKOUTS_SQL)
-    cursor.execute(CREATE_WORKOUT_EXERCISES_SQL)
-    cursor.execute(CREATE_EXERCISES_SQL)
-    seed_exercises(cursor)
-
-    cursor.execute(CREATE_FORM_ANALYSIS_RESULTS_SQL)
-
-    cursor.execute(CREATE_PROGRESSION_RESULTS_SQL)
-
-    def seed_exercise_alignment(connection):
-        cursor = connection.cursor()
-
-        cursor.execute("""
-        UPDATE form_analysis_results
-        SET exercise_id = 'ex_goblet_squat'
-        WHERE exercise_id IS NULL OR exercise_id = ''
-        """)
-
-        cursor.execute("""
-        UPDATE form_analyses
-        SET exercise_name = 'goblet_squat'
-        WHERE exercise_name IS NULL OR exercise_name = ''
-        """)
-
-        connection.commit()
+    db_.run(CREATE_FORM_ANALYSIS_RESULTS_SQL)
+    db_.run(CREATE_PROGRESSION_RESULTS_SQL)
 
     # =====================================================
     # SAFE MIGRATIONS
     # =====================================================
 
-    migrations = [
-
-        # form_analyses
-        ("form_analyses", "progression_output", "TEXT"),
-        ("form_analyses", "filename", "TEXT"),
-        ("form_analyses", "size_mb", "REAL"),
-
-        # user_profile
-        ("user_profiles", "annotated_frame_url", "TEXT"),
-        ("user_profiles", "progress_ladder_image_url", "TEXT"),
-
-        # form_analysis_results
-        ("form_analysis_results", "annotated_frame_url", "TEXT"),
-        ("form_analysis_results", "job_status", "TEXT DEFAULT 'queued'"),
-        ("form_analysis_results", "queued_at", "TEXT"),
-        ("form_analysis_results", "started_at", "TEXT"),
-        ("form_analysis_results", "completed_at", "TEXT"),
-        ("form_analysis_results", "haiku_call_2_output", "TEXT"),
-        ("form_analysis_results", "haiku_call_2_error", "TEXT"),
-
-        # workout_sessions_log
-        ("workout_sessions_log", "exercise_name", "TEXT"),
-        ("workout_sessions_log", "weight_value", "REAL"),
-        ("workout_sessions_log", "weight_unit", "TEXT"),
-        ("workout_sessions_log", "workout_id", "TEXT"),   # links a set to its workout (NULL for old demo rows)
-        ("workout_sessions_log", "set_notes", "TEXT"),
-
-        # workouts: the name shown in history (plan name, or what the user called it)
-        ("workouts", "name", "TEXT"),
-
-          # auth
-        ("user_profiles", "email", "TEXT"),
-        ("user_profiles", "hashed_password", "TEXT"),
-        ("user_profiles", "auth_provider", "TEXT DEFAULT 'email'"),  # 'email' | 'google' | 'apple' | 'facebook'
-        ("user_profiles", "oauth_sub", "TEXT"),   # provider's unique user id
-        ("user_profiles", "email_verified", "INTEGER DEFAULT 0"),
-        ]
-
-    for table, column, definition in migrations:
-        try:
-            cursor.execute(
-                f"""
-                ALTER TABLE {table}
-                ADD COLUMN {column} {definition}
-                """
-            )
-            conn.commit()
-
+    existing = db_.existing_columns() if IS_POSTGRES else None
+    for table, column, definition in MIGRATIONS:
+        if db_.add_column(table, column, definition, existing):
             print(f"[migration] added {column} to {table}")
 
-        except sqlite3.OperationalError:
-            pass
-
-    cursor.execute("""
+    db_.run("""
     CREATE UNIQUE INDEX IF NOT EXISTS idx_user_profiles_email
     ON user_profiles(email) WHERE email IS NOT NULL
     """)
-    cursor.execute("""
+    db_.run("""
     CREATE UNIQUE INDEX IF NOT EXISTS idx_user_profiles_oauth
     ON user_profiles(auth_provider, oauth_sub) WHERE oauth_sub IS NOT NULL
     """)
-    conn.commit()
+    db_.commit()
+    db_.close()
 
-    conn.close()
+    print(f"Database initialized ({'Postgres' if IS_POSTGRES else 'SQLite'}).")
 
-    print("Database initialized.")
 
 if __name__ == "__main__":
     init_db()
-

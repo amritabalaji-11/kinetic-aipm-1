@@ -23,7 +23,10 @@ cp .env.example .env                                  # then fill in the values 
 uvicorn main:app --reload --port 8000
 ```
 
-The database (`backend/kinetic.db`) is created and updated automatically when the server starts.
+The database is created and updated automatically when the server starts. By default it is a local SQLite file
+(`backend/kinetic.db`). To use Postgres instead (this is what the live site does, because Cloud Run's own disk is wiped
+on every deploy), put its connection string in `backend/.env` as `DATABASE_URL=postgresql://...`.
+To copy your local data into an empty Postgres database once: `python3 scripts/migrate_sqlite_to_postgres.py`.
 Check it works: <http://localhost:8000/health>
 
 ### 2. Frontend

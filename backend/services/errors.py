@@ -1,5 +1,5 @@
 from json import JSONDecodeError
-from sqlite3 import IntegrityError, DatabaseError
+from db.database import INTEGRITY_ERRORS as IntegrityError, DATABASE_ERRORS as DatabaseError
 
 from anthropic import (
     APITimeoutError,

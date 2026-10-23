@@ -5,6 +5,8 @@ python-multipart
 google-cloud-storage
 databases
 aiosqlite
+asyncpg
+psycopg[binary]
 numpy
 opencv-python
 mediapipe
