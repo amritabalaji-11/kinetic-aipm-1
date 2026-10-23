@@ -47,8 +47,8 @@ Names only. The values are secret or specific to you; `backend/.env.example` and
 | `backend/.env` | `ELEVENLABS_API_KEY`, `ELEVENLABS_VOICE_ID` | Text-to-speech |
 | `backend/.env` | `GOOGLE_CLIENT_ID` | The Google sign-in client ID (see below) |
 | `backend/.env` | `JWT_SECRET` | A long random string that signs login tokens |
-| `backend/.env` | `ALLOW_DEMO_LOGIN` | `true` (default) lets "Try demo" log in as a sample profile. Set `false` in production |
-| `backend/.env` | `DEMO_PASSCODE` | The passcode people type to use "Try demo". Set it before the app is reachable from the internet; blank means no passcode |
+| `backend/.env` | `ALLOW_DEMO_LOGIN` | `true` (default) allows "Try demo" log-ins as a sample profile, but only when `DEMO_PASSCODE` is also set. Set `false` to switch demo off |
+| `backend/.env` | `DEMO_PASSCODE` | The passcode people type to use "Try demo". Leave it blank and demo log-in is off. Demo accounts are limited to 3 video uploads and 20 voice plays a day |
 | `frontend/.env` | `VITE_GOOGLE_CLIENT_ID` | The same Google client ID |
 
 Every screen except the splash needs a login (Google, or a demo guest login). The backend reads who you are from the login

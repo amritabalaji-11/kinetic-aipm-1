@@ -41,7 +41,7 @@ export default function ExercisePickerPage() {
   }
 
   return (
-    <div className="flex flex-col min-h-screen px-5 pt-14 pb-36" style={{ background: "#f5f4fb" }}>
+    <div className="flex flex-col min-h-screen px-5 pt-14 pb-36" style={{ background: "#F0EFFE" }}>
       <button onClick={() => navigate(-1)} className="flex items-center gap-1 mb-4" style={{ color: "#6C5CE7", width: "fit-content" }}>
         <ChevronLeft size={20} />
         <span className="text-sm font-medium">Back</span>

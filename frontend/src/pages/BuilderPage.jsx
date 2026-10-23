@@ -3,11 +3,12 @@ import { useLocation, useNavigate } from "react-router-dom"
 import { ArrowLeftRight, ChevronLeft, Minus, Plus, X } from "lucide-react"
 import { getExercise, equipmentLabel } from "../utils/exerciseCatalog"
 import { saveMyWorkout } from "../utils/myWorkouts"
-import { startWorkout } from "../utils/startWorkout"
+import { confirmWorkout } from "../utils/startWorkout"
+import PumpButton from "../components/PumpButton"
 import { blocksFromBuilder } from "../utils/workoutModel"
 import AddExerciseSheet from "../components/AddExerciseSheet"
 import SwapSheet from "../components/SwapSheet"
-import { BlockTag, ExerciseLine, GradientButton, PurpleDivider, RoundButton, SectionHeading, cardStyle, BRICOLAGE, DM_SANS, GRADIENT, GRAY, INK, PURPLE } from "../components/planUi"
+import { BlockTag, ExerciseLine, PurpleDivider, RoundButton, SectionHeading, cardStyle, BRICOLAGE, DM_SANS, GRADIENT, GRAY, INK, PURPLE } from "../components/planUi"
 
 let nextKey = 1
 const newItem = (exerciseId, over = {}) => ({ key: nextKey++, exerciseId, sets: 3, reps: 10, linkNext: false, ...over })
@@ -53,7 +54,7 @@ export default function BuilderPage() {
     const groups = [...new Set(items.map((i) => getExercise(i.exerciseId).muscleGroup))]
     const title = name.trim() || "My workout"
     if (saveIt) saveMyWorkout({ id: saved?.id ?? Date.now(), name: title, items: items.map((i) => ({ id: i.exerciseId, sets: i.sets, reps: i.reps, linkNext: i.linkNext })) })
-    startWorkout(navigate, { blocks: blocksFromBuilder(items), muscles: groups, presetTitle: title })
+    confirmWorkout(navigate, { blocks: blocksFromBuilder(items), muscles: groups, presetTitle: title })
   }
 
   return (
@@ -150,7 +151,7 @@ export default function BuilderPage() {
       )}
 
       <div style={{ marginTop: 16 }}>
-        <GradientButton disabled={items.length === 0} onClick={create}>Create Workout</GradientButton>
+        <PumpButton disabled={items.length === 0} onPumped={create}>Confirm today&apos;s workout</PumpButton>
         {items.length === 0 && <p style={{ fontFamily: DM_SANS, fontSize: 12, color: GRAY, margin: "8px 0 0" }}>Add at least one exercise to continue.</p>}
       </div>
 

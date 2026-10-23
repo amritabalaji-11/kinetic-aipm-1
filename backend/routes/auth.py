@@ -10,7 +10,7 @@ from schemas.auth import (
 from utils.config import ALLOW_DEMO_LOGIN, DEMO_USER_IDS, DEMO_PASSCODE
 from utils.security import (
     hash_password, verify_password, create_access_token,
-    get_current_user_id, new_uuid,
+    get_current_user_id, new_uuid, client_ip,
 )
 from utils.oauth_providers import (
     verify_google_token, verify_apple_token, verify_facebook_token,
@@ -144,17 +144,16 @@ async def demo_status():
 async def login_demo(payload: DemoLoginRequest, request: Request):
     """Guest login for the three sample profiles only (needs the demo passcode when one is set).
     The token lasts 12 hours and only ever grants access to that one sample profile's data."""
-    if not ALLOW_DEMO_LOGIN or payload.user_id not in DEMO_USER_IDS:
+    if not ALLOW_DEMO_LOGIN or payload.user_id not in DEMO_USER_IDS:  # ALLOW_DEMO_LOGIN is false whenever no passcode is set
         raise HTTPException(status_code=404, detail="Not found")
-    if DEMO_PASSCODE:
-        host = request.client.host if request.client else "unknown"
-        if len(_recent_failures(host)) >= _MAX_FAILURES:
-            raise HTTPException(status_code=429, detail="Too many wrong passcodes. Try again in a few minutes.")
-        if not payload.passcode:
-            raise HTTPException(status_code=401, detail="Demo passcode required")
-        if not secrets.compare_digest(payload.passcode.encode(), DEMO_PASSCODE.encode()):
-            _FAILED_PASSCODES.setdefault(host, []).append(time.time())
-            raise HTTPException(status_code=403, detail="Wrong demo passcode")
+    host = client_ip(request)
+    if len(_recent_failures(host)) >= _MAX_FAILURES:
+        raise HTTPException(status_code=429, detail="Too many wrong passcodes. Try again in a few minutes.")
+    if not payload.passcode:
+        raise HTTPException(status_code=401, detail="Demo passcode required")
+    if not secrets.compare_digest(payload.passcode.encode(), DEMO_PASSCODE.encode()):
+        _FAILED_PASSCODES.setdefault(host, []).append(time.time())
+        raise HTTPException(status_code=403, detail="Wrong demo passcode")
     token = create_access_token(payload.user_id, minutes=60 * 12, guest=True)
     return TokenResponse(access_token=token, user_id=payload.user_id)
 

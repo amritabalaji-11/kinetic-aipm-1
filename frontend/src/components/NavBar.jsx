@@ -13,7 +13,12 @@ function NavBar() {
   const location = useLocation()
   const path = location.pathname
 
-  const isActive = (to) => path === to
+  // A tab is lit on its own screen and on the screens that belong to it (the plan details, the commit screen and the
+  // workout in progress are all part of Plan; the Workout Logger address is History)
+  const under = (to) => path === to || path.startsWith(`${to}/`)
+  const planActive = under("/plan") || under("/workout")
+  const homeActive = path === "/home"
+  const timelineActive = under("/timeline") || path === "/workout-logger"
 
   return (
     <>
@@ -32,9 +37,9 @@ function NavBar() {
       }}
     >
       <Link
-        to="/"
+        to="/home"
         className="flex flex-col items-center gap-0.5 py-1 px-3"
-        style={{ color: isActive("/") ? "#6C5CE7" : "#9ca3af" }}
+        style={{ color: homeActive ? "#6C5CE7" : "#9ca3af" }}
       >
         <Home size={20} />
         <span className="text-xs">Home</span>
@@ -50,13 +55,13 @@ function NavBar() {
           display: "flex",
           alignItems: "center",
           justifyContent: "center",
-          background: isActive("/plan") ? "linear-gradient(92.52deg, #0284C7 0%, #9747FF 100%)" : "transparent",
-          WebkitBackgroundClip: isActive("/plan") ? "text" : "unset",
-          WebkitTextFillColor: isActive("/plan") ? "transparent" : "unset"
+          background: planActive ? "linear-gradient(92.52deg, #0284C7 0%, #9747FF 100%)" : "transparent",
+          WebkitBackgroundClip: planActive ? "text" : "unset",
+          WebkitTextFillColor: planActive ? "transparent" : "unset"
         }}>
-          <Dumbbell size={20} strokeWidth={2.5} color={isActive("/plan") ? "#0284C7" : "#9ca3af"} />
+          <Dumbbell size={20} strokeWidth={2.5} color={planActive ? "#0284C7" : "#9ca3af"} />
         </div>
-        <span className="text-xs" style={{ color: isActive("/plan") ? "#6C5CE7" : "#9ca3af" }}>Plan</span>
+        <span className="text-xs" style={{ color: planActive ? "#6C5CE7" : "#9ca3af" }}>Plan</span>
       </Link>
 
       {/* Analysis — Lifter icon with scan animation */}
@@ -113,16 +118,16 @@ function NavBar() {
       <Link
         to="/timeline"
         className="flex flex-col items-center gap-0.5 py-1 px-3"
-        style={{ color: isActive("/timeline") ? "#6C5CE7" : "#9ca3af" }}
+        style={{ color: timelineActive ? "#6C5CE7" : "#9ca3af" }}
       >
         <TrendingUp size={20} />
-        <span className="text-xs">Timeline</span>
+        <span className="text-xs">History</span>
       </Link>
 
       <Link
         to="/profile"
         className="flex flex-col items-center gap-0.5 py-1 px-3"
-        style={{ color: isActive("/profile") ? "#6C5CE7" : "#9ca3af" }}
+        style={{ color: under("/profile") ? "#6C5CE7" : "#9ca3af" }}
       >
         <User size={20} />
         <span className="text-xs">Profile</span>
