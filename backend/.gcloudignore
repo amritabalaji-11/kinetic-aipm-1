@@ -11,6 +11,10 @@ __pycache__/
 backend.log
 *.log
 
+# the local SQLite file: the live site uses Postgres (DATABASE_URL), so never bake a database into the image
+kinetic.db
+*.db
+
 # sample / test media (not needed at runtime, ~600 MB)
 *.mp4
 *.mov
