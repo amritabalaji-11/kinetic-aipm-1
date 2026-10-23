@@ -3,9 +3,9 @@ import { ChevronRight, RefreshCw } from "lucide-react"
 import { BottomSheet, Chip, FilterLabel, GradientButton, BRICOLAGE, DM_SANS, GRADIENT, GRAY, INK, PURPLE, cardStyle } from "./planUi"
 import { EQUIPMENT, GOALS, STYLES, TIMES, WEIGHT_WORDS, planProfile } from "../utils/planProfile"
 
-const minutesText = (plan) => `~${plan.minutes} min`
+const minutesText = (plan) => `about ${plan.minutes} min`
 
-// One line that says what the plan is for and how long it takes, e.g. "Build muscle · ~55 min"
+// One line that says what the plan is for and how long it takes, e.g. "Build muscle · about 55 min"
 const headline = (plan) => `${GOALS[planProfile(plan).goal].short} · ${minutesText(plan)}`
 
 // Second line: the style and typical reps, e.g. "Big lifts · 10-12 reps"
@@ -28,7 +28,7 @@ export function HeroCard({ suggestion, onStart, onDetails, onNext, canCycle }) {
       </div>
       <div style={{ display: "flex", alignItems: "center", gap: 10, marginTop: 14 }}>
         <button type="button" onClick={onStart} style={{ flex: 1, padding: "12px 16px", borderRadius: 12, border: "none", background: "#fff", color: PURPLE, fontFamily: BRICOLAGE, fontWeight: 700, fontSize: 15, cursor: "pointer" }}>
-          Start
+          Let&apos;s go
         </button>
         <button type="button" onClick={onDetails} style={{ padding: "12px 14px", borderRadius: 12, border: "1px solid rgba(255,255,255,0.6)", background: "transparent", color: "#fff", fontFamily: DM_SANS, fontWeight: 600, fontSize: 13, cursor: "pointer" }}>
           What’s inside
@@ -50,7 +50,7 @@ export function PlanCard({ plan, onOpen, lastDone, shelf = false }) {
       type="button"
       onClick={onOpen}
       style={{
-        ...(shelf ? { width: 268, flexShrink: 0, scrollSnapAlign: "start" } : { width: "100%" }),
+        ...(shelf ? { width: 312, flexShrink: 0, scrollSnapAlign: "start" } : { width: "100%" }),
         display: "flex", alignItems: "center", gap: 12, padding: 12, textAlign: "left", cursor: "pointer",
         border: "1px solid transparent", borderRadius: 14,
         background: "linear-gradient(#FFFFFF, #FFFFFF) padding-box, linear-gradient(135deg, rgba(2,132,199,0.5), rgba(151,71,255,0.5)) border-box",
@@ -166,7 +166,7 @@ export function PreviewSheet({ plan, lastDone, onStart, onClose }) {
   }).filter((s) => s.names.length)
 
   return (
-    <BottomSheet title={plan.title} onClose={onClose} footer={<GradientButton onClick={onStart}>Start workout</GradientButton>}>
+    <BottomSheet title={plan.title} onClose={onClose} footer={<GradientButton onClick={onStart}>View &amp; customise</GradientButton>}>
       <p style={{ fontFamily: DM_SANS, fontSize: 14, color: INK, margin: "0 0 8px", lineHeight: 1.4 }}>{plan.blurb}</p>
       <div style={cardStyle}>
         <Row label="Goal" value={goal.label} hint={goal.hint} />

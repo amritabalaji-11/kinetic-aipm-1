@@ -26,7 +26,7 @@ export const STYLES = {
   circuit: { label: "Circuit-style", hint: "Timed rounds of simple moves with little rest." },
 }
 
-// Time: the minutes on each plan are estimates, so the screen shows "~".
+// Time: the minutes on each plan are estimates, so the screen says "about".
 export const TIMES = {
   quick: { label: "Quick", sub: "up to 40 min" },
   standard: { label: "Standard", sub: "45-50 min" },
