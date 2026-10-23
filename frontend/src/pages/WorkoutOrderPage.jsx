@@ -87,7 +87,7 @@ export default function WorkoutOrderPage() {
   const duration = estimateDuration(exercises.length)
 
   return (
-    <div className="flex flex-col min-h-screen px-5 pt-14 pb-36" style={{ background: "#f5f4fb" }}>
+    <div className="flex flex-col min-h-screen px-5 pt-14 pb-36" style={{ background: "#F0EFFE" }}>
       <button
         onClick={() => navigate("/plan/exercises", { state: { selectedMuscles, preSelected: exercises.map(e => e.id) } })}
         className="flex items-center gap-1 mb-4"

@@ -1,12 +1,12 @@
 import { useEffect, useState } from "react"
 import { useNavigate } from "react-router-dom"
-import { ArrowLeftRight, Check, ChevronDown, ChevronRight, Plus, Timer, VideoIcon } from "lucide-react"
+import { ArrowLeftRight, BicepsFlexed, Check, ChevronDown, ChevronRight, Pause, Play, Plus, Timer, VideoIcon } from "lucide-react"
 import FormGuide from "../components/FormGuide"
 import RestTimer from "../components/RestTimer"
 import SwapSheet from "../components/SwapSheet"
 import AddExerciseSheet from "../components/AddExerciseSheet"
 import { hasGuidance } from "../data/exerciseGuidance"
-import { saveWorkout } from "../services/workoutService"
+import { addPendingWorkout, removePendingWorkout, saveWorkout } from "../services/workoutService"
 import { equipmentLabel } from "../utils/exerciseCatalog"
 import {
   allSetsTicked, currentBlockIndex, emptySet, ensureBlocks, flattenForSave, isActionable, isBlockComplete,
@@ -27,6 +27,40 @@ const readWorkout = () => {
 }
 
 const letter = (i) => String.fromCharCode(65 + i)
+
+// How long the workout has been going: 12:34, or 1:02:34 after the first hour. Ticks every second.
+const formatElapsed = (ms) => {
+  const total = Math.max(0, Math.floor(ms / 1000))
+  const h = Math.floor(total / 3600), m = Math.floor((total % 3600) / 60), s = total % 60
+  const two = (n) => String(n).padStart(2, "0")
+  return h ? `${h}:${two(m)}:${two(s)}` : `${two(m)}:${two(s)}`
+}
+
+function WorkoutClock({ workout, onToggle }) {
+  const [now, setNow] = useState(Date.now())
+  const paused = Boolean(workout.pausedAtMs)
+  // ticks while running; stops while paused, and catches up the moment you resume
+  useEffect(() => {
+    setNow(Date.now())
+    if (paused) return undefined
+    const t = setInterval(() => setNow(Date.now()), 1000)
+    return () => clearInterval(t)
+  }, [paused])
+  const startedAtMs = workout.startedAtMs ?? workout.id
+  const elapsed = (paused ? workout.pausedAtMs : now) - startedAtMs - (workout.pausedTotalMs || 0)
+  return (
+    <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
+      <div role="timer" aria-label={paused ? "Workout time, paused" : "Workout time"} style={{ display: "inline-flex", alignItems: "center", gap: 8, padding: "7px 14px", borderRadius: 999, background: "#FFFFFF", border: `1.5px solid ${paused ? "rgba(245,158,11,0.7)" : "rgba(129,51,255,0.3)"}`, boxShadow: "0px 4px 12px rgba(129,51,255,0.10)" }}>
+        <Timer size={16} color={paused ? "#D97706" : PURPLE} />
+        <span style={{ fontFamily: BRICOLAGE, fontWeight: 800, fontSize: 20, color: paused ? "#B45309" : INK, fontVariantNumeric: "tabular-nums" }}>{formatElapsed(elapsed)}</span>
+        <span style={{ fontFamily: DM_SANS, fontSize: 11, fontWeight: 700, color: paused ? "#B45309" : GRAY }}>{paused ? "PAUSED" : "WORKOUT TIME"}</span>
+      </div>
+      <button type="button" onClick={onToggle} aria-label={paused ? "Resume workout" : "Pause workout"} style={{ width: 40, height: 40, borderRadius: "50%", border: "none", cursor: "pointer", background: paused ? GRADIENT : "#FFFFFF", boxShadow: "0px 4px 12px rgba(129,51,255,0.18)", display: "flex", alignItems: "center", justifyContent: "center", outline: paused ? "none" : "1.5px solid rgba(129,51,255,0.3)" }}>
+        {paused ? <Play size={18} color="#FFFFFF" fill="#FFFFFF" /> : <Pause size={18} color={PURPLE} fill={PURPLE} />}
+      </button>
+    </div>
+  )
+}
 
 function Tag({ children, state }) {
   const bg = state === "done" ? DARK_GREEN : state === "current" ? PURPLE : "rgba(129,51,255,0.4)"
@@ -254,6 +288,14 @@ export default function ActiveWorkoutPage() {
     setAdding(false)
   }
 
+  // Pause stops the workout clock (and the time spent paused is left out of the saved duration); resume carries on
+  const togglePause = () =>
+    setWorkout((w) =>
+      w.pausedAtMs
+        ? { ...w, pausedTotalMs: (w.pausedTotalMs || 0) + (Date.now() - w.pausedAtMs), pausedAtMs: null }
+        : { ...w, pausedAtMs: Date.now() }
+    )
+
   const startRest = (note) => setRestEndsAt(Date.now() + restSecondsFromNote(note) * 1000)
 
   const finish = () => {
@@ -264,16 +306,18 @@ export default function ActiveWorkoutPage() {
     }
     const endedAtMs = Date.now()
     setCelebrate(`🎉 Great job, you had a strong ${workout.focusLabel.toLowerCase()} day!`)
-    // Save to the server. If that fails, keep a copy on this device; the Workout Logger offers to sync it later.
-    saveWorkout(toSave).catch((err) => {
-      console.error("Could not save workout to the server, keeping it on this device:", err)
-      const existing = JSON.parse(localStorage.getItem("workouts") || "[]")
-      existing.push({ ...toSave, status: "completed", endedAtMs })
-      localStorage.setItem("workouts", JSON.stringify(existing))
-    })
+    // Keep a copy on this device first, then send it. The copy is removed only once the server has the workout,
+    // so a slow or failed save is never lost: the Home and Logger screens retry it and show it meanwhile.
+    // finishing while paused: that pause ends now, so it still counts as time off
+    const pausedTotalMs = (toSave.pausedTotalMs || 0) + (toSave.pausedAtMs ? endedAtMs - toSave.pausedAtMs : 0)
+    const pending = { ...toSave, pausedTotalMs, pausedAtMs: null, status: "completed", endedAtMs }
+    addPendingWorkout(pending)
+    saveWorkout(pending)
+      .then(() => removePendingWorkout(pending.id))
+      .catch((err) => console.error("Could not reach the server yet; the workout stays on this device and will be retried:", err))
     setTimeout(() => {
       localStorage.removeItem("activeWorkout")
-      navigate("/workout-logger")
+      navigate("/timeline")
     }, 3000)
   }
 
@@ -306,9 +350,18 @@ export default function ActiveWorkoutPage() {
         </>
       )}
 
-      <div style={{ marginBottom: 10 }}>
-        <h1 style={{ fontFamily: BRICOLAGE, fontWeight: 600, fontSize: 22, color: INK, margin: "0 0 2px" }}>You got this!!</h1>
-        <p style={{ fontFamily: DM_SANS, fontSize: 14, color: GRAY, margin: 0 }}>{workout.presetTitle || `Strong ${workout.focusLabel.toLowerCase()} on your way!`}</p>
+      <div style={{ marginBottom: 12, display: "flex", alignItems: "center", gap: 12 }}>
+        <div className="ring-pulse-loop" style={{ width: 46, height: 46, borderRadius: "50%", background: GRADIENT, display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0 }}>
+          <BicepsFlexed size={24} color="#FFFFFF" strokeWidth={2.4} className="flex-arm-loop" />
+        </div>
+        <div>
+          <h1 style={{ fontFamily: BRICOLAGE, fontWeight: 800, fontSize: 22, letterSpacing: 0.3, color: INK, margin: "0 0 2px" }}>TODAY&apos;S WORKOUT</h1>
+          <p style={{ fontFamily: DM_SANS, fontSize: 14, color: GRAY, margin: 0 }}>{workout.presetTitle || `Strong ${workout.focusLabel.toLowerCase()} on your way!`}</p>
+        </div>
+      </div>
+
+      <div style={{ marginBottom: 12 }}>
+        <WorkoutClock workout={workout} onToggle={togglePause} />
       </div>
 
       <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>

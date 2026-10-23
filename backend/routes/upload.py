@@ -13,7 +13,7 @@ from fastapi import (
 )
 
 from db.database import db
-from utils.security import get_current_user_id, require_same_user
+from utils.security import limit_guest, require_same_user
 from utils.gcs import upload_file_to_gcs
 from services.pipeline_stream import run_pipeline
 
@@ -43,7 +43,7 @@ async def upload(
     user_id: str = Form(...),
     session_id: str = Form(None),
     background_tasks: BackgroundTasks = BackgroundTasks(),
-    current_user: str = Depends(get_current_user_id),
+    current_user: str = Depends(limit_guest("video uploads", 3)),  # demo accounts: 3 a day (each one costs money)
   #  background_tasks: BackgroundTasks,
   #  file: UploadFile = File(...),
   #  exercise_name: str = Form(...),

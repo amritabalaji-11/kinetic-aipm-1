@@ -3,10 +3,11 @@ import { useNavigate, useParams, Navigate } from "react-router-dom"
 import { ArrowLeftRight, ChevronLeft } from "lucide-react"
 import { PRESET_WORKOUTS } from "../data/presetWorkouts"
 import { equipmentLabel } from "../utils/exerciseCatalog"
-import { startWorkout } from "../utils/startWorkout"
+import { confirmWorkout } from "../utils/startWorkout"
+import PumpButton from "../components/PumpButton"
 import { blocksFromPlanner } from "../utils/workoutModel"
 import SwapSheet from "../components/SwapSheet"
-import { BlockTag, ExerciseLine, GradientButton, PurpleDivider, RoundButton, SectionHeading, cardStyle, BRICOLAGE, DM_SANS, GRAY, INK, PURPLE } from "../components/planUi"
+import { BlockTag, ExerciseLine, PurpleDivider, RoundButton, SectionHeading, cardStyle, BRICOLAGE, DM_SANS, GRAY, INK, PURPLE } from "../components/planUi"
 
 const SECTIONS = [
   { id: "warmup", title: "Warm-up", tint: true },
@@ -59,7 +60,7 @@ export default function WorkoutPlannerPage() {
 
   // The whole plan goes to the logging screen: rep-based lifts get weight and reps rows,
   // warm-ups, drills and timed work become a tick-off list.
-  const create = () => startWorkout(navigate, { blocks: blocksFromPlanner(blocks), muscles: preset.muscles, presetTitle: preset.title })
+  const create = () => confirmWorkout(navigate, { blocks: blocksFromPlanner(blocks), muscles: preset.muscles, presetTitle: preset.title, minutes: preset.minutes })
 
   return (
     <div style={{ minHeight: "100vh", background: "#F0EFFE", padding: "20px 20px 140px" }}>
@@ -103,7 +104,7 @@ export default function WorkoutPlannerPage() {
       })}
 
       <div style={{ marginTop: 14 }}>
-        <GradientButton onClick={create}>Create Workout</GradientButton>
+        <PumpButton onPumped={create}>Confirm today&apos;s workout</PumpButton>
       </div>
 
       {swapping && swapItem && (

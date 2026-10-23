@@ -1,7 +1,8 @@
-import { useState, useEffect } from "react"
+import { useState, useEffect, useRef } from "react"
+import { useLocation } from "react-router-dom"
 import { Clock, Dumbbell, Calendar, ChevronDown, Pencil, Trash2, TrendingUp } from "lucide-react"
 import {
-  listWorkouts, updateWorkout, deleteWorkout, getExerciseProgress, syncLocalWorkout, fromDbTime,
+  listWorkouts, updateWorkout, deleteWorkout, getExerciseProgress, getPendingWorkouts, syncPendingWorkouts, fromDbTime,
 } from "../services/workoutService"
 
 const card = {
@@ -62,8 +63,11 @@ function ProgressPanel({ name }) {
   )
 }
 
-function WorkoutCard({ workout, onChanged, onDeleted }) {
-  const [open, setOpen] = useState(false)
+function WorkoutCard({ workout, onChanged, onDeleted, defaultOpen = false }) {
+  const [open, setOpen] = useState(defaultOpen)
+  const ref = useRef(null)
+  // arriving from Home with this workout picked: bring it into view
+  useEffect(() => { if (defaultOpen) ref.current?.scrollIntoView({ behavior: "smooth", block: "center" }) }, [defaultOpen])
   const [draft, setDraft] = useState(null) // non-null while editing
   const [progressFor, setProgressFor] = useState(null)
   const [confirmDelete, setConfirmDelete] = useState(false)
@@ -101,7 +105,7 @@ function WorkoutCard({ workout, onChanged, onDeleted }) {
   const totalSets = view.exercises.reduce((n, e) => n + e.sets.length, 0)
 
   return (
-    <div style={card}>
+    <div ref={ref} style={card}>
       <button onClick={() => setOpen(!open)} style={{ all: "unset", cursor: "pointer", display: "block", width: "100%" }}>
         {view.name && (
           <div style={{ fontSize: "16px", fontWeight: 700, fontFamily: "'Bricolage Grotesque'", color: "#8133FF", marginBottom: "6px" }}>
@@ -219,25 +223,26 @@ function WorkoutCard({ workout, onChanged, onDeleted }) {
 const WorkoutLoggerPage = () => {
   const [workouts, setWorkouts] = useState([])
   const [status, setStatus] = useState("loading") // loading | ready | error
-  const [local, setLocal] = useState([]) // workouts kept on this device (older ones, or ones that failed to save)
+  const openWorkoutId = useLocation().state?.openWorkoutId
+  const [local, setLocal] = useState([]) // finished workouts that have not reached the server yet
   const [syncing, setSyncing] = useState(false)
 
   const load = () => {
-    setLocal(JSON.parse(localStorage.getItem("workouts") || "[]"))
+    setLocal(getPendingWorkouts())
     return listWorkouts()
       .then((rows) => { setWorkouts(rows); setStatus("ready") })
       .catch(() => setStatus("error"))
   }
 
-  useEffect(() => { load() }, [])
+  // Show what is there straight away, and quietly retry anything that has not reached the server yet
+  useEffect(() => {
+    load()
+    if (getPendingWorkouts().length) syncPendingWorkouts().then(({ sent }) => { if (sent) load() })
+  }, [])
 
   const syncLocal = async () => {
     setSyncing(true)
-    const stillLocal = []
-    for (const w of local) {
-      try { await syncLocalWorkout(w) } catch { stillLocal.push(w) }
-    }
-    localStorage.setItem("workouts", JSON.stringify(stillLocal))
+    await syncPendingWorkouts()
     await load()
     setSyncing(false)
   }
@@ -246,7 +251,7 @@ const WorkoutLoggerPage = () => {
     <div style={{ minHeight: "100vh", background: "#F0EFFE", padding: "24px 24px 140px 24px" }}>
       <div style={{ marginBottom: "24px" }}>
         <h1 style={{ fontSize: "24px", fontWeight: 600, fontFamily: "'Bricolage Grotesque'", color: "#0F172A", margin: "0 0 8px 0" }}>
-          Workout Logger
+          History
         </h1>
         <p style={{ fontSize: "14px", fontFamily: "'DM Sans'", color: "#454850", margin: 0 }}>
           Tap a workout to see every set, edit it, or check your progress.
@@ -256,13 +261,31 @@ const WorkoutLoggerPage = () => {
       {local.length > 0 && (
         <div style={{ ...card, marginBottom: "12px", borderColor: "#A36CFB" }}>
           <p style={{ ...small, margin: "0 0 8px 0", color: "#0F172A" }}>
-            {local.length} workout{local.length > 1 ? "s are" : " is"} saved only on this device.
+            {local.length} workout{local.length > 1 ? "s haven't" : " hasn't"} reached your account yet. We keep retrying, or you can sync now.
           </p>
           <button style={pillBtn(true)} disabled={syncing} onClick={syncLocal}>
             {syncing ? "Syncing…" : "Sync to my account"}
           </button>
         </div>
       )}
+
+      {local.map((w) => (
+        <div key={w.id} style={{ ...card, marginBottom: "12px" }}>
+          <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", gap: "8px" }}>
+            <div>
+              <p style={{ margin: 0, fontFamily: "'Bricolage Grotesque'", fontWeight: 700, fontSize: "16px", color: "#0F172A" }}>
+                {w.presetTitle || w.focusLabel || "Workout"}
+              </p>
+              <p style={{ ...small, margin: "4px 0 0 0" }}>
+                {new Date(w.id).toLocaleDateString("en-US", { month: "short", day: "numeric" })} · {(w.exercises || []).length} exercise{(w.exercises || []).length === 1 ? "" : "s"}
+              </p>
+            </div>
+            <span style={{ padding: "3px 8px", borderRadius: "10px", background: "rgba(129,51,255,0.12)", color: "#7C3AED", fontFamily: "'DM Sans'", fontSize: "11px", fontWeight: 600, whiteSpace: "nowrap" }}>
+              Not synced yet
+            </span>
+          </div>
+        </div>
+      ))}
 
       {status === "loading" && <p style={small}>Loading your workouts…</p>}
       {status === "error" && (
@@ -274,7 +297,7 @@ const WorkoutLoggerPage = () => {
         </div>
       )}
 
-      {status === "ready" && workouts.length === 0 && (
+      {status === "ready" && workouts.length === 0 && local.length === 0 && (
         <div style={{ ...card, textAlign: "center", padding: "40px 24px" }}>
           <p style={{ fontSize: "16px", color: "#454850", margin: 0 }}>
             No workouts logged yet. Start by creating a new workout!
@@ -287,6 +310,7 @@ const WorkoutLoggerPage = () => {
           <WorkoutCard
             key={w.workout_id}
             workout={w}
+            defaultOpen={w.workout_id === openWorkoutId}
             onChanged={(saved) => setWorkouts((prev) => prev.map((x) => (x.workout_id === saved.workout_id ? saved : x)))}
             onDeleted={(id) => setWorkouts((prev) => prev.filter((x) => x.workout_id !== id))}
           />

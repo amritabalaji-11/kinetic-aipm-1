@@ -139,6 +139,15 @@ async def _owner_of(workout_id: str) -> Optional[str]:
 
 @router.post("")
 async def create_workout(body: WorkoutIn, user_id: str = Depends(get_current_user_id)):
+    # The app retries a workout until the server confirms it, so the same one can arrive twice (for example when the
+    # first reply was lost while the server was waking up). Same user and start time means it is already saved.
+    if body.started_at:
+        existing = await db.fetch_one(
+            "SELECT workout_id FROM workouts WHERE user_id = :uid AND started_at = :started",
+            {"uid": user_id, "started": body.started_at},
+        )
+        if existing:
+            return (await _load_for_user(user_id, existing["workout_id"]))[0]
     workout_id = str(uuid.uuid4())
     async with db.transaction():
         await db.execute(
