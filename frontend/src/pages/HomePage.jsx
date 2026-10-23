@@ -3,7 +3,11 @@ import { useEffect, useState } from "react"
 import { apiFetch } from "../services/api"
 import { useNavigate } from "react-router-dom"
 import { useUser } from "../context/UserContext"
-import { listWorkouts, fromDbTime } from "../services/workoutService"
+import { listWorkouts, fromDbTime, pendingAsRows, syncPendingWorkouts } from "../services/workoutService"
+import { ArrowRight, Flame } from "lucide-react"
+import { TYPE_META, workoutType } from "../utils/workoutType"
+import TypeIcon from "../components/TypeIcon"
+import { BottomSheet, GradientButton } from "../components/planUi"
 
 const BASE_URL = import.meta.env.VITE_API_URL || "http://localhost:8000"
 
@@ -32,36 +36,25 @@ function Barbell({ color, flip }) {
 // --- Last 7 Days helpers ---
 const dayKey = (d) => `${d.getFullYear()}-${d.getMonth()}-${d.getDate()}`
 
-// The 7 days ending today (oldest first), each marked when a workout was logged that day
+// The 7 days ending today (oldest first), each with the workouts logged that day
 function buildWeek(workouts, today = new Date()) {
-  const logged = new Set(
-    workouts.map(w => fromDbTime(w.started_at || w.created_at)).filter(Boolean).map(dayKey)
-  )
+  const byDay = new Map()
+  for (const w of workouts) {
+    const d = fromDbTime(w.started_at || w.created_at)
+    if (d) byDay.set(dayKey(d), [...(byDay.get(dayKey(d)) || []), w])
+  }
   return Array.from({ length: 7 }, (_, i) => {
     const d = new Date(today.getFullYear(), today.getMonth(), today.getDate() - (6 - i))
+    const list = byDay.get(dayKey(d)) || []
     return {
       day: d.toLocaleDateString("en-US", { weekday: "narrow" }),
       date: d.getDate(),
       fullDate: d,
       isToday: i === 6,
-      isWorkout: logged.has(dayKey(d)),
+      workouts: list,
+      isWorkout: list.length > 0,
     }
   })
-}
-
-// Consecutive days with a workout. Today not logged yet doesn't break the streak.
-function currentStreak(workouts, today = new Date()) {
-  const logged = new Set(
-    workouts.map(w => fromDbTime(w.started_at || w.created_at)).filter(Boolean).map(dayKey)
-  )
-  let streak = 0
-  let offset = logged.has(dayKey(today)) ? 0 : 1
-  for (;;) {
-    const d = new Date(today.getFullYear(), today.getMonth(), today.getDate() - offset)
-    if (!logged.has(dayKey(d))) return streak
-    streak += 1
-    offset += 1
-  }
 }
 
 function weekRangeLabel(week) {
@@ -73,22 +66,72 @@ function weekRangeLabel(week) {
     : `${month(first)} ${first.getDate()} - ${month(last)} ${last.getDate()}`
 }
 
-// Filled dumbbell in the brand blue-to-purple gradient
-function Dumbbell({ size = 28 }) {
+// The icon for a day with workouts: its type (upper body, legs, full body, cardio), and a count if there were several
+function DayIcon({ workouts }) {
+  const type = workoutType(workouts[0])
   return (
-    <svg width={size} height={size * 0.625} viewBox="0 0 32 20" fill="none" aria-hidden="true">
-      <defs>
-        <linearGradient id="dumbbellGrad" x1="0" y1="0" x2="32" y2="20" gradientUnits="userSpaceOnUse">
-          <stop offset="0%" stopColor="#0284C7" />
-          <stop offset="100%" stopColor="#7C5CE7" />
-        </linearGradient>
-      </defs>
-      <rect x="9" y="8.5" width="14" height="3" rx="1.5" fill="url(#dumbbellGrad)" />
-      <rect x="5.5" y="3" width="4" height="14" rx="1.5" fill="url(#dumbbellGrad)" />
-      <rect x="22.5" y="3" width="4" height="14" rx="1.5" fill="url(#dumbbellGrad)" />
-      <rect x="1" y="6" width="3.5" height="8" rx="1.25" fill="url(#dumbbellGrad)" opacity="0.75" />
-      <rect x="27.5" y="6" width="3.5" height="8" rx="1.25" fill="url(#dumbbellGrad)" opacity="0.75" />
-    </svg>
+    <div style={{ position: "relative", width: "30px", height: "30px", borderRadius: "50%", background: TYPE_META[type].tint, display: "flex", alignItems: "center", justifyContent: "center" }}>
+      <TypeIcon type={type} size={20} />
+      {workouts.length > 1 && (
+        <span style={{ position: "absolute", top: "-5px", right: "-6px", minWidth: "15px", height: "15px", borderRadius: "8px", background: "#1E1B4B", color: "#fff", fontSize: "9px", fontWeight: 700, fontFamily: "'DM Sans'", display: "flex", alignItems: "center", justifyContent: "center" }}>
+          {workouts.length}
+        </span>
+      )}
+    </div>
+  )
+}
+
+// Total weight lifted in a workout: reps x weight, summed over every set (kg; pounds are converted)
+function totalLiftedKg(workout) {
+  let total = 0
+  for (const ex of workout.exercises || []) {
+    for (const set of ex.sets || []) {
+      const weight = Number(set.weight), reps = Number(set.reps)
+      if (!(weight > 0) || !(reps > 0)) continue // bodyweight or unfinished sets add nothing
+      total += weight * reps * (/lb/i.test(set.weight_unit || "") ? 0.45359237 : 1)
+    }
+  }
+  return Math.round(total)
+}
+
+// What was done on the tapped day, with a way into the full workout in History
+function DayDetails({ day, onOpen }) {
+  const title = day.isToday ? "Today" : day.fullDate.toLocaleDateString("en-US", { weekday: "long", month: "short", day: "numeric" })
+  return (
+    <div style={{ marginTop: "12px", padding: "12px", borderRadius: "10px", background: "rgba(255,255,255,0.85)", border: "1px solid #FFFFFF" }}>
+      <p style={{ margin: "0 0 8px", fontFamily: "'DM Sans'", fontSize: "12px", fontWeight: 700, color: "#64748B", textTransform: "uppercase" }}>{title}</p>
+      {day.workouts.map((w, i) => {
+        const type = workoutType(w)
+        const meta = TYPE_META[type]
+        const started = fromDbTime(w.started_at || w.created_at)
+        const exercises = w.exercises || []
+        const lifted = totalLiftedKg(w)
+        const facts = [started?.toLocaleDateString("en-US", { weekday: "short", month: "short", day: "numeric" }), started?.toLocaleTimeString([], { hour: "numeric", minute: "2-digit" }), w.duration_min ? `${w.duration_min} min` : null].filter(Boolean)
+        return (
+          <div key={w.workout_id || i} style={{ display: "flex", alignItems: "center", gap: "10px", paddingTop: i ? "10px" : 0, marginTop: i ? "10px" : 0, borderTop: i ? "1px solid rgba(100,116,139,0.15)" : "none" }}>
+            <div style={{ width: "34px", height: "34px", borderRadius: "50%", background: meta.tint, display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0 }}>
+              <TypeIcon type={type} size={22} />
+            </div>
+            <div style={{ flex: 1, minWidth: 0 }}>
+              <p style={{ margin: 0, fontFamily: "'Bricolage Grotesque'", fontWeight: 700, fontSize: "15px", lineHeight: 1.2, color: "#0F172A" }}>
+                {w.name || w.focus_label || meta.label}{w.pending ? " (not synced yet)" : ""}
+              </p>
+              <p style={{ margin: "2px 0 0", fontFamily: "'DM Sans'", fontSize: "12px", color: "#64748B" }}>{facts.join(" · ")}</p>
+              <p style={{ margin: "3px 0 0", fontFamily: "'DM Sans'", fontSize: "13px", color: "#334155" }}>
+                {lifted > 0 ? (
+                  <><strong style={{ fontFamily: "'Bricolage Grotesque'", fontSize: "18px", color: "#6A1FD6" }}>{lifted.toLocaleString()} kg</strong> lifted</>
+                ) : (
+                  <>{exercises.length} exercise{exercises.length === 1 ? "" : "s"}, no weights logged</>
+                )}
+              </p>
+            </div>
+            <button type="button" onClick={() => onOpen(w)} aria-label={`Open ${w.name || meta.label} in History`} style={{ flexShrink: 0, width: "40px", height: "40px", borderRadius: "12px", border: "none", cursor: "pointer", background: "linear-gradient(92.52deg, #0284C7 0%, #9747FF 100%)", color: "#FFFFFF", display: "flex", alignItems: "center", justifyContent: "center" }}>
+              <ArrowRight size={20} strokeWidth={2.6} />
+            </button>
+          </div>
+        )
+      })}
+    </div>
   )
 }
 
@@ -142,13 +185,37 @@ export default function HomePage() {
   const [expandedCards, setExpandedCards] = useState({})
   const [workouts, setWorkouts] = useState([])
 
-  // Logged workouts drive the "Last 7 Days" card
+  // Logged workouts drive the "Last 7 Days" card. Workouts that finished but have not reached the server yet
+  // count too (and are retried here), so this matches what you actually did.
   useEffect(() => {
-    listWorkouts().then(setWorkouts).catch(() => setWorkouts([]))
+    const load = () => listWorkouts().then(setWorkouts).catch(() => setWorkouts([]))
+    load()
+    if (pendingAsRows().length) syncPendingWorkouts().then(({ sent }) => { if (sent) load() })
   }, [])
 
-  const week = buildWeek(workouts)
-  const streak = currentStreak(workouts)
+  const countable = [...workouts, ...pendingAsRows()]
+  const week = buildWeek(countable)
+  const weekCount = week.reduce((n, d) => n + d.workouts.length, 0) // workouts in the 7 days shown
+  const [selectedDay, setSelectedDay] = useState(null)
+  const [showPlanPrompt, setShowPlanPrompt] = useState(false)
+
+  // "Resume your workout": the one in progress, or the one you confirmed but have not started; otherwise ask to plan one
+  const resumeWorkout = () => {
+    if (localStorage.getItem("activeWorkout")) return navigate("/workout/active")
+    if (localStorage.getItem("draftWorkout")) return navigate("/workout/commit")
+    setShowPlanPrompt(true)
+  }
+  const selected = week.find((d) => dayKey(d.fullDate) === selectedDay)
+  const toggleDay = (d) => setSelectedDay((cur) => (cur === dayKey(d.fullDate) ? null : dayKey(d.fullDate)))
+  const dayProps = (d) =>
+    d.isWorkout
+      ? {
+          role: "button", tabIndex: 0,
+          "aria-label": `${d.fullDate.toDateString()}, ${d.workouts.length} workout${d.workouts.length === 1 ? "" : "s"}. Show details`,
+          onClick: () => toggleDay(d),
+          onKeyDown: (e) => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); toggleDay(d) } },
+        }
+      : {}
 
   useEffect(() => {
     const userId = localStorage.getItem("active_user_id") || "user_001"
@@ -170,16 +237,6 @@ export default function HomePage() {
   return (
     <div style={{ background: TOP_FADE_BACKGROUND, colorScheme: "light", minHeight: "100vh", paddingBottom: "140px" }}>
       <style>{scanStyle}</style>
-      {/* Status Bar */}
-      <div style={{ padding: "21px 0px 0px", height: "50px", display: "flex", justifyContent: "space-between", alignItems: "center", paddingX: "20px" }}>
-        <span style={{ fontSize: "17px", fontWeight: 600, fontFamily: "'Bricolage Grotesque'" }}>9:41</span>
-        <div style={{ width: "139px", display: "flex", gap: "7px", justifyContent: "center", alignItems: "center" }}>
-          <svg width="19" height="12" viewBox="0 0 19 12" fill="#000"><rect x="0" y="4" width="3" height="8" /><rect x="4" y="2" width="3" height="10" /><rect x="8" y="0" width="3" height="12" /></svg>
-          <svg width="17" height="12" viewBox="0 0 17 12" fill="#000"><path d="M0 12h12c2.76 0 5-2.24 5-5V0z" /></svg>
-          <svg width="27" height="13" viewBox="0 0 27 13" fill="none" stroke="#000" strokeWidth="1"><rect x="2" y="2" width="21" height="9" rx="2" /><rect x="24" y="4" width="2" height="5" /></svg>
-        </div>
-      </div>
-
       {/* Main Content */}
       <div style={{ maxWidth: "430px", margin: "0 auto", padding: "0px 20px" }}>
 
@@ -225,137 +282,56 @@ export default function HomePage() {
               <p style={{ fontSize: "14px", fontFamily: "'DM Sans'", color: "#000000", marginBottom: "6px" }}>Last 7 Days</p>
               <p style={{ fontSize: "16px", fontWeight: 700, fontFamily: "'Bricolage Grotesque'", color: "#000000" }}>{weekRangeLabel(week)}</p>
             </div>
-            <div style={{
-              boxSizing: "border-box",
-              display: "flex",
-              flexDirection: "row",
-              alignItems: "center",
-              padding: "5px 20px",
-              gap: "10px",
-              width: "166px",
-              height: "40px",
-              background: "rgba(255, 255, 255, 0.15)",
-              boxShadow: "0px 4px 4px rgba(0, 0, 0, 0.14)",
-              borderRadius: "999px"
-            }}>
-              <div style={{
-                display: "flex",
-                flexDirection: "column",
-                alignItems: "flex-start",
-                padding: "0px",
-                gap: "10px",
-                width: "18px",
-                height: "30px",
-              }}>
-                <svg width="18" height="30" viewBox="0 0 24 24" fill="none" strokeWidth="2" style={{
-                  background: "linear-gradient(338.8deg, rgba(102, 76, 226, 0.7) 21.58%, rgba(2, 132, 199, 0.7) 100%)",
-                  WebkitBackgroundClip: "text",
-                  WebkitTextFillColor: "transparent",
-                  backgroundClip: "text",
-                  stroke: "url(#grad)",
-                  color: "transparent"
-                }}>
-                  <defs>
-                    <linearGradient id="grad" x1="0%" y1="0%" x2="100%" y2="100%">
-                      <stop offset="0%" style={{ stopColor: "rgba(102, 76, 226, 0.7)" }} />
-                      <stop offset="100%" style={{ stopColor: "rgba(2, 132, 199, 0.7)" }} />
-                    </linearGradient>
-                  </defs>
-                  <path d="M12 2.69l5.66 5.66a8 8 0 1 1-11.31 0z" stroke="url(#grad)" fill="none" />
-                </svg>
-              </div>
-              <div style={{
-                display: "flex",
-                flexDirection: "row",
-                alignItems: "center",
-                padding: "0px",
-                width: "98px",
-                height: "29px",
-                gap: "10px"
-              }}>
-                <div style={{
-                  display: "flex",
-                  flexDirection: "column",
-                  justifyContent: "center",
-                  alignItems: "center",
-                  padding: "0px",
-                  gap: "10px",
-                  minWidth: "15px",
-                  height: "29px",
-                }}>
-                  <span style={{
-                    minWidth: "15px",
-                    height: "29px",
-                    fontFamily: "'Bricolage Grotesque'",
-                    fontStyle: "normal",
-                    fontWeight: 800,
-                    fontSize: "24px",
-                    lineHeight: "29px",
-                    display: "flex",
-                    alignItems: "center",
-                    textAlign: "center",
-                    background: "linear-gradient(338.8deg, rgba(102, 76, 226, 0.7) 21.58%, rgba(2, 132, 199, 0.7) 100%)",
-                    WebkitBackgroundClip: "text",
-                    WebkitTextFillColor: "transparent",
-                    backgroundClip: "text"
-                  }}>
-                    {streak}
-                  </span>
-                </div>
-                <div style={{
-                  display: "flex",
-                  flexDirection: "column",
-                  justifyContent: "center",
-                  alignItems: "center",
-                  padding: "0px",
-                  gap: "10px",
-                  width: "83px",
-                  height: "21px",
-                }}>
-                  <span style={{
-                    width: "83px",
-                    height: "21px",
-                    fontFamily: "'Bricolage Grotesque'",
-                    fontStyle: "normal",
-                    fontWeight: 800,
-                    fontSize: "12px",
-                    lineHeight: "19px",
-                    display: "flex",
-                    alignItems: "center",
-                    textAlign: "center",
-                    background: "linear-gradient(338.8deg, rgba(102, 76, 226, 0.7) 21.58%, rgba(2, 132, 199, 0.7) 100%)",
-                    WebkitBackgroundClip: "text",
-                    WebkitTextFillColor: "transparent",
-                    backgroundClip: "text"
-                  }}>
-                    Day Streak
-                  </span>
-                </div>
-              </div>
+            <div style={{ display: "flex", alignItems: "center", gap: "8px", padding: "6px 14px 6px 10px", background: "rgba(255, 255, 255, 0.55)", border: "1px solid rgba(255, 255, 255, 0.9)", boxShadow: "0px 4px 4px rgba(0, 0, 0, 0.10)", borderRadius: "999px" }}>
+              <Flame size={22} color="#EA580C" fill="#FDBA74" strokeWidth={2} />
+              <span style={{ fontFamily: "'Bricolage Grotesque'", fontWeight: 800, fontSize: "24px", lineHeight: 1, color: "#C2410C" }}>{weekCount}</span>
+              <span style={{ fontFamily: "'DM Sans'", fontWeight: 700, fontSize: "12px", lineHeight: 1.15, color: "#475569" }}>
+                workout{weekCount === 1 ? "" : "s"}<br />this week
+              </span>
             </div>
           </div>
           <div style={{ display: "flex", gap: "10px", justifyContent: "center" }}>
             {week.map((dayData) => (
               <div
                 key={dayData.fullDate.toISOString()}
+                {...dayProps(dayData)}
                 style={{
+                  cursor: dayData.isWorkout ? "pointer" : "default",
                   display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center",
                   padding: "10px 8px", gap: "6px", flex: 1, minHeight: "80px", borderRadius: "8px",
                   background: dayData.isWorkout ? "#FFFFFF" : "rgba(255, 255, 255, 0.2)",
                   border: dayData.isToday ? "1.5px solid #7C5CE7" : !dayData.isWorkout ? "1px dashed rgba(156, 156, 156, 0.4)" : "1px solid transparent",
                   boxShadow: dayData.isWorkout ? "0px 4px 10px rgba(102, 76, 226, 0.15)" : "none",
+                  ...(selectedDay === dayKey(dayData.fullDate) ? { border: "2px solid #7C5CE7" } : {}),
                 }}
               >
                 <p style={{ fontSize: "14px", fontWeight: 400, margin: 0, color: dayData.isWorkout ? "#000000" : "#9C9C9C", fontFamily: "'DM Sans'" }}>{dayData.day}</p>
                 <p style={{ fontSize: "12px", fontWeight: dayData.isToday ? 700 : 400, margin: "0 0 4px", color: dayData.isWorkout ? "#000000" : "#9C9C9C" }}>{dayData.date}</p>
                 {dayData.isWorkout ? (
-                  <Dumbbell />
+                  <DayIcon workouts={dayData.workouts} />
                 ) : (
                   <div style={{ width: "10px", height: "10px", background: "rgba(156, 156, 156, 0.3)", borderRadius: "50%" }}></div>
                 )}
               </div>
             ))}
           </div>
+          {(() => {
+            const seen = [...new Set(week.flatMap((d) => d.workouts.map(workoutType)))]
+            return seen.length > 0 && (
+              <div style={{ display: "flex", flexWrap: "wrap", justifyContent: "center", gap: "6px 14px", marginTop: "10px" }}>
+                {seen.map((t) => (
+                  <span key={t} style={{ display: "inline-flex", alignItems: "center", gap: "4px", fontFamily: "'DM Sans'", fontSize: "11px", fontWeight: 600, color: "#475569" }}>
+                    <TypeIcon type={t} size={14} />
+                    {TYPE_META[t].label}
+                  </span>
+                ))}
+              </div>
+            )
+          })()}
+          {selected && <DayDetails day={selected} onOpen={(w) => navigate("/timeline", { state: { openWorkoutId: w.workout_id } })} />}
+          <button type="button" onClick={() => navigate("/timeline")} style={{ display: "block", margin: "12px auto 0", padding: 0, background: "none", border: "none", cursor: "pointer", fontFamily: "'DM Sans'", fontSize: "13px", fontWeight: 700, color: "#6A1FD6" }}>
+            See all workouts →
+          </button>
         </div>
 
         {/* Ready to work out */}
@@ -408,7 +384,7 @@ export default function HomePage() {
                 </div>
                 <div>
                   <p style={{ fontSize: "14px", fontWeight: 600, color: "#FFFFFF", margin: "0", fontFamily: "'Bricolage Grotesque'" }}>Build Your Workout</p>
-                  <p style={{ fontSize: "10px", color: "rgba(255,255,255,0.6)", margin: "0", fontFamily: "'DM Sans'" }}>Quick exercise picker, then hit start</p>
+                  <p style={{ fontSize: "10px", color: "rgba(255,255,255,0.6)", margin: "0", fontFamily: "'DM Sans'" }}>Pick a plan, confirm it, then start</p>
                 </div>
               </div>
               <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#FFFFFF" strokeWidth="2" style={{ flexShrink: 0 }}>
@@ -416,17 +392,8 @@ export default function HomePage() {
               </svg>
             </button>
 
-            {/* Log Your Workout */}
-            <button onClick={() => {
-              const activeWorkout = localStorage.getItem("activeWorkout")
-              if (activeWorkout) {
-                navigate("/workout/active")
-              } else {
-                // No active workout - navigate to plan to create one
-                alert("Start a new workout first! Click 'Build Your Workout' to get started.")
-                navigate("/plan")
-              }
-            }} style={{
+            {/* Resume your workout */}
+            <button onClick={resumeWorkout} style={{
               display: "flex",
               alignItems: "center",
               gap: "12px",
@@ -444,8 +411,8 @@ export default function HomePage() {
                 </svg>
               </div>
               <div>
-                <p style={{ fontSize: "16px", fontWeight: 600, color: "#000000", margin: "0 0 4px 0", fontFamily: "'Bricolage Grotesque'" }}>Log Your Workout</p>
-                <p style={{ fontSize: "11px", color: "#000000", margin: "0", opacity: 0.7, fontFamily: "'Bricolage Grotesque'" }}>Track sets, reps, and weights</p>
+                <p style={{ fontSize: "16px", fontWeight: 600, color: "#000000", margin: "0 0 4px 0", fontFamily: "'Bricolage Grotesque'" }}>Resume your workout</p>
+                <p style={{ fontSize: "11px", color: "#000000", margin: "0", opacity: 0.7, fontFamily: "'Bricolage Grotesque'" }}>Pick up where you left off</p>
               </div>
             </button>
 
@@ -473,96 +440,6 @@ export default function HomePage() {
                 <p style={{ fontSize: "11px", color: "#000000", margin: "0", opacity: 0.7, fontFamily: "'Bricolage Grotesque'" }}>Get your form analyzed instantly</p>
               </div>
             </button>
-          </div>
-        </div>
-
-        {/* Your Progress */}
-        <div style={{ marginBottom: "20px" }}>
-          <h2 style={{ fontSize: "16px", fontWeight: 700, fontFamily: "'Bricolage Grotesque'", color: "#000000", marginBottom: "10px" }}>Your Progress</h2>
-          <p style={{ fontSize: "14px", fontFamily: "'Bricolage Grotesque'", color: "#64748B", marginBottom: "15px" }}>Tracked by exercise - tap to switch</p>
-          <div style={{ display: "flex", gap: "10px", marginBottom: "20px" }}>
-            {["Goblet Squat", "Deadlift", "RDL"].map((name, i) => (
-              <button key={i} style={{
-                padding: "10px 20px",
-                borderRadius: "999px",
-                border: "none",
-                fontSize: "16px",
-                fontWeight: 500,
-                fontFamily: "'Bricolage Grotesque'",
-                cursor: "pointer",
-                background: i === 0 ? "linear-gradient(338.8deg, rgba(102, 76, 226, 0.7) 21.58%, rgba(2, 132, 199, 0.7) 100%)" : "#FFFFFF",
-                color: i === 0 ? "#FFFFFF" : "#000000"
-              }}>
-                {name}
-              </button>
-            ))}
-          </div>
-        </div>
-
-        {/* Progress Ladder */}
-        <div style={{ marginBottom: "20px", background: "linear-gradient(135deg, #F9DAD2 0%, #E8D4F8 100%)", borderRadius: "16px", padding: "16px 12px", gap: "16px", display: "flex", flexDirection: "column" }}>
-          <div style={{ display: "flex", flexDirection: "column", gap: "4px" }}>
-            <p style={{ fontSize: "16px", fontWeight: 500, fontFamily: "'Bricolage Grotesque'", color: "#020D1B", margin: "0" }}>Progress ladder</p>
-            <p style={{ fontSize: "12px", fontFamily: "'DM Sans'", color: "#394250", margin: "0", lineHeight: "16px", letterSpacing: "-0.04em" }}>Form scores typically dip when you load heavier. Watch your average per rung, not individual sessions.</p>
-          </div>
-
-          <div style={{ display: "flex", flexDirection: "column", gap: "8px" }}>
-            {/* 14 Kg Card */}
-            <div style={{ background: "#F4F2FA", borderRadius: "12px", padding: "10px", display: "flex", flexDirection: "column", gap: "6px" }}>
-              <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
-                <div style={{ display: "flex", alignItems: "center", gap: "6px" }}>
-                  <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#000" strokeWidth="2.5"><line x1="6" y1="12" x2="18" y2="12" /><circle cx="4" cy="12" r="2" /><circle cx="20" cy="12" r="2" /></svg>
-                  <span style={{ fontSize: "12px", fontWeight: 700, fontFamily: "'Bricolage Grotesque'", color: "#000000" }}>14 Kg</span>
-                </div>
-                <span style={{ fontSize: "12px", fontWeight: 600, fontFamily: "'Bricolage Grotesque'", background: "linear-gradient(92.52deg, #0284C7 0%, #9747FF 100%)", WebkitBackgroundClip: "text", WebkitTextFillColor: "transparent", backgroundClip: "text" }}>Avg 70</span>
-              </div>
-              <div style={{ display: "flex", gap: "6px", justifyContent: "space-between", flex: 1 }}>
-                <div style={{ flex: 1, height: "32px", background: "#FF8A4D", borderRadius: "6px", display: "flex", alignItems: "center", justifyContent: "center" }}><span style={{ fontSize: "11px", fontWeight: 700, color: "#FFFFFF", fontFamily: "'Bricolage Grotesque'" }}>68</span></div>
-                <div style={{ flex: 1, height: "32px", background: "#FD9D53", borderRadius: "6px", display: "flex", alignItems: "center", justifyContent: "center" }}><span style={{ fontSize: "11px", fontWeight: 700, color: "#FFFFFF", fontFamily: "'Bricolage Grotesque'" }}>72</span></div>
-                <div style={{ flex: 1, height: "32px", border: "1px dashed #000000", borderRadius: "6px", display: "flex", alignItems: "center", justifyContent: "center" }}></div>
-                <div style={{ flex: 1, height: "32px", border: "1px dashed #000000", borderRadius: "6px", display: "flex", alignItems: "center", justifyContent: "center" }}></div>
-                <div style={{ flex: 1, height: "32px", border: "1px dashed #000000", borderRadius: "6px", display: "flex", alignItems: "center", justifyContent: "center" }}></div>
-              </div>
-              <p style={{ fontSize: "8px", fontFamily: "'Bricolage Grotesque'", color: "#000000", margin: "0" }}>2 sessions analyzed</p>
-            </div>
-
-            {/* 12 Kg Card */}
-            <div style={{ background: "#F4F2FA", borderRadius: "12px", padding: "10px", display: "flex", flexDirection: "column", gap: "6px" }}>
-              <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
-                <div style={{ display: "flex", alignItems: "center", gap: "6px" }}>
-                  <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#000" strokeWidth="2.5"><line x1="6" y1="12" x2="18" y2="12" /><circle cx="4" cy="12" r="2" /><circle cx="20" cy="12" r="2" /></svg>
-                  <span style={{ fontSize: "12px", fontWeight: 700, fontFamily: "'Bricolage Grotesque'", color: "#000000" }}>12 Kg</span>
-                </div>
-                <span style={{ fontSize: "12px", fontWeight: 600, fontFamily: "'Bricolage Grotesque'", background: "linear-gradient(92.52deg, #0284C7 0%, #9747FF 100%)", WebkitBackgroundClip: "text", WebkitTextFillColor: "transparent", backgroundClip: "text" }}>Avg 74</span>
-              </div>
-              <div style={{ display: "flex", gap: "6px", justifyContent: "space-between", flex: 1 }}>
-                <div style={{ flex: 1, height: "32px", background: "#FD9D53", borderRadius: "6px", display: "flex", alignItems: "center", justifyContent: "center" }}><span style={{ fontSize: "11px", fontWeight: 700, color: "#FFFFFF", fontFamily: "'Bricolage Grotesque'" }}>72</span></div>
-                <div style={{ flex: 1, height: "32px", background: "#FD9D53", borderRadius: "6px", display: "flex", alignItems: "center", justifyContent: "center" }}><span style={{ fontSize: "11px", fontWeight: 700, color: "#FFFFFF", fontFamily: "'Bricolage Grotesque'" }}>76</span></div>
-                <div style={{ flex: 1, height: "32px", border: "1px dashed #000000", borderRadius: "6px", display: "flex", alignItems: "center", justifyContent: "center" }}></div>
-                <div style={{ flex: 1, height: "32px", border: "1px dashed #000000", borderRadius: "6px", display: "flex", alignItems: "center", justifyContent: "center" }}></div>
-                <div style={{ flex: 1, height: "32px", border: "1px dashed #000000", borderRadius: "6px", display: "flex", alignItems: "center", justifyContent: "center" }}></div>
-              </div>
-              <p style={{ fontSize: "8px", fontFamily: "'Bricolage Grotesque'", color: "#000000", margin: "0" }}>2 sessions analyzed</p>
-            </div>
-
-            {/* 10 Kg Card */}
-            <div style={{ background: "#F4F2FA", borderRadius: "12px", padding: "10px", display: "flex", flexDirection: "column", gap: "6px" }}>
-              <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
-                <div style={{ display: "flex", alignItems: "center", gap: "6px" }}>
-                  <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#000" strokeWidth="2.5"><line x1="6" y1="12" x2="18" y2="12" /><circle cx="4" cy="12" r="2" /><circle cx="20" cy="12" r="2" /></svg>
-                  <span style={{ fontSize: "12px", fontWeight: 700, fontFamily: "'Bricolage Grotesque'", color: "#000000" }}>10 Kg</span>
-                </div>
-                <span style={{ fontSize: "12px", fontWeight: 600, fontFamily: "'Bricolage Grotesque'", background: "linear-gradient(92.52deg, #0284C7 0%, #9747FF 100%)", WebkitBackgroundClip: "text", WebkitTextFillColor: "transparent", backgroundClip: "text" }}>Avg 81</span>
-              </div>
-              <div style={{ display: "flex", gap: "6px", justifyContent: "space-between", flex: 1 }}>
-                <div style={{ flex: 1, height: "32px", background: "#FD9D53", borderRadius: "6px", display: "flex", alignItems: "center", justifyContent: "center" }}><span style={{ fontSize: "11px", fontWeight: 700, color: "#FFFFFF", fontFamily: "'Bricolage Grotesque'" }}>68</span></div>
-                <div style={{ flex: 1, height: "32px", background: "#FD9D53", borderRadius: "6px", display: "flex", alignItems: "center", justifyContent: "center" }}><span style={{ fontSize: "11px", fontWeight: 700, color: "#FFFFFF", fontFamily: "'Bricolage Grotesque'" }}>74</span></div>
-                <div style={{ flex: 1, height: "32px", background: "#2BC95B", borderRadius: "6px", display: "flex", alignItems: "center", justifyContent: "center" }}><span style={{ fontSize: "11px", fontWeight: 700, color: "#FFFFFF", fontFamily: "'Bricolage Grotesque'" }}>82</span></div>
-                <div style={{ flex: 1, height: "32px", border: "1px dashed #000000", borderRadius: "6px", display: "flex", alignItems: "center", justifyContent: "center" }}></div>
-                <div style={{ flex: 1, height: "32px", background: "#34C759", borderRadius: "6px", display: "flex", alignItems: "center", justifyContent: "center" }}><span style={{ fontSize: "11px", fontWeight: 700, color: "#FFFFFF", fontFamily: "'Bricolage Grotesque'" }}>85</span></div>
-              </div>
-              <p style={{ fontSize: "8px", fontFamily: "'Bricolage Grotesque'", color: "#000000", margin: "0" }}>4 sessions analyzed</p>
-            </div>
           </div>
         </div>
 
@@ -737,6 +614,18 @@ export default function HomePage() {
         </div>
 
       </div>
+
+      {showPlanPrompt && (
+        <BottomSheet
+          title="Create today's workout plan"
+          onClose={() => setShowPlanPrompt(false)}
+          footer={<GradientButton onClick={() => navigate("/plan")}>Choose a workout</GradientButton>}
+        >
+          <p style={{ fontFamily: "'DM Sans'", fontSize: "15px", color: "#334155", lineHeight: 1.5, margin: "4px 0 0" }}>
+            You don&apos;t have a workout in progress. Pick a plan for today and we&apos;ll take it from there.
+          </p>
+        </BottomSheet>
+      )}
       </div>
   )
 }
