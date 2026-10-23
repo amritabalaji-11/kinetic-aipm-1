@@ -493,7 +493,7 @@ async def _store_analysis_results(
 
     await db.execute(
         """
-        INSERT OR REPLACE INTO form_analysis_results (
+        INSERT INTO form_analysis_results (
             analysis_id,
             session_id,
             user_id,
@@ -526,6 +526,21 @@ async def _store_analysis_results(
             :rep_scores,
             :coaching_output
         )
+        ON CONFLICT (analysis_id) DO UPDATE SET
+            session_id = excluded.session_id,
+            user_id = excluded.user_id,
+            exercise_id = excluded.exercise_id,
+            weight_value = excluded.weight_value,
+            weight_unit = excluded.weight_unit,
+            weight_kg_normalised = excluded.weight_kg_normalised,
+            overall_form_score = excluded.overall_form_score,
+            posture_score = excluded.posture_score,
+            stability_score = excluded.stability_score,
+            movement_quality_score = excluded.movement_quality_score,
+            tempo_score = excluded.tempo_score,
+            rep_count = excluded.rep_count,
+            rep_scores = excluded.rep_scores,
+            coaching_output = excluded.coaching_output
         """,
         values={
             "analysis_id":            analysis_id,

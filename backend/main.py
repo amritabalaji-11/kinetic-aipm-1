@@ -1,6 +1,8 @@
 from fastapi import FastAPI, Request, Response
 from fastapi.middleware.cors import CORSMiddleware
-from db.database import db
+import os
+
+from db.database import db, IS_POSTGRES
 
 from utils.config import FRONTEND_ORIGIN
 from utils.media_links import sign_media_links
@@ -65,6 +67,8 @@ app.include_router(workouts.router)
 #DB connection management
 @app.on_event("startup")
 async def startup():
+    if os.getenv("K_SERVICE") and not IS_POSTGRES:  # K_SERVICE is set on Cloud Run
+        print("WARNING: running on Cloud Run without DATABASE_URL. Data is kept on a temporary disk and WILL be lost.")
     init_db()
     await db.connect()
 

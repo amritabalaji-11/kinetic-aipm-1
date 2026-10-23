@@ -1,6 +1,5 @@
 from uuid import uuid4
 from datetime import datetime
-import sqlite3
 
 from fastapi import (
     APIRouter,
@@ -12,7 +11,7 @@ from fastapi import (
     BackgroundTasks
 )
 
-from db.database import db
+from db.database import db, INTEGRITY_ERRORS
 from utils.security import limit_guest, require_same_user
 from utils.gcs import upload_file_to_gcs
 from services.pipeline_stream import run_pipeline
@@ -85,6 +84,7 @@ async def upload(
     # =========================================================
 
     analysis_id = str(uuid4())
+    session_id = session_id or analysis_id  # the session id is the table's key, so it can never be empty
 
     # =========================================================
     # NORMALIZE KG
@@ -172,7 +172,7 @@ async def upload(
             }
         )
         
-    except sqlite3.IntegrityError as e:
+    except INTEGRITY_ERRORS as e:
         if "session_id" in str(e):
             raise HTTPException(
                 status_code=409,
