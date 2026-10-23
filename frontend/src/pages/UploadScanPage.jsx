@@ -1,22 +1,9 @@
 import { useState, useRef } from "react"
 import { useNavigate } from "react-router-dom"
 import { uploadVideo } from "../services/uploadService"
-
-
-const EXERCISES = {
-  QUADS: [
-    { id: "goblet-squat",  name: "GOBLET SQUAT"  },
-    { id: "barbell-squat", name: "BARBELL SQUAT"  },
-    { id: "deadlift",      name: "DEADLIFT"       },
-  ],
-  SHOULDERS: [], BICEPS: [], FOREARMS: [], CHEST: [], "ABS/CORE": [],
-}
-
-const TIPS_TITLE = {
-  "goblet-squat":  "LET'S CRUSH YOUR GOBLET SQUATS TODAY",
-  "barbell-squat": "LET'S CRUSH YOUR BARBELL SQUATS TODAY",
-  "deadlift":      "LET'S CRUSH YOUR DEADLIFTS TODAY",
-}
+import UploadExercisePicker from "../components/UploadExercisePicker"
+import { BRICOLAGE, DM_SANS, GRAY, INK } from "../components/planUi"
+import { FLAT_LILAC } from "../utils/pageBackground"
 
 const CAMERA_TIPS = [
   { label: "Angle",    text: "Record directly from the side. The AI needs to see your spine and joint angles clearly." },
@@ -33,8 +20,7 @@ export default function UploadScanPage() {
   const videoRef     = useRef(null)
   const fileInputRef = useRef(null)
 
-  const [selectedMuscle,    setSelectedMuscle]    = useState(null)
-  const [selectedExercise,  setSelectedExercise]  = useState(null)
+  const [exercise,          setExercise]          = useState(null)
   const [videoFile,         setVideoFile]         = useState(null)
   const [videoPreviewUrl,   setVideoPreviewUrl]   = useState(null)
   const [isPlaying,         setIsPlaying]         = useState(false)
@@ -46,9 +32,9 @@ export default function UploadScanPage() {
   const [showSuccessToast,  setShowSuccessToast]  = useState(false)
 
   const maxWeight    = unit === "kg" ? 200 : 440
-  const isFormValid  = selectedExercise && videoFile && !fileError && weight > 0
-  const exerciseList = selectedMuscle ? (EXERCISES[selectedMuscle] || []) : []
-  const tipsTitle    = selectedExercise ? TIPS_TITLE[selectedExercise] : null
+  const needsWeight  = exercise ? exercise.equipment !== "bodyweight" : true  // a plank or push-up has no load to enter
+  const isFormValid  = exercise && videoFile && !fileError && (!needsWeight || weight > 0)
+  const tipsTitle    = exercise ? `LET'S CRUSH YOUR ${exercise.name.toUpperCase()} TODAY` : null
 
   function handleFileChange(e) {
     const file = e.target.files?.[0]
@@ -71,7 +57,7 @@ export default function UploadScanPage() {
     if (!isFormValid) return
     setUploadError(""); setIsUploading(true)
     try {
-      const analysisId = await uploadVideo(videoFile, selectedExercise, weight, unit)
+      const analysisId = await uploadVideo(videoFile, exercise.movement, needsWeight ? weight : 0, unit)
       navigate("/upload/loading", { state: { analysisId, videoPreviewUrl } })
     } catch (err) {
       setUploadError(err.message || "Upload failed. Please try again.")
@@ -79,118 +65,16 @@ export default function UploadScanPage() {
     }
   }
 
-  const NAV_ITEMS = [
-    { label: "Home",     icon: "M3 12l2-2m0 0l7-7 7 7M5 10v10a1 1 0 001 1h3m10-11l2 2m-2-2v10a1 1 0 01-1 1h-3m-6 0a1 1 0 001-1v-4a1 1 0 011-1h2a1 1 0 011 1v4a1 1 0 001 1m-6 0h6", path: "/" },
-    { label: "Plan",     icon: "M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z", path: "/plan" },
-    { label: "Anaylsis", icon: "M15 10l4.553-2.069A1 1 0 0121 8.82v6.36a1 1 0 01-1.447.894L15 14M3 8a2 2 0 012-2h8a2 2 0 012 2v8a2 2 0 01-2 2H5a2 2 0 01-2-2V8z", path: "/upload", active: true },
-    { label: "History", icon: "M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z", path: "/timeline" },
-    { label: "Profile",  icon: "M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z", path: "/profile" },
-  ]
-
   return (
-    <div className="min-h-screen pb-24" style={{ backgroundColor: "#F0EFFE", colorScheme: "light" }}>
+    <div className="min-h-screen pb-24" style={{ backgroundColor: FLAT_LILAC, colorScheme: "light" }}>
       <div className="max-w-sm mx-auto px-4 pt-6">
 
-        <h1 className="text-xl font-bold text-gray-900 mb-4">Select Target Muscle</h1>
-
-        {/* Body diagram + Exercise Module */}
-        <div className="rounded-2xl mb-4 overflow-hidden" style={{ border: "1.5px dashed #93c5fd", background: "white" }}>
-
-          <div className="relative p-4 pb-8">
-            {selectedMuscle && (
-              <div className="absolute top-6 left-4 z-10">
-                <span className="inline-block px-3 py-1.5 rounded-full text-xs font-bold text-white tracking-widest"
-                  style={{ background: "linear-gradient(135deg, #6366F1 0%, #7C3AED 100%)", boxShadow: "0 4px 12px rgba(99, 102, 241, 0.4)" }}>
-                  {selectedMuscle} SELECTED
-                </span>
-              </div>
-            )}
-            <div style={{
-              position: "relative",
-              padding: "4px",
-              borderRadius: "12px",
-              border: selectedMuscle ? "3px solid #7C3AED" : "3px solid transparent",
-              background: selectedMuscle ? "linear-gradient(135deg, rgba(124, 58, 237, 0.1) 0%, rgba(147, 71, 255, 0.1) 100%)" : "transparent",
-              transition: "all 0.3s ease",
-            }}>
-              <img
-                src="/muscular_model2.png"
-                alt="Body diagram"
-                className="w-full object-contain"
-                style={{
-                  maxHeight: 300,
-                  filter: selectedMuscle === "QUADS" ? "none" : "saturate(0)",
-                  transition: "filter 0.3s ease",
-                  borderRadius: "8px",
-                }}
-                onError={e => { e.currentTarget.src = "/muscular_model2.png" }}
-              />
-            </div>
-            <button type="button" aria-label="SHOULDERS" className="absolute" style={{ left: "2%", top: "8%",    width: "38%", height: "14%", opacity: 0 }} onClick={() => { setSelectedMuscle(selectedMuscle === "SHOULDERS" ? null : "SHOULDERS"); setSelectedExercise(null) }} />
-            <button type="button" aria-label="BICEPS"    className="absolute" style={{ left: "2%", top: "24%",   width: "30%", height: "12%", opacity: 0 }} onClick={() => { setSelectedMuscle(m => m === "BICEPS"    ? null : "BICEPS");    setSelectedExercise(null) }} />
-            <button type="button" aria-label="FOREARMS"  className="absolute" style={{ left: "2%", top: "38%",   width: "34%", height: "12%", opacity: 0 }} onClick={() => { setSelectedMuscle(m => m === "FOREARMS"  ? null : "FOREARMS");  setSelectedExercise(null) }} />
-            <button type="button" aria-label="QUADS"     className="absolute" style={{ left: "2%", bottom: "20%", width: "46%", height: "22%", opacity: 0 }} onClick={() => { setSelectedMuscle(m => m === "QUADS"     ? null : "QUADS");     setSelectedExercise(null) }} />
-            <button type="button" aria-label="CHEST"     className="absolute" style={{ right: "2%", top: "14%",  width: "32%", height: "14%", opacity: 0 }} onClick={() => { setSelectedMuscle(m => m === "CHEST"     ? null : "CHEST");     setSelectedExercise(null) }} />
-            <button type="button" aria-label="ABS/CORE"  className="absolute" style={{ right: "2%", top: "30%",  width: "36%", height: "14%", opacity: 0 }} onClick={() => { setSelectedMuscle(m => m === "ABS/CORE"  ? null : "ABS/CORE");  setSelectedExercise(null) }} />
-            <button type="button" className="absolute bottom-1 right-4 text-gray-400" aria-label="Rotate">
-              <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-                <path strokeLinecap="round" strokeLinejoin="round" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
-              </svg>
-            </button>
-          </div>
-
-          <div style={{ background: "linear-gradient(135deg, #e0e7ff 0%, #ede9fe 100%)" }} className="px-4 pt-3 pb-4">
-            <div className="flex items-center justify-between mb-3">
-              <div className="flex items-center gap-2">
-                <span className="text-[11px] font-bold text-gray-600 tracking-widest uppercase">Exercise Module</span>
-                {selectedMuscle && (
-                  <span className="px-2.5 py-1 rounded-full text-xs font-bold text-white tracking-wide"
-                    style={{ background: "linear-gradient(135deg, #7C3AED 0%, #9333EA 100%)" }}>
-                    {selectedMuscle}
-                  </span>
-                )}
-              </div>
-              <svg className="w-4 h-4 text-gray-400" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2}>
-                <rect x="3" y="3" width="7" height="7" rx="1"/><rect x="14" y="3" width="7" height="7" rx="1"/>
-                <rect x="3" y="14" width="7" height="7" rx="1"/><rect x="14" y="14" width="7" height="7" rx="1"/>
-              </svg>
-            </div>
-            {exerciseList.length === 0 ? (
-              <div className="bg-white rounded-xl px-4 py-3">
-                <span className="text-sm text-gray-400">Select Target Muscle</span>
-              </div>
-            ) : (
-              <div className="space-y-2">
-                {exerciseList.map(ex => {
-                  const sel = selectedExercise === ex.id
-                  return (
-                    <button
-                      key={ex.id}
-                      type="button"
-                      onClick={() => setSelectedExercise(ex.id)}
-                      className="w-full flex items-center justify-between px-4 py-3 rounded-xl text-sm font-semibold tracking-wide bg-white transition-all"
-                      style={{ border: sel ? "2px solid #3b82f6" : "2px solid transparent" }}
-                    >
-                      <span className="flex items-center gap-3 text-gray-900">
-                        <span>🏋️</span>
-                        <span>{ex.name}</span>
-                      </span>
-                      {sel && (
-                        <span className="w-6 h-6 rounded-full flex items-center justify-center flex-shrink-0" style={{ background: "#3b82f6" }}>
-                          <svg className="w-3.5 h-3.5 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={3}>
-                            <path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" />
-                          </svg>
-                        </span>
-                      )}
-                    </button>
-                  )
-                })}
-                <button type="button" className="w-full px-4 py-3 rounded-xl bg-white text-sm text-gray-400 font-medium">
-                  VIEW MORE
-                </button>
-              </div>
-            )}
-          </div>
+        <h1 style={{ fontFamily: BRICOLAGE, fontWeight: 700, fontSize: 22, color: INK, margin: "0 0 2px" }}>Check your form</h1>
+        <p style={{ fontFamily: DM_SANS, fontSize: 13, color: GRAY, margin: "0 0 14px" }}>
+          What did you film? Pick a body area, then the exercise.
+        </p>
+        <div className="mb-4">
+          <UploadExercisePicker exercise={exercise} onPick={setExercise} onClear={() => setExercise(null)} />
         </div>
 
         {/* Tips */}
@@ -294,7 +178,7 @@ export default function UploadScanPage() {
         {fileError && <p className="text-xs text-red-500 mb-3">{fileError}</p>}
 
         {/* Load Parameters */}
-        <div className="bg-white rounded-2xl p-4 mb-4 shadow-sm border border-gray-100">
+        {needsWeight && <div className="bg-white rounded-2xl p-4 mb-4 shadow-sm border border-gray-100">
           <div className="flex items-center justify-between mb-3">
             <span className="text-sm font-semibold text-gray-700">Load Parameters</span>
             <div className="flex rounded-full overflow-hidden border border-indigo-200 text-xs font-semibold">
@@ -318,7 +202,7 @@ export default function UploadScanPage() {
           <div className="flex justify-between mt-1 px-1">
             {[0,1,2,3,4].map(i => <div key={i} className="w-px h-1.5 bg-gray-300" />)}
           </div>
-        </div>
+        </div>}
 
         {/* Start Analysis */}
         <button
@@ -343,7 +227,7 @@ export default function UploadScanPage() {
         </button>
 
         {!isFormValid && !isUploading && (
-          <p className="text-xs text-gray-400 text-center mb-2">Choose exercise, set load (&gt; 0), and attach a video — then tap start.</p>
+          <p className="text-xs text-gray-400 text-center mb-2">{needsWeight ? "Choose an exercise, set the load (> 0) and attach a video — then tap start." : "Choose an exercise and attach a video — then tap start."}</p>
         )}
         {uploadError && <p className="text-xs text-red-500 text-center mb-2">{uploadError}</p>}
 
@@ -355,25 +239,6 @@ export default function UploadScanPage() {
         )}
       </div>
 
-      {/* Bottom nav */}
-      <div className="fixed bottom-0 left-0 right-0 bg-white border-t border-gray-100 flex justify-around items-center py-2 px-4">
-        {NAV_ITEMS.map(({ label, icon, path, active }) => (
-          <button key={label} type="button" onClick={() => navigate(path)} className="flex flex-col items-center gap-0.5">
-            {active ? (
-              <div className="w-10 h-10 rounded-full flex items-center justify-center -mt-4 shadow-lg" style={{ background: "linear-gradient(135deg, #6366f1, #818cf8)" }}>
-                <svg className="w-5 h-5 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-                  <path strokeLinecap="round" strokeLinejoin="round" d={icon} />
-                </svg>
-              </div>
-            ) : (
-              <svg className="w-5 h-5 text-gray-400" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-                <path strokeLinecap="round" strokeLinejoin="round" d={icon} />
-              </svg>
-            )}
-            <span className="text-[10px]" style={{ color: active ? "#6366f1" : "#9ca3af" }}>{label}</span>
-          </button>
-        ))}
-      </div>
     </div>
   )
 }
