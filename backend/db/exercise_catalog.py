@@ -196,4 +196,7 @@ EXERCISES = [
     ("ex_183", "Barbell Push Press", "barbell-push-press", "barbell", ["shoulders"], ["Hips", "Deltoids"], "Compound", "/Fullbody_figure.png"),
     ("ex_184", "Ground to Overhead", "ground-to-overhead", "dumbbell", ["full_body"], ["Full Body"], "Compound", "/Fullbody_figure.png"),
     ("ex_185", "DB Tricep Kickback", "tricep-kickback", "dumbbell", ["arms"], ["Triceps"], "Isolation", "/Fullbody_figure.png"),
+    ("ex_186", "Chair Squat", "chair-squat", "bodyweight", ["legs"], ["Quads", "Glutes"], "Compound", "/Legs_figure.png"),
+    ("ex_187", "Heel-Raised Goblet Squat", "heel-raised-goblet-squat", "dumbbell", ["legs"], ["Quads", "Glutes", "Hamstring"], "Compound", "/Gobletsquat_figure.png"),
+    ("ex_188", "Pause Goblet Squat", "pause-goblet-squat", "dumbbell", ["legs"], ["Quads", "Glutes", "Hamstring"], "Compound", "/Gobletsquat_figure.png"),
 ]
