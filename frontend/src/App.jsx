@@ -19,6 +19,7 @@ import SubscriptionPage from "./pages/SubscriptionPage"
 import WorkoutLoggerPage from "./pages/WorkoutLoggerPage"
 import WorkoutCommitPage from "./pages/WorkoutCommitPage"
 import ActiveWorkoutPage from "./pages/ActiveWorkoutPage"
+import ExercisePage from "./pages/ExercisePage"
 
 function Layout({ children }) {
   return (
@@ -60,6 +61,7 @@ function App() {
           <Route path="/upload/results" element={<ProtectedLayout><ResultsPage /></ProtectedLayout>} />
           <Route path="/upload/comparison" element={<ProtectedLayout><ComparisonPage /></ProtectedLayout>} />
           <Route path="/profile/subscription" element={<ProtectedLayout><SubscriptionPage /></ProtectedLayout>} />
+          <Route path="/exercise/:id" element={<ProtectedLayout><ExercisePage /></ProtectedLayout>} />
           <Route path="/workout/commit" element={<ProtectedLayout><WorkoutCommitPage /></ProtectedLayout>} />
           <Route path="/workout/active" element={<ProtectedLayout><ActiveWorkoutPage /></ProtectedLayout>} />
           <Route path="/workout-logger" element={<ProtectedLayout><WorkoutLoggerPage /></ProtectedLayout>} />

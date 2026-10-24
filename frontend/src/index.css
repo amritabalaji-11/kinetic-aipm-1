@@ -63,3 +63,17 @@ body {
 @media (prefers-reduced-motion: reduce) {
   .pump-btn-pumping, .flex-arm-once, .flex-arm-loop, .ring-pulse-loop { animation: none; }
 }
+
+/* Exercise page muscle map: the main muscles (drawn in #E5484D = rgb(229, 72, 77), see MuscleMap.jsx) pulse softly */
+@keyframes musclePulse {
+  0%, 100% { opacity: 1; transform: scale(1); filter: drop-shadow(0 0 0 rgba(229, 72, 77, 0)); }
+  50% { opacity: 0.6; transform: scale(1.05); filter: drop-shadow(0 0 4px rgba(229, 72, 77, 0.9)); }
+}
+.muscle-map polygon[style*="229, 72, 77"] {
+  animation: musclePulse 1.5s ease-in-out infinite;
+  transform-box: fill-box;
+  transform-origin: center;
+}
+@media (prefers-reduced-motion: reduce) {
+  .muscle-map polygon[style*="229, 72, 77"] { animation: none; }
+}

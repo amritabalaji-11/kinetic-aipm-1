@@ -87,6 +87,7 @@ export default function WorkoutPlannerPage() {
                     <ExerciseLine
                       key={itemIndex}
                       name={it.name}
+                      exerciseId={it.exerciseId}
                       sub={it.sub}
                       muted={it.rest}
                       right={it.exerciseId && (

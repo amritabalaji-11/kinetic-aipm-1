@@ -1,18 +1,21 @@
 import { useEffect, useState } from "react"
 import { useNavigate } from "react-router-dom"
-import { ArrowLeftRight, BicepsFlexed, Check, ChevronDown, ChevronRight, Pause, Play, Plus, Timer, VideoIcon } from "lucide-react"
+import { ArrowLeftRight, BicepsFlexed, Check, ChevronDown, ChevronRight, Lightbulb, Pause, Play, Plus, Timer, VideoIcon } from "lucide-react"
 import FormGuide from "../components/FormGuide"
+import CuesSheet from "../components/CuesSheet"
+import NextUpCard from "../components/NextUpCard"
 import RestTimer from "../components/RestTimer"
 import SwapSheet from "../components/SwapSheet"
 import AddExerciseSheet from "../components/AddExerciseSheet"
 import { hasGuidance } from "../data/exerciseGuidance"
+import { hasExerciseGuide } from "../data/exerciseGuides"
 import { addPendingWorkout, removePendingWorkout, saveWorkout } from "../services/workoutService"
 import { equipmentLabel } from "../utils/exerciseCatalog"
 import {
   allSetsTicked, currentBlockIndex, emptySet, ensureBlocks, flattenForSave, isActionable, isBlockComplete,
-  itemHasEntries, restSecondsFromNote,
+  itemHasEntries, nextUpItems, restSecondsFromNote,
 } from "../utils/workoutModel"
-import { BRICOLAGE, DM_SANS, GRADIENT, GRAY, INK, PURPLE } from "../components/planUi"
+import { BRICOLAGE, DM_SANS, ExerciseName, GRADIENT, GRAY, INK, PURPLE } from "../components/planUi"
 
 const GREEN = "#22C55E"
 const DARK_GREEN = "#15803D"
@@ -187,6 +190,8 @@ export default function ActiveWorkoutPage() {
     return i >= 0 ? [w.blocks[i].id] : []
   })
   const [restEndsAt, setRestEndsAt] = useState(null)
+  const [cuesFor, setCuesFor] = useState(null) // index of the section whose "Cues" sheet is open
+  const [showNextUp, setShowNextUp] = useState(false) // opens when a set is ticked or an item is marked done
   const [swapping, setSwapping] = useState(null) // { bi, ii }
   const [adding, setAdding] = useState(false)
   const [notice, setNotice] = useState("")
@@ -228,9 +233,14 @@ export default function ActiveWorkoutPage() {
 
   const setField = (bi, ii, si, field, value) =>
     mapItem(bi, ii, (it) => ({ ...it, sets: it.sets.map((s, k) => (k !== si ? s : { ...s, [field]: value })) }))
-  const toggleSet = (bi, ii, si) =>
+  const toggleSet = (bi, ii, si) => {
+    if (!blocks[bi].items[ii].sets[si].completed) setShowNextUp(true) // just finished a set: show what comes next
     mapItem(bi, ii, (it) => ({ ...it, sets: it.sets.map((s, k) => (k !== si ? s : { ...s, completed: !s.completed })) }))
-  const toggleDone = (bi, ii) => mapItem(bi, ii, (it) => ({ ...it, done: !it.done }))
+  }
+  const toggleDone = (bi, ii) => {
+    if (!blocks[bi].items[ii].done) setShowNextUp(true)
+    mapItem(bi, ii, (it) => ({ ...it, done: !it.done }))
+  }
 
   const addRound = (bi) =>
     mapBlock(bi, (b) => ({ ...b, items: b.items.map((it) => (it.logged ? { ...it, sets: [...it.sets, emptySet()] } : it)) }))
@@ -388,13 +398,22 @@ export default function ActiveWorkoutPage() {
 
           return (
             <div key={block.id} id={`block-${block.id}`} style={{ borderRadius: 12, padding: 12, ...cardStyle }}>
-              <button type="button" onClick={() => toggleOpen(block.id)} style={{ all: "unset", display: "flex", alignItems: "center", gap: 8, width: "100%", cursor: "pointer", boxSizing: "border-box" }}>
+              <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+              <button type="button" onClick={() => toggleOpen(block.id)} style={{ all: "unset", display: "flex", alignItems: "center", gap: 8, flex: 1, minWidth: 0, cursor: "pointer", boxSizing: "border-box" }}>
                 <Tag state={state}>{block.tag}</Tag>
                 <span style={{ fontFamily: DM_SANS, fontSize: 11, color: GRAY, flex: 1 }}>{block.note}</span>
+              </button>
+              {actionable.some((it) => hasExerciseGuide(it.exerciseId)) && (
+                <button type="button" aria-label={`Cues for ${block.tag}`} onClick={() => setCuesFor(bi)} style={{ display: "flex", alignItems: "center", gap: 4, padding: "4px 9px", borderRadius: 12, border: "1.2px solid rgba(129,51,255,0.55)", background: "#FCF9FF", color: PURPLE, fontFamily: DM_SANS, fontWeight: 600, fontSize: 11, cursor: "pointer", flexShrink: 0 }}>
+                  <Lightbulb size={12} /> Cues
+                </button>
+              )}
+              <button type="button" onClick={() => toggleOpen(block.id)} aria-label={isOpen ? `Fold ${block.tag}` : `Open ${block.tag}`} style={{ all: "unset", display: "flex", alignItems: "center", gap: 8, cursor: "pointer", flexShrink: 0 }}>
                 {state === "done" && <span style={{ width: 24, height: 24, borderRadius: 12, background: GREEN, display: "flex", alignItems: "center", justifyContent: "center" }}><Check size={13} color="#fff" strokeWidth={3} /></span>}
                 {state === "current" && <span style={{ padding: "3px 9px", borderRadius: 10, background: GRADIENT, color: "#fff", fontFamily: DM_SANS, fontSize: 10, fontWeight: 600 }}>NOW</span>}
                 <ChevronDown size={18} color={GRAY} style={{ transform: isOpen ? "rotate(180deg)" : "none", flexShrink: 0 }} />
               </button>
+              </div>
 
               {isOpen && (
                 <div style={{ display: "flex", flexDirection: "column", gap: 8, marginTop: 8 }}>
@@ -416,7 +435,7 @@ export default function ActiveWorkoutPage() {
                           <div key={it.key} style={{ display: "flex", alignItems: "center", gap: 8, padding: "2px 0" }}>
                             <TickCircle size={20} done={it.done} onClick={() => toggleDone(bi, ii)} label={it.done ? `Mark ${it.name} not done` : `Mark ${it.name} done`} />
                             <div style={{ flex: 1, minWidth: 0, fontFamily: DM_SANS, fontSize: 13, lineHeight: 1.3 }}>
-                              <span style={{ fontWeight: 600, color: it.done ? DARK_GREEN : PURPLE }}>{it.name}</span>
+                              <span style={{ fontWeight: 600, color: it.done ? DARK_GREEN : PURPLE }}><ExerciseName exerciseId={it.exerciseId}>{it.name}</ExerciseName></span>
                               {it.sub && <span style={{ color: GRAY }}> · {it.sub}</span>}
                             </div>
                           </div>
@@ -426,7 +445,7 @@ export default function ActiveWorkoutPage() {
                         <div key={it.key} style={{ display: "flex", alignItems: "center", gap: 8 }}>
                           {multi && <span style={{ width: 20, height: 20, borderRadius: 5, background: PURPLE, color: "#fff", fontFamily: DM_SANS, fontWeight: 600, fontSize: 11, display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0 }}>{letter(logged.indexOf(it))}</span>}
                           <div style={{ flex: 1, minWidth: 0, lineHeight: 1.3 }}>
-                            <div style={{ fontFamily: DM_SANS, fontWeight: 600, fontSize: 15, color: PURPLE }}>{it.name}</div>
+                            <div style={{ fontFamily: DM_SANS, fontWeight: 600, fontSize: 15, color: PURPLE }}><ExerciseName exerciseId={it.exerciseId}>{it.name}</ExerciseName></div>
                             {it.sub && <div style={{ fontFamily: DM_SANS, fontSize: 12, color: GRAY }}>{it.sub}</div>}
                           </div>
                           {it.exerciseId && <SwapButton name={it.name} locked={itemHasEntries(it)} onClick={() => setSwapping({ bi, ii })} />}
@@ -512,6 +531,16 @@ export default function ActiveWorkoutPage() {
           )
         })}
       </div>
+
+      {cuesFor !== null && blocks[cuesFor] && (
+        <CuesSheet title={`Cues: ${blocks[cuesFor].tag}`} items={blocks[cuesFor].items.filter(isActionable)} onClose={() => setCuesFor(null)} />
+      )}
+
+      {showNextUp && (() => {
+        const up = nextUpItems(blocks)
+        // sits just above the rest timer when that is showing
+        return up ? <NextUpCard key={up.items.map((i) => i.key).join("|")} items={up.items} bottom={restEndsAt ? 274 : 210} onDismiss={() => setShowNextUp(false)} /> : null
+      })()}
 
       {restEndsAt && <RestTimer endsAt={restEndsAt} onAdd={(s) => setRestEndsAt(restEndsAt + s * 1000)} onSkip={() => setRestEndsAt(null)} />}
 

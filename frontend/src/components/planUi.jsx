@@ -1,4 +1,6 @@
-import { X } from "lucide-react"
+import { Link, useLocation } from "react-router-dom"
+import { Info, X } from "lucide-react"
+import { hasExerciseGuide } from "../data/exerciseGuides"
 
 // Small building blocks shared by the planner, swap sheet and builder screens.
 export const GRADIENT = "linear-gradient(92.52deg, #0284C7 0%, #9747FF 100%)"
@@ -125,11 +127,28 @@ export function BottomSheet({ title, onClose, children, footer }) {
 }
 
 // Purple bold name, small grey line underneath. `right` holds buttons or a tick.
-export function ExerciseLine({ name, sub, right, muted }) {
+// An exercise name that opens its form guide when there is one (a small (i) shows which ones), plain text otherwise
+export function ExerciseName({ exerciseId, children }) {
+  const location = useLocation()
+  if (!exerciseId || !hasExerciseGuide(exerciseId)) return children
+  return (
+    <Link
+      to={`/exercise/${exerciseId}`}
+      state={{ from: location.pathname }}
+      onClick={(e) => e.stopPropagation()}
+      aria-label={`${typeof children === "string" ? children : "Exercise"}: how to do it`}
+      style={{ color: "inherit", textDecoration: "underline dotted", textUnderlineOffset: 3 }}
+    >
+      {children} <Info size={13} style={{ display: "inline", verticalAlign: "-1px" }} />
+    </Link>
+  )
+}
+
+export function ExerciseLine({ name, sub, right, muted, exerciseId }) {
   return (
     <div style={{ display: "flex", alignItems: "center", gap: 8, padding: "7px 0" }}>
       <div style={{ flex: 1, minWidth: 0 }}>
-        <div style={{ fontFamily: DM_SANS, fontWeight: 600, fontSize: 15, color: muted ? GRAY : PURPLE }}>{name}</div>
+        <div style={{ fontFamily: DM_SANS, fontWeight: 600, fontSize: 15, color: muted ? GRAY : PURPLE }}><ExerciseName exerciseId={exerciseId}>{name}</ExerciseName></div>
         {sub && <div style={{ fontFamily: DM_SANS, fontSize: 12, color: GRAY, marginTop: 1 }}>{sub}</div>}
       </div>
       {right}

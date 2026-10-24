@@ -12,7 +12,7 @@ const VARIANTS = {
   light: { background: "#FCF9FF", color: "#8133FF", border: "1px solid #A36CFB" },
 }
 
-export default function ListenButton({ text, variant = "onDark" }) {
+export default function ListenButton({ text, variant = "onDark", coach = false }) {
   const [status, setStatus] = useState("idle") // idle | loading | playing | error
   const audioRef = useRef(null)
 
@@ -31,16 +31,17 @@ export default function ListenButton({ text, variant = "onDark" }) {
     if (status === "loading" || !text) return
     setStatus("loading")
     try {
-      let url = audioCache.get(text)
+      const cacheKey = coach ? `coach:${text}` : text
+      let url = audioCache.get(cacheKey)
       if (!url) {
         const res = await apiFetch(`${BASE_URL}/tts`, {
           method: "POST",
           headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ text }),
+          body: JSON.stringify({ text, ...(coach ? { style: "coach" } : {}) }),
         })
         if (!res.ok) throw new Error(`TTS failed: ${res.status}`)
         url = URL.createObjectURL(await res.blob())
-        audioCache.set(text, url)
+        audioCache.set(cacheKey, url)
       }
       const audio = new Audio(url)
       audio.onended = () => setStatus("idle")

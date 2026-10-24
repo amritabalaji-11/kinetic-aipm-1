@@ -111,3 +111,30 @@ export function flattenForSave(workout) {
   }
   return { ...workout, exercises }
 }
+
+// What the person does next, for the "Next up" card: the next unticked set (both exercises of a pair, if it is one),
+// or the next follow-along exercises, or the start of the next section. null when nothing is left.
+export function nextUpItems(blocks) {
+  const bi = currentBlockIndex(blocks)
+  if (bi === -1) return null
+  const block = blocks[bi]
+  const pick = (it, label) => ({ key: it.key, exerciseId: it.exerciseId, name: it.name, label })
+
+  const logged = block.items.filter((it) => it.logged)
+  const rounds = Math.max(0, ...logged.map((it) => it.sets.length))
+  for (let r = 0; r < rounds; r++) {
+    const pending = logged.filter((it) => it.sets[r] && !it.sets[r].completed)
+    if (pending.length) return { tag: block.tag, items: pending.slice(0, 2).map((it) => pick(it, `Set ${r + 1} of ${rounds}`)) }
+  }
+  const todo = block.items.filter((it) => !it.logged && !it.rest && !it.done)
+  if (todo.length) return { tag: block.tag, items: todo.slice(0, 2).map((it) => pick(it, it.sub || "")) }
+
+  // this section is done, so look at the one after it
+  const nextBlock = blocks.slice(bi + 1).find((b) => b.items.some(isActionable) && !isBlockComplete(b))
+  if (!nextBlock) return null
+  const first = nextBlock.items.filter(isActionable).slice(0, 2)
+  return {
+    tag: nextBlock.tag,
+    items: first.map((it) => pick(it, it.logged ? `Set 1 of ${it.sets.length}` : it.sub || "")),
+  }
+}
