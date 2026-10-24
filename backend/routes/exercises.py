@@ -49,6 +49,21 @@ async def list_exercises(
     return [_shape(r) for r in await db.fetch_all(sql, params)]
 
 
+@router.get("/{exercise_id}/guide")
+async def get_exercise_guide(exercise_id: str):
+    """The spoken coaching script(s) for an exercise. 404 when none has been written yet (the app then reads the guide's
+    points aloud instead)."""
+    row = await db.fetch_one("SELECT * FROM exercise_guides WHERE exercise_id = :id", {"id": exercise_id})
+    if not row or not row["coach_script"]:
+        raise HTTPException(status_code=404, detail="No coach script for this exercise yet")
+    return {
+        "exercise_id": row["exercise_id"],
+        "coach_script": row["coach_script"],
+        "coach_script_short": row["coach_script_short"],
+        "status": row["coach_script_status"],  # draft | approved
+    }
+
+
 @router.get("/{exercise_id}")
 async def get_exercise(exercise_id: str):
     row = await db.fetch_one("SELECT * FROM exercises WHERE exercise_id = :id", {"id": exercise_id})

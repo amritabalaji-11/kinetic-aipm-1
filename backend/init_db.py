@@ -288,6 +288,22 @@ CREATE TABLE IF NOT EXISTS exercises (
 """
 
 
+# What the Listen button says for each exercise: a short spoken script written (by an AI, from the guide's points) in a
+# trainer's voice. Drafts until a person approves them. Written by scripts/generate_coach_scripts.py.
+CREATE_EXERCISE_GUIDES_SQL = """
+CREATE TABLE IF NOT EXISTS exercise_guides (
+    exercise_id               TEXT PRIMARY KEY,
+    coach_script              TEXT,
+    coach_script_short        TEXT,
+    coach_script_status       TEXT NOT NULL DEFAULT 'draft',
+    coach_script_model        TEXT,
+    coach_script_source_hash  TEXT,
+    coach_script_generated_at TEXT,
+    updated_at                TEXT DEFAULT CURRENT_TIMESTAMP
+)
+"""
+
+
 def seed_exercises(db_):
     """Insert or update the catalogue from db/exercise_catalog.py. Safe to run on every start."""
     db_.run_many(
@@ -382,6 +398,7 @@ def init_db():
     db_.run(CREATE_WORKOUTS_SQL)
     db_.run(CREATE_WORKOUT_EXERCISES_SQL)
     db_.run(CREATE_EXERCISES_SQL)
+    db_.run(CREATE_EXERCISE_GUIDES_SQL)
     seed_exercises(db_)
 
     db_.run(CREATE_FORM_ANALYSIS_RESULTS_SQL)

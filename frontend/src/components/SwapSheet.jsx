@@ -1,7 +1,8 @@
 import { useMemo, useState } from "react"
 import { Check } from "lucide-react"
 import { EXERCISES } from "../data/dummyData"
-import { swapChoices, equipmentLabel } from "../utils/exerciseCatalog"
+import { getExerciseGuide } from "../data/exerciseGuides"
+import { swapChoices, equipmentLabel, getExercise } from "../utils/exerciseCatalog"
 import { BottomSheet, ExerciseLine, GradientButton, cardStyle, DM_SANS, GRAY, GRADIENT, FilterLabel } from "./planUi"
 
 const GROUP_ADJECTIVE = { legs: "LEG", chest: "CHEST", back: "BACK", shoulders: "SHOULDER", arms: "ARM", core: "CORE", full_body: "FULL BODY" }
@@ -21,13 +22,27 @@ export default function SwapSheet({ currentId, planAlternativeIds = [], onPick, 
   const searching = q.length > 0
   const matches = searching ? EXERCISES.filter((e) => e.id !== current.id && (e.name.toLowerCase().includes(q) || e.muscles.some((m) => m.toLowerCase().includes(q)))) : []
 
+  // Easier and harder versions from the exercise's form guide (only the ones that are real catalogue exercises)
+  const guide = getExerciseGuide(current.id)
+  const stepsToExercises = (steps = []) => steps
+    .map((s) => ({ exercise: getExercise(s.exerciseId), step: s }))
+    .filter((x) => x.exercise)
+  const easier = stepsToExercises(guide?.easier)
+  const harder = stepsToExercises(guide?.harder)
+  const levelIds = new Set([...easier, ...harder].map((x) => x.exercise.id))
+  const notALevel = (items) => items.filter((e) => !levelIds.has(e.id)) // show each exercise once
+
   const groups = searching
     ? [{ title: "RESULTS", items: matches }]
     : [
         { title: "IN YOUR PLAN", items: inPlan },
-        { title: "SAME MOVEMENT", items: sameMovement },
-        { title: `OTHER ${GROUP_ADJECTIVE[current.muscleGroup] ?? ""} EXERCISES`.replace("  ", " "), items: sameGroup },
+        { title: "SAME MOVEMENT", items: notALevel(sameMovement) },
+        { title: `OTHER ${GROUP_ADJECTIVE[current.muscleGroup] ?? ""} EXERCISES`.replace("  ", " "), items: notALevel(sameGroup) },
       ].filter((g) => g.items.length > 0)
+  const levels = searching ? [] : [
+    { title: "EASIER OPTIONS", items: easier },
+    { title: "HARDER OPTIONS", items: harder },
+  ].filter((l) => l.items.length > 0)
 
   return (
     <BottomSheet
@@ -45,6 +60,29 @@ export default function SwapSheet({ currentId, planAlternativeIds = [], onPick, 
         placeholder="Search exercises"
         style={{ width: "100%", boxSizing: "border-box", padding: "11px 14px", borderRadius: 24, border: "1.5px solid #E6E3F8", fontFamily: DM_SANS, fontSize: 14, outline: "none", background: "#fff" }}
       />
+      {levels.map((l) => (
+        <div key={l.title}>
+          <FilterLabel>{l.title}</FilterLabel>
+          <div style={cardStyle}>
+            {l.items.map(({ exercise: ex, step }, i) => {
+              const on = picked?.id === ex.id
+              return (
+                <button key={ex.id} type="button" onClick={() => setSelected(ex)} style={{ display: "block", width: "100%", textAlign: "left", background: "none", border: "none", padding: 0, cursor: "pointer", borderTop: i ? "1px solid rgba(129,51,255,0.12)" : "none" }}>
+                  <ExerciseLine
+                    name={ex.name}
+                    sub={<>{step.what}<br /><span style={{ fontStyle: "italic" }}>Pick this if {step.pickIf}.</span></>}
+                    right={
+                      <span style={{ width: 22, height: 22, borderRadius: 11, flexShrink: 0, display: "flex", alignItems: "center", justifyContent: "center", background: on ? GRADIENT : "transparent", border: on ? "none" : "1.5px solid rgba(100,116,139,0.5)" }}>
+                        {on && <Check size={13} color="#fff" strokeWidth={3} />}
+                      </span>
+                    }
+                  />
+                </button>
+              )
+            })}
+          </div>
+        </div>
+      ))}
       {groups.map((g) => (
         <div key={g.title}>
           <FilterLabel>{g.title}</FilterLabel>

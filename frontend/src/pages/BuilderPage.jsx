@@ -100,6 +100,7 @@ export default function BuilderPage() {
                   <div onClick={() => setOpenKey(open ? null : it.key)} style={{ cursor: "pointer" }}>
                     <ExerciseLine
                       name={ex.name}
+                      exerciseId={ex.id}
                       sub={`${it.sets} sets × ${it.reps} reps · ${equipmentLabel(ex)}`}
                       right={
                         <div style={{ display: "flex", gap: 8 }} onClick={(e) => e.stopPropagation()}>

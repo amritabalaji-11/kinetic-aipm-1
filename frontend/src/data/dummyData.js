@@ -343,6 +343,9 @@ export const EXERCISES = [
   { id: "ex_183", name: "Barbell Push Press", movement: "barbell-push-press", equipment: "barbell", muscleGroup: "shoulders", muscles: ["Hips", "Deltoids"], category: "Compound", groups: ["shoulders"], image: "/Fullbody_figure.png" },
   { id: "ex_184", name: "Ground to Overhead", movement: "ground-to-overhead", equipment: "dumbbell", muscleGroup: "full_body", muscles: ["Full Body"], category: "Compound", groups: ["full_body"], image: "/Fullbody_figure.png" },
   { id: "ex_185", name: "DB Tricep Kickback", movement: "tricep-kickback", equipment: "dumbbell", muscleGroup: "arms", muscles: ["Triceps"], category: "Isolation", groups: ["arms"], image: "/Fullbody_figure.png" },
+  { id: "ex_186", name: "Chair Squat", movement: "chair-squat", equipment: "bodyweight", muscleGroup: "legs", muscles: ["Quads", "Glutes"], category: "Compound", groups: ["legs"], image: "/Legs_figure.png" },
+  { id: "ex_187", name: "Heel-Raised Goblet Squat", movement: "heel-raised-goblet-squat", equipment: "dumbbell", muscleGroup: "legs", muscles: ["Quads", "Glutes", "Hamstring"], category: "Compound", groups: ["legs"], image: "/Gobletsquat_figure.png" },
+  { id: "ex_188", name: "Pause Goblet Squat", movement: "pause-goblet-squat", equipment: "dumbbell", muscleGroup: "legs", muscles: ["Quads", "Glutes", "Hamstring"], category: "Compound", groups: ["legs"], image: "/Gobletsquat_figure.png" },
 ]
 
 // Detailed form history with coaching feedback

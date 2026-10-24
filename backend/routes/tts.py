@@ -13,8 +13,13 @@ router = APIRouter()
 ELEVENLABS_URL = "https://api.elevenlabs.io/v1/text-to-speech"
 
 
+# Coaching delivery: a little less steady and more expressive than the default, so it sounds like someone talking to you
+COACH_VOICE_SETTINGS = {"stability": 0.4, "similarity_boost": 0.8, "style": 0.35, "use_speaker_boost": True}
+
+
 class TTSRequest(BaseModel):
     text: str
+    style: str | None = None  # "coach" for the expressive trainer delivery; anything else keeps the default voice
 
 
 @router.post("/tts")
@@ -34,7 +39,11 @@ async def text_to_speech(body: TTSRequest, _user: str = Depends(limit_guest("voi
         response = await client.post(
             f"{ELEVENLABS_URL}/{voice_id}",
             headers={"xi-api-key": api_key, "Content-Type": "application/json"},
-            json={"text": text, "model_id": "eleven_multilingual_v2"},
+            json={
+                "text": text,
+                "model_id": "eleven_multilingual_v2",
+                **({"voice_settings": COACH_VOICE_SETTINGS} if body.style == "coach" else {}),
+            },
         )
 
     if response.status_code != 200:
