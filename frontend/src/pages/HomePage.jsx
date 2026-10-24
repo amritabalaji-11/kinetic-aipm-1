@@ -238,7 +238,8 @@ export default function HomePage() {
     <div style={{ background: TOP_FADE_BACKGROUND, colorScheme: "light", minHeight: "100vh", paddingBottom: "140px" }}>
       <style>{scanStyle}</style>
       {/* Main Content */}
-      <div style={{ maxWidth: "430px", margin: "0 auto", padding: "0px 20px" }}>
+      {/* paddingTop leaves an empty band of just the background gradient above the greeting (plus the notch on phones that have one) */}
+      <div style={{ maxWidth: "430px", margin: "0 auto", padding: "calc(env(safe-area-inset-top, 0px) + 48px) 20px 0px" }}>
 
         {/* Header */}
         <div style={{ display: "flex", alignItems: "flex-start", justifyContent: "space-between", marginBottom: "20px", gap: "12px" }}>
