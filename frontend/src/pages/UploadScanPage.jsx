@@ -2,6 +2,8 @@ import { useState, useRef } from "react"
 import { useNavigate } from "react-router-dom"
 import { uploadVideoDirect } from "../services/uploadService"
 import { startVideoPreparation } from "../utils/prepareVideo"
+import { BIG_UNSHRUNK_BYTES, durationText, guessUploadSeconds } from "../utils/uploadHelp"
+import { useWakeLock } from "../utils/useWakeLock"
 import UploadExercisePicker from "../components/UploadExercisePicker"
 import { BRICOLAGE, DM_SANS, GRAY, INK } from "../components/planUi"
 import { FLAT_LILAC } from "../utils/pageBackground"
@@ -13,6 +15,7 @@ const CAMERA_TIPS = [
   { label: "Contrast", text: "Wear clothes that contrast with your background (e.g., don't wear black leggings against a black wall)." },
 ]
 
+const sentence = (text) => text[0].toUpperCase() + text.slice(1)
 const mb = (bytes) => (bytes / (1024 * 1024)).toFixed(bytes < 10 * 1024 * 1024 ? 1 : 0)
 
 const MAX_FILE_SIZE_MB = 500
@@ -23,6 +26,7 @@ export default function UploadScanPage() {
   const videoRef     = useRef(null)
   const fileInputRef = useRef(null)
   const prepRef      = useRef(null)  // the video is shrunk in the background as soon as it is chosen
+  const uploadStartedAt = useRef(0)  // when the upload itself began, to work out how long is left
   const prepFraction = useRef(0)     // how far along that is, readable from inside the Start handler
 
   const [exercise,          setExercise]          = useState(null)
@@ -36,8 +40,11 @@ export default function UploadScanPage() {
   const [phase,             setPhase]             = useState("")     // "" | "preparing" | "uploading" while Start is running
   const [progress,          setProgress]          = useState(0)      // 0..1 for the current phase
   const [prep,              setPrep]              = useState(null)   // how shrinking the chosen video is going
+  const [uploadBytes,       setUploadBytes]       = useState(0)      // size of the file being sent
   const [uploadError,       setUploadError]       = useState("")
   const [showSuccessToast,  setShowSuccessToast]  = useState(false)
+
+  useWakeLock(isUploading) // keep the screen on while preparing and uploading
 
   const maxWeight    = unit === "kg" ? 200 : 440
   const needsWeight  = exercise ? exercise.equipment !== "bodyweight" : true  // a plank or push-up has no load to enter
@@ -89,7 +96,7 @@ export default function UploadScanPage() {
       const prepared = job ? await job.promise : { file: videoFile }
       clearInterval(stopWatching)
 
-      setPhase("uploading"); setProgress(0)
+      setPhase("uploading"); setProgress(0); setUploadBytes(prepared.file.size); uploadStartedAt.current = Date.now()
       const analysisId = await uploadVideoDirect(prepared.file, exercise.movement, needsWeight ? weight : 0, unit, { onProgress: setProgress })
       navigate("/upload/loading", { state: { analysisId, videoPreviewUrl } })
     } catch (err) {
@@ -212,9 +219,12 @@ export default function UploadScanPage() {
           <p style={{ fontFamily: DM_SANS, fontSize: 12, color: GRAY, margin: "-6px 2px 14px" }}>
             {prep.working
               ? `Getting your video ready to upload… ${Math.round(prep.progress * 100)}%`
-              : prep.shrunk
-                ? `Video ready: ${mb(prep.from)} MB made smaller, now ${mb(prep.to)} MB.`
-                : `Video ready (${mb(prep.from)} MB).`}
+              : `${prep.shrunk ? `Video ready: ${mb(prep.from)} MB made smaller, now ${mb(prep.to)} MB.` : `Video ready (${mb(prep.from)} MB).`} ${sentence(durationText(guessUploadSeconds(prep.to)))} to upload.`}
+          </p>
+        )}
+        {videoFile && prep && !prep.working && !prep.shrunk && prep.from > BIG_UNSHRUNK_BYTES && (
+          <p role="alert" style={{ fontFamily: DM_SANS, fontSize: 12, color: "#92580A", background: "#FFF7E6", border: "1px solid #F5D08A", borderRadius: 10, padding: "8px 12px", margin: "-6px 0 14px", lineHeight: 1.45 }}>
+            ⚠ This video is big ({mb(prep.from)} MB) and may take several minutes to upload. If you can, trim it to just your working set.
           </p>
         )}
 
@@ -269,6 +279,17 @@ export default function UploadScanPage() {
 
         {!isFormValid && !isUploading && (
           <p className="text-xs text-gray-400 text-center mb-2">{needsWeight ? "Choose an exercise, set the load (> 0) and attach a video — then tap start." : "Choose an exercise and attach a video — then tap start."}</p>
+        )}
+        {isUploading && (
+          <p style={{ fontFamily: DM_SANS, fontSize: 12, color: GRAY, textAlign: "center", margin: "0 0 8px", lineHeight: 1.5 }}>
+            {phase === "uploading" && (() => {
+              const elapsed = (Date.now() - uploadStartedAt.current) / 1000
+              // once a good part has gone, the time left follows the real speed; until then it is the rough guess
+              const left = progress >= 0.1 && elapsed > 3 ? (elapsed * (1 - progress)) / progress : guessUploadSeconds(uploadBytes) * (1 - progress)
+              return <>{durationText(left)} left<br /></>
+            })()}
+            Keep this screen open until it&apos;s done.
+          </p>
         )}
         {uploadError && <p className="text-xs text-red-500 text-center mb-2">{uploadError}</p>}
 
