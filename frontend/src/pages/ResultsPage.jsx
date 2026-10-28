@@ -1383,7 +1383,6 @@ export default function ResultsPage() {
                       <p style={{ fontSize: "16px", fontWeight: 700, fontFamily: "'Bricolage Grotesque'", color: "#020D1B", margin: "0" }}>Form History</p>
                       <p style={{ fontSize: "14px", fontFamily: "'Bricolage Grotesque'", color: "#39414D", margin: "0" }}>Your last 3 Analyses</p>
                     </div>
-                    <button onClick={() => navigate("/history")} style={{ background: "none", border: "none", fontSize: "14px", fontWeight: 600, fontFamily: "'Bricolage Grotesque'", color: "#39414D", cursor: "pointer" }}>View All</button>
                   </div>
 
                   {formHistoryLoading ? (
