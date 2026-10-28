@@ -2,7 +2,7 @@ import { useEffect, useState, useRef } from "react"
 import { useNavigate } from "react-router-dom"
 import { uploadVideoDirect } from "../services/uploadService"
 import { startVideoPreparation } from "../utils/prepareVideo"
-import { BIG_UNSHRUNK_BYTES, durationText, guessUploadSeconds, markTipsSeen } from "../utils/uploadHelp"
+import { BIG_UNSHRUNK_BYTES, durationText, guessUploadSeconds, hasSeenTips, markTipsSeen } from "../utils/uploadHelp"
 import { useWakeLock } from "../utils/useWakeLock"
 import FilmingTips from "../components/FilmingTips"
 import LoadCard from "../components/LoadCard"
@@ -31,6 +31,8 @@ export default function UploadScanPage() {
   const [isPlaying,         setIsPlaying]         = useState(false)
   const [weight,            setWeight]            = useState(0)
   const [unit,              setUnit]              = useState("kg")
+  const [tipsChecked,       setTipsChecked]       = useState(hasSeenTips)  // ticked "I've got the tips" (remembered on this phone)
+  const [tipsNudge,         setTipsNudge]         = useState(0)            // goes up each time Start is pressed without ticking
   const [lastLoad,          setLastLoad]          = useState(null)   // weight used last time for the chosen exercise
   const [fileError,         setFileError]         = useState("")
   const [isUploading,       setIsUploading]       = useState(false)
@@ -97,6 +99,12 @@ export default function UploadScanPage() {
 
   async function handleSubmit() {
     if (!isFormValid) return
+    if (!tipsChecked) {
+      // the tips are one tick away: take them there and say so, rather than starting
+      setTipsNudge((n) => n + 1)
+      document.getElementById("filming-tips")?.scrollIntoView({ behavior: "smooth", block: "center" })
+      return
+    }
     setUploadError(""); setIsUploading(true); setPhase("preparing"); setProgress(0)
     try {
       // wait for the shrinking to finish (usually already has); if it can't shrink, this is the original file
@@ -129,7 +137,7 @@ export default function UploadScanPage() {
         </div>
 
         {/* Filming tips */}
-        {exercise && <FilmingTips />}
+        {exercise && <FilmingTips checked={tipsChecked} nudge={tipsNudge} onCheck={() => { markTipsSeen(); setTipsChecked(true) }} />}
 
         {/* Upload Session Video */}
         <h2 className="text-xl font-bold text-gray-900 mb-3">Upload Session Video</h2>
@@ -263,6 +271,9 @@ export default function UploadScanPage() {
             })()}
             Keep this screen open until it&apos;s done.
           </p>
+        )}
+        {tipsNudge > 0 && !tipsChecked && !isUploading && (
+          <p role="alert" className="text-xs text-red-500 text-center mb-2">Tick “I&apos;ve got the tips” above first.</p>
         )}
         {uploadError && <p className="text-xs text-red-500 text-center mb-2">{uploadError}</p>}
 
