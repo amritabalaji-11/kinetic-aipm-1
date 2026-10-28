@@ -24,6 +24,8 @@ from mediapipe_code.mp_utils.quality.landmark_quality_methods import (
     compute_composite_score, 
     compute_frame_reliability, compute_reliability,
     compute_view_metrics, evaluate_quality_gate, extract_frame_landmark_data,
+    encode_frame_for_collage,
+    extract_frames_from_encoded,
     extract_frames_from_memory,
     format_rep_data,
     get_first_pose,
@@ -157,7 +159,7 @@ class LandmarkQualityFramework:
 
         raw_frames = []
         reps_json_info = []
-        annotated_frames = []
+        annotated_frames = []  # each frame JPEG-compressed as it is made (see encode_frame_for_collage), not kept as raw pixels
         bottom_frames = []
 
         frame_index = 0
@@ -256,7 +258,7 @@ class LandmarkQualityFramework:
 
                     annotated = frame_bgr.copy()
                     
-                    append_annotated(annotated)
+                    append_annotated(encode_frame_for_collage(annotated))
                     if out_video.isOpened():
                         out_video.write(annotated)
 
@@ -443,8 +445,10 @@ class LandmarkQualityFramework:
 
                 if active_rep_number > 0:"""
                 append_bottom_frames(
+                            # (the frame's pixels used to be saved here too, for every frame analysed: about 1 GB for a
+                            # 40 second video, and nothing ever read them. The worst-frame picture is re-read from
+                            # the video file by frame_index instead.)
                             {"frame_index": frame_index,
-                             "frame_bgr": frame_bgr,
                              "camera_view":camera_view,
                              "norm_pose":norm_pose,
                              "width":width,
@@ -496,7 +500,7 @@ class LandmarkQualityFramework:
                     tempo_state=rep_counter.state,
                 )
 
-                append_annotated(annotated)
+                append_annotated(encode_frame_for_collage(annotated))
                 if out_video.isOpened():
                     out_video.write(annotated)
 
@@ -583,7 +587,7 @@ class LandmarkQualityFramework:
         # -------------------------------------------------
         if annotated_frames:
 
-            frames_base64 = extract_frames_from_memory(annotated_frames)
+            frames_base64 = extract_frames_from_encoded(annotated_frames)
 
             collage_b64 = build_composite_from_frames(
                 frames_base64,
