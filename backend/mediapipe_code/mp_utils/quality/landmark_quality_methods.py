@@ -716,6 +716,28 @@ def extract_frames_from_memory(
     return frames_b64
 
 
+def encode_frame_for_collage(frame: np.ndarray) -> np.ndarray:
+    """One frame, JPEG-compressed at the quality the summary picture uses (about 100 KB instead of 2.8 MB).
+    Keeping every frame of a long video as full-size pixels ran the server out of memory."""
+    _, buf = cv2.imencode(".jpg", frame, [cv2.IMWRITE_JPEG_QUALITY, 85])
+    return buf
+
+
+def extract_frames_from_encoded(encoded: list, n: int = 8) -> list:
+    """Same as extract_frames_from_memory (n evenly spaced frames, as base64 JPEG text), but for frames that were
+    already compressed by encode_frame_for_collage. The result is identical to compressing them here."""
+    if not encoded:
+        return []
+    total = len(encoded)
+    frames_b64 = []
+    for i in range(n):
+        idx = int(i * total / n)
+        if idx >= total:
+            idx = total - 1
+        frames_b64.append(base64.b64encode(encoded[idx]).decode("utf-8"))
+    return frames_b64
+
+
 def resize_video(video_path: str):
     filename = os.path.basename(video_path)
     full_name = os.path.splitext(filename)[0]
