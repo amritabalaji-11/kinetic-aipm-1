@@ -1,4 +1,6 @@
 import { useEffect, useMemo, useState } from "react"
+import { useWakeLock } from "../utils/useWakeLock"
+import { durationText } from "../utils/uploadHelp"
 import { apiFetch } from "../services/api"
 import { useNavigate, useLocation } from "react-router-dom"
 import { useSSEStream } from "../hooks/useSSEStream"
@@ -58,7 +60,8 @@ export default function LoadingPage() {
   const navigate  = useNavigate()
   const location  = useLocation()
   const { analysisId, videoPreviewUrl } = location.state || {}
-  const { steps, isDone, error, cancel, resultUrl, analysisData, lastEvent } = useSSEStream(analysisId)
+  const { steps, isDone, error, cancel, resultUrl, analysisData, lastEvent, frameProgress, reconnecting } = useSSEStream(analysisId)
+  useWakeLock(Boolean(analysisId) && !isDone && !error) // a phone that locks its screen pauses this page
 
   const [booted, setBooted] = useState(false)
   // the preview is a temporary browser link to the chosen file; it stops working if the page is reloaded
@@ -173,12 +176,26 @@ export default function LoadingPage() {
   })
 
   const completedCount = useMemo(() => steps.filter(s => s.status === "complete").length, [steps])
+  // The frame-by-frame step is most of the wait, so it gets 10% to 60% of the bar and fills as frames are done;
+  // the later steps share the rest.
   const progress = useMemo(() => {
     if (isDone) return 100
-    const pct = Math.round((completedCount / steps.length) * 85)
-    const hasActive = steps.some(s => s.status === "active")
-    return hasActive ? Math.max(pct, 10) : pct
-  }, [completedCount, steps, isDone])
+    const afterSteps = [10, 60, 75, 88, 96] // bar position once this many steps are complete
+    if (completedCount === 0) {
+      const hasActive = steps.some(s => s.status === "active")
+      return hasActive ? 10 + Math.round((frameProgress?.fraction ?? 0) * 50) : 0
+    }
+    return afterSteps[Math.min(completedCount, afterSteps.length - 1)]
+  }, [completedCount, steps, isDone, frameProgress])
+
+  // "Analysing frame by frame · 45% · about 30 seconds left" under the first step
+  const frameLabel = (() => {
+    if (!frameProgress || steps[0]?.status !== "active") return null
+    const f = frameProgress.fraction
+    const seconds = (Date.now() - frameProgress.since) / 1000
+    const left = f >= 0.1 && seconds > 3 ? (seconds * (1 - f)) / f : null
+    return `Analysing frame by frame · ${Math.round(f * 100)}%${left !== null ? ` · ${durationText(left)} left` : ""}`
+  })()
 
   useEffect(() => {
     if (!isDone) return
@@ -256,6 +273,7 @@ export default function LoadingPage() {
         <div className="text-center">
           <h1 className="text-lg font-semibold text-gray-900 mb-0.5">Form Check in Progress</h1>
           <p className="text-sm text-gray-500">Kinetic is analyzing your video upload...</p>
+          <p className="text-xs text-gray-400 mt-1">Keep this screen open until your analysis is ready.</p>
         </div>
 
 
@@ -268,6 +286,12 @@ export default function LoadingPage() {
             Take a 45-second breather. Your muscles need this reset for the next set.
           </p>
         </div>
+
+        {reconnecting && !error && (
+          <div role="status" className="rounded-2xl px-4 py-3" style={{ background: "#FFF7E6", border: "1px solid #F5D08A" }}>
+            <p className="text-sm" style={{ color: "#92580A" }}>Connection dropped. Reconnecting… your analysis keeps running.</p>
+          </div>
+        )}
 
         {error && (
           <div className="rounded-2xl px-4 py-3 border border-red-100 bg-red-50">
@@ -283,7 +307,10 @@ export default function LoadingPage() {
                 <span className={`text-sm font-medium ${step.status === "pending" ? "text-gray-400" : "text-gray-800"}`}>
                   {step.label}
                 </span>
-                {step.status === "active" && lastEvent && EVENT_SUBLABELS[lastEvent] && (
+                {step.status === "active" && i === 0 && frameLabel && (
+                  <span className="text-xs text-indigo-500 mt-0.5">{frameLabel}</span>
+                )}
+                {step.status === "active" && !(i === 0 && frameLabel) && lastEvent && EVENT_SUBLABELS[lastEvent] && (
                   <span className="text-xs text-indigo-500 mt-0.5">{EVENT_SUBLABELS[lastEvent]}</span>
                 )}
                 {step.status === "error" && lastEvent && (
