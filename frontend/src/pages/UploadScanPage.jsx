@@ -1,9 +1,11 @@
-import { useState, useRef } from "react"
+import { useEffect, useState, useRef } from "react"
 import { useNavigate } from "react-router-dom"
 import { uploadVideoDirect } from "../services/uploadService"
 import { startVideoPreparation } from "../utils/prepareVideo"
 import { BIG_UNSHRUNK_BYTES, durationText, guessUploadSeconds } from "../utils/uploadHelp"
 import { useWakeLock } from "../utils/useWakeLock"
+import LoadCard from "../components/LoadCard"
+import { convertWeight, readLastLoad, saveLastLoad } from "../utils/weightInput"
 import UploadExercisePicker from "../components/UploadExercisePicker"
 import { BRICOLAGE, DM_SANS, GRAY, INK } from "../components/planUi"
 import { FLAT_LILAC } from "../utils/pageBackground"
@@ -35,6 +37,7 @@ export default function UploadScanPage() {
   const [isPlaying,         setIsPlaying]         = useState(false)
   const [weight,            setWeight]            = useState(0)
   const [unit,              setUnit]              = useState("kg")
+  const [lastLoad,          setLastLoad]          = useState(null)   // weight used last time for the chosen exercise
   const [fileError,         setFileError]         = useState("")
   const [isUploading,       setIsUploading]       = useState(false)
   const [phase,             setPhase]             = useState("")     // "" | "preparing" | "uploading" while Start is running
@@ -46,7 +49,20 @@ export default function UploadScanPage() {
 
   useWakeLock(isUploading) // keep the screen on while preparing and uploading
 
-  const maxWeight    = unit === "kg" ? 200 : 440
+  // Choosing an exercise pre-fills the weight used last time for it (still easy to change)
+  useEffect(() => {
+    const last = exercise ? readLastLoad(exercise.movement) : null
+    setLastLoad(last)
+    if (last) { setUnit(last.unit); setWeight(last.value) }
+  }, [exercise])
+
+  // Switching kg/lbs keeps the same load (12 kg -> 26.5 lbs). A chosen value ("last time") is used as it is.
+  const changeUnit = (next, exactValue) => {
+    if (next === unit) return
+    setWeight(exactValue ?? convertWeight(weight, unit, next))
+    setUnit(next)
+  }
+
   const needsWeight  = exercise ? exercise.equipment !== "bodyweight" : true  // a plank or push-up has no load to enter
   const isFormValid  = exercise && videoFile && !fileError && (!needsWeight || weight > 0)
   const tipsTitle    = exercise ? `LET'S CRUSH YOUR ${exercise.name.toUpperCase()} TODAY` : null
@@ -98,6 +114,7 @@ export default function UploadScanPage() {
 
       setPhase("uploading"); setProgress(0); setUploadBytes(prepared.file.size); uploadStartedAt.current = Date.now()
       const analysisId = await uploadVideoDirect(prepared.file, exercise.movement, needsWeight ? weight : 0, unit, { onProgress: setProgress })
+      if (needsWeight && weight > 0) saveLastLoad(exercise.movement, weight, unit) // so next time it is already filled in
       navigate("/upload/loading", { state: { analysisId, videoPreviewUrl } })
     } catch (err) {
       setUploadError(err.message || "Upload failed. Please try again.")
@@ -228,32 +245,10 @@ export default function UploadScanPage() {
           </p>
         )}
 
-        {/* Load Parameters */}
-        {needsWeight && <div className="bg-white rounded-2xl p-4 mb-4 shadow-sm border border-gray-100">
-          <div className="flex items-center justify-between mb-3">
-            <span className="text-sm font-semibold text-gray-700">Load Parameters</span>
-            <div className="flex rounded-full overflow-hidden border border-indigo-200 text-xs font-semibold">
-              {[["Kg","kg"],["Lbs","lbs"]].map(([label, val]) => (
-                <button key={val} type="button" onClick={() => { setUnit(val); setWeight(0) }}
-                  className="px-3 py-1 transition-colors"
-                  style={{ background: unit === val ? "#3b82f6" : "white", color: unit === val ? "white" : "#6b7280" }}>
-                  {label}
-                </button>
-              ))}
-            </div>
-          </div>
-          <div className="flex items-baseline justify-between mb-3">
-            <span className="text-sm font-bold text-gray-700 uppercase tracking-wide">Weight</span>
-            <span className="text-2xl font-bold text-gray-900">
-              {weight} <span className="text-sm font-semibold text-gray-500 uppercase">{unit}</span>
-            </span>
-          </div>
-          <input type="range" min={0} max={maxWeight} step={0.5} value={weight}
-            onChange={e => setWeight(Number(e.target.value))} className="w-full" style={{ accentColor: "#6366f1" }} />
-          <div className="flex justify-between mt-1 px-1">
-            {[0,1,2,3,4].map(i => <div key={i} className="w-px h-1.5 bg-gray-300" />)}
-          </div>
-        </div>}
+        {/* Weight */}
+        {needsWeight && (
+          <LoadCard value={weight} unit={unit} equipment={exercise?.equipment} last={lastLoad} onChange={setWeight} onUnitChange={changeUnit} />
+        )}
 
         {/* Start Analysis */}
         <button
