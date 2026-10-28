@@ -1,19 +1,15 @@
-import { useState, useRef } from "react"
+import { useEffect, useState, useRef } from "react"
 import { useNavigate } from "react-router-dom"
 import { uploadVideoDirect } from "../services/uploadService"
 import { startVideoPreparation } from "../utils/prepareVideo"
-import { BIG_UNSHRUNK_BYTES, durationText, guessUploadSeconds } from "../utils/uploadHelp"
+import { BIG_UNSHRUNK_BYTES, durationText, guessUploadSeconds, hasSeenTips, markTipsSeen } from "../utils/uploadHelp"
 import { useWakeLock } from "../utils/useWakeLock"
+import FilmingTips from "../components/FilmingTips"
+import LoadCard from "../components/LoadCard"
+import { convertWeight, readLastLoad, saveLastLoad } from "../utils/weightInput"
 import UploadExercisePicker from "../components/UploadExercisePicker"
 import { BRICOLAGE, DM_SANS, GRAY, INK } from "../components/planUi"
 import { FLAT_LILAC } from "../utils/pageBackground"
-
-const CAMERA_TIPS = [
-  { label: "Angle",    text: "Record directly from the side. The AI needs to see your spine and joint angles clearly." },
-  { label: "Distance", text: "Stand about 6–8 feet away so your entire body remains in the frame at the bottom of the squat." },
-  { label: "Height",   text: "Place the phone at hip/waist height. Floor angles distort the AI's depth perception." },
-  { label: "Contrast", text: "Wear clothes that contrast with your background (e.g., don't wear black leggings against a black wall)." },
-]
 
 const sentence = (text) => text[0].toUpperCase() + text.slice(1)
 const mb = (bytes) => (bytes / (1024 * 1024)).toFixed(bytes < 10 * 1024 * 1024 ? 1 : 0)
@@ -35,6 +31,9 @@ export default function UploadScanPage() {
   const [isPlaying,         setIsPlaying]         = useState(false)
   const [weight,            setWeight]            = useState(0)
   const [unit,              setUnit]              = useState("kg")
+  const [tipsChecked,       setTipsChecked]       = useState(hasSeenTips)  // ticked "I've got the tips" (remembered on this phone)
+  const [tipsNudge,         setTipsNudge]         = useState(0)            // goes up each time Start is pressed without ticking
+  const [lastLoad,          setLastLoad]          = useState(null)   // weight used last time for the chosen exercise
   const [fileError,         setFileError]         = useState("")
   const [isUploading,       setIsUploading]       = useState(false)
   const [phase,             setPhase]             = useState("")     // "" | "preparing" | "uploading" while Start is running
@@ -46,10 +45,22 @@ export default function UploadScanPage() {
 
   useWakeLock(isUploading) // keep the screen on while preparing and uploading
 
-  const maxWeight    = unit === "kg" ? 200 : 440
+  // Choosing an exercise pre-fills the weight used last time for it (still easy to change)
+  useEffect(() => {
+    const last = exercise ? readLastLoad(exercise.movement) : null
+    setLastLoad(last)
+    if (last) { setUnit(last.unit); setWeight(last.value) }
+  }, [exercise])
+
+  // Switching kg/lbs keeps the same load (12 kg -> 26.5 lbs). A chosen value ("last time") is used as it is.
+  const changeUnit = (next, exactValue) => {
+    if (next === unit) return
+    setWeight(exactValue ?? convertWeight(weight, unit, next))
+    setUnit(next)
+  }
+
   const needsWeight  = exercise ? exercise.equipment !== "bodyweight" : true  // a plank or push-up has no load to enter
   const isFormValid  = exercise && videoFile && !fileError && (!needsWeight || weight > 0)
-  const tipsTitle    = exercise ? `LET'S CRUSH YOUR ${exercise.name.toUpperCase()} TODAY` : null
 
   // Shrink in the background so it is usually done by the time the person taps Start
   function beginPreparing(file) {
@@ -88,6 +99,12 @@ export default function UploadScanPage() {
 
   async function handleSubmit() {
     if (!isFormValid) return
+    if (!tipsChecked) {
+      // the tips are one tick away: take them there and say so, rather than starting
+      setTipsNudge((n) => n + 1)
+      document.getElementById("filming-tips")?.scrollIntoView({ behavior: "smooth", block: "center" })
+      return
+    }
     setUploadError(""); setIsUploading(true); setPhase("preparing"); setProgress(0)
     try {
       // wait for the shrinking to finish (usually already has); if it can't shrink, this is the original file
@@ -98,6 +115,8 @@ export default function UploadScanPage() {
 
       setPhase("uploading"); setProgress(0); setUploadBytes(prepared.file.size); uploadStartedAt.current = Date.now()
       const analysisId = await uploadVideoDirect(prepared.file, exercise.movement, needsWeight ? weight : 0, unit, { onProgress: setProgress })
+      if (needsWeight && weight > 0) saveLastLoad(exercise.movement, weight, unit) // so next time it is already filled in
+      markTipsSeen() // next time the filming tips start folded
       navigate("/upload/loading", { state: { analysisId, videoPreviewUrl } })
     } catch (err) {
       setUploadError(err.message || "Upload failed. Please try again.")
@@ -117,24 +136,8 @@ export default function UploadScanPage() {
           <UploadExercisePicker exercise={exercise} onPick={setExercise} onClear={() => setExercise(null)} />
         </div>
 
-        {/* Tips */}
-        {tipsTitle && (
-          <div className="bg-white rounded-2xl p-4 mb-4 shadow-sm border border-gray-100">
-            <div className="flex items-center justify-between mb-3">
-              <span className="text-sm font-semibold text-gray-900">Tips for the video upload</span>
-              <div className="w-6 h-0.5 bg-blue-400" />
-            </div>
-            <p className="text-[11px] font-bold text-gray-700 tracking-wide text-center mb-3">{tipsTitle}</p>
-            <img src="/angle.png" alt="Form reference" className="w-full rounded-lg mb-3 object-contain max-h-44" onError={e => { e.currentTarget.style.display = "none" }} />
-            <ul className="space-y-1.5">
-              {CAMERA_TIPS.map(tip => (
-                <li key={tip.label} className="text-xs text-gray-600 leading-relaxed">
-                  <span className="font-semibold">{tip.label}: </span>{tip.text}
-                </li>
-              ))}
-            </ul>
-          </div>
-        )}
+        {/* Filming tips */}
+        {exercise && <FilmingTips checked={tipsChecked} nudge={tipsNudge} onCheck={() => { markTipsSeen(); setTipsChecked(true) }} />}
 
         {/* Upload Session Video */}
         <h2 className="text-xl font-bold text-gray-900 mb-3">Upload Session Video</h2>
@@ -228,32 +231,10 @@ export default function UploadScanPage() {
           </p>
         )}
 
-        {/* Load Parameters */}
-        {needsWeight && <div className="bg-white rounded-2xl p-4 mb-4 shadow-sm border border-gray-100">
-          <div className="flex items-center justify-between mb-3">
-            <span className="text-sm font-semibold text-gray-700">Load Parameters</span>
-            <div className="flex rounded-full overflow-hidden border border-indigo-200 text-xs font-semibold">
-              {[["Kg","kg"],["Lbs","lbs"]].map(([label, val]) => (
-                <button key={val} type="button" onClick={() => { setUnit(val); setWeight(0) }}
-                  className="px-3 py-1 transition-colors"
-                  style={{ background: unit === val ? "#3b82f6" : "white", color: unit === val ? "white" : "#6b7280" }}>
-                  {label}
-                </button>
-              ))}
-            </div>
-          </div>
-          <div className="flex items-baseline justify-between mb-3">
-            <span className="text-sm font-bold text-gray-700 uppercase tracking-wide">Weight</span>
-            <span className="text-2xl font-bold text-gray-900">
-              {weight} <span className="text-sm font-semibold text-gray-500 uppercase">{unit}</span>
-            </span>
-          </div>
-          <input type="range" min={0} max={maxWeight} step={0.5} value={weight}
-            onChange={e => setWeight(Number(e.target.value))} className="w-full" style={{ accentColor: "#6366f1" }} />
-          <div className="flex justify-between mt-1 px-1">
-            {[0,1,2,3,4].map(i => <div key={i} className="w-px h-1.5 bg-gray-300" />)}
-          </div>
-        </div>}
+        {/* Weight */}
+        {needsWeight && (
+          <LoadCard value={weight} unit={unit} equipment={exercise?.equipment} last={lastLoad} onChange={setWeight} onUnitChange={changeUnit} />
+        )}
 
         {/* Start Analysis */}
         <button
@@ -290,6 +271,9 @@ export default function UploadScanPage() {
             })()}
             Keep this screen open until it&apos;s done.
           </p>
+        )}
+        {tipsNudge > 0 && !tipsChecked && !isUploading && (
+          <p role="alert" className="text-xs text-red-500 text-center mb-2">Tick “I&apos;ve got the tips” above first.</p>
         )}
         {uploadError && <p className="text-xs text-red-500 text-center mb-2">{uploadError}</p>}
 

@@ -83,6 +83,14 @@ function equipmentOf(plan) {
   return "none"
 }
 
+// The exact kit the plan uses, e.g. "Dumbbells, Kettlebells" (bodyweight-only plans: "No equipment")
+const EQUIPMENT_PLURAL = { barbell: "Barbell", dumbbell: "Dumbbells", kettlebell: "Kettlebells", cable: "Cable machine", machine: "Machines" }
+function equipmentText(plan) {
+  const used = new Set(known(items(plan, ["workout", "conditioning"])).map((i) => EX[i.exerciseId].equipment))
+  const names = Object.keys(EQUIPMENT_PLURAL).filter((e) => used.has(e)).map((e) => EQUIPMENT_PLURAL[e])
+  return names.length ? names.join(", ") : EQUIPMENT.none.label
+}
+
 const cache = new Map()
 export function planProfile(plan) {
   if (cache.has(plan.id)) return cache.get(plan.id)
@@ -93,16 +101,13 @@ export function planProfile(plan) {
     style: styleOf(plan, goal),
     time: plan.minutes <= 40 ? "quick" : plan.minutes <= 50 ? "standard" : "long",
     reps: reps?.text ?? null,
-    // 1 = lighter, 2 = moderate, 3 = heavier (from the typical rep count)
-    weight: reps ? (reps.mid >= 15 ? 1 : reps.mid >= 9 ? 2 : 3) : null,
     rest: restOf(plan),
     equipment: equipmentOf(plan),
+    equipmentText: equipmentText(plan),
   }
   cache.set(plan.id, profile)
   return profile
 }
-
-export const WEIGHT_WORDS = { 1: "Lighter", 2: "Moderate", 3: "Heavier" }
 
 // First few main exercises, e.g. "Back Squats, Hip Thrusters, Sumo Deadlifts +4"
 export function insidePreview(plan, count = 3) {

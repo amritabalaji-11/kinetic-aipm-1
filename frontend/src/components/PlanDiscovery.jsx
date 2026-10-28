@@ -1,7 +1,7 @@
 // Pieces of the Plan screen: suggestion card, plan cards, shelves, filter sheet and plan preview.
 import { ChevronRight, RefreshCw } from "lucide-react"
 import { BottomSheet, Chip, FilterLabel, GradientButton, BRICOLAGE, DM_SANS, GRADIENT, GRAY, INK, PURPLE, cardStyle } from "./planUi"
-import { EQUIPMENT, GOALS, STYLES, TIMES, WEIGHT_WORDS, planProfile } from "../utils/planProfile"
+import { EQUIPMENT, GOALS, STYLES, TIMES, planProfile } from "../utils/planProfile"
 
 const minutesText = (plan) => `about ${plan.minutes} min`
 
@@ -149,10 +149,6 @@ function Row({ label, value, hint }) {
   )
 }
 
-const Dots = ({ n }) => (
-  <span style={{ letterSpacing: 2, color: PURPLE }}>{"●".repeat(n)}<span style={{ opacity: 0.25 }}>{"●".repeat(3 - n)}</span></span>
-)
-
 const SECTION_TITLE = { warmup: "Warm-up", workout: "Workout", conditioning: "Finisher" }
 
 export function PreviewSheet({ plan, lastDone, onStart, onClose }) {
@@ -172,10 +168,9 @@ export function PreviewSheet({ plan, lastDone, onStart, onClose }) {
         <Row label="Goal" value={goal.label} hint={goal.hint} />
         <Row label="Style" value={style.label} hint={style.hint} />
         <Row label="Time" value={`${minutesText(plan)} · ${TIMES[p.time].label}`} />
-        {p.weight && <Row label="Weight" value={<><Dots n={p.weight} /> {WEIGHT_WORDS[p.weight]}</>} />}
         {p.reps && <Row label="Reps" value={p.reps} />}
         {p.rest && <Row label="Rest" value={`${p.rest.text} between rounds`} />}
-        <Row label="Equipment" value={EQUIPMENT[p.equipment].label} />
+        <Row label="Equipment" value={p.equipmentText} />
       </div>
       {lastDone && <p style={{ fontFamily: DM_SANS, fontSize: 12, color: GRAY, margin: "10px 2px 0" }}>{lastDone}</p>}
 

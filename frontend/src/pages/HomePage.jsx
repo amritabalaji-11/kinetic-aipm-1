@@ -1,3 +1,4 @@
+import FounderTip from "../components/FounderTip"
 import { TOP_FADE_BACKGROUND } from "../utils/pageBackground"
 import { useEffect, useState } from "react"
 import { apiFetch } from "../services/api"
@@ -444,20 +445,8 @@ export default function HomePage() {
           </div>
         </div>
 
-        {/* Your focus this week */}
-        <div style={{
-          background: "linear-gradient(158.8deg, rgba(255, 35, 38, 0.2) 0%, rgba(151, 71, 255, 0.2) 22.39%, rgba(2, 132, 199, 0.2) 100.81%)",
-          borderRadius: "8px",
-          padding: "15px",
-          marginBottom: "20px"
-        }}>
-          <div style={{ display: "flex", gap: "10px", marginBottom: "10px", alignItems: "center" }}>
-            <div style={{ width: "20px", height: "20px", background: "linear-gradient(92.52deg, #0284C7 0%, #9747FF 100%)", borderRadius: "999px" }}></div>
-            <h3 style={{ fontSize: "16px", fontWeight: 700, fontFamily: "'Bricolage Grotesque'", color: "#000000" }}>Your focus this week</h3>
-          </div>
-          <p style={{ fontSize: "14px", fontFamily: "'Bricolage Grotesque'", color: "#000000", lineHeight: "17px" }}>Work on ankle mobility - it's limiting your squat depth at heavier weights.</p>
-          <p style={{ fontSize: "12px", fontFamily: "'Bricolage Grotesque'", color: "#64748B", marginTop: "10px" }}>Try: heel elevated squats, banded ankle circles.</p>
-        </div>
+        {/* A tip from the founder (was "Your focus this week") */}
+        <FounderTip />
 
         {/* Form History */}
         <div style={{ background: "linear-gradient(135deg, #F9DAD2 0%, #E8D4F8 100%)", borderRadius: "16px", padding: "20px 12px", marginBottom: "20px" }}>

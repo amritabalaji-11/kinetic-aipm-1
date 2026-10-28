@@ -16,3 +16,8 @@ export function durationText(seconds) {
   const minutes = Math.round(seconds / 60)
   return `about ${minutes} minute${minutes === 1 ? "" : "s"}`
 }
+
+// The filming tips start open; once someone has uploaded a video they start folded down to one line
+const TIPS_SEEN_KEY = "uploadTipsSeen"
+export const hasSeenTips = () => { try { return localStorage.getItem(TIPS_SEEN_KEY) === "1" } catch { return false } }
+export const markTipsSeen = () => { try { localStorage.setItem(TIPS_SEEN_KEY, "1") } catch { /* private mode: skip */ } }
