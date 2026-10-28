@@ -69,6 +69,34 @@ async def upload_file_to_gcs(
         raise e
     
 # =========================================================
+# DIRECT UPLOAD FROM THE BROWSER
+# =========================================================
+# Big videos go from the phone straight to the bucket instead of through the server (Cloud Run refuses requests
+# over 32 MB and times out slow ones). The server only hands out a one-use upload address and checks the result.
+
+def create_resumable_upload_url(
+    destination_blob_name: str,
+    content_type: str,
+    size_bytes: int,
+    origin: str | None,
+) -> str:
+    """An address the browser can send the file to, in pieces, and carry on from where it stopped after a dropped
+    connection. It only accepts this one file name, content type and size, and it expires on its own."""
+    blob = client.bucket(BUCKET_NAME).blob(destination_blob_name)
+    return blob.create_resumable_upload_session(
+        content_type=content_type,
+        size=size_bytes,
+        origin=origin,  # lets the browser page that asked for the address send to it
+    )
+
+
+def uploaded_size(gs_url: str) -> int | None:
+    """Bytes stored for a gs:// file, or None when it is not there."""
+    blob = client.bucket(BUCKET_NAME).get_blob(gs_url[len(GS_PREFIX):])
+    return blob.size if blob else None
+
+
+# =========================================================
 # IMAGE UPLOAD
 # =========================================================
 
