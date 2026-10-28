@@ -129,7 +129,7 @@ export default function UploadScanPage() {
         </div>
 
         {/* Filming tips */}
-        {exercise && <FilmingTips exerciseName={exercise.name} />}
+        {exercise && <FilmingTips />}
 
         {/* Upload Session Video */}
         <h2 className="text-xl font-bold text-gray-900 mb-3">Upload Session Video</h2>
