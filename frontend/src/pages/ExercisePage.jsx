@@ -1,6 +1,7 @@
-import { useEffect, useState } from "react"
+import { useState } from "react"
 import { Link, useLocation, useNavigate, useParams } from "react-router-dom"
-import { ChevronDown, ChevronLeft, ExternalLink, Maximize2, Minimize2 } from "lucide-react"
+import { ChevronDown, ChevronLeft, ExternalLink } from "lucide-react"
+import ExpandableVideo from "../components/ExpandableVideo"
 import ListenButton from "../components/ListenButton"
 import MuscleMap from "../components/MuscleMap"
 import { useCoachScript } from "../utils/useCoachScript"
@@ -59,7 +60,7 @@ export default function ExercisePage() {
       {/* The short version: video beside the three cues */}
       <div style={{ ...cardStyle, padding: 12, display: "flex", gap: 12, alignItems: "flex-start" }}>
         <div style={{ flexShrink: 0, width: 150 }}>
-          <VideoPlayer video={guide.video} title={`${exercise.name} demo`} />
+          <ExpandableVideo youtubeId={guide.video.youtubeId} title={`${exercise.name} demo`} vertical={guide.video.vertical} width={150} loop />
           <a href={guide.video.watchUrl} target="_blank" rel="noreferrer" style={{ display: "flex", alignItems: "center", gap: 4, marginTop: 6, fontFamily: DM_SANS, fontSize: 11, color: GRAY, textDecoration: "none" }}>
             {guide.video.credit} on YouTube <ExternalLink size={11} />
           </a>
@@ -156,57 +157,6 @@ function Step({ step }) {
       <p style={{ ...small, fontWeight: 700 }}>{name}</p>
       <p style={small}>{step.what}</p>
       <p style={{ ...small, color: GRAY }}>Pick this if {step.pickIf}.</p>
-    </div>
-  )
-}
-
-// The demo video. Expand fills the whole screen (same player, so it keeps playing); Minimize puts it back.
-// This is a screen-sized overlay rather than the browser's own full screen, because iPhones don't allow that for web pages.
-function VideoPlayer({ video, title }) {
-  const [expanded, setExpanded] = useState(false)
-
-  useEffect(() => {
-    if (!expanded) return undefined
-    const onKey = (e) => { if (e.key === "Escape") setExpanded(false) }
-    window.addEventListener("keydown", onKey)
-    const previous = document.body.style.overflow
-    document.body.style.overflow = "hidden" // the page behind does not scroll
-    return () => { window.removeEventListener("keydown", onKey); document.body.style.overflow = previous }
-  }, [expanded])
-
-  const button = {
-    position: "absolute", zIndex: 2, display: "flex", alignItems: "center", justifyContent: "center", gap: 6,
-    border: "none", cursor: "pointer", background: "rgba(15,23,42,0.72)", color: "#FFFFFF", fontFamily: DM_SANS, fontWeight: 600,
-  }
-
-  return (
-    // a same-size spacer keeps the page from jumping while the video is expanded
-    <div style={{ position: "relative", width: 150, aspectRatio: video.vertical ? "9 / 16" : "16 / 9" }}>
-      <div
-        style={expanded
-          ? { position: "fixed", inset: 0, zIndex: 4000, background: "#000000" }
-          : { position: "absolute", inset: 0, borderRadius: 10, overflow: "hidden", background: "#0F172A" }}
-      >
-        <iframe
-          title={title}
-          src={`https://www.youtube-nocookie.com/embed/${video.youtubeId}?playsinline=1&rel=0&modestbranding=1&loop=1&playlist=${video.youtubeId}`}
-          allow="autoplay; encrypted-media; picture-in-picture"
-          allowFullScreen
-          loading="lazy"
-          style={{ position: "absolute", inset: 0, width: "100%", height: "100%", border: 0 }}
-        />
-        {expanded ? (
-          <button type="button" aria-label="Minimize video" onClick={() => setExpanded(false)}
-            style={{ ...button, top: "max(14px, env(safe-area-inset-top))", right: 14, height: 44, padding: "0 16px", borderRadius: 22, fontSize: 14 }}>
-            <Minimize2 size={18} /> Minimize
-          </button>
-        ) : (
-          <button type="button" aria-label="Full screen" onClick={() => setExpanded(true)}
-            style={{ ...button, top: 6, right: 6, width: 32, height: 32, borderRadius: 16 }}>
-            <Maximize2 size={16} />
-          </button>
-        )}
-      </div>
     </div>
   )
 }
