@@ -1,4 +1,5 @@
 import { useState, useEffect, useRef } from "react"
+import { apiFetch } from "../services/api"
 
 const PIPELINE_STEPS = [
   {
@@ -50,6 +51,11 @@ const ERROR_USER_COPY = {
   SYSTEM_ERROR: "Something went wrong on our end. Your video is saved — try again in a moment.",
 }
 
+// If the connection drops (a phone locking its screen, a weak signal), try again instead of giving up: ask the server
+// whether the analysis already finished, then reconnect. Only after this many tries is it called an error.
+const MAX_RECONNECTS = 12
+const reconnectDelayMs = (attempt) => Math.min(2000 + attempt * 1000, 6000)
+
 function useSSEStream(analysisId) {
   const [steps, setSteps] = useState(
     PIPELINE_STEPS.map(step => ({ label: step.label, status: "pending" }))
@@ -59,6 +65,9 @@ function useSSEStream(analysisId) {
   const [partialWarning, setPartialWarning] = useState(null)
   const [resultUrl, setResultUrl] = useState(null)
   const [analysisData, setAnalysisData] = useState(null)
+  const [lastEvent, setLastEvent] = useState(null)
+  const [frameProgress, setFrameProgress] = useState(null) // { fraction 0..1, since: when the first progress arrived }
+  const [reconnecting, setReconnecting] = useState(false)
 
   const eventSourceRef = useRef(null)
   const doneRef = useRef(false)
@@ -80,8 +89,19 @@ function useSSEStream(analysisId) {
     if (isDone) return
 
 
-    const es = new EventSource(`${BASE_URL}/analysis/${analysisId}/stream`)
+    let es = null
+    let retryTimer = null
+    let attempts = 0
+    let disposed = false
+
+    const connect = () => {
+    es = new EventSource(`${BASE_URL}/analysis/${analysisId}/stream`)
     eventSourceRef.current = es
+
+    es.onopen = function() {
+      attempts = 0
+      setReconnecting(false)
+    }
 
     es.onmessage = function(e) {
       let parsed
@@ -94,6 +114,14 @@ function useSSEStream(analysisId) {
 
       const eventName = parsed.event
       if (!eventName) return
+      setLastEvent(eventName)
+
+      // How far through the frame-by-frame step it is (sent about every 5% of the video)
+      if (eventName === "mediapipe_progress") {
+        setFrameProgress(prev => ({ fraction: parsed.fraction ?? 0, since: prev?.since ?? Date.now() }))
+        updateStep(0, "active")
+        return
+      }
 
       if (eventName === "error") {
         const code = parsed.error_code || "SYSTEM_ERROR"
@@ -147,19 +175,69 @@ function useSSEStream(analysisId) {
     }
 
     es.onerror = function() {
-      if (!doneRef.current) {
-        setSteps(prev => prev.map(s => s.status === "active" ? { ...s, status: "error" } : s))
-        setError({ userMessage: "Connection lost. Check your internet and try again." })
-      }
       es.close()
+      if (!doneRef.current && !disposed) recover()
+    }
     }
 
+    // The connection dropped. Ask the server whether the analysis already finished; if not, reconnect (the server
+    // replays the latest event). Give up with an error only after several tries.
+    const recover = () => {
+      if (retryTimer || disposed) return
+      attempts += 1
+      if (attempts > MAX_RECONNECTS) {
+        setReconnecting(false)
+        setSteps(prev => prev.map(s => s.status === "active" ? { ...s, status: "error" } : s))
+        setError({ userMessage: "Connection lost. Check your internet and try again." })
+        return
+      }
+      setReconnecting(true)
+      retryTimer = setTimeout(async () => {
+        retryTimer = null
+        if (disposed || doneRef.current) return
+        try {
+          const res = await apiFetch(`${BASE_URL}/analysis/${analysisId}`)
+          if (res.ok) {
+            const body = await res.json()
+            const status = (body.analysis || body).status
+            if (status === "completed" || status === "complete") {
+              // finished while we were away
+              setSteps(prev => prev.map(s => ({ ...s, status: "complete" })))
+              doneRef.current = true
+              setReconnecting(false)
+              setIsDone(true)
+              return
+            }
+            if (status === "failed") {
+              setReconnecting(false)
+              setSteps(prev => prev.map(s => s.status === "active" ? { ...s, status: "error" } : s))
+              setError({ userMessage: ERROR_USER_COPY.SYSTEM_ERROR })
+              return
+            }
+          }
+        } catch { /* still offline: fall through and try the stream again */ }
+        connect()
+      }, reconnectDelayMs(attempts))
+    }
+
+    // Back on the screen after the phone was locked or switched away: do not wait for the next timer
+    const onVisible = () => {
+      if (document.visibilityState !== "visible" || doneRef.current || disposed) return
+      if (!es || es.readyState === 2) { clearTimeout(retryTimer); retryTimer = null; attempts = Math.max(0, attempts - 1); recover() }
+    }
+    document.addEventListener("visibilitychange", onVisible)
+
+    connect()
+
     return function() {
-      es.close()
+      disposed = true
+      clearTimeout(retryTimer)
+      document.removeEventListener("visibilitychange", onVisible)
+      if (es) es.close()
     }
   }, [analysisId])
 
-  return { steps, isDone, error, partialWarning, cancel, resultUrl, analysisData }
+  return { steps, isDone, error, partialWarning, cancel, resultUrl, analysisData, lastEvent, frameProgress, reconnecting }
 }
 
 export { useSSEStream, PIPELINE_STEPS }

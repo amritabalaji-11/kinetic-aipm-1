@@ -123,9 +123,11 @@ class LandmarkQualityFramework:
         exercise,
         weight_kg,
         analysis_id,
+        progress_callback=None,
     ):
-        
         """
+        progress_callback(fraction), if given, is called about every 5% of the video with 0..1, so the app can show how far on it is.
+
         Process_video_once is the main method that processes a single video and returns the analysis results.
 
         Args:
@@ -146,6 +148,9 @@ class LandmarkQualityFramework:
             raise ValueError(f"The video could not be opened: {resized_video_path}")
 
         fps = 30.0
+        total_frames = int(cap.get(cv2.CAP_PROP_FRAME_COUNT))
+        report_every = max(1, total_frames // 20)
+        next_report = report_every
         width = int(cap.get(cv2.CAP_PROP_FRAME_WIDTH))
         height = int(cap.get(cv2.CAP_PROP_FRAME_HEIGHT))
 
@@ -217,6 +222,13 @@ class LandmarkQualityFramework:
                 ok, frame_bgr = read()
                 if not ok:
                     break
+
+                if progress_callback and total_frames > 0 and frame_index >= next_report:
+                    next_report += report_every
+                    try:
+                        progress_callback(min(frame_index / total_frames, 0.99))
+                    except Exception:
+                        pass  # progress is a nicety; never let it break the analysis
 
                 if frame_index % 3 != 0:
                     frame_index += 1

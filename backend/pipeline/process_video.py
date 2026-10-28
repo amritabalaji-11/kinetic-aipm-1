@@ -9,6 +9,7 @@
 #   → haiku_call_2_complete OR haiku_call_2_no_history  (Tab 2 unlocks / locks)
 
 import asyncio
+import functools
 import os
 import json
 import shutil
@@ -154,13 +155,25 @@ async def run_mediapipe_analysis(analysis_id: str, file_location: str):
 
         # run_in_executor moves the CPU-heavy MediaPipe work into a thread
         # so the async event loop stays responsive for other requests
+        # The analysis runs in a worker thread, so progress is handed back to the event loop to be sent to the app
+        def report_progress(fraction: float):
+            asyncio.run_coroutine_threadsafe(
+                sse_manager.send_event(
+                    analysis_id, "mediapipe_progress", 20 + int(fraction * 20), extra={**ctx, "fraction": round(fraction, 3)},
+                ),
+                loop,
+            )
+
         final_json, quality_result, collage_b64, rep_frames_list = await loop.run_in_executor(
             _executor,
-            framework.process_video_once,
-            local_path,
-            "Goblet Squat",
-            20.0,
-            analysis_id,
+            functools.partial(
+                framework.process_video_once,
+                local_path,
+                "Goblet Squat",
+                20.0,
+                analysis_id,
+                progress_callback=report_progress,
+            ),
         )
 
         # Quality gate failure
