@@ -1,6 +1,7 @@
 import { useState, useRef } from "react"
 import { useNavigate } from "react-router-dom"
-import { uploadVideo } from "../services/uploadService"
+import { uploadVideoDirect } from "../services/uploadService"
+import { startVideoPreparation } from "../utils/prepareVideo"
 import UploadExercisePicker from "../components/UploadExercisePicker"
 import { BRICOLAGE, DM_SANS, GRAY, INK } from "../components/planUi"
 import { FLAT_LILAC } from "../utils/pageBackground"
@@ -12,6 +13,8 @@ const CAMERA_TIPS = [
   { label: "Contrast", text: "Wear clothes that contrast with your background (e.g., don't wear black leggings against a black wall)." },
 ]
 
+const mb = (bytes) => (bytes / (1024 * 1024)).toFixed(bytes < 10 * 1024 * 1024 ? 1 : 0)
+
 const MAX_FILE_SIZE_MB = 500
 const ACCEPTED_FORMATS = ["video/mp4", "video/quicktime", "video/webm"]
 
@@ -19,6 +22,8 @@ export default function UploadScanPage() {
   const navigate     = useNavigate()
   const videoRef     = useRef(null)
   const fileInputRef = useRef(null)
+  const prepRef      = useRef(null)  // the video is shrunk in the background as soon as it is chosen
+  const prepFraction = useRef(0)     // how far along that is, readable from inside the Start handler
 
   const [exercise,          setExercise]          = useState(null)
   const [videoFile,         setVideoFile]         = useState(null)
@@ -28,6 +33,9 @@ export default function UploadScanPage() {
   const [unit,              setUnit]              = useState("kg")
   const [fileError,         setFileError]         = useState("")
   const [isUploading,       setIsUploading]       = useState(false)
+  const [phase,             setPhase]             = useState("")     // "" | "preparing" | "uploading" while Start is running
+  const [progress,          setProgress]          = useState(0)      // 0..1 for the current phase
+  const [prep,              setPrep]              = useState(null)   // how shrinking the chosen video is going
   const [uploadError,       setUploadError]       = useState("")
   const [showSuccessToast,  setShowSuccessToast]  = useState(false)
 
@@ -35,6 +43,23 @@ export default function UploadScanPage() {
   const needsWeight  = exercise ? exercise.equipment !== "bodyweight" : true  // a plank or push-up has no load to enter
   const isFormValid  = exercise && videoFile && !fileError && (!needsWeight || weight > 0)
   const tipsTitle    = exercise ? `LET'S CRUSH YOUR ${exercise.name.toUpperCase()} TODAY` : null
+
+  // Shrink in the background so it is usually done by the time the person taps Start
+  function beginPreparing(file) {
+    prepRef.current?.cancel()
+    setPrep(null)
+    const job = startVideoPreparation(file, (p) => { prepFraction.current = p; setPrep({ working: true, progress: p }) })
+    prepRef.current = job
+    job.promise.then((result) => {
+      if (prepRef.current === job) setPrep({ working: false, shrunk: result.shrunk, from: result.originalBytes, to: result.finalBytes })
+    })
+  }
+
+  function clearVideo() {
+    prepRef.current?.cancel(); prepRef.current = null
+    setPrep(null)
+    setVideoFile(null); setVideoPreviewUrl(null)
+  }
 
   function handleFileChange(e) {
     const file = e.target.files?.[0]
@@ -51,17 +76,25 @@ export default function UploadScanPage() {
     setVideoFile(file)
     setVideoPreviewUrl(URL.createObjectURL(file))
     setShowSuccessToast(true)
+    beginPreparing(file)
   }
 
   async function handleSubmit() {
     if (!isFormValid) return
-    setUploadError(""); setIsUploading(true)
+    setUploadError(""); setIsUploading(true); setPhase("preparing"); setProgress(0)
     try {
-      const analysisId = await uploadVideo(videoFile, exercise.movement, needsWeight ? weight : 0, unit)
+      // wait for the shrinking to finish (usually already has); if it can't shrink, this is the original file
+      const job = prepRef.current
+      const stopWatching = job && setInterval(() => setProgress(prepFraction.current), 250)
+      const prepared = job ? await job.promise : { file: videoFile }
+      clearInterval(stopWatching)
+
+      setPhase("uploading"); setProgress(0)
+      const analysisId = await uploadVideoDirect(prepared.file, exercise.movement, needsWeight ? weight : 0, unit, { onProgress: setProgress })
       navigate("/upload/loading", { state: { analysisId, videoPreviewUrl } })
     } catch (err) {
       setUploadError(err.message || "Upload failed. Please try again.")
-      setIsUploading(false)
+      setIsUploading(false); setPhase("")
     }
   }
 
@@ -142,8 +175,7 @@ export default function UploadScanPage() {
             <button
               type="button"
               onClick={() => {
-                setVideoFile(null)
-                setVideoPreviewUrl(null)
+                clearVideo()
                 setIsPlaying(false)
                 setShowSuccessToast(false)
                 if (fileInputRef.current) fileInputRef.current.value = ""
@@ -176,6 +208,15 @@ export default function UploadScanPage() {
         )}
         <input ref={fileInputRef} type="file" accept="video/mp4,video/quicktime,video/webm" onChange={handleFileChange} className="hidden" />
         {fileError && <p className="text-xs text-red-500 mb-3">{fileError}</p>}
+        {videoFile && prep && (
+          <p style={{ fontFamily: DM_SANS, fontSize: 12, color: GRAY, margin: "-6px 2px 14px" }}>
+            {prep.working
+              ? `Getting your video ready to upload… ${Math.round(prep.progress * 100)}%`
+              : prep.shrunk
+                ? `Video ready: ${mb(prep.from)} MB made smaller, now ${mb(prep.to)} MB.`
+                : `Video ready (${mb(prep.from)} MB).`}
+          </p>
+        )}
 
         {/* Load Parameters */}
         {needsWeight && <div className="bg-white rounded-2xl p-4 mb-4 shadow-sm border border-gray-100">
@@ -221,7 +262,7 @@ export default function UploadScanPage() {
                 <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
                 <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z" />
               </svg>
-              Uploading...
+              {phase === "preparing" ? `Preparing video… ${Math.round(progress * 100)}%` : `Uploading… ${Math.round(progress * 100)}%`}
             </span>
           ) : "START ANALYSIS →"}
         </button>
