@@ -18,6 +18,7 @@ class SetIn(BaseModel):
     weight: Optional[float] = None
     weight_unit: str = "kg"
     reps: Optional[int] = None
+    duration_sec: Optional[int] = Field(default=None, ge=0, le=86400)  # for timed sets; weight, reps and time are all optional
     notes: Optional[str] = None
 
 
@@ -61,14 +62,14 @@ async def _insert_exercises(workout_id: str, user_id: str, exercises: list[Exerc
                 f"""
                 INSERT INTO workout_sessions_log
                     (user_id, exercise_id, exercise_name, session_id, workout_id, logged_at,
-                     set_number, weight_use, weight_unit, weight_value, rep_count, set_notes)
+                     set_number, weight_use, weight_unit, weight_value, rep_count, duration_sec, set_notes)
                 VALUES (:uid, :eid, :ename, :sid, :wid, COALESCE(CAST(:logged_at AS TEXT), {NOW_TEXT}),
-                        :set_number, :weight, :unit, :weight, :reps, :notes)
+                        :set_number, :weight, :unit, :weight, :reps, :duration_sec, :notes)
                 """,
                 {"uid": user_id, "eid": ex.exercise_id, "ename": ex.exercise_name,
                  "sid": workout_exercise_id, "wid": workout_id, "logged_at": logged_at,
                  "set_number": s.set_number, "weight": s.weight, "unit": s.weight_unit,
-                 "reps": s.reps, "notes": s.notes},
+                 "reps": s.reps, "duration_sec": s.duration_sec, "notes": s.notes},
             )
 
 
@@ -86,6 +87,7 @@ def _shape(workout_rows, exercise_rows, set_rows) -> list[dict]:
             "weight": s["weight_value"],
             "weight_unit": s["weight_unit"],
             "reps": s["rep_count"],
+            "duration_sec": s["duration_sec"],
             "notes": s["set_notes"],
         })
     ex_by_workout: dict[str, list] = {}
