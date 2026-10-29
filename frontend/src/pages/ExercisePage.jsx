@@ -81,7 +81,6 @@ export default function ExercisePage() {
         <div style={{ ...cardStyle, padding: "10px 12px", marginTop: 8 }}>
           <p style={{ fontFamily: DM_SANS, fontSize: 10, fontWeight: 700, color: GRAY, textTransform: "uppercase", letterSpacing: "0.05em", margin: "0 0 4px" }}>Depth</p>
           <p style={{ ...small, fontWeight: 600 }}>{guide.depth.goal}</p>
-          <p style={{ ...small, marginTop: 6 }}>{guide.depth.picture}</p>
           <p style={{ ...small, fontWeight: 700, marginTop: 8 }}>Stop going down when:</p>
           <ul style={{ margin: "2px 0 0", paddingLeft: 18, listStyle: "disc" }}>
             {guide.depth.stopWhen.map((w) => <li key={w} style={small}>{w}</li>)}

@@ -24,7 +24,6 @@ const GOBLET_SQUAT = {
   stance: "Feet about shoulder-width apart, toes turned out slightly, whole foot planted.",
   depth: {
     goal: "Hips at or just below knee height. It is a goal, not a must: ankle and hip mobility and body shape decide how deep you can go.",
-    picture: "Sit back and down, as if lowering onto a chair behind you. Touch it lightly, don't drop onto it.",
     stopWhen: ["Your heels start to lift.", "Your lower back starts to round or tuck under.", "Your knees cave in."],
     afterStop: "That is your depth for today. Pause one second, then stand. Don't push lower to chase the target. Your depth improves as your mobility does.",
     posture: "Your hips and knees bend together. Keep your chest tall and don't fold forward at the waist.",
@@ -78,5 +77,5 @@ export const hasExerciseGuide = (exerciseId) => Boolean(GUIDES[exerciseId])
 
 // What the Listen button reads out: the short version only
 export function guideToSpeech(name, guide) {
-  return `${name}. ${guide.summary} Stance: ${guide.stance} Depth: ${guide.depth.goal} ${guide.depth.picture} Stop going down if ${guide.depth.stopWhen.map((w) => w.replace(/\.$/, "").replace(/^Your/, "your")).join(", or ").replace(/, or (?=[^,]*$)/, " or ").replace(/, or /g, ", ")}. Key cues. ${guide.keyCues.join(" ")} Breathing: ${guide.breathing}. Tempo: ${guide.tempo}.`
+  return `${name}. ${guide.summary} Stance: ${guide.stance} Depth: ${guide.depth.goal} Stop going down if ${guide.depth.stopWhen.map((w) => w.replace(/\.$/, "").replace(/^Your/, "your")).join(", or ").replace(/, or (?=[^,]*$)/, " or ").replace(/, or /g, ", ")}. Key cues. ${guide.keyCues.join(" ")} Breathing: ${guide.breathing}. Tempo: ${guide.tempo}.`
 }

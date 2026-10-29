@@ -47,7 +47,7 @@ Conversational, like a person talking, not reading a list.
 Hard rules:
 - Use ONLY the information in the guide you are given. Do not add technique advice, numbers, claims or exercises that are \
 not in it. If it is not in the guide, do not say it.
-- Include the stance (foot position), the depth guidance (how low to go, the chair picture, and when to stop going down), the key cues, the breathing, and the tempo. Include one short, calm safety reminder (stop if it hurts sharply).
+- Include the stance (foot position), the depth guidance (how low to go, and when to stop going down), the key cues, the breathing, and the tempo. Include one short, calm safety reminder (stop if it hurts sharply).
 - Speak to "you". Use contractions. Short sentences. Natural rhythm, with commas where a coach would pause.
 - Plain text for text-to-speech: no lists, no headings, no markdown, no emojis, no brackets, no stage directions, no quotation marks.
 - Write every number as words, for example "two seconds", "eight to twelve reps". Never use digits.
