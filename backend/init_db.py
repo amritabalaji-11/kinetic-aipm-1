@@ -356,6 +356,7 @@ MIGRATIONS = [
     ("workout_sessions_log", "weight_unit", "TEXT"),
     ("workout_sessions_log", "workout_id", "TEXT"),   # links a set to its workout (NULL for old demo rows)
     ("workout_sessions_log", "set_notes", "TEXT"),
+    ("workout_sessions_log", "duration_sec", "INTEGER"),   # how long a timed set lasted (NULL for sets logged by weight and reps)
 
     # workouts: the name shown in history (plan name, or what the user called it)
     ("workouts", "name", "TEXT"),
