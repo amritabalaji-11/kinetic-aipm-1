@@ -74,7 +74,22 @@ export default function ExercisePage() {
         </div>
       </div>
 
-      <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr", gap: 8, marginTop: 10 }}>
+      {guide.stance && (
+        <div style={{ marginTop: 10 }}><Tile label="Stance" value={guide.stance} /></div>
+      )}
+      {guide.depth && (
+        <div style={{ ...cardStyle, padding: "10px 12px", marginTop: 8 }}>
+          <p style={{ fontFamily: DM_SANS, fontSize: 10, fontWeight: 700, color: GRAY, textTransform: "uppercase", letterSpacing: "0.05em", margin: "0 0 4px" }}>Depth</p>
+          <p style={{ ...small, fontWeight: 600 }}>{guide.depth.goal}</p>
+          <p style={{ ...small, fontWeight: 700, marginTop: 8 }}>Stop going down when:</p>
+          <ul style={{ margin: "2px 0 0", paddingLeft: 18, listStyle: "disc" }}>
+            {guide.depth.stopWhen.map((w) => <li key={w} style={small}>{w}</li>)}
+          </ul>
+          <p style={{ ...small, marginTop: 8 }}>{guide.depth.afterStop}</p>
+          <p style={{ ...small, color: GRAY, marginTop: 6 }}>{guide.depth.posture}</p>
+        </div>
+      )}
+      <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr", gap: 8, marginTop: 8 }}>
         <Tile label="Breathing" value={guide.breathing} />
         <Tile label="Tempo" value={guide.tempo} />
         <Tile label="Sets and reps" value={guide.setsReps} />
