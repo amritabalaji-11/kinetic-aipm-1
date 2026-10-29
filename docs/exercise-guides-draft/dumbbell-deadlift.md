@@ -90,7 +90,7 @@ Feet hip-width apart, toes turned out slightly, knees soft. Brace your core, as 
 ## Make it harder
 | Step | What changes | Pick this if… |
 |---|---|---|
-| **DB Romanian Deadlift** (`ex_048`) | Knees stay soft and don't bend more, lower to mid-shin, and don't set the weights down between reps. | You can do 12 clean deadlifts and want more hamstring work. |
+| **Barbell Deadlift** (`ex_015`) | The same hinge with a barbell. With dumbbells, your arms and grip tend to give way before your legs and hips do. A barbell carries more weight, so your legs and hips can lift heavier. | You can do 12 clean reps and the dumbbells you have feel too light, or your arms tire first. |
 | **One-Arm DB Deadlift** (new) | One dumbbell at your side, same hinge. The uneven load works your hips and core harder. | You can do 12 clean reps with two dumbbells. Do the same reps each side. |
 
 ## Safety

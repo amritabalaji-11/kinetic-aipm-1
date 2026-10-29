@@ -125,7 +125,7 @@ const DB_DEADLIFT = {
     { name: "KB Deadlift", exerciseId: "ex_095", what: "One kettlebell or vertical dumbbell, held between your feet.", pickIf: "two dumbbells feel awkward or you want a lighter start" },
   ],
   harder: [
-    { name: "DB Romanian Deadlift", exerciseId: "ex_048", what: "Knees stay soft and don't bend more, lower to mid-shin, and don't set the weights down between reps.", pickIf: "you can do 12 clean deadlifts and want more hamstring work" },
+    { name: "Barbell Deadlift", exerciseId: "ex_015", what: "The same hinge with a barbell. With dumbbells, your arms and grip tend to give way before your legs and hips do. A barbell carries more weight, so your legs and hips can lift heavier.", pickIf: "you can do 12 clean reps and the dumbbells you have feel too light, or your arms tire first" },
     { name: "One-Arm DB Deadlift", what: "One dumbbell at your side, same hinge. The uneven load works your hips and core harder.", pickIf: "you can do 12 clean reps with two dumbbells. Do the same reps each side" },
   ],
   safety: [
