@@ -161,10 +161,21 @@ function WorkoutCard({ workout, onChanged, onDeleted, defaultOpen = false }) {
                       <span style={small}>kg ×</span>
                       <input type="number" style={input} value={s.reps ?? ""} onChange={(e) => setField(exIdx, setIdx, "reps", e.target.value)} />
                       <span style={small}>reps</span>
+                      {s.duration_sec != null && (
+                        <>
+                          <input type="number" style={input} value={s.duration_sec ?? ""} onChange={(e) => setField(exIdx, setIdx, "duration_sec", e.target.value)} />
+                          <span style={small}>sec</span>
+                        </>
+                      )}
                     </>
                   ) : (
                     <span style={{ fontSize: "13px", color: "#0F172A" }}>
-                      {s.weight ?? "–"} {s.weight_unit || "kg"} × {s.reps ?? "–"} reps
+                      {/* only what was logged: any mix of weight, reps and time */}
+                      {[
+                        s.weight != null && `${s.weight} ${s.weight_unit || "kg"}`,
+                        s.reps != null && `${s.reps} reps`,
+                        s.duration_sec != null && `${s.duration_sec} sec`,
+                      ].filter(Boolean).join(" × ") || "–"}
                     </span>
                   )}
                 </div>
