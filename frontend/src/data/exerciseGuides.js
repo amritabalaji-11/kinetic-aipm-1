@@ -111,7 +111,7 @@ const DB_DEADLIFT = {
     "At the top, squeeze your glutes and pull your shoulder blades back. Stand tall, don't lean back.",
   ],
   mistakes: [
-    { mistake: "Rounding the back", fix: "Keep your shoulder blades, back and hips in one straight line. If you can't, lower less far and practise the hinge with no weight first." },
+    { mistake: "Rounding the back", fix: "Keep your shoulder blades, back and hips in one straight line. If you can't, stop a little higher and practise the hinge with no weight first." },
     { mistake: "Turning it into a squat", fix: "Push your hips back first. Your shins stay almost vertical." },
     { mistake: "Locking the knees", fix: "Keep a soft bend. Don't lock them straight." },
     { mistake: "Dumbbells drift away from your legs", fix: "Keep them brushing your legs the whole way." },
