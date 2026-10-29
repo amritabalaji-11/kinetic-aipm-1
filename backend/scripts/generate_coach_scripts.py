@@ -35,7 +35,7 @@ DEFAULT_MODEL = "claude-sonnet-5-5"  # written once per exercise, so quality mat
 
 # Spoken pace is about 150 words a minute
 FULL_WORDS = (105, 140)  # about 45-55 seconds: the Listen button on the exercise page (coaching, then what to avoid)
-SHORT_WORDS = (30, 48)   # about 15 seconds: the "Next up" card between sets
+SHORT_WORDS = (50, 70)   # about 25 seconds: the "Next up" card between sets
 
 SYSTEM_PROMPT = """You write short spoken coaching scripts for a fitness app. Each script is read aloud by a text-to-speech \
 voice. The listener is one person, in the gym, about to do the exercise, wearing earphones. They are usually a beginner \
@@ -64,7 +64,7 @@ Return ONLY a JSON object with two string fields, nothing else:
 {"script": "...", "script_short": "..."}
 - script: the full version including the "watch out for" part, between %d and %d words.
 - script_short: for the moment between sets, between %d and %d words. Only the most important reminders for the next \
-set (the key cues and the breathing), still warm, still talking to them.""" % (*FULL_WORDS, *SHORT_WORDS)
+set (the key cues, how deep to go and when to stop going down, and the breathing), still warm, still talking to them.""" % (*FULL_WORDS, *SHORT_WORDS)
 
 
 def load_guides() -> dict:
