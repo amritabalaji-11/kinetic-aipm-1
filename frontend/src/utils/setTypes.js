@@ -14,7 +14,8 @@ export const SET_TYPES = {
 }
 
 export const FAMILIES = {
-  strength: { title: "STRENGTH", types: ["straight", "superset", "triset", "giant", "pyramid"] },
+  // Pyramid is defined above but not offered yet: it needs a different rep target for every round
+  strength: { title: "STRENGTH", types: ["straight", "superset", "triset", "giant"] },
   timed: { title: "TIMED", types: ["emom", "amrap", "tabata"] },
 }
 
