@@ -177,7 +177,7 @@ const GUIDANCE = {
 // Reps like "8-10" or "10-12" from the block's exercises -> { low: 8, high: 10 }
 const repRange = (block) => {
   for (const it of block.items) {
-    const m = /^\s*(\d+)\s*[-–]\s*(\d+)\s*$/.exec(String(it.targetReps ?? ""))
+    const m = /^\s*(\d+)\s*[-–]\s*(\d+)\s*$/.exec(String(it.targetReps ?? it.reps ?? "")) // logged items say targetReps, plan items say reps
     if (m) return { low: Number(m[1]), high: Number(m[2]) }
   }
   return null

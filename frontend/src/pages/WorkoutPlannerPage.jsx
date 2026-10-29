@@ -9,6 +9,7 @@ import { blocksFromPlanner } from "../utils/workoutModel"
 import SwapSheet from "../components/SwapSheet"
 import SetTypeSheet from "../components/SetTypeSheet"
 import { TypePill } from "../components/WorkoutTypeUi"
+import GoalNote from "../components/GoalNote"
 import { WORKOUT_TYPES, workoutType } from "../utils/planProfile"
 import { changeType, isChangeable, typeOfBlock } from "../utils/setTypes"
 import { BlockTag, ExerciseLine, PurpleDivider, RoundButton, SectionHeading, cardStyle, BRICOLAGE, DM_SANS, GRAY, INK, PURPLE } from "../components/planUi"
@@ -102,6 +103,7 @@ export default function WorkoutPlannerPage() {
                       </button>
                     )}
                   </div>
+                  <GoalNote block={b} collapsible />
                   {b.items.map((it, itemIndex) => (
                     <ExerciseLine
                       key={itemIndex}
