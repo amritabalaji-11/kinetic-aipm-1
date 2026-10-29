@@ -1,10 +1,12 @@
 import { useEffect, useState } from "react"
 import { useNavigate } from "react-router-dom"
-import { ArrowLeftRight, BicepsFlexed, Check, ChevronDown, ChevronRight, Lightbulb, Pause, Play, Plus, Timer, VideoIcon } from "lucide-react"
+import { ArrowLeftRight, BicepsFlexed, Check, ChevronDown, ChevronRight, Info, Lightbulb, Pause, Play, Plus, Timer, VideoIcon } from "lucide-react"
 import FormGuide from "../components/FormGuide"
 import CuesSheet from "../components/CuesSheet"
 import NextUpCard from "../components/NextUpCard"
 import RestTimer from "../components/RestTimer"
+import SetTypeSheet from "../components/SetTypeSheet"
+import { typeOfBlock } from "../utils/setTypes"
 import SwapSheet from "../components/SwapSheet"
 import AddExerciseSheet from "../components/AddExerciseSheet"
 import { hasGuidance } from "../data/exerciseGuidance"
@@ -191,6 +193,7 @@ export default function ActiveWorkoutPage() {
   })
   const [restEndsAt, setRestEndsAt] = useState(null)
   const [cuesFor, setCuesFor] = useState(null) // index of the section whose "Cues" sheet is open
+  const [typeInfoFor, setTypeInfoFor] = useState(null) // index of the section whose set type is explained
   const [showNextUp, setShowNextUp] = useState(false) // opens when a set is ticked or an item is marked done
   const [swapping, setSwapping] = useState(null) // { bi, ii }
   const [adding, setAdding] = useState(false)
@@ -403,6 +406,11 @@ export default function ActiveWorkoutPage() {
                 <Tag state={state}>{block.tag}</Tag>
                 <span style={{ fontFamily: DM_SANS, fontSize: 11, color: GRAY, flex: 1 }}>{block.note}</span>
               </button>
+              {typeOfBlock(block) && (
+                <button type="button" aria-label={`What is ${block.tag}?`} onClick={() => setTypeInfoFor(bi)} style={{ display: "flex", background: "none", border: "none", padding: 0, cursor: "pointer" }}>
+                  <Info size={16} color={PURPLE} />
+                </button>
+              )}
               {actionable.some((it) => hasExerciseGuide(it.exerciseId)) && (
                 <button type="button" aria-label={`Cues for ${block.tag}`} onClick={() => setCuesFor(bi)} style={{ display: "flex", alignItems: "center", gap: 4, padding: "4px 9px", borderRadius: 12, border: "1.2px solid rgba(129,51,255,0.55)", background: "#FCF9FF", color: PURPLE, fontFamily: DM_SANS, fontWeight: 600, fontSize: 11, cursor: "pointer", flexShrink: 0 }}>
                   <Lightbulb size={12} /> Cues
@@ -532,6 +540,9 @@ export default function ActiveWorkoutPage() {
         })}
       </div>
 
+      {typeInfoFor !== null && blocks[typeInfoFor] && typeOfBlock(blocks[typeInfoFor]) && (
+        <SetTypeSheet block={blocks[typeInfoFor]} onClose={() => setTypeInfoFor(null)} />
+      )}
       {cuesFor !== null && blocks[cuesFor] && (
         <CuesSheet title={`Cues: ${blocks[cuesFor].tag}`} items={blocks[cuesFor].items.filter(isActionable)} onClose={() => setCuesFor(null)} />
       )}

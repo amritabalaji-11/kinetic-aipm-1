@@ -34,21 +34,21 @@ export const PRESET_WORKOUTS = [
         {"name": "Good Mornings", "sub": "4 reps", "exerciseId": "ex_053"},
         {"name": "Sumo Squat Pulses", "sub": "8 reps", "exerciseId": "ex_054"},
       ]},
-      { section: "workout", tag: "ISOLATION 1", note: "3 Rounds · 60-90 secs rest", items: [
+      { section: "workout", tag: "STRAIGHT SETS 1", note: "3 Rounds · 60-90 secs rest", items: [
         {"name": "Step Ups", "sub": "10-12 reps · weighted, each side, hold DBs in a suitcase style", "exerciseId": "ex_016", "sets": 3, "reps": "10-12"},
       ]},
       { section: "workout", tag: "SUPERSET 1", note: "3 Rounds · 60-90 secs rest", items: [
         {"name": "Back Squats", "sub": "10-12 reps · barbell · or DB Front Rack Squats", "exerciseId": "ex_017", "sets": 3, "reps": "10-12", "alternatives": ["ex_026"]},
         {"name": "Hip Thrusters", "sub": "10-12 reps · DB · or Hip Thruster", "exerciseId": "ex_018", "sets": 3, "reps": "10-12"},
       ]},
-      { section: "workout", tag: "ISOLATION 2", note: "3 Rounds · 60-90 secs rest", items: [
+      { section: "workout", tag: "STRAIGHT SETS 2", note: "3 Rounds · 60-90 secs rest", items: [
         {"name": "Sumo Deadlifts", "sub": "10-12 reps · you can use DB or KBs or Barbell", "exerciseId": "ex_019", "sets": 3, "reps": "10-12"},
       ]},
       { section: "workout", tag: "SUPERSET 2", note: "3 Rounds · 60-90 secs rest", items: [
         {"name": "Reverse Lunges", "sub": "10-12 reps · DB, total, keep alternating leg", "exerciseId": "ex_020", "sets": 3, "reps": "10-12"},
         {"name": "Hostage Squats", "sub": "30 secs · weighted", "exerciseId": "ex_082"},
       ]},
-      { section: "workout", tag: "ISOLATION 3", note: "3 Rounds · 60-90 secs rest", items: [
+      { section: "workout", tag: "STRAIGHT SETS 3", note: "3 Rounds · 60-90 secs rest", items: [
         {"name": "Calf Raises", "sub": "15-20 reps", "exerciseId": "ex_021", "sets": 3, "reps": "15-20"},
       ]},
       { section: "conditioning", tag: "4 MIN EMOM", note: "Every Minute on the Minute", items: [
@@ -159,21 +159,21 @@ export const PRESET_WORKOUTS = [
         {"name": "Good Mornings", "sub": "4 reps", "exerciseId": "ex_053"},
         {"name": "Sumo Squat Pulses", "sub": "8 reps", "exerciseId": "ex_054"},
       ]},
-      { section: "workout", tag: "ISOLATION 1", note: "3 Rounds · 60-90 secs rest", items: [
+      { section: "workout", tag: "STRAIGHT SETS 1", note: "3 Rounds · 60-90 secs rest", items: [
         {"name": "Kickstand Pistol Squats", "sub": "10-12 reps · each side", "exerciseId": "ex_045", "sets": 3, "reps": "10-12"},
       ]},
       { section: "workout", tag: "SUPERSET 1", note: "3 Rounds · 60-90 secs rest", items: [
         {"name": "Sumo Squats", "sub": "10-12 reps · KB, you can use DB or Barbell as well", "exerciseId": "ex_023", "sets": 3, "reps": "10-12"},
         {"name": "Alternating Forward Lunges", "sub": "10-12 reps · each leg", "exerciseId": "ex_046", "sets": 3, "reps": "10-12"},
       ]},
-      { section: "workout", tag: "ISOLATION 2", note: "3 Rounds · 60-90 secs rest", items: [
+      { section: "workout", tag: "STRAIGHT SETS 2", note: "3 Rounds · 60-90 secs rest", items: [
         {"name": "Hamstring March", "sub": "30-40 secs", "exerciseId": "ex_085"},
       ]},
       { section: "workout", tag: "SUPERSET 2", note: "3 Rounds · 60-90 secs rest", items: [
         {"name": "KB Swings", "sub": "10-12 reps", "exerciseId": "ex_042", "sets": 3, "reps": "10-12"},
         {"name": "Jump Squats", "sub": "30 secs", "exerciseId": "ex_086"},
       ]},
-      { section: "workout", tag: "ISOLATION 3", note: "3 Rounds · 60-90 secs rest", items: [
+      { section: "workout", tag: "STRAIGHT SETS 3", note: "3 Rounds · 60-90 secs rest", items: [
         {"name": "Anterior Tib Raises", "sub": "15-20 reps", "exerciseId": "ex_047", "sets": 3, "reps": "15-20"},
       ]},
       { section: "conditioning", tag: "4 MIN EMOM", note: "Every Minute on the Minute", items: [
@@ -241,21 +241,21 @@ export const PRESET_WORKOUTS = [
         {"name": "Bird Dog", "sub": "10 reps · total", "exerciseId": "ex_057"},
         {"name": "Inchworm into Plank Toe Touches", "sub": "5 reps", "exerciseId": "ex_078"},
       ]},
-      { section: "workout", tag: "ISOLATION 1", note: "3 Rounds · 60-90 secs rest", items: [
+      { section: "workout", tag: "STRAIGHT SETS 1", note: "3 Rounds · 60-90 secs rest", items: [
         {"name": "Single Arm Rows", "sub": "10-12 reps · each arm · or Single Arm Lat Pull Down (each arm) · or Single Arm Seated Cable Row (each arm)", "exerciseId": "ex_030", "sets": 3, "reps": "10-12", "alternatives": ["ex_111", "ex_112"]},
       ]},
       { section: "workout", tag: "SUPERSET 1", note: "3 Rounds · 60-90 secs rest", items: [
         {"name": "DB Chest Flys", "sub": "10-12 reps", "exerciseId": "ex_034", "sets": 3, "reps": "10-12"},
         {"name": "Rear Delt Raises", "sub": "10-12 reps · or Rear Delt Machine", "exerciseId": "ex_033", "sets": 3, "reps": "10-12", "alternatives": ["ex_113"]},
       ]},
-      { section: "workout", tag: "ISOLATION 2", note: "3 Rounds · 60-90 secs rest", items: [
+      { section: "workout", tag: "STRAIGHT SETS 2", note: "3 Rounds · 60-90 secs rest", items: [
         {"name": "Bench Press", "sub": "10-12 reps · or Decline Push Ups · or DB Floor Press", "exerciseId": "ex_006", "sets": 3, "reps": "10-12", "alternatives": ["ex_114", "ex_031"]},
       ]},
       { section: "workout", tag: "SUPERSET 2", note: "3 Rounds · 60-90 secs rest", items: [
         {"name": "DB Pull Overs", "sub": "10-12 reps · or Straight Arm Pulldowns", "exerciseId": "ex_035", "sets": 3, "reps": "10-12", "alternatives": ["ex_115"]},
         {"name": "DB Shrugs", "sub": "10-12 reps · or Barbell Shrugs", "exerciseId": "ex_036", "sets": 3, "reps": "10-12", "alternatives": ["ex_116"]},
       ]},
-      { section: "workout", tag: "ISOLATION 3", note: "3 Rounds · 60-90 secs rest", items: [
+      { section: "workout", tag: "STRAIGHT SETS 3", note: "3 Rounds · 60-90 secs rest", items: [
         {"name": "Single Arm Deficit Push Ups", "sub": "6-8 reps · each side · you can do them on your knees as well · or Hand Release Push Ups 10-12 reps (you can do them on your knees as well)", "exerciseId": "ex_117", "sets": 3, "reps": "6-8", "alternatives": ["ex_044"]},
       ]},
       { section: "conditioning", tag: "4 MIN ALTERNATING TABATA", note: "00:20 secs work, 00:10 secs off · 8 rounds · 4 rounds each exercise", items: [
@@ -282,21 +282,21 @@ export const PRESET_WORKOUTS = [
         {"name": "Bird Dog", "sub": "10 reps · total", "exerciseId": "ex_057"},
         {"name": "Inchworm into Plank Toe Touches", "sub": "5 reps", "exerciseId": "ex_078"},
       ]},
-      { section: "workout", tag: "ISOLATION 1", note: "3 Rounds · 60-90 secs rest", items: [
+      { section: "workout", tag: "STRAIGHT SETS 1", note: "3 Rounds · 60-90 secs rest", items: [
         {"name": "DB Floor Press in a Glute Bridge", "sub": "10-12 reps · or Incline Bench Press", "exerciseId": "ex_031", "sets": 3, "reps": "10-12", "alternatives": ["ex_007"]},
       ]},
       { section: "workout", tag: "SUPERSET 1", note: "3 Rounds · 60-90 secs rest", items: [
         {"name": "Gorilla Rows", "sub": "10-12 reps · each side · or Alternating DB Bent Over Row (each side)", "exerciseId": "ex_123", "sets": 3, "reps": "10-12", "alternatives": ["ex_038"]},
         {"name": "Barbell Shoulder Press", "sub": "10-12 reps · or DB Shoulder Press", "exerciseId": "ex_011", "sets": 3, "reps": "10-12", "alternatives": ["ex_029"]},
       ]},
-      { section: "workout", tag: "ISOLATION 2", note: "3 Rounds · 60-90 secs rest", items: [
+      { section: "workout", tag: "STRAIGHT SETS 2", note: "3 Rounds · 60-90 secs rest", items: [
         {"name": "Barbell Bent Over Row", "sub": "10-12 reps · or DB Bent Over Row · or Lat Pull Down", "exerciseId": "ex_010", "sets": 3, "reps": "10-12", "alternatives": ["ex_038", "ex_124"]},
       ]},
       { section: "workout", tag: "SUPERSET 2", note: "3 Rounds · 60-90 secs rest", items: [
         {"name": "DB Lateral Raise", "sub": "10-12 reps", "exerciseId": "ex_012", "sets": 3, "reps": "10-12"},
         {"name": "KB Horn Curls", "sub": "10-12 reps", "exerciseId": "ex_125", "sets": 3, "reps": "10-12"},
       ]},
-      { section: "workout", tag: "ISOLATION 3", note: "3 Rounds · 60-90 secs rest", items: [
+      { section: "workout", tag: "STRAIGHT SETS 3", note: "3 Rounds · 60-90 secs rest", items: [
         {"name": "Back Extension Machine", "sub": "10-12 reps · try not rushing with them · or Superman Raises", "exerciseId": "ex_126", "sets": 3, "reps": "10-12", "alternatives": ["ex_127"]},
       ]},
       { section: "conditioning", tag: "4 MIN AMRAP", note: "As Many Rounds As Possible", items: [

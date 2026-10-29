@@ -1,12 +1,14 @@
 import { useState } from "react"
 import { useNavigate, useParams, Navigate } from "react-router-dom"
-import { ArrowLeftRight, ChevronLeft } from "lucide-react"
+import { ArrowLeftRight, ChevronLeft, Info } from "lucide-react"
 import { PRESET_WORKOUTS } from "../data/presetWorkouts"
 import { equipmentLabel } from "../utils/exerciseCatalog"
 import { confirmWorkout } from "../utils/startWorkout"
 import PumpButton from "../components/PumpButton"
 import { blocksFromPlanner } from "../utils/workoutModel"
 import SwapSheet from "../components/SwapSheet"
+import SetTypeSheet from "../components/SetTypeSheet"
+import { changeType, isChangeable, typeOfBlock } from "../utils/setTypes"
 import { BlockTag, ExerciseLine, PurpleDivider, RoundButton, SectionHeading, cardStyle, BRICOLAGE, DM_SANS, GRAY, INK, PURPLE } from "../components/planUi"
 
 const SECTIONS = [
@@ -22,6 +24,7 @@ export default function WorkoutPlannerPage() {
   const preset = PRESET_WORKOUTS.find((p) => p.id === presetId)
   const [blocks, setBlocks] = useState(() => preset?.blocks?.map((b) => ({ ...b, items: b.items.map((i) => ({ ...i })) })) ?? [])
   const [swapping, setSwapping] = useState(null) // { blockIndex, itemIndex }
+  const [typeSheet, setTypeSheet] = useState(null) // index of the block whose set type is open
 
   if (!preset || !preset.blocks) return <Navigate to="/plan" replace />
 
@@ -81,7 +84,17 @@ export default function WorkoutPlannerPage() {
                   {n > 0 && <PurpleDivider />}
                   <div style={{ display: "flex", alignItems: "center", gap: 8, padding: n === 0 ? "8px 0 2px" : "10px 0 2px" }}>
                     <BlockTag>{b.tag}</BlockTag>
-                    <span style={{ fontFamily: DM_SANS, fontSize: 11, color: GRAY }}>{b.note}</span>
+                    {typeOfBlock(b) && (
+                      <button type="button" aria-label={`What is ${b.tag}?`} onClick={() => setTypeSheet(blockIndex)} style={{ display: "flex", background: "none", border: "none", padding: 0, cursor: "pointer" }}>
+                        <Info size={16} color={PURPLE} />
+                      </button>
+                    )}
+                    <span style={{ fontFamily: DM_SANS, fontSize: 11, color: GRAY, flex: 1 }}>{b.note}</span>
+                    {isChangeable(b) && (
+                      <button type="button" aria-label={`Change set type of ${b.tag}`} onClick={() => setTypeSheet(blockIndex)} style={{ display: "flex", alignItems: "center", gap: 3, background: "none", border: "none", padding: 0, cursor: "pointer", color: PURPLE, fontFamily: DM_SANS, fontWeight: 600, fontSize: 12 }}>
+                        Change <ArrowLeftRight size={12} strokeWidth={2.4} />
+                      </button>
+                    )}
                   </div>
                   {b.items.map((it, itemIndex) => (
                     <ExerciseLine
@@ -107,6 +120,17 @@ export default function WorkoutPlannerPage() {
       <div style={{ marginTop: 14 }}>
         <PumpButton onPumped={create}>Confirm today&apos;s workout</PumpButton>
       </div>
+
+      {typeSheet !== null && blocks[typeSheet] && (
+        <SetTypeSheet
+          key={typeSheet}
+          block={blocks[typeSheet]}
+          blocks={blocks}
+          index={typeSheet}
+          onApply={isChangeable(blocks[typeSheet]) ? (target, settings) => { setBlocks((prev) => changeType(prev, typeSheet, target, settings)); setTypeSheet(null) } : undefined}
+          onClose={() => setTypeSheet(null)}
+        />
+      )}
 
       {swapping && swapItem && (
         <SwapSheet
