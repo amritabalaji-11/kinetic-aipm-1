@@ -2,7 +2,9 @@ import { useEffect, useState } from "react"
 import { useNavigate } from "react-router-dom"
 import { ArrowLeftRight, BicepsFlexed, Check, ChevronDown, ChevronRight, Info, Lightbulb, Pause, Play, Plus, Timer, VideoIcon } from "lucide-react"
 import FormGuide from "../components/FormGuide"
-import CuesSheet from "../components/CuesSheet"
+import SectionNav from "../components/SectionNav"
+import { Refresher } from "../components/NextUpCard"
+import { getExerciseGuide } from "../data/exerciseGuides"
 import NextUpCard from "../components/NextUpCard"
 import RestTimer from "../components/RestTimer"
 import SetTypeSheet from "../components/SetTypeSheet"
@@ -10,7 +12,6 @@ import { typeOfBlock } from "../utils/setTypes"
 import SwapSheet from "../components/SwapSheet"
 import AddExerciseSheet from "../components/AddExerciseSheet"
 import { hasGuidance } from "../data/exerciseGuidance"
-import { hasExerciseGuide } from "../data/exerciseGuides"
 import { addPendingWorkout, removePendingWorkout, saveWorkout } from "../services/workoutService"
 import { equipmentLabel } from "../utils/exerciseCatalog"
 import {
@@ -19,7 +20,7 @@ import {
 } from "../utils/workoutModel"
 import SetTimer, { clock } from "../components/SetTimer"
 import TrackChips from "../components/TrackChips"
-import { BRICOLAGE, DM_SANS, ExerciseName, GRADIENT, GRAY, INK, PURPLE } from "../components/planUi"
+import { BRICOLAGE, BottomSheet, DM_SANS, ExerciseName, GRADIENT, GRAY, INK, PURPLE } from "../components/planUi"
 
 const GREEN = "#22C55E"
 const DARK_GREEN = "#15803D"
@@ -140,25 +141,25 @@ function SetRow({ label, set, item, onChange, onTick, onRecord, onTimerDone, lab
       onChange={(e) => onChange(field, e.target.value)}
       onKeyDown={focusNext}
       style={{
-        flex: 1, minWidth: 0, height: 28, borderRadius: 6, border: "none", textAlign: "center",
-        background: done ? "#fff" : INPUT_BG, fontFamily: DM_SANS, fontSize: 14, fontWeight: value ? 600 : 400,
+        flex: 1, minWidth: 0, height: 46, borderRadius: 12, border: "none", textAlign: "center",
+        background: done ? "#fff" : INPUT_BG, fontFamily: DM_SANS, fontSize: 18, fontWeight: value ? 600 : 400,
         color: done ? DARK_GREEN : INK, outline: "none",
       }}
     />
   )
   const timerTarget = Number(set.seconds) || item.targetSeconds || 30 // what was typed, else the plan's time, else 30 seconds
   return (
-    <div style={{ display: "flex", alignItems: "center", gap: 8, padding: "2px 0", borderRadius: 8, background: done ? "rgba(34,197,94,0.14)" : "transparent" }}>
-      <span style={{ width: 22, textAlign: "center", fontFamily: DM_SANS, fontWeight: 600, fontSize: 13, color: done ? DARK_GREEN : labelColor || INK }}>{label}</span>
+    <div style={{ display: "flex", alignItems: "center", gap: 8, padding: "3px 0", borderRadius: 12, background: done ? "rgba(34,197,94,0.14)" : "transparent" }}>
+      <span style={{ width: 22, textAlign: "center", fontFamily: DM_SANS, fontWeight: 700, fontSize: 15, color: done ? DARK_GREEN : labelColor || INK }}>{label}</span>
       {track.reps && (
-        <button type="button" aria-label="Record video" onClick={onRecord} style={{ width: 52, height: 28, borderRadius: 6, border: "none", cursor: "pointer", background: GRADIENT, opacity: done ? 0.5 : 1, display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0 }}>
-          <VideoIcon size={15} color="#fff" />
+        <button type="button" aria-label="Record video" onClick={onRecord} style={{ width: 56, height: 46, borderRadius: 12, border: "none", cursor: "pointer", background: GRADIENT, opacity: done ? 0.5 : 1, display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0 }}>
+          <VideoIcon size={20} color="#fff" />
         </button>
       )}
       {track.weight && box("weight", set.weight, "kg")}
       {track.reps && box("reps", set.reps, "reps")}
       {track.time && (
-        <SetTimer target={timerTarget} label={`${item.name} timer`} onDone={onTimerDone}>
+        <SetTimer height={46} target={timerTarget} label={`${item.name} timer`} onDone={onTimerDone}>
           <input
             type="number"
             inputMode="numeric"
@@ -169,7 +170,7 @@ function SetRow({ label, set, item, onChange, onTick, onRecord, onTimerDone, lab
             placeholder={String(item.targetSeconds ?? "sec")}
             onChange={(e) => onChange("seconds", e.target.value)}
             onKeyDown={focusNext}
-            style={{ width: "100%", minWidth: 0, border: "none", background: "transparent", outline: "none", fontFamily: DM_SANS, fontSize: 14, fontWeight: set.seconds ? 600 : 400, color: done ? DARK_GREEN : INK }}
+            style={{ width: "100%", minWidth: 0, border: "none", background: "transparent", outline: "none", fontFamily: DM_SANS, fontSize: 18, fontWeight: set.seconds ? 600 : 400, color: done ? DARK_GREEN : INK }}
           />
           <span style={{ fontSize: 11, color: GRAY, fontWeight: 400 }}>sec</span>
         </SetTimer>
@@ -179,9 +180,9 @@ function SetRow({ label, set, item, onChange, onTick, onRecord, onTimerDone, lab
         aria-label={done ? "Mark set not done" : "Mark set done"}
         disabled={!done && !canTick}
         onClick={onTick}
-        style={{ width: 36, height: 28, borderRadius: 6, border: "none", cursor: done || canTick ? "pointer" : "not-allowed", background: done ? GREEN : INPUT_BG, display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0 }}
+        style={{ width: 52, height: 46, borderRadius: 12, border: "none", cursor: done || canTick ? "pointer" : "not-allowed", background: done ? GREEN : INPUT_BG, display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0 }}
       >
-        <Check size={16} color={done ? "#fff" : "#94A3B8"} strokeWidth={3} />
+        <Check size={22} color={done ? "#fff" : "#94A3B8"} strokeWidth={3} />
       </button>
     </div>
   )
@@ -193,11 +194,11 @@ function ColumnHeaders({ first, track }) {
   return (
     <div style={{ display: "flex", gap: 8 }}>
       <span style={{ ...h, width: 22 }}>{first}</span>
-      {track.reps && <span style={{ ...h, width: 52 }}>Record</span>}
+      {track.reps && <span style={{ ...h, width: 56 }}>Record</span>}
       {track.weight && <span style={{ ...h, flex: 1 }}>kg</span>}
       {track.reps && <span style={{ ...h, flex: 1 }}>Reps</span>}
       {track.time && <span style={{ ...h, flex: 1 }}>Time</span>}
-      <span style={{ ...h, width: 36 }}>✓</span>
+      <span style={{ ...h, width: 52 }}>✓</span>
     </div>
   )
 }
@@ -205,22 +206,18 @@ function ColumnHeaders({ first, track }) {
 const sameTrack = (items) => items.every((it) => ["weight", "reps", "time"].every((k) => !!trackOf(it)[k] === !!trackOf(items[0])[k]))
 
 const outlineBtn = (disabled) => ({
-  flex: 1, padding: "10px 12px", borderRadius: 8, background: "rgba(255,255,255,0.6)", fontFamily: DM_SANS, fontWeight: 600, fontSize: 13,
+  flex: 1, padding: "14px 12px", borderRadius: 12, background: "rgba(255,255,255,0.6)", fontFamily: DM_SANS, fontWeight: 600, fontSize: 14,
   border: `1.2px solid ${disabled ? "rgba(100,116,139,0.3)" : "rgba(129,51,255,0.7)"}`, color: disabled ? "#94A3B8" : PURPLE, cursor: disabled ? "not-allowed" : "pointer",
 })
 
 export default function ActiveWorkoutPage() {
   const navigate = useNavigate()
   const [workout, setWorkout] = useState(readWorkout)
-  // Which sections are open (by id). Several can be open at once, so looking back at a finished
-  // section never folds the current one away.
-  const [openIds, setOpenIds] = useState(() => {
-    const w = readWorkout()
-    const i = w ? currentBlockIndex(w.blocks) : -1
-    return i >= 0 ? [w.blocks[i].id] : []
-  })
+  // The one section on screen (an index into the workout's blocks), until the person moves; then it follows the first unfinished one.
+  const [viewBi, setViewBi] = useState(null)
+  const [listOpen, setListOpen] = useState(false) // the list of every section
+  const [cuesOpen, setCuesOpen] = useState({}) // block id -> cues panel opened or folded by hand
   const [restEndsAt, setRestEndsAt] = useState(null)
-  const [cuesFor, setCuesFor] = useState(null) // index of the section whose "Cues" sheet is open
   const [typeInfoFor, setTypeInfoFor] = useState(null) // index of the section whose set type is explained
   const [showNextUp, setShowNextUp] = useState(false) // opens when a set is ticked or an item is marked done
   const [swapping, setSwapping] = useState(null) // { bi, ii }
@@ -245,19 +242,18 @@ export default function ActiveWorkoutPage() {
 
   const blocks = workout.blocks
   const current = currentBlockIndex(blocks)
+  // Sections you can do (rest-only blocks are not steps: they show as a banner above the next section)
+  const steps = blocks.map((_, i) => i).filter((i) => blocks[i].items.some(isActionable))
+  const lastStep = steps[steps.length - 1]
+  const viewBlock = steps.includes(viewBi) ? viewBi : current !== -1 ? current : lastStep
+  const viewPos = steps.indexOf(viewBlock)
+  const goTo = (pos) => { setViewBi(steps[pos]); window.scrollTo({ top: 0, behavior: "smooth" }) }
 
-  // Every change goes through here: save it, and move on to the next block when one is finished
+  // Every change goes through here: save it
   const commit = (next) => {
-    const before = currentBlockIndex(blocks)
-    const after = currentBlockIndex(next.blocks)
     setWorkout(next)
     setNotice("")
-    if (after !== before && after !== -1) {
-      const id = next.blocks[after].id
-      setOpenIds((o) => (o.includes(id) ? o : [...o, id]))
-    }
   }
-  const toggleOpen = (id) => setOpenIds((o) => (o.includes(id) ? o.filter((x) => x !== id) : [...o, id]))
   const mapItem = (bi, ii, fn) =>
     commit({ ...workout, blocks: blocks.map((b, i) => (i !== bi ? b : { ...b, items: b.items.map((it, j) => (j !== ii ? it : fn(it))) })) })
   const mapBlock = (bi, fn) => commit({ ...workout, blocks: blocks.map((b, i) => (i !== bi ? b : fn(b))) })
@@ -294,18 +290,13 @@ export default function ActiveWorkoutPage() {
     mapBlock(bi, (b) => ({ ...b, completed: true, items: b.items.map((it) => (!it.logged && !it.rest && ready ? { ...it, done: true } : it)) }))
     setToast(`${block.tag} completed`)
     setTimeout(() => setToast(""), 2200)
-    // fold the finished section, open the next one and scroll to it
-    setOpenIds((o) => {
-      const rest = o.filter((id) => id !== block.id)
-      return nextIdx !== -1 && !rest.includes(blocks[nextIdx].id) ? [...rest, blocks[nextIdx].id] : rest
-    })
-    if (nextIdx !== -1) setTimeout(() => document.getElementById(`block-${blocks[nextIdx].id}`)?.scrollIntoView({ behavior: "smooth", block: "start" }), 120)
+    // on to the next section
+    if (nextIdx !== -1) { setViewBi(nextIdx); window.scrollTo({ top: 0, behavior: "smooth" }) }
   }
 
   // Finished a section by mistake? Reopen it and carry on.
   const reopenBlock = (bi) => {
     mapBlock(bi, (b) => ({ ...b, completed: false }))
-    setOpenIds((o) => (o.includes(blocks[bi].id) ? o : [...o, blocks[bi].id]))
   }
 
   const swapItem = (exercise) => {
@@ -331,7 +322,7 @@ export default function ActiveWorkoutPage() {
     }))
     const next = [...blocks.slice(0, at), ...added, ...blocks.slice(at)]
     setWorkout({ ...workout, blocks: next })
-    setOpenIds((o) => [...o, ...added.map((b) => b.id)])
+    setViewBi(at)
     setAdding(false)
   }
 
@@ -411,20 +402,24 @@ export default function ActiveWorkoutPage() {
         <WorkoutClock workout={workout} onToggle={togglePause} />
       </div>
 
+      <SectionNav
+        sections={steps.map((i) => ({ id: blocks[i].id, tag: blocks[i].tag, done: isBlockComplete(blocks[i]) }))}
+        viewIndex={viewPos}
+        onPrev={() => goTo(viewPos - 1)}
+        onNext={() => goTo(viewPos + 1)}
+        onJump={goTo}
+        onOpenList={() => setListOpen(true)}
+      />
+
       <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
         {blocks.map((block, bi) => {
           const actionable = block.items.filter(isActionable)
-          if (actionable.length === 0) {
-            // a rest-only block, e.g. "REST · 2 mins": nothing to do, just shown in order
-            return (
-              <div key={block.id} style={{ display: "flex", alignItems: "center", gap: 8, padding: "2px 6px", fontFamily: DM_SANS, fontSize: 12, color: GRAY }}>
-                <Timer size={14} /> {block.tag} · {block.note}
-              </div>
-            )
-          }
+          if (actionable.length === 0 || bi !== viewBlock) return null // one section at a time
+          // rest-only blocks just above this section ("REST · 2 minutes rest") become a banner on it
+          const restBefore = []
+          for (let k = bi - 1; k >= 0 && !blocks[k].items.some(isActionable); k--) restBefore.unshift(blocks[k])
           const done = isBlockComplete(block)
           const state = done ? "done" : bi === current ? "current" : "upcoming"
-          const isOpen = openIds.includes(block.id)
           const logged = actionable.filter((it) => it.logged)
           const rounds = Math.max(0, ...logged.map((it) => it.sets.length))
           const multi = logged.length > 1
@@ -436,29 +431,23 @@ export default function ActiveWorkoutPage() {
 
           return (
             <div key={block.id} id={`block-${block.id}`} style={{ borderRadius: 12, padding: 12, ...cardStyle }}>
+              {restBefore.map((r) => (
+                <button key={r.id} type="button" onClick={() => startRest(r.note)} style={{ width: "100%", display: "flex", alignItems: "center", gap: 8, padding: "10px 12px", marginBottom: 10, borderRadius: 12, border: "1.2px dashed rgba(129,51,255,0.5)", background: "#FCF9FF", color: PURPLE, fontFamily: DM_SANS, fontWeight: 600, fontSize: 13, cursor: "pointer", textAlign: "left" }}>
+                  <Timer size={16} /> <span style={{ flex: 1 }}>Rest first · {r.note}</span> <span style={{ fontSize: 12 }}>Start timer</span>
+                </button>
+              ))}
               <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
-              <button type="button" onClick={() => toggleOpen(block.id)} style={{ all: "unset", display: "flex", alignItems: "center", gap: 8, flex: 1, minWidth: 0, cursor: "pointer", boxSizing: "border-box" }}>
                 <Tag state={state}>{block.tag}</Tag>
-                <span style={{ fontFamily: DM_SANS, fontSize: 11, color: GRAY, flex: 1 }}>{block.note}</span>
-              </button>
-              {typeOfBlock(block) && (
-                <button type="button" aria-label={`What is ${block.tag}?`} onClick={() => setTypeInfoFor(bi)} style={{ display: "flex", background: "none", border: "none", padding: 0, cursor: "pointer" }}>
-                  <Info size={16} color={PURPLE} />
-                </button>
-              )}
-              {actionable.some((it) => hasExerciseGuide(it.exerciseId)) && (
-                <button type="button" aria-label={`Cues for ${block.tag}`} onClick={() => setCuesFor(bi)} style={{ display: "flex", alignItems: "center", gap: 4, padding: "4px 9px", borderRadius: 12, border: "1.2px solid rgba(129,51,255,0.55)", background: "#FCF9FF", color: PURPLE, fontFamily: DM_SANS, fontWeight: 600, fontSize: 11, cursor: "pointer", flexShrink: 0 }}>
-                  <Lightbulb size={12} /> Cues
-                </button>
-              )}
-              <button type="button" onClick={() => toggleOpen(block.id)} aria-label={isOpen ? `Fold ${block.tag}` : `Open ${block.tag}`} style={{ all: "unset", display: "flex", alignItems: "center", gap: 8, cursor: "pointer", flexShrink: 0 }}>
+                {typeOfBlock(block) && (
+                  <button type="button" aria-label={`What is ${block.tag}?`} onClick={() => setTypeInfoFor(bi)} style={{ display: "flex", background: "none", border: "none", padding: 0, cursor: "pointer" }}>
+                    <Info size={18} color={PURPLE} />
+                  </button>
+                )}
+                <span style={{ fontFamily: DM_SANS, fontSize: 12, color: GRAY, flex: 1 }}>{block.note}</span>
                 {state === "done" && <span style={{ width: 24, height: 24, borderRadius: 12, background: GREEN, display: "flex", alignItems: "center", justifyContent: "center" }}><Check size={13} color="#fff" strokeWidth={3} /></span>}
-                {state === "current" && <span style={{ padding: "3px 9px", borderRadius: 10, background: GRADIENT, color: "#fff", fontFamily: DM_SANS, fontSize: 10, fontWeight: 600 }}>NOW</span>}
-                <ChevronDown size={18} color={GRAY} style={{ transform: isOpen ? "rotate(180deg)" : "none", flexShrink: 0 }} />
-              </button>
               </div>
 
-              {isOpen && (
+              {(
                 <div style={{ display: "flex", flexDirection: "column", gap: 8, marginTop: 8 }}>
                   {logged.length > 0 && (
                     <button type="button" onClick={() => startRest(block.note)} style={{ alignSelf: "flex-start", display: "flex", alignItems: "center", gap: 6, padding: "6px 12px", borderRadius: 16, background: "transparent", border: "1.2px solid rgba(129,51,255,0.6)", color: PURPLE, fontFamily: DM_SANS, fontWeight: 600, fontSize: 12, cursor: "pointer" }}>
@@ -476,18 +465,18 @@ export default function ActiveWorkoutPage() {
                         // follow-along: a letter, the line, a clock when it has a time, and a tick on the right
                         const secs = secondsFromSub(it.sub)
                         return (
-                          <div key={it.key} style={{ display: "flex", alignItems: "center", gap: 8, padding: "2px 0" }}>
+                          <div key={it.key} style={{ display: "flex", alignItems: "center", gap: 8, padding: "5px 0" }}>
                             {many && <span style={{ width: 20, height: 20, borderRadius: 5, background: it.done ? DARK_GREEN : PURPLE, color: "#fff", fontFamily: DM_SANS, fontWeight: 600, fontSize: 11, display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0 }}>{letter(actionable.indexOf(it))}</span>}
-                            <div style={{ flex: 1, minWidth: 0, fontFamily: DM_SANS, fontSize: 13, lineHeight: 1.3 }}>
+                            <div style={{ flex: 1, minWidth: 0, fontFamily: DM_SANS, fontSize: 15, lineHeight: 1.3 }}>
                               <span style={{ fontWeight: 600, color: it.done ? DARK_GREEN : PURPLE }}><ExerciseName exerciseId={it.exerciseId}>{it.name}</ExerciseName></span>
                               {it.sub && <span style={{ color: GRAY }}> · {it.sub}</span>}
                             </div>
                             {secs !== null && !it.done && (
-                              <div style={{ width: 96, flexShrink: 0, display: "flex" }}>
-                                <SetTimer target={secs} label={`${it.name} timer`} onDone={() => { if (!it.done) toggleDone(bi, ii) }}>{clock(secs)}</SetTimer>
+                              <div style={{ width: 110, flexShrink: 0, display: "flex" }}>
+                                <SetTimer height={36} target={secs} label={`${it.name} timer`} onDone={() => { if (!it.done) toggleDone(bi, ii) }}>{clock(secs)}</SetTimer>
                               </div>
                             )}
-                            <TickCircle size={20} done={it.done} onClick={() => toggleDone(bi, ii)} label={it.done ? `Mark ${it.name} not done` : `Mark ${it.name} done`} />
+                            <TickCircle size={30} done={it.done} onClick={() => toggleDone(bi, ii)} label={it.done ? `Mark ${it.name} not done` : `Mark ${it.name} done`} />
                           </div>
                         )
                       }
@@ -504,6 +493,22 @@ export default function ActiveWorkoutPage() {
                       )
                     })}
                   </div>
+
+                  {(() => {
+                    const seen = new Set()
+                    const guided = actionable.filter((it) => getExerciseGuide(it.exerciseId) && !seen.has(it.exerciseId) && seen.add(it.exerciseId))
+                    if (guided.length === 0) return null
+                    const open = cuesOpen[block.id] ?? !block.items.some(itemHasEntries) // open until you start logging, then one tap away
+                    return (
+                      <div style={{ background: "#FCF9FF", border: "1px solid rgba(129,51,255,0.35)", borderRadius: 12 }}>
+                        <button type="button" aria-expanded={open} onClick={() => setCuesOpen((c) => ({ ...c, [block.id]: !open }))} style={{ width: "100%", display: "flex", alignItems: "center", gap: 8, padding: "10px 12px", background: "none", border: "none", cursor: "pointer", color: PURPLE, fontFamily: DM_SANS, fontWeight: 700, fontSize: 14 }}>
+                          <Lightbulb size={16} /> <span style={{ flex: 1, textAlign: "left" }}>Cues for this section</span>
+                          <ChevronDown size={18} style={{ transform: open ? "rotate(180deg)" : "none" }} />
+                        </button>
+                        {open && <div style={{ padding: "0 12px 8px" }}>{guided.map((it) => <Refresher key={it.key} item={{ ...it, label: it.sub || "" }} showName={guided.length > 1} />)}</div>}
+                      </div>
+                    )
+                  })()}
 
                   {/* a single exercise: sets. several: round by round (A then B) */}
                   {logged.length === 1 && (() => {
@@ -565,8 +570,8 @@ export default function ActiveWorkoutPage() {
                           className="next-section-btn"
                           onClick={() => completeBlock(bi)}
                           style={ready
-                            ? { width: "100%", height: 44, borderRadius: 10, border: "none", background: GRADIENT, color: "#fff", fontFamily: BRICOLAGE, fontWeight: 600, fontSize: 15, cursor: "pointer", display: "flex", alignItems: "center", justifyContent: "center", gap: 6, boxShadow: "0 3px 10px rgba(129,51,255,0.35)", whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis", padding: "0 12px" }
-                            : { width: "100%", height: 38, borderRadius: 10, background: "transparent", border: "1.2px solid rgba(129,51,255,0.55)", color: PURPLE, fontFamily: DM_SANS, fontWeight: 600, fontSize: 13, cursor: "pointer", display: "flex", alignItems: "center", justifyContent: "center", gap: 6, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis", padding: "0 12px" }}
+                            ? { width: "100%", height: 56, borderRadius: 14, border: "none", background: GRADIENT, color: "#fff", fontFamily: BRICOLAGE, fontWeight: 700, fontSize: 17, cursor: "pointer", display: "flex", alignItems: "center", justifyContent: "center", gap: 6, boxShadow: "0 3px 10px rgba(129,51,255,0.35)", whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis", padding: "0 12px" }
+                            : { width: "100%", height: 48, borderRadius: 12, background: "transparent", border: "1.2px solid rgba(129,51,255,0.55)", color: PURPLE, fontFamily: DM_SANS, fontWeight: 600, fontSize: 15, cursor: "pointer", display: "flex", alignItems: "center", justifyContent: "center", gap: 6, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis", padding: "0 12px" }}
                         >
                           {ready ? <Check size={16} strokeWidth={3} /> : null}
                           {ready ? (next ? `Done · Next: ${next.tag}` : "Done") : next ? `Skip · Next: ${next.tag}` : "Skip"}
@@ -586,10 +591,6 @@ export default function ActiveWorkoutPage() {
       {typeInfoFor !== null && blocks[typeInfoFor] && typeOfBlock(blocks[typeInfoFor]) && (
         <SetTypeSheet block={blocks[typeInfoFor]} onClose={() => setTypeInfoFor(null)} />
       )}
-      {cuesFor !== null && blocks[cuesFor] && (
-        <CuesSheet title={`Cues: ${blocks[cuesFor].tag}`} items={blocks[cuesFor].items.filter(isActionable)} onClose={() => setCuesFor(null)} />
-      )}
-
       {showNextUp && (() => {
         const up = nextUpItems(blocks)
         // sits just above the rest timer when that is showing
@@ -598,6 +599,8 @@ export default function ActiveWorkoutPage() {
 
       {restEndsAt && <RestTimer endsAt={restEndsAt} onAdd={(s) => setRestEndsAt(restEndsAt + s * 1000)} onSkip={() => setRestEndsAt(null)} />}
 
+      {viewBlock === lastStep && (
+        <>
       <button type="button" onClick={() => setAdding(true)} style={{ width: "100%", marginTop: 14, padding: 14, borderRadius: 12, background: "rgba(255,255,255,0.6)", border: "1.2px solid rgba(129,51,255,0.7)", color: PURPLE, fontFamily: DM_SANS, fontWeight: 600, fontSize: 15, cursor: "pointer", display: "flex", alignItems: "center", justifyContent: "center", gap: 8 }}>
         <Plus size={16} /> Add new exercise
       </button>
@@ -607,6 +610,44 @@ export default function ActiveWorkoutPage() {
       <button type="button" onClick={finish} disabled={Boolean(celebrate)} style={{ width: "100%", marginTop: 12, padding: 16, borderRadius: 12, border: "none", background: GRADIENT, color: "#fff", fontFamily: BRICOLAGE, fontWeight: 600, fontSize: 16, cursor: celebrate ? "default" : "pointer" }}>
         Finish Workout
       </button>
+
+        </>
+      )}
+
+      {listOpen && (
+        <BottomSheet
+          title="Your workout"
+          onClose={() => setListOpen(false)}
+          footer={
+            <div style={{ display: "flex", gap: 8 }}>
+              <button type="button" onClick={() => { setListOpen(false); setAdding(true) }} style={{ ...outlineBtn(false), height: 48 }}>+ Add exercise</button>
+              <button type="button" onClick={() => { setListOpen(false); finish() }} disabled={Boolean(celebrate)} style={{ flex: 1, height: 48, borderRadius: 8, border: "none", background: GRADIENT, color: "#fff", fontFamily: DM_SANS, fontWeight: 700, fontSize: 14, cursor: "pointer" }}>Finish workout</button>
+            </div>
+          }
+        >
+          <p style={{ fontFamily: DM_SANS, fontSize: 12.5, color: GRAY, margin: "0 0 6px" }}>
+            {steps.filter((i) => isBlockComplete(blocks[i])).length} of {steps.length} sections done
+          </p>
+          {steps.map((i, pos) => {
+            const b = blocks[i]
+            const isDone = isBlockComplete(b)
+            const isNow = i === viewBlock
+            const ticked = b.items.reduce((n, it) => n + (it.logged ? it.sets.filter((x) => x.completed).length : it.done ? 1 : 0), 0)
+            const total = b.items.reduce((n, it) => n + (it.rest ? 0 : it.logged ? it.sets.length : 1), 0)
+            return (
+              <button key={b.id} type="button" onClick={() => { setListOpen(false); goTo(pos) }} style={{ width: "100%", display: "flex", alignItems: "center", gap: 10, padding: "10px 8px", background: isNow ? "rgba(129,51,255,0.07)" : "none", border: "none", borderTop: "1px solid rgba(100,116,139,0.18)", cursor: "pointer", textAlign: "left", borderRadius: isNow ? 12 : 0 }}>
+                <span style={{ width: 26, height: 26, borderRadius: 13, flexShrink: 0, display: "flex", alignItems: "center", justifyContent: "center", fontFamily: DM_SANS, fontSize: 12, fontWeight: 700, color: isDone || isNow ? "#fff" : GRAY, background: isDone ? GREEN : isNow ? PURPLE : "transparent", border: isDone || isNow ? "none" : "1.5px solid #B6BFCC" }}>
+                  {isDone ? <Check size={14} strokeWidth={3.2} /> : pos + 1}
+                </span>
+                <span style={{ flex: 1, minWidth: 0 }}>
+                  <span style={{ display: "block", fontFamily: BRICOLAGE, fontWeight: 700, fontSize: 15, color: isNow ? PURPLE : INK }}>{b.tag}</span>
+                  <span style={{ display: "block", fontFamily: DM_SANS, fontSize: 12, color: GRAY }}>{isNow ? "You are here · " : ""}{ticked} of {total} ticked</span>
+                </span>
+              </button>
+            )
+          })}
+        </BottomSheet>
+      )}
 
       {adding && <AddExerciseSheet onAdd={addExercises} onClose={() => setAdding(false)} />}
       {swapping && swapTarget && (

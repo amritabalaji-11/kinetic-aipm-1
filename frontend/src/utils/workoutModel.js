@@ -119,7 +119,7 @@ export function currentBlockIndex(blocks) {
 export function restSecondsFromNote(note = "") {
   const secs = note.match(/(\d+)(?:-(\d+))?\s*secs?\s*(?:rest|off)/i)
   if (secs) return Number(secs[2] || secs[1])
-  const mins = note.match(/(\d+)\s*mins?\s*rest/i)
+  const mins = note.match(/(\d+)\s*min(?:ute)?s?\s*rest/i)
   if (mins) return Number(mins[1]) * 60
   return 90
 }
@@ -164,4 +164,20 @@ export function nextUpItems(blocks) {
     tag: nextBlock.tag,
     items: first.map((it) => pick(it, it.logged ? `Set 1 of ${it.sets.length}` : it.sub || "")),
   }
+}
+
+
+// A short name for the progress bar: "CONDITIONING · PART A" -> "Cond. A", "STRAIGHT SETS 2" -> "Straight 2"
+export function shortSectionName(tag = "") {
+  const t = tag.trim()
+  if (/WARM/i.test(t)) return "Warm-up"
+  let m = /^CONDITIONING\s*·\s*PART\s*(\w+)/i.exec(t)
+  if (m) return `Cond. ${m[1].toUpperCase()}`
+  if (/TABATA/i.test(t)) return "Tabata"
+  m = /^(\d+)\s*MIN\s+(EMOM|AMRAP)/i.exec(t)
+  if (m) return `${m[1]} min ${m[2].toUpperCase()}`
+  m = /^STRAIGHT SETS\s*(\d+)/i.exec(t)
+  if (m) return `Straight ${m[1]}`
+  const words = t.toLowerCase().replace(/\b\w/g, (c) => c.toUpperCase())
+  return words.length > 16 ? `${words.slice(0, 15)}…` : words
 }
