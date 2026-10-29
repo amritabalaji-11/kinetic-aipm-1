@@ -17,6 +17,15 @@ export const GOALS = {
 }
 const TAG_TO_GOAL = { Hypertrophy: "build", Strength: "build", Endurance: "stamina", Cardio: "cardio", Power: "explosive", Metcon: "sweat" }
 
+// Type of workout: the three kinds a person picks between. The plans' own labels (Hypertrophy, Strength, Power ...) are grouped into them.
+export const WORKOUT_TYPES = {
+  strength: { label: "Strength", snippet: "Heavier weights, fewer reps, longer rests. Builds muscle and strength." },
+  endurance: { label: "Endurance", snippet: "Lighter weights, more reps, short rests. Builds staying power." },
+  cardio: { label: "Cardio", snippet: "Running, rowing or cycling, steady or in intervals. Raises your heart rate." },
+}
+const TAG_TO_TYPE = { Hypertrophy: "strength", Strength: "strength", Power: "strength", Endurance: "endurance", Cardio: "cardio", Metcon: "cardio" }
+export const workoutType = (plan) => TAG_TO_TYPE[plan.tag] || "strength"
+
 // Style: worked out from how many of the main exercises are compound or isolation moves.
 export const STYLES = {
   big: { label: "Big lifts", hint: "Moves that work several muscles at once, like squats, rows and presses." },
@@ -167,13 +176,14 @@ const ago = (d) => (d === 0 ? "today" : d === 1 ? "yesterday" : `${d} days ago`)
 // Ordered suggestions: the group that has waited longest first, and within it the plan done least recently.
 // Cardio-only plans aren't suggested (they don't train the muscles). Never suggests a group trained today
 // ahead of one that is due. New users get a short full-body starter.
-export function suggestions(plans, history) {
-  const pool = plans.filter((p) => p.tag !== "Cardio")
+export function suggestions(plans, history, { includeCardio = false } = {}) {
+  const pool = plans.filter((p) => includeCardio || p.tag !== "Cardio") // cardio plans are only suggested when asked for
   const lastDone = (p) => history.plans[p.title] // days, or undefined if never done
 
   if (!history.hasHistory) {
-    const starters = pool
-      .filter((p) => p.category === "full")
+    const fullBody = pool.filter((p) => p.category === "full")
+    const starters = (fullBody.length ? fullBody : pool) // when a type has no full-body plan (e.g. cardio), start from its shortest plan
+      .slice()
       .sort((a, b) => a.minutes - b.minutes)
     return starters.map((plan) => ({ plan, reason: "A good place to start" }))
   }

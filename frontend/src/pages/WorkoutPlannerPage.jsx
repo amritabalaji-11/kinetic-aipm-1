@@ -8,6 +8,8 @@ import PumpButton from "../components/PumpButton"
 import { blocksFromPlanner } from "../utils/workoutModel"
 import SwapSheet from "../components/SwapSheet"
 import SetTypeSheet from "../components/SetTypeSheet"
+import { TypePill } from "../components/WorkoutTypeUi"
+import { WORKOUT_TYPES, workoutType } from "../utils/planProfile"
 import { changeType, isChangeable, typeOfBlock } from "../utils/setTypes"
 import { BlockTag, ExerciseLine, PurpleDivider, RoundButton, SectionHeading, cardStyle, BRICOLAGE, DM_SANS, GRAY, INK, PURPLE } from "../components/planUi"
 
@@ -72,6 +74,10 @@ export default function WorkoutPlannerPage() {
       </button>
       <h1 style={{ fontFamily: BRICOLAGE, fontWeight: 600, fontSize: 24, color: INK, margin: "0 0 2px" }}>{preset.title}</h1>
       <p style={{ fontFamily: DM_SANS, fontSize: 14, color: GRAY, margin: 0 }}>{preset.subtitle}</p>
+      <div style={{ display: "flex", alignItems: "center", gap: 8, marginTop: 8, flexWrap: "wrap" }}>
+        <TypePill plan={preset} size={12} />
+        <span style={{ fontFamily: DM_SANS, fontSize: 12, color: GRAY }}>{WORKOUT_TYPES[workoutType(preset)].snippet}</span>
+      </div>
 
       {groups.map((group, groupIndex) => {
         const section = SECTIONS.find((x) => x.id === group.section)

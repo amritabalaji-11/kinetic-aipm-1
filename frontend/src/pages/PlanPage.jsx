@@ -5,13 +5,13 @@ import { PRESET_CATEGORIES, PRESET_WORKOUTS } from "../data/presetWorkouts"
 import { getMyWorkouts } from "../utils/myWorkouts"
 import { listWorkouts } from "../services/workoutService"
 import { TOP_FADE_BACKGROUND } from "../utils/pageBackground"
-import { lastDoneText, matchesQuery, planProfile, suggestions, trainingHistory } from "../utils/planProfile"
+import { lastDoneText, matchesQuery, planProfile, suggestions, trainingHistory, workoutType } from "../utils/planProfile"
 import { FilterSheet, HeroCard, PlanCard, PreviewSheet, Shelf } from "../components/PlanDiscovery"
+import { TypeFilter } from "../components/WorkoutTypeUi"
 
 const GRADIENT = "linear-gradient(92.52deg, #0284C7 0%, #9747FF 100%)"
 const BRICOLAGE = "'Bricolage Grotesque', sans-serif"
 const DM_SANS = "'DM Sans', sans-serif"
-const PREFS_KEY = "plan_screen_prefs"
 const LINK_PURPLE = "#6A1FD6" // a little darker than the brand purple so text links stay readable on the gradient
 
 // "Cardio & sweat" isn't a body area, so it is added to the chips from the data file
@@ -45,20 +45,12 @@ function CategoryChip({ category, active, onClick }) {
 
 const NO_FILTERS = { time: null, goal: null, equip: null }
 
-// Remember the last chip and filters (a convenience only, so every read and write is wrapped)
-const loadPrefs = () => {
-  try {
-    const saved = JSON.parse(localStorage.getItem(PREFS_KEY) || "null")
-    if (saved) return { chip: saved.chip || "all", filters: { ...NO_FILTERS, ...saved.filters } }
-  } catch { /* ignore */ }
-  return { chip: "all", filters: NO_FILTERS }
-}
-
 export default function PlanPage() {
   const navigate = useNavigate()
-  const initial = useMemo(loadPrefs, [])
-  const [chip, setChip] = useState(initial.chip)
-  const [filters, setFilters] = useState(initial.filters)
+  // The screen always opens on the full view: the suggestion, then every workout. Nothing is remembered between visits.
+  const [type, setType] = useState(null) // "strength" | "endurance" | "cardio" | null
+  const [chip, setChip] = useState("all")
+  const [filters, setFilters] = useState(NO_FILTERS)
   const [query, setQuery] = useState("")
   const [filterOpen, setFilterOpen] = useState(false)
   const [preview, setPreview] = useState(null)
@@ -71,18 +63,15 @@ export default function PlanPage() {
     return () => { cancelled = true }
   }, [])
 
-  useEffect(() => {
-    try { localStorage.setItem(PREFS_KEY, JSON.stringify({ chip, filters })) } catch { /* ignore */ }
-  }, [chip, filters])
-
   const history = useMemo(() => trainingHistory(workouts || []), [workouts])
-  const ideas = useMemo(() => suggestions(PRESET_WORKOUTS, history), [history])
+  // The suggestion follows the type picked: asking for Cardio suggests a cardio workout
+  const ideas = useMemo(() => suggestions(PRESET_WORKOUTS.filter((p) => !type || workoutType(p) === type), history, { includeCardio: type === "cardio" }), [history, type])
   const hero = ideas.length ? ideas[heroIndex % ideas.length] : null
   const lastDoneOf = (plan) => lastDoneText(history, plan)
 
   const activeCount = Object.values(filters).filter(Boolean).length
   const searching = query.trim().length > 0
-  const browsing = chip === "all" && activeCount === 0 && !searching
+  const browsing = chip === "all" && activeCount === 0 && !searching && !type
 
   const inChip = (plan) => {
     if (chip === "all") return true
@@ -96,13 +85,14 @@ export default function PlanPage() {
     if (filters.equip && EQUIP_RANK[p.equipment] > EQUIP_RANK[filters.equip]) return false
     return true
   }
-  const visible = PRESET_WORKOUTS.filter((p) => inChip(p) && passesFilters(p) && matchesQuery(p, query))
+  const inType = (plan) => !type || workoutType(plan) === type
+  const visible = PRESET_WORKOUTS.filter((p) => inType(p) && inChip(p) && passesFilters(p) && matchesQuery(p, query))
   // how many would show if the filter sheet closed now (it only changes filters, not the chip or search)
 
   const myWorkouts = getMyWorkouts()
   const createOwn = () => navigate("/plan/custom")
   const start = (plan) => navigate(`/plan/workout/${plan.id}`)
-  const clearAll = () => { setChip("all"); setFilters(NO_FILTERS); setQuery("") }
+  const clearAll = () => { setType(null); setChip("all"); setFilters(NO_FILTERS); setQuery("") }
 
   const byCategory = (cat) => PRESET_WORKOUTS.filter((p) => p.category === cat)
   const quick = PRESET_WORKOUTS.filter((p) => planProfile(p).time === "quick").sort((a, b) => a.minutes - b.minutes)
@@ -149,7 +139,7 @@ export default function PlanPage() {
       </div>
 
       {/* one suggestion, based on how long since each muscle group was trained */}
-      {browsing && workouts !== null && hero && (
+      {!searching && workouts !== null && hero && (
         <div style={{ marginTop: 16 }}>
           <HeroCard
             suggestion={hero}
@@ -179,8 +169,13 @@ export default function PlanPage() {
         </div>
       )}
 
+      {/* type of workout: the first filter */}
+      <p style={{ fontSize: 11, fontWeight: 600, fontFamily: DM_SANS, color: "#64748B", margin: "18px 0 8px" }}>TYPE OF WORKOUT</p>
+      <TypeFilter value={type} onChange={setType} />
+
       {/* body area chips */}
-      <div style={{ display: "flex", gap: 8, margin: "18px -24px 4px 0", paddingRight: 24, overflowX: "auto", scrollbarWidth: "none" }}>
+      <p style={{ fontSize: 11, fontWeight: 600, fontFamily: DM_SANS, color: "#64748B", margin: "18px 0 8px" }}>BODY AREA</p>
+      <div style={{ display: "flex", gap: 8, margin: "0 -24px 4px 0", paddingRight: 24, overflowX: "auto", scrollbarWidth: "none" }}>
         {FOCUS.map((c) => (
           <CategoryChip key={c.id} category={c} active={chip === c.id} onClick={() => setChip(c.id)} />
         ))}
