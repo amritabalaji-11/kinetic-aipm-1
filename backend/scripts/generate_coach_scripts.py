@@ -34,8 +34,8 @@ GUIDES_JS = Path(__file__).resolve().parent.parent.parent / "frontend" / "src" /
 DEFAULT_MODEL = "claude-sonnet-5-5"  # written once per exercise, so quality matters more than price
 
 # Spoken pace is about 150 words a minute
-FULL_WORDS = (105, 140)  # about 45-55 seconds: the Listen button on the exercise page (coaching, then what to avoid)
-SHORT_WORDS = (55, 80)   # about 30 seconds: the "Next up" card between sets
+FULL_WORDS = (105, 150)  # about 45-55 seconds: the Listen button on the exercise page (coaching, then what to avoid)
+SHORT_WORDS = (55, 90)   # about 33 seconds: the "Next up" card between sets
 
 SYSTEM_PROMPT = """You write short spoken coaching scripts for a fitness app. Each script is read aloud by a text-to-speech \
 voice. The listener is one person, in the gym, about to do the exercise, wearing earphones. They are usually a beginner \
