@@ -163,14 +163,14 @@ export function changeType(blocks, index, target, { minutes } = {}) {
 
 // ---------- what each kind of section is for, and what is expected of you ----------
 // How heavy to go in metcons: about 60-70% of the most you could lift. "12-15 times" is a way to find it without testing a max.
-const LOAD = "Use about 60-70% of the most you could lift for each move (not sure? pick a weight you could lift about 12-15 times)"
+const load = (why) => `Use about 60-70% of your max weight ${why}. Not sure of your max? Pick a weight you could lift about 12-15 times.`
 const GUIDANCE = {
   warmup: { objective: "Warm up your joints and muscles so the heavy work feels smoother and safer.", expect: "Keep it easy and move through a full range. Nothing here should feel tiring." },
   endurance: { objective: "Build staying power with lighter weights and more reps.", expect: "Pick a weight you can keep moving with for every rep, even as you tire. The last reps should burn, but your form shouldn't fall apart." },
-  emom: { objective: "Keep your heart rate up and build your work capacity.", expect: `${LOAD} so you can repeat it every minute. Start the work at the top of each minute. The quicker you finish, the more rest you get.` },
-  amrap: { objective: "Raise your heart rate and keep moving.", expect: `${LOAD} so you can keep going until time is up. Keep your form clean and count each full round.` },
-  tabata: { objective: "Short, hard bursts with very short rests.", expect: `${LOAD} so every round feels the same. Go hard for the work seconds and rest fully in the gaps.` },
-  metcon: { objective: "Raise your heart rate with a hard, timed block.", expect: `${LOAD} so you can keep going. Move steadily and break up big sets early, before you have to stop.` },
+  emom: { objective: "Keep your heart rate up and build your work capacity.", expect: `${load("so you can repeat it every minute")} Start the work at the top of each minute. The quicker you finish, the more rest you get.` },
+  amrap: { objective: "Raise your heart rate and keep moving.", expect: `${load("so you can keep going until time is up")} Keep your form clean and count each full round.` },
+  tabata: { objective: "Short, hard bursts with very short rests.", expect: `${load("so every round feels the same")} Go hard for the work seconds and rest fully in the gaps.` },
+  metcon: { objective: "Raise your heart rate with a hard, timed block.", expect: `${load("so you can keep going")} Move steadily and break up big sets early, before you have to stop.` },
   cardio: { objective: "Build stamina and raise your heart rate.", expect: "Follow the effort in the note above, and keep a pace you can hold." },
 }
 
