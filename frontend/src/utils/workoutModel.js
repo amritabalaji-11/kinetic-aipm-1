@@ -169,13 +169,13 @@ export function nextUpItems(blocks) {
 
 // A short name for the progress bar: "CONDITIONING · PART A" -> "Cond. A", "STRAIGHT SETS 2" -> "Straight 2"
 export function shortSectionName(tag = "") {
-  const t = tag.trim().replace(/^STRENGTH\s*·\s*/i, "") // "STRENGTH · TRISET 1" -> "TRISET 1"
+  const t = tag.trim().replace(/^(STRENGTH|OPTION \d)\s*·\s*/i, "") // "STRENGTH · TRISET 1" -> "TRISET 1", "OPTION 2 · CORE CIRCUIT" -> "CORE CIRCUIT"
   if (/WARM/i.test(t)) return "Warm-up"
   let m = /^CONDITIONING\s*·\s*PART\s*(\w+)/i.exec(t)
   if (m) return `Cond. ${m[1].toUpperCase()}`
   m = /CHIPPER\s*·?\s*PART\s*(\w+)/i.exec(t)
   if (m) return `Chipper ${m[1]}`
-  m = /^MUSCL\w*\s+ENDURANCE\s*(\d*)/i.exec(t)
+  m = /^MUSC\w*\s+ENDURANCE\s*(\d*)/i.exec(t)
   if (m) return `Endurance${m[1] ? ` ${m[1]}` : ""}`
   if (/TABATA/i.test(t)) return "Tabata"
   m = /^(\d+)\s*MIN\s+(EMOM|AMRAP)/i.exec(t)
