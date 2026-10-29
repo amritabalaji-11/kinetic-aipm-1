@@ -1,6 +1,7 @@
 // The kinds of set a block can be, what each one means, and how a block changes from one kind to another.
 // A block's kind is read from its label (tag), e.g. "SUPERSET 1" or "5 MIN EMOM", so the plans need no extra data.
-// Blocks of other kinds (METCON, CHIPPER, warm-ups ...) have no kind: no (i) and no Change button.
+// Strength and metcon kinds can be changed within their family. Endurance, metcon, chipper, rounds for time and cardio only get an (i) explanation.
+// Warm-ups, rests and other blocks have no kind: no (i) and no Change button.
 
 export const SET_TYPES = {
   straight: { name: "Straight sets", family: "strength", size: 1, meaning: "One exercise at a time. Finish all its sets, then move on." },
@@ -11,6 +12,13 @@ export const SET_TYPES = {
   emom: { name: "EMOM", family: "timed", meaning: "Every Minute On the Minute. Start the work at the top of each minute and rest for what's left. Example: 40 secs work, 20 secs rest, then go again." },
   amrap: { name: "AMRAP", family: "timed", meaning: "As Many Rounds As Possible. Cycle through the exercises until time runs out and count your rounds." },
   tabata: { name: "Alternating Tabata", family: "timed", meaning: "20 seconds on, 10 off, 8 rounds. Two exercises take turns, 4 rounds each." },
+
+  // Explained with an (i) but never swapped: no Change button
+  endurance: { name: "Muscular endurance", family: "info", meaning: "Lighter weights, lots of reps and short rests, so your muscles keep working for longer. In these plans the reps drop each round, for example 18, then 15, then 12." },
+  metcon: { name: "Metcon", family: "info", meaning: "Short for metabolic conditioning. A hard, timed block with little rest that keeps your heart rate high. It can be rounds, an AMRAP or an EMOM. The note next to the label says which." },
+  chipper: { name: "Chipper", family: "info", meaning: "Work down the list once, finishing all the reps of one exercise before the next, as fast as you can. Think of it as chipping away at a long list." },
+  fortime: { name: "Rounds for time", family: "info", meaning: "Do the set number of rounds and time yourself. Next time, try to beat it." },
+  cardio: { name: "Cardio", family: "info", meaning: "Running, rowing or cycling, steady or in intervals, to raise your heart rate and build stamina." },
 }
 
 export const FAMILIES = {
@@ -39,6 +47,11 @@ export function typeOfBlock(block) {
   if (/TABATA/.test(tag)) return "tabata"
   if (/\bEMOM\b/.test(tag)) return "emom"
   if (/\bAMRAP\b/.test(tag)) return "amrap"
+  if (/CHIPPER/.test(tag)) return "chipper"
+  if (/ENDURANCE/.test(tag)) return "endurance"
+  if (/METCON/.test(tag)) return "metcon"
+  if (/CARDIO|\bRUN\b/.test(tag)) return "cardio"
+  if (/\bROUNDS\b|CIRCUIT/.test(tag)) return "fortime"
   return null
 }
 
@@ -46,7 +59,10 @@ export function typeOfBlock(block) {
 export const isChangeable = (block) => {
   const type = typeOfBlock(block)
   if (!type) return false
-  return SET_TYPES[type].family === "strength" ? block.section === "workout" : block.section === "conditioning"
+  const family = SET_TYPES[type].family
+  if (family === "strength") return block.section === "workout"
+  if (family === "timed") return block.section === "conditioning"
+  return false
 }
 
 export const minutesOf = (block) => Number(/(\d+)\s*MIN/i.exec(block.tag || "")?.[1]) || DEFAULT_MINUTES
