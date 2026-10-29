@@ -27,3 +27,14 @@ export function beep(times = 2) {
   } catch { /* no sound */ }
   try { navigator.vibrate?.([200, 100, 200]) } catch { /* not supported (iPhone) */ }
 }
+
+// Says a short word out loud ("Work", "Rest", "Round 3") through the phone's own voice, if it has one.
+export function speak(text) {
+  try {
+    if (typeof window === "undefined" || !("speechSynthesis" in window)) return
+    window.speechSynthesis.cancel()
+    const u = new SpeechSynthesisUtterance(text)
+    u.rate = 1.05
+    window.speechSynthesis.speak(u)
+  } catch { /* no voice */ }
+}

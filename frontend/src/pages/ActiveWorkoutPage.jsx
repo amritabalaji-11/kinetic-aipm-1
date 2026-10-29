@@ -10,6 +10,8 @@ import RestTimer from "../components/RestTimer"
 import SetTypeSheet from "../components/SetTypeSheet"
 import { typeOfBlock } from "../utils/setTypes"
 import GoalNote from "../components/GoalNote"
+import SectionRunner from "../components/SectionRunner"
+import { parseTimedBlock } from "../utils/sectionTimer"
 import SwapSheet from "../components/SwapSheet"
 import AddExerciseSheet from "../components/AddExerciseSheet"
 import { hasGuidance } from "../data/exerciseGuidance"
@@ -271,6 +273,9 @@ export default function ActiveWorkoutPage() {
     mapItem(bi, ii, (it) => ({ ...it, sets: it.sets.map((s, k) => (k !== si ? s : { ...s, seconds: String(seconds), completed: true })) }))
   }
   const setTrack = (bi, ii, track) => mapItem(bi, ii, (it) => ({ ...it, track }))
+  // the clock of a timed section (EMOM / AMRAP / Tabata) is kept with the workout, so it survives a reload; rounds counted in an AMRAP too
+  const setRun = (blockId, run) => commit({ ...workout, runs: { ...(workout.runs || {}), [blockId]: run } })
+  const setRounds = (bi, n) => mapBlock(bi, (b) => ({ ...b, rounds: n }))
   const toggleDone = (bi, ii) => {
     if (!blocks[bi].items[ii].done) setShowNextUp(true)
     mapItem(bi, ii, (it) => ({ ...it, done: !it.done }))
@@ -425,6 +430,7 @@ export default function ActiveWorkoutPage() {
           const rounds = Math.max(0, ...logged.map((it) => it.sets.length))
           const multi = logged.length > 1
           const many = actionable.length > 1 // a letter on every exercise when there are several
+          const timedSpec = block.section === "conditioning" ? parseTimedBlock(block) : null // EMOM, AMRAP and Tabata get a clock
                     const cardStyle =
             state === "done" ? { border: `1.5px solid rgba(34,197,94,0.7)`, background: "#F0FDF4" }
             : state === "current" ? { border: "2.5px solid transparent", background: "linear-gradient(#fff,#fff) padding-box, linear-gradient(135deg,#0284C7,#9747FF) border-box", boxShadow: "0 4px 18px rgba(129,51,255,0.28)" }
@@ -432,7 +438,7 @@ export default function ActiveWorkoutPage() {
 
           return (
             <div key={block.id} id={`block-${block.id}`} style={{ borderRadius: 12, padding: 12, ...cardStyle }}>
-              <GoalNote block={block} />
+              <GoalNote block={block} collapsible={!!timedSpec} /> {/* a timed section folds it so the clock is in view */}
               {restBefore.map((r) => (
                 <button key={r.id} type="button" onClick={() => startRest(r.note)} style={{ width: "100%", display: "flex", alignItems: "center", gap: 8, padding: "10px 12px", marginBottom: 10, borderRadius: 12, border: "1.2px dashed rgba(129,51,255,0.5)", background: "#FCF9FF", color: PURPLE, fontFamily: DM_SANS, fontWeight: 600, fontSize: 13, cursor: "pointer", textAlign: "left" }}>
                   <Timer size={16} /> <span style={{ flex: 1 }}>Rest first · {r.note}</span> <span style={{ fontSize: 12 }}>Start timer</span>
@@ -457,6 +463,10 @@ export default function ActiveWorkoutPage() {
                     </button>
                   )}
 
+                  {timedSpec ? (
+                    <SectionRunner spec={timedSpec} run={workout.runs?.[block.id] ?? null} onRun={(r) => setRun(block.id, r)} rounds={block.rounds || 0} onRounds={(n) => setRounds(bi, n)} />
+                  ) : (
+                    <>
                   {/* the exercises in this block, in the plan's order */}
                   <div style={{ display: "flex", flexDirection: "column", gap: 4 }}>
                     {block.items.map((it, ii) => {
@@ -495,6 +505,8 @@ export default function ActiveWorkoutPage() {
                       )
                     })}
                   </div>
+                    </>
+                  )}
 
                   {(() => {
                     const seen = new Set()
