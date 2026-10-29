@@ -47,7 +47,7 @@ Conversational, like a person talking, not reading a list.
 Hard rules:
 - Use ONLY the information in the guide you are given. Do not add technique advice, numbers, claims or exercises that are \
 not in it. If it is not in the guide, do not say it.
-- Include the key cues, the breathing, and the tempo. Include one short, calm safety reminder (stop if it hurts sharply).
+- Include the stance (foot position), the key cues, the breathing, and the tempo. Include one short, calm safety reminder (stop if it hurts sharply).
 - Speak to "you". Use contractions. Short sentences. Natural rhythm, with commas where a coach would pause.
 - Plain text for text-to-speech: no lists, no headings, no markdown, no emojis, no brackets, no stage directions, no quotation marks.
 - Write every number as words, for example "two seconds", "eight to twelve reps". Never use digits.
@@ -55,7 +55,7 @@ not in it. If it is not in the guide, do not say it.
 - Do not use cliches like "crush it", "beast mode", "no pain no gain", "let's go". At most two exclamation marks.
 - Where to look and how to hold the head and neck: if the guide has a mistake about it, ALWAYS include that one in the "watch out for" \
 part (for example "don't crane your neck up to the mirror"), together with the two or three other most common mistakes.
-- Structure the full script like a coach would: a short friendly lead-in that names the exercise; the setup, key cues, breathing and \
+- Structure the full script like a coach would: a short friendly lead-in that names the exercise; the setup including the stance, key cues, breathing and \
 tempo; then a short "watch out for" part that talks through the three or four most common mistakes from the guide, each with its quick \
 fix, in plain talk (for example "if you notice your heels lifting, ..."), not as a list; then the safety reminder; then a short, genuine \
 line of encouragement.
@@ -82,7 +82,7 @@ def exercise_name(exercise_id: str) -> str:
 
 def source_points(guide: dict) -> dict:
     """The parts of a guide the script is written from. If any of these change, the script is out of date."""
-    keys = ["summary", "level", "keyCues", "breathing", "tempo", "setsReps", "setup", "movement", "mistakes", "safety"]
+    keys = ["summary", "level", "stance", "keyCues", "breathing", "tempo", "setsReps", "setup", "movement", "mistakes", "safety"]
     return {k: guide[k] for k in keys if k in guide}
 
 

@@ -74,7 +74,10 @@ export default function ExercisePage() {
         </div>
       </div>
 
-      <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr", gap: 8, marginTop: 10 }}>
+      {guide.stance && (
+        <div style={{ marginTop: 10 }}><Tile label="Stance" value={guide.stance} /></div>
+      )}
+      <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr", gap: 8, marginTop: 8 }}>
         <Tile label="Breathing" value={guide.breathing} />
         <Tile label="Tempo" value={guide.tempo} />
         <Tile label="Sets and reps" value={guide.setsReps} />

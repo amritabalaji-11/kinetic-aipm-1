@@ -21,6 +21,7 @@ const GOBLET_SQUAT = {
     "Sit down between your knees. Knees over your little toes, heels stay down.",
     "Push the floor away through your whole foot. Chest and hips rise together.",
   ],
+  stance: "Feet about shoulder-width apart, toes turned out slightly, whole foot planted.",
   breathing: "In and brace at the top, out as you stand",
   tempo: "2 down · 1 pause · 1 up",
   setsReps: "2–3 sets of 8–12",
@@ -70,5 +71,5 @@ export const hasExerciseGuide = (exerciseId) => Boolean(GUIDES[exerciseId])
 
 // What the Listen button reads out: the short version only
 export function guideToSpeech(name, guide) {
-  return `${name}. ${guide.summary} Key cues. ${guide.keyCues.join(" ")} Breathing: ${guide.breathing}. Tempo: ${guide.tempo}.`
+  return `${name}. ${guide.summary} Stance: ${guide.stance}. Key cues. ${guide.keyCues.join(" ")} Breathing: ${guide.breathing}. Tempo: ${guide.tempo}.`
 }
