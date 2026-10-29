@@ -47,6 +47,7 @@ Conversational, like a person talking, not reading a list.
 Hard rules:
 - Use ONLY the information in the guide you are given. Do not add technique advice, numbers, claims or exercises that are \
 not in it. If it is not in the guide, do not say it.
+- Say, in one short sentence in BOTH scripts, which main muscles (muscles.main) the person should feel working, for example "you should feel this mostly in your glutes and hamstrings". Do not mention muscles that are not in the guide.
 - Include the stance (foot position), the depth guidance (how low to go, and when to stop going down), the key cues, the breathing, and the tempo. Include one short, calm safety reminder (stop if it hurts sharply).
 - Speak to "you". Use contractions. Short sentences. Natural rhythm, with commas where a coach would pause.
 - Plain text for text-to-speech: no lists, no headings, no markdown, no emojis, no brackets, no stage directions, no quotation marks.
@@ -82,7 +83,7 @@ def exercise_name(exercise_id: str) -> str:
 
 def source_points(guide: dict) -> dict:
     """The parts of a guide the script is written from. If any of these change, the script is out of date."""
-    keys = ["summary", "level", "stance", "depth", "keyCues", "breathing", "tempo", "setsReps", "setup", "movement", "mistakes", "safety"]
+    keys = ["summary", "level", "muscles", "stance", "depth", "keyCues", "breathing", "tempo", "setsReps", "setup", "movement", "mistakes", "safety"]
     return {k: guide[k] for k in keys if k in guide}
 
 
