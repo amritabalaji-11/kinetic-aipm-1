@@ -23,7 +23,7 @@ export const WORKOUT_TYPES = {
   endurance: { label: "Endurance", snippet: "Lighter weights, more reps, short rests. Builds staying power." },
   cardio: { label: "Cardio", snippet: "Running, rowing or cycling, steady or in intervals. Raises your heart rate." },
 }
-const TAG_TO_TYPE = { Hypertrophy: "strength", Strength: "strength", Power: "strength", Endurance: "endurance", Cardio: "cardio", Metcon: "cardio" }
+const TAG_TO_TYPE = { Hypertrophy: "strength", Strength: "strength", Power: "strength", Endurance: "endurance", Metcon: "endurance", Cardio: "cardio" }
 export const workoutType = (plan) => TAG_TO_TYPE[plan.tag] || "strength"
 
 // Style: worked out from how many of the main exercises are compound or isolation moves.
