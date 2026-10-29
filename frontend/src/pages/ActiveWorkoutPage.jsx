@@ -1,6 +1,6 @@
 import { useEffect, useState } from "react"
 import { useNavigate } from "react-router-dom"
-import { ArrowLeftRight, BicepsFlexed, Check, ChevronDown, ChevronRight, Info, Lightbulb, Pause, Play, Plus, Timer, VideoIcon } from "lucide-react"
+import { ArrowLeftRight, BicepsFlexed, Check, ChevronDown, ChevronRight, Info, Lightbulb, Pause, Play, Plus, Target, Timer, VideoIcon } from "lucide-react"
 import FormGuide from "../components/FormGuide"
 import SectionNav from "../components/SectionNav"
 import { Refresher } from "../components/NextUpCard"
@@ -8,7 +8,7 @@ import { getExerciseGuide } from "../data/exerciseGuides"
 import NextUpCard from "../components/NextUpCard"
 import RestTimer from "../components/RestTimer"
 import SetTypeSheet from "../components/SetTypeSheet"
-import { typeOfBlock } from "../utils/setTypes"
+import { sectionGuidance, typeOfBlock } from "../utils/setTypes"
 import SwapSheet from "../components/SwapSheet"
 import AddExerciseSheet from "../components/AddExerciseSheet"
 import { hasGuidance } from "../data/exerciseGuidance"
@@ -431,6 +431,19 @@ export default function ActiveWorkoutPage() {
 
           return (
             <div key={block.id} id={`block-${block.id}`} style={{ borderRadius: 12, padding: 12, ...cardStyle }}>
+              {(() => {
+                const g = sectionGuidance(block)
+                if (!g) return null
+                return (
+                  <div style={{ display: "flex", gap: 10, padding: "10px 12px", marginBottom: 10, borderRadius: 12, background: "#F5F3FF", border: "1px solid rgba(129,51,255,0.25)" }}>
+                    <Target size={18} color={PURPLE} style={{ flexShrink: 0, marginTop: 1 }} />
+                    <div style={{ fontFamily: DM_SANS, fontSize: 13, lineHeight: 1.45, color: INK }}>
+                      <div><b>Goal:</b> {g.objective}</div>
+                      <div style={{ marginTop: 3 }}>{g.expect}</div>
+                    </div>
+                  </div>
+                )
+              })()}
               {restBefore.map((r) => (
                 <button key={r.id} type="button" onClick={() => startRest(r.note)} style={{ width: "100%", display: "flex", alignItems: "center", gap: 8, padding: "10px 12px", marginBottom: 10, borderRadius: 12, border: "1.2px dashed rgba(129,51,255,0.5)", background: "#FCF9FF", color: PURPLE, fontFamily: DM_SANS, fontWeight: 600, fontSize: 13, cursor: "pointer", textAlign: "left" }}>
                   <Timer size={16} /> <span style={{ flex: 1 }}>Rest first · {r.note}</span> <span style={{ fontSize: 12 }}>Start timer</span>

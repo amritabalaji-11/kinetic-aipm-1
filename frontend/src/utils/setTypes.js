@@ -159,3 +159,52 @@ export function changeType(blocks, index, target, { minutes } = {}) {
   }
   return renumber([...before, ...made, ...after])
 }
+
+
+// ---------- what each kind of section is for, and what is expected of you ----------
+const GUIDANCE = {
+  warmup: { objective: "Warm up your joints and muscles so the heavy work feels smoother and safer.", expect: "Keep it easy and move through a full range. Nothing here should feel tiring." },
+  endurance: { objective: "Build staying power with lighter weights and more reps.", expect: "Pick a weight you can keep moving with for every rep, even as you tire. The last reps should burn, but your form shouldn't fall apart." },
+  emom: { objective: "Keep your heart rate up and build your work capacity.", expect: "Start the work at the top of each minute. The quicker you finish, the more rest you get. Pick a weight you can repeat every minute." },
+  amrap: { objective: "Raise your heart rate and keep moving.", expect: "Pace yourself so you can keep going until time is up, with clean form. Count each full round." },
+  tabata: { objective: "Short, hard bursts with very short rests.", expect: "Go hard for the work seconds and rest fully in the gaps. Use a weight that lets you keep the same effort in every round." },
+  metcon: { objective: "Raise your heart rate with a hard, timed block.", expect: "Move steadily and break up big sets early, before you have to stop. Use lighter weights than in your strength work." },
+  cardio: { objective: "Build stamina and raise your heart rate.", expect: "Follow the effort in the note above, and keep a pace you can hold." },
+}
+
+// Reps like "8-10" or "10-12" from the block's exercises -> { low: 8, high: 10 }
+const repRange = (block) => {
+  for (const it of block.items) {
+    const m = /^\s*(\d+)\s*[-–]\s*(\d+)\s*$/.exec(String(it.targetReps ?? ""))
+    if (m) return { low: Number(m[1]), high: Number(m[2]) }
+  }
+  return null
+}
+
+// { objective, expect } for a section, or null when it has none (a plain rest block). Strength sections quote the plan's own reps.
+export function sectionGuidance(block) {
+  if (block.section === "warmup") return GUIDANCE.warmup // even when the warm-up is laid out as a tri-set
+  const type = typeOfBlock(block)
+  const family = type ? SET_TYPES[type].family : null
+  if (family === "strength") {
+    const r = repRange(block)
+    return {
+      objective: "Build muscle and strength.",
+      expect: r
+        ? `Pick a weight where you can do ${r.low}-${r.high} reps with good form. If you can do more than ${r.high + 2} reps easily, go heavier.`
+        : "Pick a weight that makes the last couple of reps hard but still clean. If it feels easy, go heavier.",
+    }
+  }
+  if (type && GUIDANCE[type]) return GUIDANCE[type]
+  if (type === "chipper" || type === "fortime") return GUIDANCE.metcon
+  const tag = (block.tag || "").toUpperCase()
+  const note = block.note || ""
+  if (/WARM/.test(tag)) return GUIDANCE.warmup
+  if (block.section === "conditioning") {
+    if (/AMRAP/i.test(note)) return GUIDANCE.amrap
+    if (/EMOM/i.test(note)) return GUIDANCE.emom
+    if (/TABATA/i.test(note)) return GUIDANCE.tabata
+    return GUIDANCE.metcon
+  }
+  return null
+}

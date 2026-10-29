@@ -170,6 +170,7 @@ export function nextUpItems(blocks) {
 // A short name for the progress bar: "CONDITIONING · PART A" -> "Cond. A", "STRAIGHT SETS 2" -> "Straight 2"
 export function shortSectionName(tag = "") {
   const t = tag.trim().replace(/^(STRENGTH|OPTION \d)\s*·\s*/i, "") // "STRENGTH · TRISET 1" -> "TRISET 1", "OPTION 2 · CORE CIRCUIT" -> "CORE CIRCUIT"
+  if (/MOBILITY/i.test(t) && !/STRUCTURED/i.test(t)) return "Mobility"
   if (/WARM/i.test(t)) return "Warm-up"
   let m = /^CONDITIONING\s*·\s*PART\s*(\w+)/i.exec(t)
   if (m) return `Cond. ${m[1].toUpperCase()}`
