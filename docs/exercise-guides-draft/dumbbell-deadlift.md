@@ -72,7 +72,7 @@ Feet hip-width apart, toes turned out slightly, knees soft. Brace your core, as 
 ## Common mistakes
 | Mistake | Fix |
 |---|---|
-| Rounding the back | Lower less far. Practise the hinge with no weight first. |
+| Rounding the back | Keep your shoulder blades, back and hips in one straight line. If you can't, lower less far and practise the hinge with no weight first. **[CONFIRM]** The straight-line cue is from Amrita, not from the video or ACE. A trainer should check the wording. |
 | Turning it into a squat (knees bend a lot, hips drop low) | Push your hips back first; your shins stay almost vertical. |
 | Locking the knees | Keep a soft bend. Don't lock them straight. |
 | Dumbbells drift away from your legs | Keep them brushing your legs the whole way. |
