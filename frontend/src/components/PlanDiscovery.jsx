@@ -1,7 +1,8 @@
 // Pieces of the Plan screen: suggestion card, plan cards, shelves, filter sheet and plan preview.
 import { ChevronRight, RefreshCw } from "lucide-react"
 import { BottomSheet, Chip, FilterLabel, GradientButton, BRICOLAGE, DM_SANS, GRADIENT, GRAY, INK, PURPLE, cardStyle } from "./planUi"
-import { EQUIPMENT, GOALS, STYLES, TIMES, planProfile } from "../utils/planProfile"
+import { EQUIPMENT, GOALS, STYLES, TIMES, WORKOUT_TYPES, planProfile, workoutType } from "../utils/planProfile"
+import { TypeBadge, TypePill } from "./WorkoutTypeUi"
 
 const minutesText = (plan) => `about ${plan.minutes} min`
 
@@ -57,15 +58,19 @@ export function PlanCard({ plan, onOpen, lastDone, shelf = false }) {
         boxShadow: "0px 4px 14px rgba(0, 0, 0, 0.05)",
       }}
     >
-      <div style={{ width: 48, height: 58, flexShrink: 0, borderRadius: 10, background: "rgba(129,51,255,0.07)", display: "flex", alignItems: "center", justifyContent: "center" }}>
+      <div style={{ position: "relative", width: 48, height: 58, flexShrink: 0, borderRadius: 10, background: "rgba(129,51,255,0.07)", display: "flex", alignItems: "center", justifyContent: "center" }}>
         <img src={plan.image} alt="" style={{ maxWidth: 38, maxHeight: 48, objectFit: "contain" }} />
+        <TypeBadge plan={plan} />
       </div>
       <div style={{ flex: 1, minWidth: 0 }}>
         <div style={{ fontFamily: BRICOLAGE, fontWeight: 700, fontSize: 16, color: INK, lineHeight: 1.25, display: "-webkit-box", WebkitLineClamp: 2, WebkitBoxOrient: "vertical", overflow: "hidden" }}>
           {plan.title}
         </div>
         <div style={{ fontFamily: DM_SANS, fontSize: 12, fontWeight: 600, color: PURPLE, marginTop: 3 }}>{headline(plan)}</div>
-        <div style={{ fontFamily: DM_SANS, fontSize: 12, color: GRAY, marginTop: 1 }}>{styleLine(plan)}</div>
+        <div style={{ display: "flex", alignItems: "center", gap: 6, marginTop: 3, flexWrap: "wrap" }}>
+          <TypePill plan={plan} />
+          <span style={{ fontFamily: DM_SANS, fontSize: 12, color: GRAY }}>{styleLine(plan)}</span>
+        </div>
         {lastDone && <div style={{ fontFamily: DM_SANS, fontSize: 11, color: GRAY, marginTop: 3, opacity: 0.85 }}>{lastDone}</div>}
       </div>
       <ChevronRight size={18} color={PURPLE} style={{ flexShrink: 0 }} />
@@ -163,6 +168,10 @@ export function PreviewSheet({ plan, lastDone, onStart, onClose }) {
 
   return (
     <BottomSheet title={plan.title} onClose={onClose} footer={<GradientButton onClick={onStart}>View &amp; customise</GradientButton>}>
+      <div style={{ display: "flex", alignItems: "center", gap: 8, margin: "0 0 8px", flexWrap: "wrap" }}>
+        <TypePill plan={plan} size={12} />
+        <span style={{ fontFamily: DM_SANS, fontSize: 12, color: GRAY }}>{WORKOUT_TYPES[workoutType(plan)].snippet}</span>
+      </div>
       <p style={{ fontFamily: DM_SANS, fontSize: 14, color: INK, margin: "0 0 8px", lineHeight: 1.4 }}>{plan.blurb}</p>
       <div style={cardStyle}>
         <Row label="Goal" value={goal.label} hint={goal.hint} />
