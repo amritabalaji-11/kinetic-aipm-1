@@ -14,9 +14,11 @@ import { hasExerciseGuide } from "../data/exerciseGuides"
 import { addPendingWorkout, removePendingWorkout, saveWorkout } from "../services/workoutService"
 import { equipmentLabel } from "../utils/exerciseCatalog"
 import {
-  allSetsTicked, currentBlockIndex, emptySet, ensureBlocks, flattenForSave, isActionable, isBlockComplete,
-  itemHasEntries, nextUpItems, restSecondsFromNote,
+  DEFAULT_TRACK, allSetsTicked, canTickSet, currentBlockIndex, emptySet, ensureBlocks, flattenForSave, isActionable, isBlockComplete,
+  itemHasEntries, nextUpItems, restSecondsFromNote, secondsFromSub, trackOf,
 } from "../utils/workoutModel"
+import SetTimer, { clock } from "../components/SetTimer"
+import TrackChips from "../components/TrackChips"
 import { BRICOLAGE, DM_SANS, ExerciseName, GRADIENT, GRAY, INK, PURPLE } from "../components/planUi"
 
 const GREEN = "#22C55E"
@@ -122,17 +124,19 @@ const focusNext = (e) => {
   else e.currentTarget.blur()
 }
 
-function SetRow({ label, set, onChange, onTick, onRecord, labelColor }) {
+function SetRow({ label, set, item, onChange, onTick, onRecord, onTimerDone, labelColor, labelled }) {
   const done = set.completed
-  const canTick = set.reps !== ""
-  const box = (field, value) => (
+  const track = trackOf(item)
+  const canTick = canTickSet(item, set)
+  const box = (field, value, hint) => (
     <input
       type="number"
       inputMode="decimal"
       enterKeyHint="next"
       data-set-input
-      value={value}
-      placeholder="–"
+      aria-label={hint}
+      value={value ?? ""}
+      placeholder={labelled ? hint : "–"}
       onChange={(e) => onChange(field, e.target.value)}
       onKeyDown={focusNext}
       style={{
@@ -142,20 +146,40 @@ function SetRow({ label, set, onChange, onTick, onRecord, labelColor }) {
       }}
     />
   )
+  const timerTarget = Number(set.seconds) || item.targetSeconds || 30 // what was typed, else the plan's time, else 30 seconds
   return (
     <div style={{ display: "flex", alignItems: "center", gap: 8, padding: "2px 0", borderRadius: 8, background: done ? "rgba(34,197,94,0.14)" : "transparent" }}>
       <span style={{ width: 22, textAlign: "center", fontFamily: DM_SANS, fontWeight: 600, fontSize: 13, color: done ? DARK_GREEN : labelColor || INK }}>{label}</span>
-      <button type="button" aria-label="Record video" onClick={onRecord} style={{ width: 52, height: 28, borderRadius: 6, border: "none", cursor: "pointer", background: GRADIENT, opacity: done ? 0.5 : 1, display: "flex", alignItems: "center", justifyContent: "center" }}>
-        <VideoIcon size={15} color="#fff" />
-      </button>
-      {box("weight", set.weight)}
-      {box("reps", set.reps)}
+      {track.reps && (
+        <button type="button" aria-label="Record video" onClick={onRecord} style={{ width: 52, height: 28, borderRadius: 6, border: "none", cursor: "pointer", background: GRADIENT, opacity: done ? 0.5 : 1, display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0 }}>
+          <VideoIcon size={15} color="#fff" />
+        </button>
+      )}
+      {track.weight && box("weight", set.weight, "kg")}
+      {track.reps && box("reps", set.reps, "reps")}
+      {track.time && (
+        <SetTimer target={timerTarget} label={`${item.name} timer`} onDone={onTimerDone}>
+          <input
+            type="number"
+            inputMode="numeric"
+            enterKeyHint="next"
+            data-set-input
+            aria-label="seconds"
+            value={set.seconds ?? ""}
+            placeholder={String(item.targetSeconds ?? "sec")}
+            onChange={(e) => onChange("seconds", e.target.value)}
+            onKeyDown={focusNext}
+            style={{ width: "100%", minWidth: 0, border: "none", background: "transparent", outline: "none", fontFamily: DM_SANS, fontSize: 14, fontWeight: set.seconds ? 600 : 400, color: done ? DARK_GREEN : INK }}
+          />
+          <span style={{ fontSize: 11, color: GRAY, fontWeight: 400 }}>sec</span>
+        </SetTimer>
+      )}
       <button
         type="button"
         aria-label={done ? "Mark set not done" : "Mark set done"}
         disabled={!done && !canTick}
         onClick={onTick}
-        style={{ width: 36, height: 28, borderRadius: 6, border: "none", cursor: done || canTick ? "pointer" : "not-allowed", background: done ? GREEN : INPUT_BG, display: "flex", alignItems: "center", justifyContent: "center" }}
+        style={{ width: 36, height: 28, borderRadius: 6, border: "none", cursor: done || canTick ? "pointer" : "not-allowed", background: done ? GREEN : INPUT_BG, display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0 }}
       >
         <Check size={16} color={done ? "#fff" : "#94A3B8"} strokeWidth={3} />
       </button>
@@ -163,18 +187,22 @@ function SetRow({ label, set, onChange, onTick, onRecord, labelColor }) {
   )
 }
 
-function ColumnHeaders({ first }) {
+// The headings above the rows. Only drawn when every row in the block asks for the same things (otherwise each box says what it is).
+function ColumnHeaders({ first, track }) {
   const h = { fontFamily: DM_SANS, fontSize: 11, fontWeight: 600, color: GRAY, textAlign: "center" }
   return (
     <div style={{ display: "flex", gap: 8 }}>
       <span style={{ ...h, width: 22 }}>{first}</span>
-      <span style={{ ...h, width: 52 }}>Record</span>
-      <span style={{ ...h, flex: 1 }}>kg</span>
-      <span style={{ ...h, flex: 1 }}>Reps</span>
+      {track.reps && <span style={{ ...h, width: 52 }}>Record</span>}
+      {track.weight && <span style={{ ...h, flex: 1 }}>kg</span>}
+      {track.reps && <span style={{ ...h, flex: 1 }}>Reps</span>}
+      {track.time && <span style={{ ...h, flex: 1 }}>Time</span>}
       <span style={{ ...h, width: 36 }}>✓</span>
     </div>
   )
 }
+
+const sameTrack = (items) => items.every((it) => ["weight", "reps", "time"].every((k) => !!trackOf(it)[k] === !!trackOf(items[0])[k]))
 
 const outlineBtn = (disabled) => ({
   flex: 1, padding: "10px 12px", borderRadius: 8, background: "rgba(255,255,255,0.6)", fontFamily: DM_SANS, fontWeight: 600, fontSize: 13,
@@ -240,6 +268,12 @@ export default function ActiveWorkoutPage() {
     if (!blocks[bi].items[ii].sets[si].completed) setShowNextUp(true) // just finished a set: show what comes next
     mapItem(bi, ii, (it) => ({ ...it, sets: it.sets.map((s, k) => (k !== si ? s : { ...s, completed: !s.completed })) }))
   }
+  // a timer ran out (or was stopped): fill in the seconds and tick the set
+  const finishTimedSet = (bi, ii, si, seconds) => {
+    setShowNextUp(true)
+    mapItem(bi, ii, (it) => ({ ...it, sets: it.sets.map((s, k) => (k !== si ? s : { ...s, seconds: String(seconds), completed: true })) }))
+  }
+  const setTrack = (bi, ii, track) => mapItem(bi, ii, (it) => ({ ...it, track }))
   const toggleDone = (bi, ii) => {
     if (!blocks[bi].items[ii].done) setShowNextUp(true)
     mapItem(bi, ii, (it) => ({ ...it, done: !it.done }))
@@ -247,7 +281,7 @@ export default function ActiveWorkoutPage() {
 
   const addRound = (bi) =>
     mapBlock(bi, (b) => ({ ...b, items: b.items.map((it) => (it.logged ? { ...it, sets: [...it.sets, emptySet()] } : it)) }))
-  const lastRoundHasWork = (b) => b.items.some((it) => it.logged && it.sets.length && (it.sets[it.sets.length - 1].completed || it.sets[it.sets.length - 1].reps !== "" || it.sets[it.sets.length - 1].weight !== ""))
+  const lastRoundHasWork = (b) => b.items.some((it) => it.logged && it.sets.length && (it.sets[it.sets.length - 1].completed || it.sets[it.sets.length - 1].reps !== "" || it.sets[it.sets.length - 1].weight !== "" || !!it.sets[it.sets.length - 1].seconds))
   const removeRound = (bi) =>
     mapBlock(bi, (b) => ({ ...b, items: b.items.map((it) => (it.logged && it.sets.length > 1 ? { ...it, sets: it.sets.slice(0, -1) } : it)) }))
 
@@ -292,7 +326,7 @@ export default function ActiveWorkoutPage() {
       id: `${Date.now()}-${ex.id}`, section: "workout", tag: "ADDED", note: "3 sets",
       items: [{
         key: `${Date.now()}-${ex.id}-i`, name: ex.name, sub: equipmentLabel(ex), exerciseId: ex.id, rest: false,
-        alternatives: [], logged: true, targetReps: null, done: false, sets: [emptySet(), emptySet(), emptySet()],
+        alternatives: [], logged: true, targetReps: null, track: { ...DEFAULT_TRACK }, done: false, sets: [emptySet(), emptySet(), emptySet()],
       }],
     }))
     const next = [...blocks.slice(0, at), ...added, ...blocks.slice(at)]
@@ -394,6 +428,7 @@ export default function ActiveWorkoutPage() {
           const logged = actionable.filter((it) => it.logged)
           const rounds = Math.max(0, ...logged.map((it) => it.sets.length))
           const multi = logged.length > 1
+          const many = actionable.length > 1 // a letter on every exercise when there are several
                     const cardStyle =
             state === "done" ? { border: `1.5px solid rgba(34,197,94,0.7)`, background: "#F0FDF4" }
             : state === "current" ? { border: "2.5px solid transparent", background: "linear-gradient(#fff,#fff) padding-box, linear-gradient(135deg,#0284C7,#9747FF) border-box", boxShadow: "0 4px 18px rgba(129,51,255,0.28)" }
@@ -438,23 +473,31 @@ export default function ActiveWorkoutPage() {
                         return <div key={it.key} style={{ fontFamily: DM_SANS, fontSize: 11, color: GRAY }}>{it.name} · {it.sub}</div>
                       }
                       if (!it.logged) {
-                        // follow-along: one line with a tick on the left
+                        // follow-along: a letter, the line, a clock when it has a time, and a tick on the right
+                        const secs = secondsFromSub(it.sub)
                         return (
                           <div key={it.key} style={{ display: "flex", alignItems: "center", gap: 8, padding: "2px 0" }}>
-                            <TickCircle size={20} done={it.done} onClick={() => toggleDone(bi, ii)} label={it.done ? `Mark ${it.name} not done` : `Mark ${it.name} done`} />
+                            {many && <span style={{ width: 20, height: 20, borderRadius: 5, background: it.done ? DARK_GREEN : PURPLE, color: "#fff", fontFamily: DM_SANS, fontWeight: 600, fontSize: 11, display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0 }}>{letter(actionable.indexOf(it))}</span>}
                             <div style={{ flex: 1, minWidth: 0, fontFamily: DM_SANS, fontSize: 13, lineHeight: 1.3 }}>
                               <span style={{ fontWeight: 600, color: it.done ? DARK_GREEN : PURPLE }}><ExerciseName exerciseId={it.exerciseId}>{it.name}</ExerciseName></span>
                               {it.sub && <span style={{ color: GRAY }}> · {it.sub}</span>}
                             </div>
+                            {secs !== null && !it.done && (
+                              <div style={{ width: 96, flexShrink: 0, display: "flex" }}>
+                                <SetTimer target={secs} label={`${it.name} timer`} onDone={() => { if (!it.done) toggleDone(bi, ii) }}>{clock(secs)}</SetTimer>
+                              </div>
+                            )}
+                            <TickCircle size={20} done={it.done} onClick={() => toggleDone(bi, ii)} label={it.done ? `Mark ${it.name} not done` : `Mark ${it.name} done`} />
                           </div>
                         )
                       }
                       return (
                         <div key={it.key} style={{ display: "flex", alignItems: "center", gap: 8 }}>
-                          {multi && <span style={{ width: 20, height: 20, borderRadius: 5, background: PURPLE, color: "#fff", fontFamily: DM_SANS, fontWeight: 600, fontSize: 11, display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0 }}>{letter(logged.indexOf(it))}</span>}
+                          {many && <span style={{ width: 20, height: 20, borderRadius: 5, background: PURPLE, color: "#fff", fontFamily: DM_SANS, fontWeight: 600, fontSize: 11, display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0 }}>{letter(actionable.indexOf(it))}</span>}
                           <div style={{ flex: 1, minWidth: 0, lineHeight: 1.3 }}>
                             <div style={{ fontFamily: DM_SANS, fontWeight: 600, fontSize: 15, color: PURPLE }}><ExerciseName exerciseId={it.exerciseId}>{it.name}</ExerciseName></div>
                             {it.sub && <div style={{ fontFamily: DM_SANS, fontSize: 12, color: GRAY }}>{it.sub}</div>}
+                            <TrackChips track={trackOf(it)} onChange={(t) => setTrack(bi, ii, t)} />
                           </div>
                           {it.exerciseId && <SwapButton name={it.name} locked={itemHasEntries(it)} onClick={() => setSwapping({ bi, ii })} />}
                         </div>
@@ -469,16 +512,16 @@ export default function ActiveWorkoutPage() {
                     return (
                       <>
                         {hasGuidance(it.exerciseId) && <FormGuide exerciseId={it.exerciseId} name={it.name} startOpen={false} />}
-                        <ColumnHeaders first="Set" />
+                        <ColumnHeaders first="Set" track={trackOf(it)} />
                         {it.sets.map((s, si) => (
-                          <SetRow key={s.id} label={si + 1} set={s} onChange={(f, v) => setField(bi, ii, si, f, v)} onTick={() => toggleSet(bi, ii, si)} onRecord={() => navigate("/upload")} />
+                          <SetRow key={s.id} label={si + 1} set={s} item={it} onChange={(f, v) => setField(bi, ii, si, f, v)} onTick={() => toggleSet(bi, ii, si)} onRecord={() => navigate("/upload")} onTimerDone={(secs) => finishTimedSet(bi, ii, si, secs)} />
                         ))}
                       </>
                     )
                   })()}
                   {multi && (
                     <>
-                      <ColumnHeaders first="" />
+                      {sameTrack(logged) && <ColumnHeaders first="" track={trackOf(logged[0])} />}
                       {Array.from({ length: rounds }, (_, r) => {
                         const roundDone = logged.every((it) => !it.sets[r] || it.sets[r].completed)
                         return (
@@ -491,7 +534,7 @@ export default function ActiveWorkoutPage() {
                               const ii = block.items.indexOf(it)
                               const s = it.sets[r]
                               if (!s) return null
-                              return <SetRow key={s.id} label={letter(logged.indexOf(it))} labelColor={INK} set={s} onChange={(f, v) => setField(bi, ii, r, f, v)} onTick={() => toggleSet(bi, ii, r)} onRecord={() => navigate("/upload")} />
+                              return <SetRow key={s.id} label={letter(actionable.indexOf(it))} labelColor={INK} set={s} item={it} labelled={!sameTrack(logged)} onChange={(f, v) => setField(bi, ii, r, f, v)} onTick={() => toggleSet(bi, ii, r)} onRecord={() => navigate("/upload")} onTimerDone={(secs) => finishTimedSet(bi, ii, r, secs)} />
                             })}
                           </div>
                         )

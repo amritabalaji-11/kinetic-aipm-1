@@ -41,12 +41,13 @@ export function toApiWorkout(workout, extra = {}) {
       exercise_name: ex.name,
       notes: ex.notes || null,
       sets: ex.sets
-        .filter((s) => s.weight !== "" || s.reps !== "")
+        .filter((s) => s.weight !== "" || s.reps !== "" || (s.seconds !== "" && s.seconds != null))
         .map((s, i) => ({
           set_number: i + 1,
           weight: num(s.weight),
           weight_unit: "kg",
           reps: num(s.reps),
+          duration_sec: num(s.seconds),
           notes: s.notes || null,
         })),
     })),
