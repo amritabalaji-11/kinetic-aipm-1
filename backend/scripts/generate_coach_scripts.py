@@ -34,8 +34,8 @@ GUIDES_JS = Path(__file__).resolve().parent.parent.parent / "frontend" / "src" /
 DEFAULT_MODEL = "claude-sonnet-5-5"  # written once per exercise, so quality matters more than price
 
 # Spoken pace is about 150 words a minute
-FULL_WORDS = (105, 140)  # about 45-55 seconds: the Listen button on the exercise page (coaching, then what to avoid)
-SHORT_WORDS = (55, 80)   # about 30 seconds: the "Next up" card between sets
+FULL_WORDS = (105, 150)  # about 45-55 seconds: the Listen button on the exercise page (coaching, then what to avoid)
+SHORT_WORDS = (55, 90)   # about 33 seconds: the "Next up" card between sets
 
 SYSTEM_PROMPT = """You write short spoken coaching scripts for a fitness app. Each script is read aloud by a text-to-speech \
 voice. The listener is one person, in the gym, about to do the exercise, wearing earphones. They are usually a beginner \
@@ -47,6 +47,7 @@ Conversational, like a person talking, not reading a list.
 Hard rules:
 - Use ONLY the information in the guide you are given. Do not add technique advice, numbers, claims or exercises that are \
 not in it. If it is not in the guide, do not say it.
+- Say, in one short sentence in BOTH scripts, which main muscles (muscles.main) the person should feel working, for example "you should feel this mostly in your glutes and hamstrings". Do not mention muscles that are not in the guide.
 - Include the stance (foot position), the depth guidance (how low to go, and when to stop going down), the key cues, the breathing, and the tempo. Include one short, calm safety reminder (stop if it hurts sharply).
 - Speak to "you". Use contractions. Short sentences. Natural rhythm, with commas where a coach would pause.
 - Plain text for text-to-speech: no lists, no headings, no markdown, no emojis, no brackets, no stage directions, no quotation marks.
@@ -82,7 +83,7 @@ def exercise_name(exercise_id: str) -> str:
 
 def source_points(guide: dict) -> dict:
     """The parts of a guide the script is written from. If any of these change, the script is out of date."""
-    keys = ["summary", "level", "stance", "depth", "keyCues", "breathing", "tempo", "setsReps", "setup", "movement", "mistakes", "safety"]
+    keys = ["summary", "level", "muscles", "stance", "depth", "keyCues", "breathing", "tempo", "setsReps", "setup", "movement", "mistakes", "safety"]
     return {k: guide[k] for k in keys if k in guide}
 
 
