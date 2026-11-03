@@ -84,10 +84,17 @@ async def fetch_video_info(video_id: str) -> dict:
 def _fetch_captions_blocking(video_id: str) -> list[dict]:
     from youtube_transcript_api import YouTubeTranscriptApi
     from youtube_transcript_api import (
-        IpBlocked, NoTranscriptFound, RequestBlocked, TranscriptsDisabled, VideoUnavailable,
+        CouldNotRetrieveTranscript, IpBlocked, NoTranscriptFound, RequestBlocked, TranscriptsDisabled, VideoUnavailable,
     )
+    # YouTube often refuses requests that come from a cloud data centre. A proxy (a setting, off by default) is the usual way round it.
+    proxy_url = os.getenv("YOUTUBE_PROXY_URL", "").strip()
+    proxy = None
+    if proxy_url:
+        from youtube_transcript_api.proxies import GenericProxyConfig
+        proxy = GenericProxyConfig(http_url=proxy_url, https_url=proxy_url)
+    blocked = RoutineError("service_blocked", "YouTube is blocking our server from reading captions right now. Try again later.", 502)
     try:
-        api = YouTubeTranscriptApi()
+        api = YouTubeTranscriptApi(proxy_config=proxy) if proxy else YouTubeTranscriptApi()
         try:
             fetched = api.fetch(video_id, languages=["en", "en-US", "en-GB"])
         except NoTranscriptFound:
@@ -100,7 +107,11 @@ def _fetch_captions_blocking(video_id: str) -> list[dict]:
     except VideoUnavailable:
         raise RoutineError("video_unavailable", "This video is private, removed, or can't be viewed publicly.")
     except (IpBlocked, RequestBlocked):
-        raise RoutineError("service_blocked", "YouTube is blocking our server from reading captions right now. Try again later.", 502)
+        raise blocked
+    except CouldNotRetrieveTranscript:
+        raise blocked  # any other refusal from YouTube (for example "403 Forbidden"): not the person's fault, and not a crash
+    except Exception:  # a network or parsing problem: say so plainly rather than failing the request
+        raise RoutineError("service_unavailable", "We couldn't reach YouTube just now. Try again in a minute.", 502)
 
 
 async def fetch_captions(video_id: str) -> list[dict]:
