@@ -5,7 +5,7 @@ import { apiFetch } from "../services/api"
 import { useNavigate } from "react-router-dom"
 import { useUser } from "../context/UserContext"
 import { listWorkouts, fromDbTime, pendingAsRows, syncPendingWorkouts } from "../services/workoutService"
-import { ArrowRight, Flame } from "lucide-react"
+import { ArrowRight, Flame, WandSparkles } from "lucide-react"
 import { TYPE_META, workoutType } from "../utils/workoutType"
 import TypeIcon from "../components/TypeIcon"
 import { BottomSheet, GradientButton } from "../components/planUi"
@@ -418,8 +418,8 @@ export default function HomePage() {
               </div>
             </button>
 
-            {/* Upload for Analysis */}
-            <button onClick={() => navigate("/upload")} style={{
+            {/* Turn a video into a workout (form analysis is reached from the Analysis tab) */}
+            <button onClick={() => navigate("/routine/new")} style={{
               display: "flex",
               alignItems: "center",
               gap: "12px",
@@ -431,15 +431,11 @@ export default function HomePage() {
               textAlign: "left"
             }}>
               <div style={{ width: "40px", height: "40px", background: "linear-gradient(158.8deg, #F9DAD2 0%, #DBD4FC 24.98%, #0284C7 100.81%)", borderRadius: "8px", display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0 }}>
-                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#FFFFFF" strokeWidth="2">
-                  <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4" />
-                  <polyline points="17 8 12 3 7 8" />
-                  <line x1="12" y1="3" x2="12" y2="15" />
-                </svg>
+                <WandSparkles size={20} color="#FFFFFF" strokeWidth={2} />
               </div>
               <div>
-                <p style={{ fontSize: "16px", fontWeight: 600, color: "#000000", margin: "0 0 4px 0", fontFamily: "'Bricolage Grotesque'" }}>Upload for Analysis</p>
-                <p style={{ fontSize: "11px", color: "#000000", margin: "0", opacity: 0.7, fontFamily: "'Bricolage Grotesque'" }}>Get your form analyzed instantly</p>
+                <p style={{ fontSize: "16px", fontWeight: 600, color: "#000000", margin: "0 0 4px 0", fontFamily: "'Bricolage Grotesque'" }}>Turn a video into a workout</p>
+                <p style={{ fontSize: "11px", color: "#000000", margin: "0", opacity: 0.7, fontFamily: "'Bricolage Grotesque'" }}>Paste a link, get a routine</p>
               </div>
             </button>
           </div>

@@ -20,6 +20,7 @@ import WorkoutLoggerPage from "./pages/WorkoutLoggerPage"
 import WorkoutCommitPage from "./pages/WorkoutCommitPage"
 import ActiveWorkoutPage from "./pages/ActiveWorkoutPage"
 import ExercisePage from "./pages/ExercisePage"
+import RoutineFromVideoPage from "./pages/RoutineFromVideoPage"
 
 function Layout({ children }) {
   return (
@@ -50,6 +51,7 @@ function App() {
           <Route path="/login" element={<LoginPage />} />
           <Route path="/home" element={<ProtectedLayout><HomePage /></ProtectedLayout>} />
           <Route path="/plan" element={<ProtectedLayout><PlanPage /></ProtectedLayout>} />
+          <Route path="/routine/new" element={<ProtectedLayout><RoutineFromVideoPage /></ProtectedLayout>} />
           <Route path="/plan/custom" element={<ProtectedLayout><BuilderPage /></ProtectedLayout>} />
           <Route path="/plan/workout/:presetId" element={<ProtectedLayout><WorkoutPlannerPage /></ProtectedLayout>} />
           <Route path="/plan/exercises" element={<ProtectedLayout><ExercisePickerPage /></ProtectedLayout>} />

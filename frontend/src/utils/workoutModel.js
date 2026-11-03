@@ -128,6 +128,14 @@ export function restSecondsFromNote(note = "") {
 export function flattenForSave(workout) {
   const exercises = []
   for (const b of workout.blocks) {
+    // a routine from a video, once finished, is saved as one timed entry: its name and how long you did it
+    if (b.title && b.completed && b.items.some((it) => it.done || !it.logged)) {
+      const run = workout.runs?.[b.id]
+      const planned = (b.runner?.steps ?? []).reduce((n, x) => n + x.secs, 0) || b.items.reduce((n, it) => n + (secondsFromSub(it.sub) || 0), 0)
+      const ran = run ? Math.round(((run.pausedAtMs ?? Date.now()) - run.startedAtMs - (run.pausedTotalMs || 0)) / 1000) : 0
+      const seconds = Math.min(planned || ran, ran > 0 ? ran : planned)
+      if (seconds > 0) exercises.push({ id: `routine:${b.source?.video_id ?? "mine"}`, name: b.title, sets: [{ weight: "", reps: "", seconds: String(seconds) }] })
+    }
     for (const it of b.items) {
       if (!it.logged) continue
       const sets = it.sets
