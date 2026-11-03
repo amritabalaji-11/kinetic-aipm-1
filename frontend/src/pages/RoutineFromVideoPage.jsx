@@ -5,6 +5,7 @@ import { BottomSheet, BRICOLAGE, DM_SANS, GRADIENT, GRAY, INK, PURPLE } from "..
 import { deleteRoutine, listRoutines, readVideo, saveRoutine } from "../services/routineService"
 import { activeWorkoutTitle, addRoutineToActiveWorkout } from "../utils/routineBlock"
 import { TOP_FADE_BACKGROUND } from "../utils/pageBackground"
+import { TypeTag } from "../components/WorkoutTypeUi"
 
 const AMBER_BG = "#FFFBEB"
 const AMBER_BORDER = "#FCD34D"
@@ -24,6 +25,21 @@ const WHY_NOT = {
 }
 const REASONS = ["The video is private, or from a private account.", "It has no talking, or no captions we can read.", "The link isn't a video, or is from a site we don't support yet."]
 
+// "8 exercises", "2 sets", "40 s work", "20 s rest", "Warm-up", "Cool-down", "No weights"
+const WEIGHTS = { none: "No weights", light: "Light weights", heavy: "Heavy weights" }
+function glance(r) {
+  const st = r.structure || {}
+  const moves = new Set(r.steps.filter((x) => (x.phase || "main") === "main").map((x) => x.name)).size || r.steps.length
+  return [
+    `${moves} exercise${moves === 1 ? "" : "s"}`,
+    st.sets ? `${st.sets} set${st.sets === 1 ? "" : "s"}` : null,
+    st.work_seconds ? `${st.work_seconds}s work` : null,
+    st.rest_seconds ? `${st.rest_seconds}s rest` : null,
+    st.has_warmup ? "Warm-up" : null,
+    st.has_cooldown ? "Cool-down" : null,
+    WEIGHTS[r.weights] ?? null,
+  ].filter(Boolean)
+}
 const minutesText = (r) => [`${r.steps.length} moves`, r.total_minutes ? `${r.total_minutes} min` : null].filter(Boolean).join(" · ")
 
 export default function RoutineFromVideoPage() {
@@ -173,14 +189,25 @@ export default function RoutineFromVideoPage() {
           {back("New link", () => { setStage("input"); setRoutine(null) })}
           <textarea value={routine.title} rows={routine.title.length > 26 ? 2 : 1} onChange={(e) => setRoutine({ ...routine, title: e.target.value.replace(/\n/g, " ") })} aria-label="Routine name"
             style={{ width: "100%", boxSizing: "border-box", border: "none", background: "transparent", outline: "none", padding: 0, resize: "none", fontFamily: BRICOLAGE, fontWeight: 700, fontSize: 21, lineHeight: 1.2, color: INK }} />
-          <div style={{ display: "flex", gap: 6, alignItems: "center", margin: "6px 0 4px", flexWrap: "wrap" }}>
-            <span style={{ fontFamily: DM_SANS, fontSize: 11.5, fontWeight: 700, padding: "3px 9px", borderRadius: 10, background: "rgba(8,145,178,0.13)", color: "#0891B2", textTransform: "capitalize" }}>{routine.style}</span>
-            <span style={{ fontFamily: DM_SANS, fontSize: 12.5, color: GRAY }}>{minutesText({ ...routine })}{routine.equipment?.length ? ` · ${routine.equipment.join(", ")}` : " · no equipment"}</span>
+          <div style={{ display: "flex", gap: 8, alignItems: "center", margin: "8px 0 6px", flexWrap: "wrap" }}>
+            <TypeTag type={routine.workout_type} />
+            <span style={{ fontFamily: DM_SANS, fontSize: 12.5, color: GRAY }}>{minutesText({ ...routine })}</span>
           </div>
           {routine.source && (
             <a href={routine.source.url} target="_blank" rel="noreferrer" style={{ display: "block", fontFamily: DM_SANS, fontSize: 12, color: GRAY, textDecoration: "none", marginBottom: 10 }}>
               From a YouTube video{routine.source.author ? ` by ${routine.source.author}` : ""} ↗
             </a>
+          )}
+
+          {routine.summary && (
+            <div style={{ ...card, padding: "12px 14px" }}>
+              <div style={{ fontFamily: DM_SANS, fontSize: 11, fontWeight: 700, color: GRAY, letterSpacing: "0.05em", marginBottom: 4 }}>WHAT THIS IS</div>
+              <p style={{ fontFamily: DM_SANS, fontSize: 13.5, color: INK, lineHeight: 1.45, margin: 0 }}>{routine.summary}</p>
+              <div style={{ display: "flex", flexWrap: "wrap", gap: 6, marginTop: 10 }}>
+                {glance(routine).map((g) => <span key={g} style={{ fontFamily: DM_SANS, fontSize: 12, fontWeight: 600, color: "#4C1D95", background: "rgba(129,51,255,0.1)", borderRadius: 10, padding: "4px 9px" }}>{g}</span>)}
+              </div>
+              {routine.movement && <div style={{ fontFamily: DM_SANS, fontSize: 12, color: GRAY, marginTop: 8 }}>Movement: {routine.movement}</div>}
+            </div>
           )}
 
           <div style={{ ...card, padding: "4px 12px" }}>

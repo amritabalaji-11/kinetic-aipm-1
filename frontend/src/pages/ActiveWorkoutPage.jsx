@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react"
+import { useEffect, useRef, useState } from "react"
 import { useLocation, useNavigate } from "react-router-dom"
 import { ArrowLeftRight, BicepsFlexed, Check, ChevronDown, ChevronRight, Info, Lightbulb, Pause, Play, Plus, Timer, VideoIcon } from "lucide-react"
 import FormGuide from "../components/FormGuide"
@@ -11,6 +11,7 @@ import SetTypeSheet from "../components/SetTypeSheet"
 import { typeOfBlock } from "../utils/setTypes"
 import GoalNote from "../components/GoalNote"
 import RoutineSource from "../components/RoutineSource"
+import SyncedVideo from "../components/SyncedVideo"
 import SectionRunner from "../components/SectionRunner"
 import { parseTimedBlock } from "../utils/sectionTimer"
 import SwapSheet from "../components/SwapSheet"
@@ -219,6 +220,8 @@ export default function ActiveWorkoutPage() {
   const [workout, setWorkout] = useState(readWorkout)
   // The one section on screen (an index into the workout's blocks), until the person moves; then it follows the first unfinished one.
   const [viewBi, setViewBi] = useState(null)
+  const playerRef = useRef(null) // the video on the section on screen
+  const [videoReady, setVideoReady] = useState(false)
   // coming from "Add to today's workout": show the section that was just added
   const focusBlockId = useLocation().state?.focusBlockId
   useEffect(() => {
@@ -284,6 +287,16 @@ export default function ActiveWorkoutPage() {
   const setTrack = (bi, ii, track) => mapItem(bi, ii, (it) => ({ ...it, track }))
   // the clock of a timed section (EMOM / AMRAP / Tabata) is kept with the workout, so it survives a reload; rounds counted in an AMRAP too
   const setRun = (blockId, run) => commit({ ...workout, runs: { ...(workout.runs || {}), [blockId]: run } })
+  // The video on a routine's section drives its clock: playing starts or resumes it, pausing pauses it
+  const onVideoState = (block, state) => {
+    const run = workout.runs?.[block.id]
+    if (state === "playing") {
+      if (!run) setRun(block.id, { startedAtMs: Date.now(), pausedAtMs: null, pausedTotalMs: 0 })
+      else if (run.pausedAtMs) setRun(block.id, { ...run, pausedAtMs: null, pausedTotalMs: (run.pausedTotalMs || 0) + (Date.now() - run.pausedAtMs) })
+    } else if (state === "paused" && run && !run.pausedAtMs) {
+      setRun(block.id, { ...run, pausedAtMs: Date.now() })
+    }
+  }
   const setRounds = (bi, n) => mapBlock(bi, (b) => ({ ...b, rounds: n }))
   const toggleDone = (bi, ii) => {
     if (!blocks[bi].items[ii].done) setShowNextUp(true)
@@ -439,7 +452,7 @@ export default function ActiveWorkoutPage() {
           const rounds = Math.max(0, ...logged.map((it) => it.sets.length))
           const multi = logged.length > 1
           const many = actionable.length > 1 // a letter on every exercise when there are several
-          const timedSpec = block.section === "conditioning" ? parseTimedBlock(block) : null // EMOM, AMRAP and Tabata get a clock
+          const timedSpec = block.runner || block.section === "conditioning" ? parseTimedBlock(block) : null // EMOM, AMRAP, Tabata and a video routine get a clock
                     const cardStyle =
             state === "done" ? { border: `1.5px solid rgba(34,197,94,0.7)`, background: "#F0FDF4" }
             : state === "current" ? { border: "2.5px solid transparent", background: "linear-gradient(#fff,#fff) padding-box, linear-gradient(135deg,#0284C7,#9747FF) border-box", boxShadow: "0 4px 18px rgba(129,51,255,0.28)" }
@@ -447,7 +460,14 @@ export default function ActiveWorkoutPage() {
 
           return (
             <div key={block.id} id={`block-${block.id}`} style={{ borderRadius: 12, padding: 12, ...cardStyle }}>
-              <RoutineSource source={block.source} />
+              {block.source?.embeddable && block.source.video_id ? (
+                <>
+                  <SyncedVideo key={block.id} ref={playerRef} videoId={block.source.video_id} title={block.source.title} onReadyChange={setVideoReady} onState={(st) => onVideoState(block, st)} />
+                  <a href={block.source.url} target="_blank" rel="noreferrer" style={{ display: "block", marginBottom: 10, fontFamily: DM_SANS, fontSize: 11.5, color: GRAY, textDecoration: "none" }}>
+                    From {[block.source.title && `“${block.source.title}”`, block.source.author && `by ${block.source.author}`].filter(Boolean).join(" ")} ↗
+                  </a>
+                </>
+              ) : <RoutineSource source={block.source} />}
               <GoalNote block={block} collapsible={!!timedSpec} /> {/* a timed section folds it so the clock is in view */}
               {restBefore.map((r) => (
                 <button key={r.id} type="button" onClick={() => startRest(r.note)} style={{ width: "100%", display: "flex", alignItems: "center", gap: 8, padding: "10px 12px", marginBottom: 10, borderRadius: 12, border: "1.2px dashed rgba(129,51,255,0.5)", background: "#FCF9FF", color: PURPLE, fontFamily: DM_SANS, fontWeight: 600, fontSize: 13, cursor: "pointer", textAlign: "left" }}>
@@ -474,7 +494,7 @@ export default function ActiveWorkoutPage() {
                   )}
 
                   {timedSpec ? (
-                    <SectionRunner spec={timedSpec} run={workout.runs?.[block.id] ?? null} onRun={(r) => setRun(block.id, r)} rounds={block.rounds || 0} onRounds={(n) => setRounds(bi, n)} />
+                    <SectionRunner spec={timedSpec} run={workout.runs?.[block.id] ?? null} onRun={(r) => setRun(block.id, r)} rounds={block.rounds || 0} onRounds={(n) => setRounds(bi, n)} video={block.source?.embeddable && videoReady ? playerRef.current : null} />
                   ) : (
                     <>
                   {/* the exercises in this block, in the plan's order */}

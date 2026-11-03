@@ -24,7 +24,15 @@ const minutesIn = (block) => {
   return m ? Number(m[1]) : null
 }
 
+// A routine from a video keeps its moves in order, each with its seconds (rests are steps too): block.runner = { steps: [{ name, secs, rest, tip, sub, set }] }
+export function sequenceSpec(block) {
+  const steps = block.runner?.steps
+  if (!steps?.length) return null
+  return { kind: "sequence", steps, totalSec: steps.reduce((n, x) => n + x.secs, 0), moves: steps.filter((x) => !x.rest).length }
+}
+
 export function parseTimedBlock(block) {
+  if (block.runner) return sequenceSpec(block)
   const kind = kindOf(block)
   if (!kind || block.section === "warmup") return null
   const real = block.items.filter(isActionable)
@@ -78,6 +86,15 @@ export function parseTimedBlock(block) {
 
 export function stateAt(spec, elapsed) {
   const e = Math.max(0, Math.floor(elapsed))
+  if (spec.kind === "sequence") {
+    if (e >= spec.totalSec) return { kind: "sequence", done: true, phase: "done", phaseLeft: 0, key: "done", elapsed: e, total: spec.totalSec, moves: spec.moves, move: spec.moves }
+    let t = e
+    let idx = 0
+    while (idx < spec.steps.length - 1 && t >= spec.steps[idx].secs) { t -= spec.steps[idx].secs; idx++ }
+    const step = spec.steps[idx]
+    const move = spec.steps.slice(0, idx + 1).filter((x) => !x.rest).length
+    return { kind: "sequence", done: false, index: idx, step, nextStep: spec.steps[idx + 1] ?? null, phase: step.rest ? "rest" : "work", phaseLeft: Math.max(1, step.secs - t), key: String(idx), elapsed: e, total: spec.totalSec, moves: spec.moves, move }
+  }
   if (spec.kind === "amrap") {
     const left = Math.max(0, spec.totalSec - e)
     return { kind: "amrap", done: left === 0, left, elapsed: e, total: spec.totalSec, phase: left === 0 ? "done" : "work", phaseLeft: left, key: left === 0 ? "done" : "work" }

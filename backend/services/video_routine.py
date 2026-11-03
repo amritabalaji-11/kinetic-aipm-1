@@ -120,14 +120,23 @@ Rules:
 - If something is unclear (an unclear name, a missing duration, a movement that is named but not described), put it in "unsure". Never guess.
 - A step is one exercise. If the speaker says "eight movements, one minute each", each step gets 60 seconds, and you say where that came from in "unsure".
 - Give a step "seconds" if the video gives a time, "reps" if it gives a count, or neither (null) if it gives neither.
+- "phase" is "warmup" for steps before the main work, "cooldown" for steps after it, otherwise "main".
+- Do NOT repeat a step for each set. List each exercise once, and put the number of sets in "structure".
 - "how_to" is one short line taken from what the speaker says. "cues" are the speaker's own tips for that step.
 - Leave out the introduction, the outro, jokes, sales talk and rest between sets unless the speaker names a rest as part of the routine.
 - If there is no workout in the captions, return an empty "steps" list.
+- "workout_type" is "strength" (heavier weights, few reps), "endurance" (lighter weights or bodyweight, many reps, short rests), "cardio" (raising the heart rate: running, jumping, intervals), "mobility" (stretching, warming up, flow) or "mixed".
+- "summary" is two or three plain sentences saying what the workout is: how many exercises, how many sets, the work and rest times, and whether it has a warm-up and a cool-down, as far as the captions say. Leave out what they do not say.
+- "structure" holds what the captions state about timing; null for anything they do not state.
+- "weights" is "none" (bodyweight only), "light", "heavy", or "unclear". "movement" is a short phrase on how it is done, for example "standing, low impact" or "floor work".
 
 Return ONLY a JSON object, nothing else:
 {"title": str, "total_minutes": number|null, "style": "warm-up"|"mobility"|"strength"|"cardio"|"other",
+ "workout_type": "strength"|"endurance"|"cardio"|"mobility"|"mixed",
+ "summary": str, "weights": "none"|"light"|"heavy"|"unclear", "movement": str,
  "equipment": [str],
- "steps": [{"order": int, "name": str, "seconds": int|null, "reps": int|null, "sides": "both"|"each side"|null, "how_to": str, "cues": [str]}],
+ "structure": {"sets": int|null, "work_seconds": int|null, "rest_seconds": int|null, "rest_between_sets_seconds": int|null, "has_warmup": bool, "has_cooldown": bool},
+ "steps": [{"order": int, "name": str, "phase": "warmup"|"main"|"cooldown", "seconds": int|null, "reps": int|null, "sides": "both"|"each side"|null, "how_to": str, "cues": [str]}],
  "unsure": [str]}"""
 
 
@@ -171,6 +180,7 @@ def check_routine(raw: dict) -> dict:
         steps.append({
             "order": len(steps) + 1,
             "name": name,
+            "phase": s.get("phase") if s.get("phase") in ("warmup", "main", "cooldown") else "main",
             "seconds": _clean_int(s.get("seconds"), 5, 3600),
             "reps": _clean_int(s.get("reps"), 1, 500),
             "sides": sides,
@@ -180,7 +190,21 @@ def check_routine(raw: dict) -> dict:
     if not steps:
         raise RoutineError("no_routine", "We couldn't find a workout in this video. It needs someone naming and explaining the exercises.")
     style = raw.get("style") if raw.get("style") in ("warm-up", "mobility", "strength", "cardio", "other") else "other"
+    raw_structure = raw.get("structure") if isinstance(raw.get("structure"), dict) else {}
+    structure = {
+        "sets": _clean_int(raw_structure.get("sets"), 1, 20),
+        "work_seconds": _clean_int(raw_structure.get("work_seconds"), 5, 900),
+        "rest_seconds": _clean_int(raw_structure.get("rest_seconds"), 0, 600),
+        "rest_between_sets_seconds": _clean_int(raw_structure.get("rest_between_sets_seconds"), 0, 900),
+        "has_warmup": bool(raw_structure.get("has_warmup")) or any(x["phase"] == "warmup" for x in steps),
+        "has_cooldown": bool(raw_structure.get("has_cooldown")) or any(x["phase"] == "cooldown" for x in steps),
+    }
     return {
+        "workout_type": raw.get("workout_type") if raw.get("workout_type") in ("strength", "endurance", "cardio", "mobility", "mixed") else "mixed",
+        "summary": _clean_text(raw.get("summary"), 420),
+        "weights": raw.get("weights") if raw.get("weights") in ("none", "light", "heavy", "unclear") else "unclear",
+        "movement": _clean_text(raw.get("movement"), 80),
+        "structure": structure,
         "title": _clean_text(raw.get("title"), 90) or "Routine from a video",
         "total_minutes": _clean_int(raw.get("total_minutes"), 1, 240),
         "style": style,

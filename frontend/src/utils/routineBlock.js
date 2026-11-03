@@ -18,6 +18,30 @@ function stepTip(step) {
 // Where a routine sits in the workout: warm-ups and mobility are a warm-up section, cardio a conditioning section, the rest a main section.
 const SECTION_FOR_STYLE = { "warm-up": "warmup", mobility: "warmup", cardio: "conditioning" }
 
+// The routine as one ordered list of timed steps for the clock: warm-up, then the main moves (repeated for each set, with the rests
+// the video names), then the cool-down. Returns null when a move has no time and the video gave no standard time to use.
+export function buildSequence(routine) {
+  const st = routine.structure || {}
+  const timeOf = (s) => s.seconds ?? st.work_seconds ?? null
+  const phase = (name) => routine.steps.filter((s) => (s.phase || "main") === name)
+  const step = (s, extra = {}) => ({ name: s.name, secs: timeOf(s), rest: false, sub: stepLine({ ...s, seconds: timeOf(s) }), tip: stepTip(s), ...extra })
+  const out = []
+  for (const s of phase("warmup")) out.push(step(s, { phase: "warmup" }))
+  const main = phase("main")
+  const sets = st.sets || 1
+  for (let n = 1; n <= sets; n++) {
+    main.forEach((s, i) => {
+      out.push(step(s, { phase: "main", set: sets > 1 ? n : null }))
+      const lastOfSet = i === main.length - 1
+      const lastSet = n === sets
+      const rest = lastOfSet ? (lastSet ? 0 : st.rest_between_sets_seconds ?? st.rest_seconds ?? 0) : st.rest_seconds ?? 0
+      if (rest > 0) out.push({ name: "Rest", secs: rest, rest: true, phase: "main" })
+    })
+  }
+  for (const s of phase("cooldown")) out.push(step(s, { phase: "cooldown" }))
+  return out.every((x) => x.rest || x.secs) && out.length ? out : null
+}
+
 let seq = 1
 export function routineToBlock(routine) {
   const stamp = `${Date.now()}-${seq++}`
@@ -27,6 +51,8 @@ export function routineToBlock(routine) {
     section: SECTION_FOR_STYLE[routine.style] ?? "workout",
     tag: String(routine.title || "Routine").toUpperCase().slice(0, 48),
     short: "Routine", // the short name on the progress bar
+    title: routine.title || "Routine", // the name it is saved under in your history
+    runner: (() => { const steps = buildSequence(routine); return steps ? { steps } : null })(), // the clock, when every move has a time
     note: `${routine.steps.length} moves${minutes}`,
     source: routine.source ?? null, // the video it came from, shown on the section
     items: routine.steps.map((s, i) => ({

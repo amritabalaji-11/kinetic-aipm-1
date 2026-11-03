@@ -1,4 +1,4 @@
-import { Dumbbell, HeartPulse, Repeat } from "lucide-react"
+import { Activity, Dumbbell, HeartPulse, Layers, Repeat } from "lucide-react"
 import { BRICOLAGE, DM_SANS, GRAY, INK } from "./planUi"
 import { WORKOUT_TYPES, workoutType } from "../utils/planProfile"
 
@@ -59,6 +59,23 @@ export function TypePill({ plan, size = 11 }) {
   return (
     <span style={{ display: "inline-flex", alignItems: "center", gap: 4, padding: "2px 8px 2px 6px", borderRadius: 10, background: tint, color, fontFamily: DM_SANS, fontSize: size, fontWeight: 700 }}>
       <Icon size={size + 1} strokeWidth={2.4} /> {WORKOUT_TYPES[id].label}
+    </span>
+  )
+}
+
+// The type of a routine read from a video: the three kinds of workout, plus mobility (stretching, flow) and mixed
+const ROUTINE_TYPES = {
+  strength: { label: "Strength", ...TYPE_STYLE.strength },
+  endurance: { label: "Endurance", ...TYPE_STYLE.endurance },
+  cardio: { label: "Cardio", ...TYPE_STYLE.cardio },
+  mobility: { label: "Mobility", color: "#16A34A", tint: "rgba(22,163,74,0.12)", Icon: Activity },
+  mixed: { label: "Mixed", color: "#64748B", tint: "rgba(100,116,139,0.14)", Icon: Layers },
+}
+export function TypeTag({ type, size = 12 }) {
+  const { label, color, tint, Icon } = ROUTINE_TYPES[type] ?? ROUTINE_TYPES.mixed
+  return (
+    <span style={{ display: "inline-flex", alignItems: "center", gap: 4, padding: "3px 10px 3px 7px", borderRadius: 10, background: tint, color, fontFamily: DM_SANS, fontSize: size, fontWeight: 700 }}>
+      <Icon size={size + 1} strokeWidth={2.4} /> {label}
     </span>
   )
 }
