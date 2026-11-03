@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react"
-import { useNavigate } from "react-router-dom"
+import { useLocation, useNavigate } from "react-router-dom"
 import { ArrowLeftRight, BicepsFlexed, Check, ChevronDown, ChevronRight, Info, Lightbulb, Pause, Play, Plus, Timer, VideoIcon } from "lucide-react"
 import FormGuide from "../components/FormGuide"
 import SectionNav from "../components/SectionNav"
@@ -10,6 +10,7 @@ import RestTimer from "../components/RestTimer"
 import SetTypeSheet from "../components/SetTypeSheet"
 import { typeOfBlock } from "../utils/setTypes"
 import GoalNote from "../components/GoalNote"
+import RoutineSource from "../components/RoutineSource"
 import SectionRunner from "../components/SectionRunner"
 import { parseTimedBlock } from "../utils/sectionTimer"
 import SwapSheet from "../components/SwapSheet"
@@ -218,6 +219,14 @@ export default function ActiveWorkoutPage() {
   const [workout, setWorkout] = useState(readWorkout)
   // The one section on screen (an index into the workout's blocks), until the person moves; then it follows the first unfinished one.
   const [viewBi, setViewBi] = useState(null)
+  // coming from "Add to today's workout": show the section that was just added
+  const focusBlockId = useLocation().state?.focusBlockId
+  useEffect(() => {
+    if (!focusBlockId) return
+    const i = readWorkout()?.blocks.findIndex((b) => b.id === focusBlockId)
+    if (i >= 0) setViewBi(i)
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [])
   const [listOpen, setListOpen] = useState(false) // the list of every section
   const [cuesOpen, setCuesOpen] = useState({}) // block id -> cues panel opened or folded by hand
   const [restEndsAt, setRestEndsAt] = useState(null)
@@ -409,7 +418,7 @@ export default function ActiveWorkoutPage() {
       </div>
 
       <SectionNav
-        sections={steps.map((i) => ({ id: blocks[i].id, tag: blocks[i].tag, done: isBlockComplete(blocks[i]) }))}
+        sections={steps.map((i) => ({ id: blocks[i].id, tag: blocks[i].tag, short: blocks[i].short, done: isBlockComplete(blocks[i]) }))}
         viewIndex={viewPos}
         onPrev={() => goTo(viewPos - 1)}
         onNext={() => goTo(viewPos + 1)}
@@ -438,20 +447,21 @@ export default function ActiveWorkoutPage() {
 
           return (
             <div key={block.id} id={`block-${block.id}`} style={{ borderRadius: 12, padding: 12, ...cardStyle }}>
+              <RoutineSource source={block.source} />
               <GoalNote block={block} collapsible={!!timedSpec} /> {/* a timed section folds it so the clock is in view */}
               {restBefore.map((r) => (
                 <button key={r.id} type="button" onClick={() => startRest(r.note)} style={{ width: "100%", display: "flex", alignItems: "center", gap: 8, padding: "10px 12px", marginBottom: 10, borderRadius: 12, border: "1.2px dashed rgba(129,51,255,0.5)", background: "#FCF9FF", color: PURPLE, fontFamily: DM_SANS, fontWeight: 600, fontSize: 13, cursor: "pointer", textAlign: "left" }}>
                   <Timer size={16} /> <span style={{ flex: 1 }}>Rest first · {r.note}</span> <span style={{ fontSize: 12 }}>Start timer</span>
                 </button>
               ))}
-              <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+              <div style={{ display: "flex", alignItems: "center", gap: 8, flexWrap: "wrap" }}>
                 <Tag state={state}>{block.tag}</Tag>
                 {typeOfBlock(block) && (
                   <button type="button" aria-label={`What is ${block.tag}?`} onClick={() => setTypeInfoFor(bi)} style={{ display: "flex", background: "none", border: "none", padding: 0, cursor: "pointer" }}>
                     <Info size={18} color={PURPLE} />
                   </button>
                 )}
-                <span style={{ fontFamily: DM_SANS, fontSize: 12, color: GRAY, flex: 1 }}>{block.note}</span>
+                <span style={{ fontFamily: DM_SANS, fontSize: 12, color: GRAY, flex: 1, minWidth: 100 }}>{block.note}</span>
                 {state === "done" && <span style={{ width: 24, height: 24, borderRadius: 12, background: GREEN, display: "flex", alignItems: "center", justifyContent: "center" }}><Check size={13} color="#fff" strokeWidth={3} /></span>}
               </div>
 
@@ -482,6 +492,7 @@ export default function ActiveWorkoutPage() {
                             <div style={{ flex: 1, minWidth: 0, fontFamily: DM_SANS, fontSize: 15, lineHeight: 1.3 }}>
                               <span style={{ fontWeight: 600, color: it.done ? DARK_GREEN : PURPLE }}><ExerciseName exerciseId={it.exerciseId}>{it.name}</ExerciseName></span>
                               {it.sub && <span style={{ color: GRAY }}> · {it.sub}</span>}
+                              {it.tip && <div style={{ fontSize: 12, color: GRAY, lineHeight: 1.35, marginTop: 2 }}>{it.tip}</div>}
                             </div>
                             {secs !== null && !it.done && (
                               <div style={{ width: 110, flexShrink: 0, display: "flex" }}>

@@ -146,7 +146,10 @@ def _ask_model_blocking(transcript: str, title: str) -> dict:
 
 
 def _clean_text(value, limit: int) -> str:
-    return re.sub(r"\s+", " ", str(value or "")).strip()[:limit]
+    text = re.sub(r"\s+", " ", str(value or "")).strip()
+    if len(text) <= limit:
+        return text
+    return text[:limit].rsplit(" ", 1)[0].rstrip(",;:.") + "…"  # cut at a word, not in the middle of one
 
 
 def _clean_int(value, low: int, high: int):
@@ -183,7 +186,7 @@ def check_routine(raw: dict) -> dict:
         "style": style,
         "equipment": [e for e in (_clean_text(e, 40) for e in (raw.get("equipment") or [])[:8]) if e],
         "steps": steps,
-        "unsure": [u for u in (_clean_text(u, 240) for u in (raw.get("unsure") or [])[:8]) if u],
+        "unsure": [u for u in (_clean_text(u, 400) for u in (raw.get("unsure") or [])[:8]) if u],
     }
 
 

@@ -20,7 +20,7 @@ export default function SectionNav({ sections, viewIndex, onPrev, onNext, onJump
   const pct = sections.length ? Math.round((done / sections.length) * 100) : 0
   const strip = useRef(null)
   // two sections with the same short name get numbers, e.g. "Warm-up 1" and "Warm-up 2"
-  const names = sections.map((x) => shortSectionName(x.tag))
+  const names = sections.map((x) => x.short || shortSectionName(x.tag))
   const label = (i) => (names.filter((n) => n === names[i]).length > 1 ? `${names[i]} ${names.slice(0, i + 1).filter((n) => n === names[i]).length}` : names[i])
 
   // keep the section being viewed in the middle of the strip

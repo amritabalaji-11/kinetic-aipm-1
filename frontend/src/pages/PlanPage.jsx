@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useState } from "react"
 import { useNavigate } from "react-router-dom"
-import { ChevronRight, Plus, Search, SlidersHorizontal, X } from "lucide-react"
+import { ChevronRight, Plus, Search, SlidersHorizontal, WandSparkles, X } from "lucide-react"
 import { PRESET_CATEGORIES, PRESET_WORKOUTS } from "../data/presetWorkouts"
 import { getMyWorkouts } from "../utils/myWorkouts"
 import { listWorkouts } from "../services/workoutService"
@@ -226,6 +226,23 @@ export default function PlanPage() {
         <span style={{ display: "flex", flexDirection: "column", gap: 2 }}>
           <span style={{ fontFamily: DM_SANS, fontWeight: 600, fontSize: 15, color: "#0F172A" }}>Create your own</span>
           <span style={{ fontFamily: DM_SANS, fontSize: 12, color: "#64748B" }}>Pick muscles and exercises yourself</span>
+        </span>
+      </button>
+
+      <button
+        type="button"
+        onClick={() => navigate("/routine/new")}
+        style={{
+          width: "100%", marginTop: 10, display: "flex", alignItems: "center", gap: 12, padding: 14, textAlign: "left", cursor: "pointer",
+          borderRadius: 12, background: "rgba(255,255,255,0.5)", border: "1.5px dashed rgba(129,51,255,0.55)",
+        }}
+      >
+        <span style={{ width: 32, height: 32, borderRadius: 16, border: "1.5px solid rgba(129,51,255,0.7)", display: "flex", alignItems: "center", justifyContent: "center" }}>
+          <WandSparkles size={17} color="#8133FF" />
+        </span>
+        <span style={{ display: "flex", flexDirection: "column", gap: 2 }}>
+          <span style={{ fontFamily: DM_SANS, fontWeight: 600, fontSize: 15, color: "#0F172A" }}>Turn a video into a workout</span>
+          <span style={{ fontFamily: DM_SANS, fontSize: 12, color: "#64748B" }}>Paste a link, get a routine</span>
         </span>
       </button>
 

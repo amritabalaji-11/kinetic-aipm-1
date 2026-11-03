@@ -6,6 +6,7 @@ import { saveMyWorkout } from "../utils/myWorkouts"
 import { confirmWorkout } from "../utils/startWorkout"
 import PumpButton from "../components/PumpButton"
 import { blocksFromBuilder } from "../utils/workoutModel"
+import { routineToBlock } from "../utils/routineBlock"
 import AddExerciseSheet from "../components/AddExerciseSheet"
 import SwapSheet from "../components/SwapSheet"
 import { BlockTag, ExerciseLine, PurpleDivider, RoundButton, SectionHeading, cardStyle, BRICOLAGE, DM_SANS, GRADIENT, GRAY, INK, PURPLE } from "../components/planUi"
@@ -27,7 +28,9 @@ function Stepper({ label, value, min = 1, max = 99, onChange }) {
 
 export default function BuilderPage() {
   const navigate = useNavigate()
-  const saved = useLocation().state?.saved
+  const location = useLocation()
+  const saved = location.state?.saved
+  const [routine, setRoutine] = useState(location.state?.routine ?? null) // a routine from a video becomes the first section
   const [name, setName] = useState(saved?.name ?? "")
   const [items, setItems] = useState(() => saved?.items?.map((i) => newItem(i.id, { sets: i.sets, reps: i.reps, linkNext: i.linkNext })) ?? [])
   const [openKey, setOpenKey] = useState(null)
@@ -52,9 +55,9 @@ export default function BuilderPage() {
 
   const create = () => {
     const groups = [...new Set(items.map((i) => getExercise(i.exerciseId).muscleGroup))]
-    const title = name.trim() || "My workout"
-    if (saveIt) saveMyWorkout({ id: saved?.id ?? Date.now(), name: title, items: items.map((i) => ({ id: i.exerciseId, sets: i.sets, reps: i.reps, linkNext: i.linkNext })) })
-    confirmWorkout(navigate, { blocks: blocksFromBuilder(items), muscles: groups, presetTitle: title })
+    const title = name.trim() || (items.length === 0 && routine ? routine.title : "My workout")
+    if (saveIt && items.length > 0) saveMyWorkout({ id: saved?.id ?? Date.now(), name: title, items: items.map((i) => ({ id: i.exerciseId, sets: i.sets, reps: i.reps, linkNext: i.linkNext })) })
+    confirmWorkout(navigate, { blocks: [...(routine ? [routineToBlock(routine)] : []), ...blocksFromBuilder(items)], muscles: groups, presetTitle: title })
   }
 
   return (
@@ -71,6 +74,17 @@ export default function BuilderPage() {
         placeholder="Workout name (optional)"
         style={{ width: "100%", boxSizing: "border-box", padding: "13px 14px", borderRadius: 12, border: "1.5px solid #E6E3F8", fontFamily: DM_SANS, fontSize: 15, outline: "none", background: "#fff" }}
       />
+
+      {routine && (
+        <div style={{ display: "flex", alignItems: "center", gap: 10, marginTop: 12, padding: "10px 12px", borderRadius: 12, background: "#F5F3FF", border: "1px solid rgba(129,51,255,0.3)" }}>
+          <div style={{ flex: 1, minWidth: 0 }}>
+            <div style={{ fontFamily: DM_SANS, fontSize: 11, fontWeight: 700, color: PURPLE }}>FIRST SECTION · ROUTINE FROM A VIDEO</div>
+            <div style={{ fontFamily: BRICOLAGE, fontWeight: 700, fontSize: 15, color: INK }}>{routine.title}</div>
+            <div style={{ fontFamily: DM_SANS, fontSize: 12, color: GRAY }}>{routine.steps.length} moves{routine.total_minutes ? ` · about ${routine.total_minutes} min` : ""}</div>
+          </div>
+          <button type="button" aria-label="Remove the routine" onClick={() => setRoutine(null)} style={{ border: "none", background: "none", cursor: "pointer", color: GRAY, fontSize: 18 }}>✕</button>
+        </div>
+      )}
 
       <SectionHeading title="Exercises" right={`${items.length} exercise${items.length === 1 ? "" : "s"}`} />
 
@@ -152,8 +166,8 @@ export default function BuilderPage() {
       )}
 
       <div style={{ marginTop: 16 }}>
-        <PumpButton disabled={items.length === 0} onPumped={create}>Confirm today&apos;s workout</PumpButton>
-        {items.length === 0 && <p style={{ fontFamily: DM_SANS, fontSize: 12, color: GRAY, margin: "8px 0 0" }}>Add at least one exercise to continue.</p>}
+        <PumpButton disabled={items.length === 0 && !routine} onPumped={create}>Confirm today&apos;s workout</PumpButton>
+        {items.length === 0 && !routine && <p style={{ fontFamily: DM_SANS, fontSize: 12, color: GRAY, margin: "8px 0 0" }}>Add at least one exercise to continue.</p>}
       </div>
 
       {adding && <AddExerciseSheet onAdd={addExercises} onClose={() => setAdding(false)} />}
