@@ -288,6 +288,27 @@ CREATE TABLE IF NOT EXISTS exercises (
 """
 
 
+# Routines made from a video (or saved from one), kept per person. The routine itself is JSON: its steps, timing, notes and source.
+CREATE_USER_ROUTINES_SQL = """
+CREATE TABLE IF NOT EXISTS user_routines (
+    routine_id  TEXT PRIMARY KEY,
+    user_id     TEXT NOT NULL,
+    title       TEXT,
+    data        TEXT NOT NULL,
+    source_url  TEXT,
+    created_at  TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP
+)
+"""
+
+# One row each time a video is read, so the daily limit can be counted
+CREATE_VIDEO_READS_SQL = """
+CREATE TABLE IF NOT EXISTS video_reads (
+    user_id     TEXT NOT NULL,
+    video_id    TEXT,
+    created_at  TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP
+)
+"""
+
 # What the Listen button says for each exercise: a short spoken script written (by an AI, from the guide's points) in a
 # trainer's voice. Drafts until a person approves them. Written by scripts/generate_coach_scripts.py.
 CREATE_EXERCISE_GUIDES_SQL = """
@@ -400,6 +421,8 @@ def init_db():
     db_.run(CREATE_WORKOUT_EXERCISES_SQL)
     db_.run(CREATE_EXERCISES_SQL)
     db_.run(CREATE_EXERCISE_GUIDES_SQL)
+    db_.run(CREATE_USER_ROUTINES_SQL)
+    db_.run(CREATE_VIDEO_READS_SQL)
     seed_exercises(db_)
 
     db_.run(CREATE_FORM_ANALYSIS_RESULTS_SQL)
