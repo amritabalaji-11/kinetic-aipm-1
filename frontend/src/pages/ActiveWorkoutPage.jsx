@@ -452,7 +452,7 @@ export default function ActiveWorkoutPage() {
           const rounds = Math.max(0, ...logged.map((it) => it.sets.length))
           const multi = logged.length > 1
           const many = actionable.length > 1 // a letter on every exercise when there are several
-          const timedSpec = block.runner || block.section === "conditioning" ? parseTimedBlock(block) : null // EMOM, AMRAP, Tabata and a video routine get a clock
+          const timedSpec = (block.runner && !block.timerOff) || (!block.runner && block.section === "conditioning") ? parseTimedBlock(block) : null // EMOM, AMRAP, Tabata and a video routine get a clock (a video routine's can be hidden)
                     const cardStyle =
             state === "done" ? { border: `1.5px solid rgba(34,197,94,0.7)`, background: "#F0FDF4" }
             : state === "current" ? { border: "2.5px solid transparent", background: "linear-gradient(#fff,#fff) padding-box, linear-gradient(135deg,#0284C7,#9747FF) border-box", boxShadow: "0 4px 18px rgba(129,51,255,0.28)" }
@@ -493,6 +493,11 @@ export default function ActiveWorkoutPage() {
                     </button>
                   )}
 
+                  {block.runner && (
+                    <button type="button" onClick={() => mapBlock(bi, (b) => ({ ...b, timerOff: !b.timerOff }))} style={{ alignSelf: "flex-start", background: "none", border: "none", padding: "0 0 2px", cursor: "pointer", fontFamily: DM_SANS, fontSize: 12, fontWeight: 600, color: PURPLE, textDecoration: "underline" }}>
+                      {block.timerOff ? "Show the timer" : "This video has its own timer? Hide ours"}
+                    </button>
+                  )}
                   {timedSpec ? (
                     <SectionRunner spec={timedSpec} run={workout.runs?.[block.id] ?? null} onRun={(r) => setRun(block.id, r)} rounds={block.rounds || 0} onRounds={(n) => setRounds(bi, n)} video={block.source?.embeddable && videoReady ? playerRef.current : null} />
                   ) : (

@@ -24,7 +24,7 @@ export function buildSequence(routine) {
   const st = routine.structure || {}
   const timeOf = (s) => s.seconds ?? st.work_seconds ?? null
   const phase = (name) => routine.steps.filter((s) => (s.phase || "main") === name)
-  const step = (s, extra = {}) => ({ name: s.name, secs: timeOf(s), rest: false, sub: stepLine({ ...s, seconds: timeOf(s) }), tip: stepTip(s), ...extra })
+  const step = (s, extra = {}) => ({ name: s.name, secs: timeOf(s), rest: false, at: extra.set > 1 ? null : s.at_seconds ?? null, sub: stepLine({ ...s, seconds: timeOf(s) }), tip: stepTip(s), ...extra }) // `at`: when it starts in the video
   const out = []
   for (const s of phase("warmup")) out.push(step(s, { phase: "warmup" }))
   const main = phase("main")

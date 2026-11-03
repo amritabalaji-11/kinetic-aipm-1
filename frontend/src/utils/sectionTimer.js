@@ -127,4 +127,44 @@ export function stateAt(spec, elapsed) {
 export const cleanSub = (sub = "") =>
   sub.replace(/\bmovement\s*\d+\s*·?\s*/i, "").replace(/\b(odd|even)\s*min\s*·?\s*/i, "").replace(/^\s*\d+\s*secs?\s*·?\s*/i, "").trim()
 
+// ---- A routine from a video, followed by the video's own position ----
+// Each move starts at a time in the video: read from the captions (steps[].at), moved to wherever the person says move 1 starts (the marker),
+// or, with no times at all, one after another from the marker.
+export function videoSlots(spec, marker) {
+  const moves = spec.steps.filter((x) => !x.rest)
+  if (!moves.length) return null
+  if (moves.every((x) => x.at != null)) { // (a routine with several sets only has video times for its first set, so those moves have none)
+    const shift = marker != null ? marker - moves[0].at : 0
+    return moves.map((x) => ({ step: x, start: x.at + shift, end: x.at + shift + x.secs }))
+  }
+  const base = marker ?? moves[0].at
+  if (base == null) return null // nobody has said when move 1 starts
+  let t = base
+  const slots = []
+  for (const x of spec.steps) { // one after another; a rest takes up time but is not a move
+    if (!x.rest) slots.push({ step: x, start: t, end: t + x.secs })
+    t += x.secs
+  }
+  return slots
+}
+
+export function stateAtVideo(spec, videoTime, marker) {
+  const slots = videoSlots(spec, marker)
+  const base = { kind: "sequence", mode: "video", moves: spec.moves }
+  if (!slots) return { ...base, done: false, phase: "intro", unknownStart: true, phaseLeft: 0, key: "intro", index: -1, move: 0, nextStep: spec.steps.find((x) => !x.rest) ?? null, elapsed: 0, total: 1 }
+  const t = Math.max(0, videoTime)
+  const first = slots[0]
+  const last = slots[slots.length - 1]
+  const span = Math.max(1, last.end - first.start)
+  const common = { ...base, elapsed: Math.min(span, Math.max(0, t - first.start)), total: span }
+  if (t < first.start) return { ...common, done: false, phase: "intro", phaseLeft: Math.ceil(first.start - t), key: "intro", index: -1, move: 0, nextStep: first.step }
+  if (t >= last.end) return { ...common, done: true, phase: "done", phaseLeft: 0, key: "done", index: spec.steps.length, move: spec.moves }
+  const i = slots.findIndex((x) => t >= x.start && t < x.end)
+  if (i === -1) { // between two moves
+    const next = slots.findIndex((x) => x.start > t)
+    return { ...common, done: false, phase: "between", phaseLeft: Math.ceil(slots[next].start - t), key: `gap-${next}`, index: spec.steps.indexOf(slots[next].step) - 0.5, move: next, nextStep: slots[next].step }
+  }
+  return { ...common, done: false, phase: "work", step: slots[i].step, phaseLeft: Math.max(1, Math.ceil(slots[i].end - t)), key: String(i), index: spec.steps.indexOf(slots[i].step), move: i + 1, nextStep: slots[i + 1]?.step ?? null }
+}
+
 export const clockText = (secs) => `${Math.floor(secs / 60)}:${String(Math.max(0, secs) % 60).padStart(2, "0")}`

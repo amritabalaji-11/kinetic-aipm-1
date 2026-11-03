@@ -1,7 +1,7 @@
 import { useEffect, useRef, useState } from "react"
 import { Check, Pause, Play, RotateCcw, Volume2, VolumeX } from "lucide-react"
 import { beep, speak, unlockAudio } from "../utils/beep"
-import { cleanSub, clockText, stateAt } from "../utils/sectionTimer"
+import { cleanSub, clockText, stateAt, stateAtVideo } from "../utils/sectionTimer"
 import { useWakeLock } from "../utils/useWakeLock"
 
 const PURPLE = "#8133FF"
@@ -31,7 +31,18 @@ export default function SectionRunner({ spec, run, onRun, rounds = 0, onRounds, 
   const lastKey = useRef(null)
   const lastTick = useRef(null)
 
-  const running = !!run && !run.pausedAtMs
+  // A routine from a video follows the video's own position (so the speaker's introduction, seeking and buffering all stay in step).
+  const videoMode = spec.kind === "sequence" && !!video?.ready
+  const [vt, setVt] = useState(0)
+  useEffect(() => {
+    if (!videoMode) return undefined
+    const id = setInterval(() => setVt(video.time?.() ?? 0), 250)
+    return () => clearInterval(id)
+  }, [videoMode, video])
+  const marker = run?.marker ?? null
+  const playingNow = videoMode && !!video.playing
+
+  const running = videoMode ? playingNow : !!run && !run.pausedAtMs
   useEffect(() => {
     if (!running) return undefined
     const id = setInterval(() => tick((n) => n + 1), 250)
@@ -40,13 +51,17 @@ export default function SectionRunner({ spec, run, onRun, rounds = 0, onRounds, 
   useWakeLock(running) // keep the screen on while the clock runs
 
   const now = Date.now()
-  const st = run ? stateAt(spec, elapsedOf(run, now)) : null
+  const st = videoMode ? stateAtVideo(spec, vt, marker) : run ? stateAt(spec, elapsedOf(run, now)) : null
   const finished = !!st?.done
 
   // a beep and a word whenever work becomes rest (or the other way round), a small beep in the last three seconds, and three at the end
   useEffect(() => {
     if (!running || !st) return
     const say = (text) => sound && speak(text)
+    if (videoMode) {
+      if (st.key !== lastKey.current) { lastKey.current = st.key; if (!st.done && st.phase === "work" && sound) beep(1); if (st.done && sound) beep(3) }
+      return
+    }
     if (st.key !== lastKey.current) {
       const first = lastKey.current === null
       lastKey.current = st.key
@@ -91,13 +106,20 @@ export default function SectionRunner({ spec, run, onRun, rounds = 0, onRounds, 
   const reset = () => { lastKey.current = null; if (withVideo) video.pause(); onRun(null); if (spec.kind === "amrap") onRounds(0) } // starting over clears the rounds too
 
   // ---------- the bar ----------
-  const big = !run ? clockText(spec.totalSec) : finished ? "0:00" : spec.kind === "amrap" ? clockText(st.left) : clockText(st.phaseLeft)
-  const phaseWord = !run ? "READY" : finished ? "DONE" : spec.kind === "amrap" ? "LEFT" : st.phase.toUpperCase()
-  const where = !run ? "" : spec.kind === "sequence" ? `Move ${Math.min(st.move || 1, spec.moves)} / ${spec.moves}` : spec.kind === "emom" ? `Minute ${Math.min(st.minute, spec.minutes)} / ${spec.minutes}` : spec.kind === "tabata" ? `Round ${Math.min(st.round, spec.rounds)} / ${spec.rounds}` : ""
+  const started = videoMode ? (playingNow || vt > 0.5) : !!run // in video mode "started" means the video has begun
+  const inIntro = videoMode && st?.phase === "intro"
+  const big = videoMode ? (finished ? "0:00" : st.unknownStart ? "–:––" : clockText(st.phaseLeft)) : !run ? clockText(spec.totalSec) : finished ? "0:00" : spec.kind === "amrap" ? clockText(st.left) : clockText(st.phaseLeft)
+  const phaseWord = videoMode ? (!started ? "READY" : finished ? "DONE" : st.phase === "intro" ? "INTRO" : st.phase === "between" ? "NEXT MOVE IN" : "WORK") : !run ? "READY" : finished ? "DONE" : spec.kind === "amrap" ? "LEFT" : st.phase.toUpperCase()
+  const where = videoMode ? (started ? `Move ${Math.min(Math.max(st.move || 1, 1), spec.moves)} / ${spec.moves}` : "") : !run ? "" : spec.kind === "sequence" ? `Move ${Math.min(st.move || 1, spec.moves)} / ${spec.moves}` : spec.kind === "emom" ? `Minute ${Math.min(st.minute, spec.minutes)} / ${spec.minutes}` : spec.kind === "tabata" ? `Round ${Math.min(st.round, spec.rounds)} / ${spec.rounds}` : ""
   const sub = spec.kind === "sequence" ? (withVideo ? "Follows the video" : `${spec.moves} moves`) : spec.kind === "emom" ? "Every minute on the minute" : spec.kind === "amrap" ? "As many rounds as possible" : `${spec.work} on · ${spec.rest} off`
-  const pct = run ? Math.min(100, (st.elapsed / spec.totalSec) * 100) : 0
+  const pct = videoMode ? (started ? Math.min(100, (st.elapsed / st.total) * 100) : 0) : run ? Math.min(100, (st.elapsed / spec.totalSec) * 100) : 0
   let line = null
-  if (run && !finished) {
+  if (videoMode && started && !finished) {
+    line = st.phase === "intro"
+      ? <>{st.unknownStart ? "When the first move begins, tap “Move 1 starts now”." : <>First up: <b>{st.nextStep?.name}</b></>}</>
+      : st.phase === "between" ? <>Next: <b>{st.nextStep?.name}</b></>
+      : <>Now: <b>{st.step.name}</b>{st.nextStep ? <> · Next: <b>{st.nextStep.name}</b></> : null}</>
+  } else if (run && !finished && !videoMode) {
     if (spec.kind === "emom") line = <>Now: <b>{st.step.name}</b>{st.nextStep ? <> · Next: <b>{st.nextStep.name}</b></> : null}</>
     if (spec.kind === "tabata") line = st.now ? <>Now: <b>{turnNames(st.now)}</b></> : st.next ? <>Next: <b>{turnNames(st.next)}</b></> : null
     if (spec.kind === "amrap") line = <>Round after round until the clock hits zero</>
@@ -117,15 +139,31 @@ export default function SectionRunner({ spec, run, onRun, rounds = 0, onRounds, 
           <span style={{ fontFamily: BRICOLAGE, fontWeight: 700, fontSize: 16, marginBottom: 6 }}>{phaseWord}</span>
         </div>
         {line && <div style={{ fontFamily: DM_SANS, fontSize: 13, marginTop: 6 }}>{line}</div>}
-        {run && <div style={{ height: 6, borderRadius: 3, background: "rgba(255,255,255,0.28)", overflow: "hidden", marginTop: 10 }}><div style={{ width: `${pct}%`, height: "100%", background: "#fff" }} /></div>}
+        {(run || started) && <div style={{ height: 6, borderRadius: 3, background: "rgba(255,255,255,0.28)", overflow: "hidden", marginTop: 10 }}><div style={{ width: `${pct}%`, height: "100%", background: "#fff" }} /></div>}
         <div style={{ display: "flex", gap: 8, marginTop: 12 }}>
-          {!run && <button type="button" onClick={start} style={ctl(true)}><Play size={16} fill={PURPLE} /> Start</button>}
-          {run && <button type="button" onClick={reset} style={ctl(false)}><RotateCcw size={15} /> Reset</button>}
-          {run && !finished && (running
-            ? <button type="button" onClick={pause} style={ctl(true)}><Pause size={16} fill={PURPLE} /> Pause</button>
-            : <button type="button" onClick={resume} style={ctl(true)}><Play size={16} fill={PURPLE} /> Resume</button>)}
+          {videoMode ? (
+            <>
+              {started && <button type="button" onClick={() => { lastKey.current = null; video.pause(); video.seekTo?.(0); setVt(0); onRun(null) }} style={ctl(false)}><RotateCcw size={15} /> Reset</button>}
+              {!finished && (playingNow
+                ? <button type="button" onClick={() => video.pause()} style={ctl(true)}><Pause size={16} fill={PURPLE} /> Pause</button>
+                : <button type="button" onClick={() => { unlockAudio(); video.play() }} style={ctl(true)}><Play size={16} fill={PURPLE} /> {started ? "Resume" : "Start"}</button>)}
+            </>
+          ) : (
+            <>
+              {!run && <button type="button" onClick={start} style={ctl(true)}><Play size={16} fill={PURPLE} /> Start</button>}
+              {run && <button type="button" onClick={reset} style={ctl(false)}><RotateCcw size={15} /> Reset</button>}
+              {run && !finished && (running
+                ? <button type="button" onClick={pause} style={ctl(true)}><Pause size={16} fill={PURPLE} /> Pause</button>
+                : <button type="button" onClick={resume} style={ctl(true)}><Play size={16} fill={PURPLE} /> Resume</button>)}
+            </>
+          )}
           <button type="button" onClick={toggleSound} aria-label={sound ? "Sound on" : "Sound off"} style={{ ...ctl(false), flex: "0 0 52px" }}>{sound ? <Volume2 size={18} /> : <VolumeX size={18} />}</button>
         </div>
+        {videoMode && started && inIntro && (
+          <button type="button" onClick={() => onRun({ ...(run || {}), marker: video.time() })} style={{ ...ctl(false), width: "100%", flex: "none", marginTop: 8, height: 40 }}>
+            Move 1 starts now
+          </button>
+        )}
       </div>
 
       {spec.kind === "amrap" && <AmrapList spec={spec} rounds={rounds} onRounds={onRounds} />}
@@ -231,13 +269,12 @@ function SequenceRows({ spec, st }) {
             <div>
               <div style={title(state)}>{step.name}{step.set ? ` · set ${step.set}` : ""} <span style={{ fontFamily: DM_SANS, fontWeight: 500, fontSize: 12 }}>· {step.secs} secs</span></div>
               {state === "now" && st && !st.done && <div style={{ fontFamily: DM_SANS, fontSize: 12, color: PURPLE, fontWeight: 600 }}>Working now · {st.phaseLeft}s left</div>}
-              {state === "now" && st?.step?.rest && null}
               {state !== "done" && step.tip && <div style={{ fontFamily: DM_SANS, fontSize: 12, color: "#64748B", lineHeight: 1.35, marginTop: 1 }}>{step.tip}</div>}
             </div>
           </div>
         )
       })}
-      {st && !st.done && st.step.rest && <div style={{ fontFamily: DM_SANS, fontSize: 12.5, color: PURPLE, fontWeight: 600, padding: "6px 0 2px" }}>Resting · {st.phaseLeft}s left</div>}
+      {st && !st.done && st.step?.rest && <div style={{ fontFamily: DM_SANS, fontSize: 12.5, color: PURPLE, fontWeight: 600, padding: "6px 0 2px" }}>Resting · {st.phaseLeft}s left</div>}
     </div>
   )
 }

@@ -122,6 +122,7 @@ Rules:
 - Give a step "seconds" if the video gives a time, "reps" if it gives a count, or neither (null) if it gives neither.
 - "phase" is "warmup" for steps before the main work, "cooldown" for steps after it, otherwise "main".
 - Do NOT repeat a step for each set. List each exercise once, and put the number of sets in "structure".
+- "start_seconds" is the time in the video, in whole seconds, when the speaker starts that move (use the caption timestamps, converting m:ss to seconds). Use null if you cannot tell. Do not count the introduction.
 - "how_to" is one short line taken from what the speaker says. "cues" are the speaker's own tips for that step.
 - Leave out the introduction, the outro, jokes, sales talk and rest between sets unless the speaker names a rest as part of the routine.
 - If there is no workout in the captions, return an empty "steps" list.
@@ -136,7 +137,7 @@ Return ONLY a JSON object, nothing else:
  "summary": str, "weights": "none"|"light"|"heavy"|"unclear", "movement": str,
  "equipment": [str],
  "structure": {"sets": int|null, "work_seconds": int|null, "rest_seconds": int|null, "rest_between_sets_seconds": int|null, "has_warmup": bool, "has_cooldown": bool},
- "steps": [{"order": int, "name": str, "phase": "warmup"|"main"|"cooldown", "seconds": int|null, "reps": int|null, "sides": "both"|"each side"|null, "how_to": str, "cues": [str]}],
+ "steps": [{"order": int, "name": str, "phase": "warmup"|"main"|"cooldown", "start_seconds": int|null, "seconds": int|null, "reps": int|null, "sides": "both"|"each side"|null, "how_to": str, "cues": [str]}],
  "unsure": [str]}"""
 
 
@@ -181,6 +182,7 @@ def check_routine(raw: dict) -> dict:
             "order": len(steps) + 1,
             "name": name,
             "phase": s.get("phase") if s.get("phase") in ("warmup", "main", "cooldown") else "main",
+            "at_seconds": _clean_int(s.get("start_seconds"), 0, MAX_VIDEO_SECONDS),  # when the move starts in the video
             "seconds": _clean_int(s.get("seconds"), 5, 3600),
             "reps": _clean_int(s.get("reps"), 1, 500),
             "sides": sides,
