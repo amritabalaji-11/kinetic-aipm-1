@@ -9,6 +9,7 @@ export default function RoutineSource({ source }) {
   const [open, setOpen] = useState(false)
   if (!source?.url) return null
   const inApp = source.embeddable && source.video_id
+  const siteName = { youtube: "YouTube", instagram: "Instagram", tiktok: "TikTok" }[source.site] ?? "the video"
   const who = [source.title && `“${source.title}”`, source.author && `by ${source.author}`].filter(Boolean).join(" ")
   return (
     <div style={{ marginBottom: 10 }}>
@@ -18,7 +19,7 @@ export default function RoutineSource({ source }) {
         </button>
       ) : (
         <a href={source.url} target="_blank" rel="noreferrer" style={{ display: "flex", alignItems: "center", gap: 8, width: "100%", height: 44, padding: "0 14px", borderRadius: 12, border: `1.2px solid ${PURPLE}`, background: "#fff", color: PURPLE, fontFamily: DM_SANS, fontWeight: 700, fontSize: 14, textDecoration: "none", boxSizing: "border-box" }}>
-          <ExternalLink size={16} /> Open on YouTube <span style={{ fontWeight: 500, fontSize: 11, color: GRAY }}>(leaves Kinetic)</span>
+          <ExternalLink size={16} /> Open on {siteName} <span style={{ fontWeight: 500, fontSize: 11, color: GRAY }}>(leaves Kinetic)</span>
         </a>
       )}
       {who && (

@@ -3,8 +3,9 @@
     link  ->  video id  ->  the video's title and creator  ->  its captions  ->  Sonnet  ->  a checked routine
 
 Only what the captions say is used. Anything unclear is returned in "unsure" so the person can check it before adding it.
-Today this reads YouTube links. Videos from other sites (Instagram, TikTok ...) will come through a file upload and speech-to-text.
+The words come from Supadata (a transcript service, when SUPADATA_API_KEY is set) for YouTube, Instagram and TikTok links, or, for YouTube only, straight from YouTube.
 """
+import asyncio
 import json
 import os
 import re
@@ -31,7 +32,45 @@ class RoutineError(Exception):
 
 # ---------- the link ----------
 
-OTHER_SITES = ("instagram.com", "tiktok.com", "facebook.com", "fb.watch", "twitter.com", "x.com")
+OTHER_SITES = ("facebook.com", "fb.watch", "twitter.com", "x.com")  # not supported
+SERVICE_SITES = {"instagram": ("instagram.com",), "tiktok": ("tiktok.com",)}  # read through the transcript service, when it is set up
+
+
+def service_enabled() -> bool:
+    return bool(os.getenv("SUPADATA_API_KEY", "").strip())
+
+
+def available_sources() -> dict:
+    """Which sites can be read right now (the screens show 'works' or 'soon' from this)."""
+    return {"youtube": True, "instagram": service_enabled(), "tiktok": service_enabled()}
+
+
+def _host(url: str) -> str:
+    raw = (url or "").strip()
+    if not re.match(r"^https?://", raw, re.I):
+        raw = "https://" + raw
+    try:
+        return (urlparse(raw).hostname or "").lower().removeprefix("www.").removeprefix("m.")
+    except ValueError:
+        return ""
+
+
+def identify_link(url: str) -> tuple[str, str | None, str]:
+    """(site, video id for YouTube or None, the clean link). A RoutineError when it cannot be read."""
+    host = _host(url)
+    if any(host == h or host.endswith("." + h) for h in OTHER_SITES):
+        raise RoutineError("unsupported_site", "Links from that site can't be read yet.", 400)
+    for site, hosts in SERVICE_SITES.items():
+        if any(host == h or host.endswith("." + h) for h in hosts):
+            if not service_enabled():
+                raise RoutineError("unsupported_site", "Links from that site can't be read yet.", 400)
+            raw = (url or "").strip()
+            if not re.match(r"^https?://", raw, re.I):
+                raw = "https://" + raw
+            parts = urlparse(raw)
+            return site, None, f"https://{parts.hostname}{parts.path}"  # the address without tracking parts
+    vid = parse_youtube_id(url)
+    return "youtube", vid, f"https://www.youtube.com/watch?v={vid}"
 
 
 def parse_youtube_id(url: str) -> str:
@@ -79,7 +118,69 @@ async def fetch_video_info(video_id: str) -> dict:
     return {"title": data.get("title") or "", "author": data.get("author_name") or "", "author_url": data.get("author_url") or "", "embeddable": True}
 
 
-# ---------- the words ----------
+# ---------- the words, from the transcript service ----------
+
+SUPADATA_BASE = "https://api.supadata.ai/v1"
+SERVICE_BUSY = RoutineError("service_busy", "The video reader is busy right now. Try again in a minute.", 503)
+
+
+def _service_error(status: int, body) -> RoutineError:
+    err = (body.get("error") if isinstance(body, dict) else "") or ""
+    msg = (body.get("message") if isinstance(body, dict) else "") or ""
+    text = f"{err} {msg}".lower()
+    if status in (402, 429):
+        return SERVICE_BUSY
+    if "transcript" in text and ("unavailable" in text or "not-available" in text or "no transcript" in text):
+        return RoutineError("no_captions", "We couldn't find anything said in this video. It works best when the person talks through the moves.")
+    if status == 404 or "not-found" in text or "not found" in text or "private" in text:
+        return RoutineError("video_unavailable", "This video is private, removed, or can't be viewed publicly.")
+    if status in (401, 403):
+        print(f"[routine] transcript service refused our key: {status} {err}")  # a setup problem, not the person's
+        return RoutineError("service_unavailable", "The video reader isn't available right now. Try again later.", 502)
+    print(f"[routine] transcript service error: {status} {err} {msg[:120]}")
+    return RoutineError("service_unavailable", "We couldn't read that video just now. Try again in a minute.", 502)
+
+
+def _segments(content) -> list[dict]:
+    out = []
+    for seg in content or []:
+        text = str(seg.get("text") or "").strip()
+        if text:
+            out.append({"start": float(seg.get("offset") or 0) / 1000.0, "text": text})  # offsets come in milliseconds
+    return out
+
+
+async def fetch_captions_service(url: str) -> list[dict]:
+    """The words of a public video, with their times, from Supadata. Long or audio-only jobs answer 'working on it' and are polled."""
+    headers = {"x-api-key": os.getenv("SUPADATA_API_KEY", "").strip()}
+    try:
+        async with httpx.AsyncClient(timeout=60) as client:
+            res = await client.get(f"{SUPADATA_BASE}/transcript", headers=headers, params={"url": url, "text": "false"})
+            body = res.json() if res.content else {}
+            if res.status_code == 202 and isinstance(body, dict) and body.get("jobId"):
+                for _ in range(45):  # up to about 90 seconds
+                    await asyncio.sleep(2)
+                    poll = await client.get(f"{SUPADATA_BASE}/transcript/{body['jobId']}", headers=headers)
+                    pb = poll.json() if poll.content else {}
+                    status = (pb.get("status") or "").lower() if isinstance(pb, dict) else ""
+                    if poll.status_code == 200 and status in ("completed", "done") or (poll.status_code == 200 and isinstance(pb, dict) and pb.get("content") and not status):
+                        res, body = poll, pb
+                        break
+                    if status in ("failed", "error") or poll.status_code >= 400:
+                        raise _service_error(poll.status_code if poll.status_code >= 400 else 502, pb)
+                else:
+                    raise RoutineError("service_unavailable", "Reading this video is taking too long. Try again in a minute.", 502)
+    except httpx.HTTPError:
+        raise RoutineError("service_unavailable", "We couldn't reach the video reader just now. Try again in a minute.", 502)
+    if res.status_code != 200:
+        raise _service_error(res.status_code, body)
+    segments = _segments(body.get("content") if isinstance(body, dict) else None)
+    if not segments:
+        raise RoutineError("no_captions", "We couldn't find anything said in this video. It works best when the person talks through the moves.")
+    return segments
+
+
+# ---------- the words, straight from YouTube ----------
 
 def _fetch_captions_blocking(video_id: str) -> list[dict]:
     from youtube_transcript_api import YouTubeTranscriptApi
@@ -227,24 +328,42 @@ def check_routine(raw: dict) -> dict:
     }
 
 
-async def routine_from_youtube(url: str) -> dict:
-    video_id = parse_youtube_id(url)
-    info = await fetch_video_info(video_id)
-    captions = await fetch_captions(video_id)
+async def get_captions(site: str, video_id: str | None, clean_url: str) -> list[dict]:
+    """The transcript service first when it is set up (it copes with YouTube's blocking and with other sites); for YouTube, straight from YouTube as a fallback."""
+    if service_enabled():
+        try:
+            return await fetch_captions_service(clean_url)
+        except RoutineError as err:
+            if site != "youtube" or err.code in ("no_captions", "video_unavailable"):
+                raise
+            # the service is busy or down: YouTube can still be read directly (it may be blocked from a cloud server)
+    return await fetch_captions(video_id)
+
+
+async def routine_from_link(url: str) -> dict:
+    site, video_id, clean_url = identify_link(url)
+    if site == "youtube":
+        info = await fetch_video_info(video_id)
+    else:
+        info = {"title": "", "author": "", "author_url": "", "embeddable": False}  # no title from these sites; the model names it
+    captions = await get_captions(site, video_id, clean_url)
     if captions and captions[-1]["start"] > MAX_VIDEO_SECONDS:
         raise RoutineError("too_long", "This video is too long for a routine (over 40 minutes). Try a shorter one.")
     transcript = captions_to_text(captions)
     if len(transcript) < 200:
         raise RoutineError("no_captions", "This video has hardly any words we can read. It works best when the person talks through the moves.")
-    raw = await run_in_threadpool(_ask_model_blocking, transcript, info["title"])
+    raw = await run_in_threadpool(_ask_model_blocking, transcript, info["title"] or "(untitled)")
     routine = check_routine(raw)
     routine["source"] = {
-        "site": "youtube",
-        "url": f"https://www.youtube.com/watch?v={video_id}",
+        "site": site,
+        "url": clean_url,
         "video_id": video_id,
         "title": info["title"] or routine["title"],
         "author": info["author"],
         "author_url": info["author_url"],
-        "embeddable": info["embeddable"],  # false: the video opens on YouTube instead of inside the app
+        "embeddable": info["embeddable"],  # false: the video opens on its own site instead of inside the app
     }
     return routine
+
+
+routine_from_youtube = routine_from_link  # the old name

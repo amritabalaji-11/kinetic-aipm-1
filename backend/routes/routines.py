@@ -8,7 +8,7 @@ from fastapi import APIRouter, Depends, HTTPException
 from pydantic import BaseModel, Field
 
 from db.database import NOW_TEXT, db
-from services.video_routine import RoutineError, check_routine, routine_from_youtube
+from services.video_routine import RoutineError, available_sources, check_routine, routine_from_link
 from utils.security import get_current_user_id, limit_guest
 
 router = APIRouter(prefix="/routines", tags=["routines"])
@@ -30,22 +30,32 @@ def _fail(err: RoutineError):
 
 
 def _source(raw) -> dict | None:
-    """The video a routine came from. Only a plain YouTube link is kept, so a saved routine can never carry anything else."""
+    """The video a routine came from. Only a plain link to YouTube, Instagram or TikTok is kept, so a saved routine can never carry anything else."""
     if not isinstance(raw, dict):
         return None
-    video_id = str(raw.get("video_id") or "")
-    if not re.fullmatch(r"[\w-]{11}", video_id):
-        return None
     clip = lambda k, n: re.sub(r"\s+", " ", str(raw.get(k) or "")).strip()[:n]
+    site = raw.get("site")
+    if site == "youtube":
+        video_id = str(raw.get("video_id") or "")
+        if not re.fullmatch(r"[\w-]{11}", video_id):
+            return None
+        url, embeddable = f"https://www.youtube.com/watch?v={video_id}", bool(raw.get("embeddable"))
+    elif site in ("instagram", "tiktok"):
+        url = str(raw.get("url") or "")
+        if not re.fullmatch(rf"https://(?:[\w-]+\.)*{site}\.com/[\w@./%-]{{1,200}}", url):
+            return None
+        video_id, embeddable = None, False
+    else:
+        return None
     author_url = clip("author_url", 200)
     return {
-        "site": "youtube",
+        "site": site,
         "video_id": video_id,
-        "url": f"https://www.youtube.com/watch?v={video_id}",
+        "url": url,
         "title": clip("title", 150),
         "author": clip("author", 80),
         "author_url": author_url if author_url.startswith("https://www.youtube.com/") else "",
-        "embeddable": bool(raw.get("embeddable")),
+        "embeddable": embeddable,
     }
 
 
@@ -55,16 +65,22 @@ async def _reads_today(user_id: str) -> int:
     return int(row["n"]) if row else 0
 
 
+@router.get("/sources")
+async def sources(_user: str = Depends(get_current_user_id)):
+    """Which sites can be read right now, so the screens show 'works' or 'soon' truthfully."""
+    return available_sources()
+
+
 @router.post("/from-video")
 async def read_video(body: VideoLink, user_id: str = Depends(limit_guest("video reads", 5))):
     if await _reads_today(user_id) >= READS_PER_DAY:
         raise HTTPException(status_code=429, detail={"code": "daily_limit", "message": f"You can read {READS_PER_DAY} videos a day. Try again tomorrow."})
     try:
-        routine = await routine_from_youtube(body.url)
+        routine = await routine_from_link(body.url)
     except RoutineError as err:
         raise _fail(err)
     # only a video that was really read counts against the day's limit
-    await db.execute(f"INSERT INTO video_reads (user_id, video_id, created_at) VALUES (:u, :v, {NOW_TEXT})", {"u": user_id, "v": routine["source"]["video_id"]})
+    await db.execute(f"INSERT INTO video_reads (user_id, video_id, created_at) VALUES (:u, :v, {NOW_TEXT})", {"u": user_id, "v": routine["source"]["video_id"] or routine["source"]["url"][:120]})
     return routine
 
 

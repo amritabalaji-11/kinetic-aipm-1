@@ -2,7 +2,7 @@ import { useEffect, useRef, useState } from "react"
 import { useNavigate } from "react-router-dom"
 import { Check, ChevronLeft, ClipboardPaste, Trash2, X } from "lucide-react"
 import { BottomSheet, BRICOLAGE, DM_SANS, GRADIENT, GRAY, INK, PURPLE } from "../components/planUi"
-import { deleteRoutine, listRoutines, readVideo, saveRoutine } from "../services/routineService"
+import { deleteRoutine, getSources, listRoutines, readVideo, saveRoutine } from "../services/routineService"
 import { activeWorkoutTitle, addRoutineToActiveWorkout } from "../utils/routineBlock"
 import { TOP_FADE_BACKGROUND } from "../utils/pageBackground"
 import { TypeTag } from "../components/WorkoutTypeUi"
@@ -12,10 +12,10 @@ const AMBER_BORDER = "#FCD34D"
 const card = { background: "#fff", borderRadius: 16, padding: 14, border: "1px solid rgba(129,51,255,0.25)", marginBottom: 12 }
 const bigButton = (ghost) => ({ width: "100%", height: ghost ? 48 : 54, borderRadius: 16, cursor: "pointer", fontFamily: BRICOLAGE, fontWeight: 700, fontSize: ghost ? 15 : 16, marginTop: ghost ? 8 : 0, border: ghost ? "1.5px solid rgba(129,51,255,0.5)" : "none", background: ghost ? "#fff" : GRADIENT, color: ghost ? PURPLE : "#fff" })
 
-const SOURCES = [["YouTube", true], ["Instagram", false], ["TikTok", false]]
+const SOURCE_NAMES = { youtube: "YouTube", instagram: "Instagram", tiktok: "TikTok" }
 const READING = ["Opening the video", "Reading what is said", "Building your routine"]
 const WHY_NOT = {
-  unsupported_site: "Links from that site can't be read yet. Save the video to your phone and upload it instead (coming soon).",
+  unsupported_site: "Links from that site can't be read. YouTube links work, and Instagram and TikTok links when they are switched on.",
   bad_link: "That doesn't look like a link to a YouTube video.",
   video_unavailable: "This video is private, removed, or can't be viewed publicly.",
   no_captions: "This video has no captions we can read. It works best when the person talks through the moves.",
@@ -51,13 +51,14 @@ export default function RoutineFromVideoPage() {
   const [readingStep, setReadingStep] = useState(0)
   const [saved, setSaved] = useState(false)
   const [saving, setSaving] = useState(false)
+  const [sources, setSources] = useState({ youtube: true, instagram: false, tiktok: false }) // which sites work right now
   const [mine, setMine] = useState(null) // my saved routines, null while loading
   const [adding, setAdding] = useState(null) // the routine being added to a workout
   const [where, setWhere] = useState("next")
   const abort = useRef(null)
 
   const loadMine = () => listRoutines().then(setMine).catch(() => setMine([]))
-  useEffect(() => { loadMine() }, [])
+  useEffect(() => { loadMine(); getSources().then(setSources).catch(() => {}) }, [])
 
   // the three steps move along while the server works
   useEffect(() => {
@@ -126,11 +127,11 @@ export default function RoutineFromVideoPage() {
           </div>
 
           <div style={{ display: "flex", gap: 8, margin: "10px 0 14px", flexWrap: "wrap" }}>
-            {SOURCES.map(([name, works]) => (
+            {Object.entries(SOURCE_NAMES).map(([id, name]) => { const works = !!sources[id]; return (
               <span key={name} style={{ display: "inline-flex", alignItems: "center", gap: 6, height: 34, padding: "0 12px", borderRadius: 17, fontFamily: DM_SANS, fontSize: 13, fontWeight: 600, border: `1.2px solid ${works ? "#16A34A" : "rgba(100,116,139,0.25)"}`, color: works ? "#15803D" : GRAY, background: works ? "#F0FDF4" : "#fff" }}>
                 {name} <small style={{ fontWeight: 500, fontSize: 10.5 }}>{works ? "works" : "soon"}</small>
               </span>
-            ))}
+            ) })}
           </div>
 
           <div style={{ background: AMBER_BG, border: `1px solid ${AMBER_BORDER}`, borderRadius: 14, padding: "12px 14px", marginBottom: 14 }}>
@@ -195,7 +196,7 @@ export default function RoutineFromVideoPage() {
           </div>
           {routine.source && (
             <a href={routine.source.url} target="_blank" rel="noreferrer" style={{ display: "block", fontFamily: DM_SANS, fontSize: 12, color: GRAY, textDecoration: "none", marginBottom: 10 }}>
-              From a YouTube video{routine.source.author ? ` by ${routine.source.author}` : ""} ↗
+              From {routine.source.site === "youtube" ? "a YouTube video" : `an ${SOURCE_NAMES[routine.source.site] ?? "online"} video`}{routine.source.author ? ` by ${routine.source.author}` : ""} ↗
             </a>
           )}
 

@@ -20,6 +20,9 @@ async function call(path, options = {}) {
 // Reads a video's words and builds a routine. Slow (a few seconds to a minute), so it gets a long time limit.
 export const readVideo = (url, signal) => call("/routines/from-video", { method: "POST", body: JSON.stringify({ url }), timeoutMs: 120000, signal })
 
+// Which sites can be read right now: { youtube, instagram, tiktok } as true / false
+export const getSources = () => call("/routines/sources")
+
 export const listRoutines = () => call("/routines")
 export const saveRoutine = (routine) => call("/routines", { method: "POST", body: JSON.stringify({ routine }) })
 export const deleteRoutine = (id) => call(`/routines/${id}`, { method: "DELETE" })
