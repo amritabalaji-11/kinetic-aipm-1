@@ -18,7 +18,11 @@ const CARD = { background: "#fff", border: "1px solid #f3f4f6", boxShadow: "0 1p
 
 // The picture at the top: the user's own frame, shown whole. "Watch the set" swaps it for their video.
 export function ResultsPhoto({ imageSrc, fallbackImageSrc, videoSrc, comparison, note, startWithVideo = false, caption, onEnlarge, fallback }) {
-  const [watching, setWatching] = useState(startWithVideo)
+  // null = the user has not chosen yet. The default follows the data, not the first render: with a before/after comparison
+  // the comparison is the default view; without one, the whole set plays only when there is no picture to show.
+  // (Reading startWithVideo once into state stuck on "whole set" when the video link arrived before the picture link.)
+  const [choice, setChoice] = useState(null)
+  const watching = choice !== null ? choice : startWithVideo && !comparison
   const [compareFailed, setCompareFailed] = useState(false)
   const showCompare = !!comparison && !!videoSrc && !watching && !compareFailed
   // If the picture can't load, try the backup one, then show the placeholder instead of a broken-image icon.
@@ -60,7 +64,7 @@ export function ResultsPhoto({ imageSrc, fallbackImageSrc, videoSrc, comparison,
       {videoSrc && (shown || showCompare) && (
         <button
           type="button"
-          onClick={() => setWatching((w) => !w)}
+          onClick={() => setChoice(!watching)}
           className="absolute bottom-3 right-3 text-[11px] font-bold text-white px-3 py-1.5 rounded-full"
           style={{ background: "rgba(20,184,166,0.95)" }}
         >
