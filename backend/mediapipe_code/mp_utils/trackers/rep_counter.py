@@ -1,4 +1,4 @@
-from mediapipe_code.mp_utils.trackers.traker_configuration import MIN_BOTTOM_HOLD, THRESHOLD_DEEP, THRESHOLD_DOWN, THRESHOLD_UP
+from mediapipe_code.mp_utils.trackers.traker_configuration import MIN_BOTTOM_HOLD, THRESHOLD_DEEP, THRESHOLD_DOWN, THRESHOLD_UP, TURNAROUND_DROP, TURNAROUND_MIN_PEAK, ASCENT_RISE
 
 
 class RepCounter:
@@ -15,6 +15,8 @@ class RepCounter:
         self.bottom_angle = THRESHOLD_DEEP
         self.min_bottom_hold = MIN_BOTTOM_HOLD
         self.bottom_hold_frames = 0
+        self.ascent_peak = None
+        self.bottom_min = None
 
     def update(self, hip_angle, debug=False):
         """
@@ -51,6 +53,7 @@ class RepCounter:
             if hip_angle < bottom_th:
                 self.state = "BOTTOM"
                 self.bottom_hold_frames = 0
+                self.bottom_min = hip_angle
                 if debug:
                     print("[Rep Lifecycle] DESCENDING -> BOTTOM")
                 return "bottom_reached", self.rep_count
@@ -59,12 +62,15 @@ class RepCounter:
         # BOTTOM -> ASCENDING (or reset if too short)
         if state == "BOTTOM":
             self.bottom_hold_frames += 1
+            self.bottom_min = hip_angle if self.bottom_min is None else min(self.bottom_min, hip_angle)
 
-            if hip_angle > down_th:
+            # up: past the usual line, or climbed well clear of this rep's own lowest point
+            if hip_angle > down_th or hip_angle >= self.bottom_min + ASCENT_RISE:
                 if self.bottom_hold_frames >= min_bottom_hold:
                     self.state = "ASCENDING"
                     if debug:
                         print(f"[Rep Lifecycle] BOTTOM -> ASCENDING (hold frames: {self.bottom_hold_frames})")
+                    self.ascent_peak = hip_angle
                     return "ascending_started", self.rep_count
                 else:
                     self.state = "STANDING"
@@ -75,11 +81,20 @@ class RepCounter:
 
         # ASCENDING -> STANDING (Rep completed)
         if state == "ASCENDING":
+            self.ascent_peak = hip_angle if self.ascent_peak is None else max(self.ascent_peak, hip_angle)
             if hip_angle > up_th:
                 self.rep_count += 1
                 self.state = "STANDING"
                 if debug:
                     print(f"[Rep Lifecycle] ASCENDING -> STANDING (Rep {self.rep_count} completed!)")
+                return "rep_completed", self.rep_count
+            # Turned round on the way up without a full stand-up (quick sets): the rep is finished here.
+            # Going back to STANDING lets the very next frame start the next descent in the normal way.
+            if self.ascent_peak >= TURNAROUND_MIN_PEAK and self.ascent_peak - hip_angle >= TURNAROUND_DROP:
+                self.rep_count += 1
+                self.state = "STANDING"
+                if debug:
+                    print(f"[Rep Lifecycle] ASCENDING -> STANDING (Rep {self.rep_count} completed on turnaround)")
                 return "rep_completed", self.rep_count
 
         return None, self.rep_count
