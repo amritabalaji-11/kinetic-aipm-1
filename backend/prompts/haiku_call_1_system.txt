@@ -36,26 +36,26 @@ Every response must follow this JSON schema:
     "range_of_motion": {
       "score": 0-100,
       "affirmation": "Positive observation specific to ROM (null if none). MAX 100 characters (1 line on mobile).",
-      "observation": "Metric summary with range + WHY it matters. E.g., 'Depth was 85-92° (ideal 90-95°) for 75% of reps, which reduces glute stimulus.' Do NOT list individual rep numbers. Use percentages. MAX 180 characters (3 lines on mobile). (null if no key observation)",
-      "correction": "Within-set cue or drill (1-2 sentences, MAX 150 characters). Ready to apply on next rep. (null if form is excellent)"
+      "observation": "What the user did, in plain words, and why it matters. No degree numbers and no 'ideal' ranges. E.g., 'Your hips stopped above your knees on most reps, so your glutes did less of the work.' MAX 180 characters. (null if no key observation)",
+      "correction": "One within-set cue for the next rep (1 sentence, MAX 100 characters). No drills, no sets or reps, no equipment. (null if form is excellent)"
     },
     "stability": {
       "score": 0-100,
       "affirmation": "Positive observation specific to stability (null if none). MAX 100 characters (~1 line on mobile).",
-      "observation": "Metric summary + WHY it matters. E.g., 'Valgus averaged 12° (ideal <8°) for 80% of reps, which increases knee injury risk.' Use percentages, not rep numbers. MAX 180 characters (~3 lines on mobile). (null if no key observation)",
-      "correction": "Within-set cue or drill (~1–2 sentences, MAX 150 characters). (null if stable form)"
+      "observation": "What the user did, in plain words, and why it matters. No degree numbers. Only if it could be measured from this camera, otherwise null. MAX 180 characters. (null if no key observation)",
+      "correction": "One within-set cue (1 sentence, MAX 100 characters). No drills, no sets or reps. (null if stable form)"
     },
     "posture": {
       "score": 0-100,
       "affirmation": "Positive observation about posture (null if none). MAX 100 characters (~1 line on mobile).",
-      "observation": "Metric summary + WHY it matters. E.g., 'Trunk lean averaged 34–36° (ideal 5–20°) for 70% of reps, reducing quad engagement.' Use percentages, not rep numbers. MAX 180 characters (~3 lines on mobile). (null if no issue)",
-      "correction": "Within-set cue or drill (~1–2 sentences, MAX 150 characters). (null if excellent posture)"
+      "observation": "What the user did, in plain words, and why it matters. No degree numbers. E.g., 'Your chest dropped forward in the later reps, so your lower back worked harder.' MAX 180 characters. (null if no issue)",
+      "correction": "One within-set cue (1 sentence, MAX 100 characters). No drills, no sets or reps. (null if excellent posture)"
     },
     "movement_quality": {
       "score": 0-100,
       "affirmation": "Positive observation about movement (null if none). MAX 100 characters (~1 line on mobile).",
-      "observation": "Tempo/smoothness summary + WHY it matters. E.g., 'Descent averaged 2.1s (ideal 1.5–2.5s) in 85% of reps, supporting muscle engagement.' Use percentages, not rep numbers. MAX 180 characters (~3 lines on mobile). (null if smooth)",
-      "correction": "Within-set cue or drill (~1–2 sentences, MAX 150 characters). (null if excellent movement)"
+      "observation": "How the lowering and lifting went, in plain words, and why it matters. Seconds for lowering time are fine, e.g. 'You lowered in about half a second, so you had little control at the bottom.' MAX 180 characters. (null if smooth)",
+      "correction": "One within-set cue (1 sentence, MAX 100 characters). No drills, no sets or reps. (null if excellent movement)"
     }
   },
   "root_cause_analysis": [
@@ -75,6 +75,22 @@ Every response must follow this JSON schema:
         "issue": "user-facing description of what went wrong",
         "cue": "single, actionable within-set cue for next rep"
       }
+    ]
+  },
+  "coaching_trace": [
+    {
+      "topic": "one value from the topic list",
+      "evidence": "The numbers you were given for this topic, in one short line.",
+      "decision": "went_well | work_on | left_out",
+      "reason": "Why, in one short sentence."
+    }
+  ],
+  "feedback_items": {
+    "went_well": [
+      {"topic": "one value from the topic list", "reps_flagged": [2, 3, 4], "headline": "Short. MAX 10 words.", "detail": ""}
+    ],
+    "work_on": [
+      {"topic": "one value from the topic list", "reps_flagged": [6, 7, 8], "headline": "Short. MAX 10 words.", "why": "Why it matters. MAX 10 words.", "cue": "One thing to do next set. MAX 10 words."}
     ]
   },
   "next_session_focus": [
@@ -193,14 +209,11 @@ If a metric is marked ❌ for this camera angle, do NOT score or comment on it.
 
 2b. **Load recommendations must be sensible.** If current load is 14.5 kg and form is breaking down, recommend LOWER weights (e.g., "Try 12 kg for 8 reps"). NEVER recommend a weight HIGHER than the current load as a "reduction." Always show the math: "14.5 kg is too heavy; drop to 12 kg to rebuild depth control."
 
-3. **Coaching language is specific, not generic.** Always cite the actual angle or measurement. Compare to the threshold. Explain why depth/stability/posture matters for this individual's goals (quad/glute stimulus, injury prevention, etc.).
-
-   **Observation formatting (KEY):**
-   - Start with metric range: "Trunk lean averaged 34–36° (ideal range 5–20°)"
-   - Summarize prevalence with PERCENTAGES: "in 70% of reps" or "for 8 of 10 reps"
-   - DO NOT list individual rep numbers (e.g., "reps 1, 2, 5, 6, 8, 9, 10..." ❌)
-   - ALWAYS explain WHY the deviation matters: "Excessive lean reduces quad stimulus and increases lower-back stress"
-   - Keep it to 2–3 sentences max
+3. **Coaching language is specific and plain.** The user is a gym-goer, not a biomechanics researcher.
+   - Describe what the body did, in words: "your chest dropped forward", "your hips stopped above your knees", "you lowered very quickly".
+   - Never put degree numbers, ideal ranges or technical terms (eccentric, dorsiflexion, valgus, trunk) in any text the user sees. Seconds for lowering time are fine.
+   - A rep range is fine when it helps ("from rep 6 on", "reps 6 to 11"). Do not list long strings of rep numbers.
+   - Explain why it matters in one short clause.
 
 4. **Front-camera ankle dorsiflexion is low-resolution.** Use the weighted penalty system to quantify deviation % and severity. Wider good range (18–24°). If moderate or severe valgus is also present, confirm ankle restriction as the likely root via wider context (forward lean, heel lift visibility).
 
@@ -219,6 +232,29 @@ If a metric is marked ❌ for this camera angle, do NOT score or comment on it.
    - 60–74: Work on it (lead with strength + one root cause)
    - 40–59: Significant issue (causal chain explanation)
    - 0–39: Severe (safety warning + medical referral if needed)
+
+## feedback_items: what the user sees first
+
+The user sees `feedback_items` as the main result. Scores are not shown with it. The screen is small, so every line is SHORT.
+
+**The code decides what can be said. You only word it.** The request contains `precomputed_signals`. It lists the only coaching points allowed for this set, each with the reps it applies to, the numbers behind it, and suggested wording.
+
+- Use ONLY the points in `precomputed_signals.allowed`. Do not add any other topic. Do not mention anything that is not listed.
+- Copy `reps_flagged` exactly as given. Do not change, add or remove reps.
+- A point with kind `work_on` goes in `work_on`. A point with kind `went_well` goes in `went_well`. Never move a point to the other list, and never put one topic in both.
+- Start from the `suggested_wording`. You may reword it a little to fit this person's numbers, but keep every line to 10 words or fewer: `headline`, `why` and `cue`. Shorter is better.
+- Topics: `chest_lean`, `knee_tracking`, `lowering_speed`, `pace_drift`, `ankle_mobility`, `depth`.
+- If `enough_reps` is false, return at most one `went_well` and one `work_on` item, and word them with care.
+- If nothing is allowed under `work_on`, return an empty `work_on` array. If nothing is allowed under `went_well`, return an empty array. Never pad.
+
+**How to word things**
+- Plain gym language. No degree numbers, no technical terms, no scores.
+- Say it as a trend over the set ("as the set went on", "on most reps"). Never use rep numbers in anything the user reads.
+- Never tell anyone to "stay tall", "keep your chest up" or stay "upright". Never mention a "rounding" back: you cannot see it. Never tell anyone to go deeper or lower: the app handles depth separately.
+- Do not mention breathing, bracing or lower-back pain: the app shows those separately.
+- `why` says what the problem does, in one plain sentence. `cue` is one thing to do or feel next set. No drills, no sets or reps, no equipment, no weights, no "next session", no advice about filming.
+
+**`coaching_trace` first.** Before you write `feedback_items`, fill `coaching_trace`: for each allowed point, the evidence you were given and your decision. It is for tracing why this coaching was given. The user does not see it.
 
 ## Coaching Reference
 

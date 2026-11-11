@@ -18,13 +18,15 @@ from datetime import datetime, timezone
 
 from utils.gcs import upload_image_to_gcs
 from mediapipe_code.mp_utils.visualization.draw_methods import extract_worst_frame, overlay_frame
-from mediapipe_code.mp_utils.visualization.hybrid_overlay import overlay_frame_hybrid
+from mediapipe_code.mp_utils.visualization.focus_overlay import build_focus_picture
 from services.haiku_call_2_progression import run_haiku_call_2
 from mediapipe_code.landmark_framework import LandmarkQualityFramework
 from utils.sse_manager import sse_manager
 from mediapipe_code.llm_run_code import run_llm_analysis
 from mediapipe_code.llm_run_code import run_llm_comparison
 from services.haiku_call_1_integration import HaikuCall1
+from services.coaching_signals import compute_signals, signals_for_ai, apply_signals
+from services.comparison import choose_comparison
 import traceback
 
 
@@ -278,6 +280,15 @@ async def run_mediapipe_analysis(analysis_id: str, file_location: str):
             "reps":    mp_result.get("reps", []),
         }
 
+        # Code decides which coaching points are allowed and on which reps; the AI only words them.
+        # If this fails for any reason, the analysis carries on without it.
+        signals = None
+        try:
+            signals = compute_signals(biomechanics_slim["reps"])
+            biomechanics_slim["precomputed_signals"] = signals_for_ai(signals)
+        except Exception as e:
+            print(f"[pipeline] coaching signals failed ({e}); continuing without them")
+
         coaching_output = await loop.run_in_executor(
             _executor,
             lambda: _haiku_call_1.analyze_form(
@@ -287,6 +298,19 @@ async def run_mediapipe_analysis(analysis_id: str, file_location: str):
                 max_tokens=8192,
             )
         )
+
+        if signals is not None:
+            try:
+                coaching_output = apply_signals(coaching_output, signals)
+            except Exception as e:
+                print(f"[pipeline] could not apply coaching signals ({e}); keeping the AI's items")
+
+        # Which two of the user's own reps to show side by side, and where to point. Code decides; failure just means no comparison.
+        try:
+            coaching_output["comparison"] = choose_comparison(coaching_output, final_json, rep_frames_list)
+        except Exception as e:
+            print(f"[pipeline] comparison not built ({e}); the app will play the original video")
+            coaching_output["comparison"] = None
 
         rep_scores = coaching_output.get("rep_scores", [])
 
@@ -306,7 +330,7 @@ async def run_mediapipe_analysis(analysis_id: str, file_location: str):
         # as its own task; it saves the image address when ready and deletes the temp video.
         # -------------------------------------------------
         asyncio.create_task(_make_annotated_image(
-            analysis_id, local_path, rep_scores, rep_frames_list, final_json, loop,
+            analysis_id, local_path, rep_scores, rep_frames_list, final_json, loop, coaching_output,
         ))
 
         # -------------------------------------------------
@@ -376,7 +400,7 @@ async def run_mediapipe_analysis(analysis_id: str, file_location: str):
         )
 
 
-async def _make_annotated_image(analysis_id, local_path, rep_scores, rep_frames_list, final_json, loop):
+async def _make_annotated_image(analysis_id, local_path, rep_scores, rep_frames_list, final_json, loop, coaching_output=None):
     """
     Worst-rep picture with angle overlay -> bucket -> address saved on the results row.
     The picture is a bonus: any failure here is logged and the analysis is unaffected.
@@ -386,13 +410,9 @@ async def _make_annotated_image(analysis_id, local_path, rep_scores, rep_frames_
     image_path = None
     try:
         def build():
-            frame, frame_data, camera_view, rep_data = extract_worst_frame(local_path, rep_scores, rep_frames_list, final_json)
-            # named by analysis id so two uploads at once never overwrite each other's picture
-            try:
-                return overlay_frame_hybrid(frame, frame_data, camera_view, rep_data, output_filename=analysis_id)
-            except Exception as e:  # new design failed: fall back to the original overlay rather than lose the picture
-                print(f"[pipeline] hybrid overlay failed ({e}); using the original overlay")
-                return overlay_frame(frame, frame_data, camera_view, rep_data, output_filename=analysis_id)
+            # One arrow and a short label on the rep that shows the first "work on" item (or a plain frame).
+            # Named by analysis id so two uploads at once never overwrite each other's picture.
+            return build_focus_picture(local_path, rep_frames_list, final_json, coaching_output, output_filename=analysis_id)
 
         # OpenCV work goes to the thread pool so the server stays responsive
         _, image_path = await loop.run_in_executor(_executor, build)
