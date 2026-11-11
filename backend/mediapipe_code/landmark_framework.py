@@ -169,6 +169,15 @@ class LandmarkQualityFramework:
 
         frame_index = 0
         rep_count = 0
+        # Share of frames in a rep with the hands above the hips. Recorded for information only: people hold the weight
+        # differently (at the chest, at the sides), so it is not used to decide what is a squat.
+        hold_total = 0
+        hold_ok = 0
+        self.last_rep_checks = []
+        # How low the hips get compared with the knees, as a share of the person's upright torso length.
+        # Positive = hips lower than the knees. Works whichever way the person is facing, unlike the knee angle.
+        depth_gap_max = None
+        torso_ref = 0.0
 
         # Local refs
         append_raw = raw_frames.append
@@ -418,11 +427,35 @@ class LandmarkQualityFramework:
 
                 is_standing = (rep_counter.state == "STANDING")
 
+                try:
+                    _ys = lambda ids: [norm_pose[k].y for k in ids if norm_pose[k] is not None]
+                    _sh, _hp, _kn = _ys((11, 12)), _ys((23, 24)), _ys((25, 26))
+                    if _sh and _hp and _kn:
+                        _hpm, _knm, _shm = sum(_hp) / len(_hp), sum(_kn) / len(_kn), sum(_sh) / len(_sh)
+                        torso_ref = max(torso_ref, abs(_hpm - _shm))      # the upright torso is the longest it gets
+                        if rep_counter.state != "STANDING":
+                            gap = _hpm - _knm
+                            depth_gap_max = gap if depth_gap_max is None else max(depth_gap_max, gap)
+                except Exception:
+                    pass
+
+                if rep_counter.state != "STANDING":
+                    try:
+                        wy = [norm_pose[k].y for k in (15, 16) if norm_pose[k] is not None]
+                        hy = [norm_pose[k].y for k in (23, 24) if norm_pose[k] is not None]
+                        if wy and hy:
+                            hold_total += 1
+                            if sum(wy) / len(wy) < sum(hy) / len(hy):   # y grows downward: smaller = higher up
+                                hold_ok += 1
+                    except Exception:
+                        pass
+
                 # Update frame-level trackers
                 ankle_tracker.update_frame(hip_angle, dorsiflexion, world_pose, is_standing)
                 back_tracker.update_frame(back_angle_value, hip_angle, torso_angle, timestamp_ms, is_standing)
                 depth_tracker.update_frame(hip_angle, knee_angle, hip_y, knee_y, is_standing)
                 stability_tracker.update_frame(norm_pose, is_standing)
+                tempo_tracker.update_frame(timestamp_ms, raw_hip_angle if raw_hip_angle is not None else hip_angle)
 
                 # Broadcast transitional triggers
                 if rep_event is not None:
@@ -448,27 +481,29 @@ class LandmarkQualityFramework:
                 # -------------------------------------------------
                 # BOTTOM FRAMES
                 # -------------------------------------------------
-                """if rep_counter.state != "STANDING":
+                # Label each frame with the rep that is actually under way (not the count of reps already finished),
+                # so a rep's frames are the frames of that rep. Frames while standing between reps are not kept.
+                if rep_counter.state != "STANDING":
                     active_rep_number = rep_counter.rep_count + 1
                 elif rep_completed:
                     active_rep_number = rep_counter.rep_count
                 else:
                     active_rep_number = 0
 
-                if active_rep_number > 0:"""
-                append_bottom_frames(
-                            # (the frame's pixels used to be saved here too, for every frame analysed: about 1 GB for a
-                            # 40 second video, and nothing ever read them. The worst-frame picture is re-read from
-                            # the video file by frame_index instead.)
-                            {"frame_index": frame_index,
-                             "camera_view":camera_view,
-                             "norm_pose":norm_pose,
-                             "width":width,
-                             "height":height,
-                             "hip_angle": hip_angle,
-                             "knee_angle":knee_angle,
-                             "rep_number":rep_counter.rep_count}
-                        )
+                if active_rep_number > 0:
+                    append_bottom_frames(
+                        # (the frame's pixels used to be saved here too, for every frame analysed: about 1 GB for a
+                        # 40 second video, and nothing ever read them. The picture is re-read from the video file
+                        # by frame_index instead.)
+                        {"frame_index": frame_index,
+                         "camera_view": camera_view,
+                         "norm_pose": norm_pose,
+                         "width": width,
+                         "height": height,
+                         "hip_angle": hip_angle,
+                         "knee_angle": knee_angle,
+                         "rep_number": active_rep_number}
+                    )
 
                 # -------------------------------------------------
                 # REP COMPLETED
@@ -492,6 +527,12 @@ class LandmarkQualityFramework:
 
                     rep_dict["rep_number"] = rep_count
                     rep_dict["camera_view"] = camera_view
+                    rep_dict["hands_at_chest"] = round(hold_ok / hold_total, 2) if hold_total else 1.0
+                    if depth_gap_max is not None and torso_ref > 0:
+                        rep_dict.setdefault("depth_data", {})["hip_below_knee_ratio"] = round(depth_gap_max / torso_ref, 3)
+                    depth_gap_max = None
+                    hold_total = 0
+                    hold_ok = 0
                     append_rep(rep_dict)
 
                 # -------------------------------------------------
@@ -522,6 +563,72 @@ class LandmarkQualityFramework:
         cv2.destroyAllWindows()
         if out_video.isOpened():
             out_video.release()
+
+        # The clip can end before the last squat finishes standing up. If the person had reached the bottom, that squat
+        # still counts. It is marked partial, so its lifting time is not trusted. The same squat test below judges it.
+        try:
+            if rep_counter.state in ("BOTTOM", "ASCENDING"):
+                tail = format_rep_data(
+                    rep_count + 1,
+                    tempo_tracker.on_rep_completed(timestamp_ms),
+                    back_tracker.on_rep_completed(camera_view),
+                    depth_tracker.on_rep_completed(camera_view),
+                    stability_tracker.on_rep_completed(camera_view),
+                    ankle_tracker.on_rep_completed(camera_view),
+                    camera_view,
+                )
+                tail["rep_number"] = rep_count + 1
+                tail["camera_view"] = camera_view
+                tail["hands_at_chest"] = round(hold_ok / hold_total, 2) if hold_total else 1.0
+                if depth_gap_max is not None and torso_ref > 0:
+                    tail.setdefault("depth_data", {})["hip_below_knee_ratio"] = round(depth_gap_max / torso_ref, 3)
+                tail["partial"] = True
+                append_rep(tail)
+        except Exception:
+            pass
+
+        # The first and last counted movements are often not squats: bending down to pick the weights up or put them
+        # down. Those fold the body far further forward than any squat in the set (and often leave the knees almost
+        # straight), so they stand out against the set's own typical rep. This replaces the old rule that always
+        # dropped the last counted rep and never the first. With too few reps to judge, nothing is dropped.
+        LEAN_OUTLIER_DEG = 30.0
+        KNEE_OUTLIER_DEG = 35.0
+        HANDS_OUTLIER = 0.45     # hands-above-hips share far below the person's own typical rep (picking up / setting down)
+        self.last_rep_checks = [
+            {"n": r.get("rep_number"), "hands": r.get("hands_at_chest"), "partial": r.get("partial", False),
+             "knee": (r.get("depth_data") or {}).get("knee_angle_at_bottom"), "hip": (r.get("depth_data") or {}).get("hip_angle_at_bottom"),
+             "total": (r.get("tempo_data") or {}).get("total"), "lean": (r.get("back_data") or {}).get("back_angle_at_bottom")}
+            for r in reps_json_info
+        ]
+
+        def _val(r, section, key):
+            v = (r.get(section) or {}).get(key)
+            return v if isinstance(v, (int, float)) else None
+        if len(reps_json_info) >= 4:
+            leans = [v for v in (_val(r, "back_data", "back_angle_at_bottom") for r in reps_json_info) if v is not None]
+            knees = [v for v in (_val(r, "depth_data", "knee_angle_at_bottom") for r in reps_json_info) if v is not None]
+            hands = [v for v in (r.get("hands_at_chest") for r in reps_json_info) if isinstance(v, (int, float))]
+            med_lean = sorted(leans)[len(leans) // 2] if leans else None
+            med_knee = sorted(knees)[len(knees) // 2] if knees else None
+            med_hands = sorted(hands)[len(hands) // 2] if hands else None
+
+            def is_squat(r):
+                lean, knee = _val(r, "back_data", "back_angle_at_bottom"), _val(r, "depth_data", "knee_angle_at_bottom")
+                if lean is not None and med_lean is not None and abs(lean - med_lean) > LEAN_OUTLIER_DEG:
+                    return False
+                if knee is not None and med_knee is not None and knee - med_knee > KNEE_OUTLIER_DEG:
+                    return False
+                h = r.get("hands_at_chest")
+                if isinstance(h, (int, float)) and med_hands is not None and med_hands - h > HANDS_OUTLIER:
+                    return False
+                return True
+            reps_json_info[:] = [r for r in reps_json_info if is_squat(r)]
+        old_to_new = {}
+        for new_number, r in enumerate(reps_json_info, start=1):
+            old_to_new[r["rep_number"]] = new_number
+            r["rep_number"] = new_number
+        # the saved frames follow the same numbering; frames of dropped movements are discarded
+        bottom_frames[:] = [dict(f, rep_number=old_to_new[f["rep_number"]]) for f in bottom_frames if f["rep_number"] in old_to_new]
 
         # -------------------------------------------------
         # QUALITY SCORE
@@ -564,8 +671,6 @@ class LandmarkQualityFramework:
         # -------------------------------------------------
         trend_analyzer = TrendAnalyzer()
         
-        # Delete final rep, because it can be for the end video setup
-        reps_json_info.pop()
 
         if reps_json_info:
             camera_view = Counter(

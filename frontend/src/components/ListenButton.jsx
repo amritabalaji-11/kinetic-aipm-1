@@ -10,6 +10,7 @@ const BASE_URL = import.meta.env.VITE_API_URL || "http://localhost:8000"
 const VARIANTS = {
   onDark: { background: "rgba(255,255,255,0.2)", color: "#FFFFFF" },
   light: { background: "#FCF9FF", color: "#8133FF", border: "1px solid #A36CFB" },
+  teal: { background: "#14b8a6", color: "#FFFFFF" },
 }
 
 export default function ListenButton({ text, variant = "onDark", coach = false }) {

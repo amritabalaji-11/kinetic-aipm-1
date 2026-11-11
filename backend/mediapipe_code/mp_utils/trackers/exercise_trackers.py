@@ -284,6 +284,8 @@ class PassiveStabilityTracker:
             return {
                 "knee_valgus_distance": None,
                 "knee_gap_hip_gap_ratio": None,
+                "knee_ankle_ratio_at_bottom": None,
+                "knee_travel": None,
                 "valgus_severity": None,
                 "valgus_label": None,
                 "valgus_phase": None,
@@ -310,6 +312,8 @@ class PassiveStabilityTracker:
         stability_data = {
             "knee_valgus_distance": knee_valgus_distance,
             "knee_gap_hip_gap_ratio": ratio,
+            "knee_ankle_ratio_at_bottom": self._knee_ankle_at_bottom(),
+            "knee_travel": self._knee_travel(),
             "valgus_severity": valgus_severity,
             "valgus_label": "Warning" if valgus_flag else "Good",
             "valgus_phase": valgus_phase,
@@ -331,13 +335,39 @@ class PassiveStabilityTracker:
             if shoulder_width <= 1e-6:
                 return {"knee_distance": None, "shoulder_width": None, "knee_ratio": None}
 
+            ankle_width = abs(norm_pose[27].x - norm_pose[28].x)
+            hip_y = (norm_pose[23].y + norm_pose[24].y) / 2
             return {
                 "knee_distance": knee_width,
                 "shoulder_width": shoulder_width,
                 "knee_ratio": knee_width / shoulder_width,
+                "ankle_distance": ankle_width,
+                "hip_y": hip_y,
             }
         except Exception:
             return {"knee_distance": None, "shoulder_width": None, "knee_ratio": None}
+
+    def _knee_travel(self):
+        """How much the knees move in and out during the rep (front view): the summed change in knee gap / ankle gap from frame to frame.
+        Compare reps of the SAME set only: it does not separate a good clip from a faulty one (the good test clip moves as much as the faulty one),
+        but within a set the rep that looks shaky has about twice the travel of a steady one."""
+        series = [f["knee_distance"] / f["ankle_distance"] for f in self.rep_frames if f.get("knee_distance") is not None and f.get("ankle_distance") and f["ankle_distance"] > 1e-6]
+        if len(series) < 4:
+            return None
+        return round(sum(abs(b - a) for a, b in zip(series, series[1:])), 3)
+
+    def _knee_ankle_at_bottom(self):
+        """How wide the knees are compared with the feet, at the bottom of the rep (front view).
+        Knees that stay about as close together as the feet (ratio near 1.0) are caving in; they normally travel out as you sit.
+        The ratio depends on stance width, so it is only a rough cut until we have labelled front videos."""
+        frames = [f for f in self.rep_frames if f.get("hip_y") is not None and f.get("ankle_distance")]
+        if len(frames) < 3:
+            return None
+        lowest = max(f["hip_y"] for f in frames)
+        top = min(f["hip_y"] for f in frames)
+        near = [f for f in frames if f["hip_y"] >= lowest - 0.15 * (lowest - top)]
+        vals = sorted(f["knee_distance"] / f["ankle_distance"] for f in near if f["ankle_distance"] > 1e-6)
+        return round(vals[len(vals) // 2], 3) if vals else None
 
     def _classify_valgus_phase(self):
         """
@@ -399,53 +429,105 @@ class PassiveStabilityTracker:
 
 class PassiveTempoTracker:
     """
-    Passive Tempo & Eccentric/Concentric Duration Tracker.
-    Precisely measures repetition phase intervals without parallel state processing.
+    Tempo tracker. Measures how long each rep takes to lower, how long it spends near the bottom, and how long
+    it takes to come back up, from the shape of the hip angle over the rep.
+
+    The earlier version timed the gaps between angle threshold crossings (150, 120, 155 degrees) and added a fixed
+    0.3 s to each. Those gaps are only a slice of the real movement, so lowering time was badly under-reported and
+    the bottom time over-reported. This version looks at the whole rep:
+      - near the top    = within 15% of the rep's own range of its highest angle
+      - near the bottom = within 15% of the rep's own range of its lowest angle
+    (Replaced by movement versus stillness; see _phases.)
     """
+    BAND = 0.15
+    MIN_RANGE_DEG = 20.0
+
     def __init__(self):
+        self.samples = []   # (timestamp seconds, hip angle) since the last completed rep
         self.reset()
 
     def reset(self):
+        # kept for the older event calls; the timing no longer depends on them
         self.phase_start_time = None
-        self.eccentric_time = 0.0
-        self.pause_time = 0.0
-        self.concentric_time = 0.0
+
+    def update_frame(self, timestamp, hip_angle):
+        if hip_angle is not None:
+            self.samples.append((timestamp, float(hip_angle)))
 
     def on_descending(self, timestamp):
-        self.phase_start_time = timestamp
-        self.eccentric_time = 0.0
-        self.pause_time = 0.0
-        self.concentric_time = 0.0
+        pass
 
     def on_bottom_reached(self, timestamp):
-        if self.phase_start_time is not None:
-            self.eccentric_time = timestamp - self.phase_start_time
-        self.phase_start_time = timestamp
+        pass
 
     def on_ascending_started(self, timestamp):
-        if self.phase_start_time is not None:
-            self.pause_time = timestamp - self.phase_start_time
-        self.phase_start_time = timestamp
+        pass
+
+    STILL = 0.15      # slower than this fraction of the rep's top speed counts as "still"
+    ZONE = 0.25       # "near the top / bottom" = within this fraction of the rep's range
+
+    def _phases(self):
+        """Lowering, bottom and lifting times from movement versus stillness.
+        Lowering = hips moving down. Bottom = hips still near the bottom. Lifting = hips moving up."""
+        pts = self.samples
+        if len(pts) < 5:
+            return None
+        t = [p[0] for p in pts]
+        a = [p[1] for p in pts]
+        top, bottom = max(a), min(a)
+        rng = top - bottom
+        if rng < self.MIN_RANGE_DEG:
+            return None
+        # speed from neighbouring samples (central difference)
+        n = len(a)
+        speed = [0.0] * n
+        for i in range(1, n - 1):
+            dt = t[i + 1] - t[i - 1]
+            speed[i] = abs(a[i + 1] - a[i - 1]) / dt if dt > 0 else 0.0
+        vmax = max(speed)
+        if vmax <= 0:
+            return None
+        still = [v < self.STILL * vmax for v in speed]
+        in_top = [v >= top - self.ZONE * rng for v in a]
+        in_bottom = [v <= bottom + self.ZONE * rng for v in a]
+        i_min = a.index(bottom)
+
+        # lowering starts where the stillness at the top ends (or at the highest point if there is none)
+        i0 = i_min
+        while i0 > 0 and not (still[i0] and in_top[i0]):
+            i0 -= 1
+        if i0 == 0 and not (still[0] and in_top[0]):
+            i0 = max(range(0, i_min + 1), key=lambda k: a[k])
+        # the bottom starts when the hips stop moving near the bottom (or at the lowest point)
+        i1 = i0
+        while i1 < i_min and not (still[i1] and in_bottom[i1]):
+            i1 += 1
+        # ... and ends when they start moving up again
+        i2 = max(i1, i_min)
+        while i2 < n - 1 and in_bottom[i2 + 1] and still[i2 + 1]:
+            i2 += 1
+        # lifting ends when they are still near the top again (or at the highest point afterwards)
+        i3 = i2
+        while i3 < n - 1 and not (still[i3] and in_top[i3]):
+            i3 += 1
+        return t[i1] - t[i0], t[i2] - t[i1], t[i3] - t[i2]
 
     def on_rep_completed(self, timestamp):
-        if self.phase_start_time is not None:
-            self.concentric_time = timestamp - self.phase_start_time
-
-        # Processing compensation for downsampled/skipped video frames (0.3s per transition)
-        self.eccentric_time += 0.3
-        self.concentric_time += 0.3
-        self.pause_time += 0.3
-        total_time = self.eccentric_time + self.pause_time + self.concentric_time
-
-        tempo_data = {
-            "eccentric": round(self.eccentric_time, 2),
-            "pause": round(self.pause_time, 2),
-            "concentric": round(self.concentric_time, 2),
+        ph = self._phases()
+        if ph is None:
+            ecc = pause = conc = 0.0
+        else:
+            ecc, pause, conc = ph
+        total_time = ecc + pause + conc
+        # the next rep starts from the last sample of this one
+        self.samples = self.samples[-1:] if self.samples else []
+        return {
+            "eccentric": round(ecc, 2),
+            "pause": round(pause, 2),
+            "concentric": round(conc, 2),
             "total_time": round(total_time, 2),
-            "tempo_notation": f"{self.eccentric_time:.0f}-{self.pause_time:.0f}-{self.concentric_time:.0f}",
+            "tempo_notation": f"{ecc:.0f}-{pause:.0f}-{conc:.0f}",
         }
-        self.reset()
-        return tempo_data
 
     def on_reset(self):
         self.reset()

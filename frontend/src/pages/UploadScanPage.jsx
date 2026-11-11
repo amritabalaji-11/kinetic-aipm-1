@@ -1,9 +1,10 @@
 import { useEffect, useState, useRef } from "react"
-import { useNavigate } from "react-router-dom"
+import { useLocation, useNavigate } from "react-router-dom"
 import { uploadVideoDirect } from "../services/uploadService"
 import { startVideoPreparation } from "../utils/prepareVideo"
 import { BIG_UNSHRUNK_BYTES, durationText, guessUploadSeconds, hasSeenTips, markTipsSeen } from "../utils/uploadHelp"
 import { useWakeLock } from "../utils/useWakeLock"
+import { MIN_REPS } from "../utils/analysisRules"
 import FilmingTips from "../components/FilmingTips"
 import LoadCard from "../components/LoadCard"
 import { convertWeight, readLastLoad, saveLastLoad } from "../utils/weightInput"
@@ -19,6 +20,7 @@ const ACCEPTED_FORMATS = ["video/mp4", "video/quicktime", "video/webm"]
 
 export default function UploadScanPage() {
   const navigate     = useNavigate()
+  const tooFewReps   = useLocation().state?.tooFewReps  // set when the last video had too few reps
   const videoRef     = useRef(null)
   const fileInputRef = useRef(null)
   const prepRef      = useRef(null)  // the video is shrunk in the background as soon as it is chosen
@@ -132,6 +134,11 @@ export default function UploadScanPage() {
         <p style={{ fontFamily: DM_SANS, fontSize: 13, color: GRAY, margin: "0 0 14px" }}>
           What did you film? Pick a body area, then the exercise.
         </p>
+        {tooFewReps ? (
+          <div role="alert" className="mb-4 rounded-2xl p-3 text-sm" style={{ background: "#FFFBEB", border: "1px solid #FDE68A", color: "#92400E", fontFamily: DM_SANS }}>
+            <strong>Your last video had only {tooFewReps} {tooFewReps === 1 ? "rep" : "reps"}.</strong> Please film at least {MIN_REPS} reps so we can give you reliable feedback.
+          </div>
+        ) : null}
         <div className="mb-4">
           <UploadExercisePicker exercise={exercise} onPick={setExercise} onClear={() => setExercise(null)} />
         </div>

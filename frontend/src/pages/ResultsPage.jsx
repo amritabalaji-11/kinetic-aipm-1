@@ -3,6 +3,10 @@ import { apiFetch } from "../services/api"
 import { useLocation, useNavigate } from "react-router-dom"
 import ListenButton from "../components/ListenButton"
 
+import { buildFeedback } from "../utils/feedbackItems"
+import { MIN_REPS } from "../utils/analysisRules"
+import { hasActiveWorkout } from "../utils/routineBlock"
+import { ResultsPhoto, WentWell, WorkOn, TryNext, GreatBanner, WeightNudge, CoachReminder, RepTempoChart } from "../components/ResultsFeedback"
 import FIXTURE_CLEAN        from "../../../fixtures/form-analysis.clean.json"
 import FIXTURE_WITH_ISSUES  from "../../../fixtures/form-analysis.with-issues.json"
 import FIXTURE_COMPARISON   from "../../../fixtures/form-comparison.json"
@@ -652,7 +656,7 @@ export default function ResultsPage() {
   useEffect(() => {
     if (state?.analysisId) {
       handleLoadLiveSession(state.analysisId)
-    } else if (!liveCurrentData && !sessionLoaded) {
+    } else if (!liveCurrentData && !state?.analysisResult) {
       // Load default fixture when page opens without live data
       setLiveCurrentData(FIXTURE_CLEAN)
       setLiveCompData(null)
@@ -807,6 +811,9 @@ export default function ResultsPage() {
         summary_paragraph:  currentSummary.summary_paragraph,
         feedback:           coachingOutput1.correct?.[0]?.cue || "",
         next_session_focus: nextSessionFocus,
+        feedback_items:     coachingOutput1.feedback_items || haikuCall1.feedback_items || null,
+        signals:            coachingOutput1.signals || haikuCall1.signals || null,
+        comparison:         coachingOutput1.comparison || haikuCall1.comparison || null,
         parameters:         currentParameters,
       }
       let parsedReps = []
@@ -834,6 +841,17 @@ export default function ResultsPage() {
           }
         } catch (e) { console.warn("Failed to parse biomechanics_json:", e) }
       }
+      // Keep the measured timing of each rep (lowering, pause, lifting) so the screen can say what actually happened.
+      try {
+        const bm = baseAnalysis.biomechanics_json ? JSON.parse(baseAnalysis.biomechanics_json) : null
+        const tempoByRep = {}
+        const depthByRep = {}
+        ;(bm?.reps || []).forEach((r) => {
+          if (r?.tempo_data) tempoByRep[r.rep_number] = r.tempo_data
+          if (r?.depth_data?.depth_classification) depthByRep[r.rep_number] = r.depth_data.depth_classification
+        })
+        parsedReps = parsedReps.map((r) => ({ ...r, tempo: tempoByRep[r.rep_number] || null, depth: depthByRep[r.rep_number] || null }))
+      } catch (e) { console.warn("Could not read rep timing:", e) }
       const parsedCurrentResult = {
         analysis_id:   baseAnalysis.analysis_id  || haikuCall1.analysis_id,
         session_id:    baseAnalysis.session_id   || haikuCall1.session_id,
@@ -1112,6 +1130,12 @@ export default function ResultsPage() {
   const createdAt = data.created_at
     ? new Date(data.created_at).toLocaleDateString("en-GB", { day: "numeric", month: "short" }) : ""
   const repCount = reps.length
+  // Too few reps to judge: ask for another video instead of showing feedback built on a handful of reps.
+  const tooFewReps = !data._fixture && repCount > 0 && repCount < MIN_REPS
+  const feedback = buildFeedback({
+    params, coaching, reps, repScores,
+    exerciseId: data.exercise_id || data.exercise_slug || data.exercise_name || "",
+  })
 
   const statusFailed = data.status === "failed" || (overall === 0 && reps.length === 0 && issues.length > 0)
 
@@ -1534,134 +1558,79 @@ export default function ResultsPage() {
         {!isProgression && (
           <>
             {(() => {
-              const userId = localStorage.getItem("active_user_id");
-              const isUser001 = userId === "user_001";
-              const isUser002 = userId === "user_002";
-              const user001ImageUrl = "/user_001_side_15kg.jpg";
-              const user002ImageUrl = "/user_002_side_907.jpg";
-
-              return (
-                <div className="mx-4 mb-4 rounded-2xl overflow-hidden relative group">
-                  {userAnnotatedFrameUrl ? (
-                    <>
-                      <img src={userAnnotatedFrameUrl} alt="User annotated frame" className="w-full object-cover cursor-pointer" style={{ display: "block", maxHeight: 300, borderRadius: "1rem", objectPosition: "center" }} onClick={() => setFullscreenImage(userAnnotatedFrameUrl)} onError={(e) => { e.target.src = isUser001 ? user001ImageUrl : (isUser002 ? user002ImageUrl : userAnnotatedFrameUrl); }} />
-                      <button onClick={() => setFullscreenImage(userAnnotatedFrameUrl)} className="absolute top-3 right-3 bg-blue-500 hover:bg-blue-600 text-white p-2 rounded-lg transition-colors" title="Expand image">
-                        <svg className="w-6 h-6" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24">
-                          <path d="M3 3v6h6M21 21v-6h-6M3 21h6v-6M21 3h-6v6"/>
-                        </svg>
-                      </button>
-                    </>
-                  ) : frameSrc ? (
-                    <>
-                      <img src={frameSrc} alt="Annotated analysis frame" className="w-full object-cover cursor-pointer" style={{ display: "block", maxHeight: 300, borderRadius: "1rem", objectPosition: "center" }} onClick={() => setFullscreenImage(frameSrc)} />
-                      <button onClick={() => setFullscreenImage(frameSrc)} className="absolute top-3 right-3 bg-blue-500 hover:bg-blue-600 text-white p-2 rounded-lg transition-colors" title="Expand image">
-                        <svg className="w-5 h-5" fill="currentColor" viewBox="0 0 24 24"><path d="M7 14c-1.66 0-3 1.34-3 3 0 1.31-1.16 2-2 2s-2-.69-2-2c0-2.61 2.91-5 5-5 1.31 0 2 1.16 2 2s-.69 2-2 2zm13.71-9.71L19 6.41V3h-3v2h2.59L13 9.59 15.59 12 21 6.41V9h2V4h-5V1h-3v4h2.59z"/></svg>
-                      </button>
-                    </>
-                  ) : isUser001 ? (
-                    <>
-                      <img src={user001ImageUrl} alt="User 001 form" className="w-full object-cover cursor-pointer" style={{ display: "block", maxHeight: 300, borderRadius: "1rem", objectPosition: "center" }} onClick={() => setFullscreenImage(user001ImageUrl)} />
-                      <button onClick={() => setFullscreenImage(user001ImageUrl)} className="absolute top-3 right-3 bg-blue-500 hover:bg-blue-600 text-white p-2 rounded-lg transition-colors" title="Expand image">
-                        <svg className="w-5 h-5" fill="currentColor" viewBox="0 0 24 24"><path d="M7 14c-1.66 0-3 1.34-3 3 0 1.31-1.16 2-2 2s-2-.69-2-2c0-2.61 2.91-5 5-5 1.31 0 2 1.16 2 2s-.69 2-2 2zm13.71-9.71L19 6.41V3h-3v2h2.59L13 9.59 15.59 12 21 6.41V9h2V4h-5V1h-3v4h2.59z"/></svg>
-                      </button>
-                    </>
-                  ) : isUser002 ? (
-                    <>
-                      <img src={user002ImageUrl} alt="User 002 form" className="w-full object-cover cursor-pointer" style={{ display: "block", maxHeight: 300, borderRadius: "1rem", objectPosition: "center" }} onClick={() => setFullscreenImage(user002ImageUrl)} />
-                      <button onClick={() => setFullscreenImage(user002ImageUrl)} className="absolute top-3 right-3 bg-blue-500 hover:bg-blue-600 text-white p-2 rounded-lg transition-colors" title="Expand image">
-                        <svg className="w-5 h-5" fill="currentColor" viewBox="0 0 24 24"><path d="M7 14c-1.66 0-3 1.34-3 3 0 1.31-1.16 2-2 2s-2-.69-2-2c0-2.61 2.91-5 5-5 1.31 0 2 1.16 2 2s-.69 2-2 2zm13.71-9.71L19 6.41V3h-3v2h2.59L13 9.59 15.59 12 21 6.41V9h2V4h-5V1h-3v4h2.59z"/></svg>
-                      </button>
-                    </>
-                  ) : framePending ? (
-                    <div className="h-52 flex flex-col items-center justify-center gap-3" style={{ background: "#0f0f1a", borderRadius: "1rem" }}>
-                      <div className="w-8 h-8 rounded-full animate-spin" style={{ border: "3px solid rgba(20,184,166,0.25)", borderTopColor: "#14b8a6" }} />
-                      <p className="text-xs text-gray-400">Preparing your annotated frame…</p>
-                    </div>
-                  ) : !isUser001 && !isUser002 && videoSrc ? (
-                    <VideoPlayer src={videoSrc} />
-                  ) : (
-                    <div className="h-52 flex flex-col items-center justify-center gap-3" style={{ background: "#0f0f1a", borderRadius: "1rem" }}>
-                      <div className="w-14 h-14 rounded-full flex items-center justify-center" style={{ background: "#14b8a6", boxShadow: "0 0 0 6px rgba(20,184,166,0.25)" }}>
-                        <svg className="w-6 h-6 text-white ml-1" fill="currentColor" viewBox="0 0 24 24"><path d="M8 5v14l11-7z" /></svg>
-                      </div>
-                      <p className="text-xs text-gray-500">Frame analysis coming soon</p>
-                    </div>
-                  )}
+              const userId = localStorage.getItem("active_user_id")
+              const demoImage = userId === "user_001" ? "/user_001_side_15kg.jpg" : userId === "user_002" ? "/user_002_side_907.jpg" : null
+              const imageSrc = userAnnotatedFrameUrl || frameSrc || demoImage
+              const spinner = (
+                <div className="h-52 flex flex-col items-center justify-center gap-3">
+                  <div className="w-8 h-8 rounded-full animate-spin" style={{ border: "3px solid rgba(20,184,166,0.25)", borderTopColor: "#14b8a6" }} />
+                  <p className="text-xs text-gray-400">Preparing your picture…</p>
                 </div>
-              );
+              )
+              const empty = (
+                <div className="h-40 flex items-center justify-center text-xs text-gray-500">Your picture will show here</div>
+              )
+              return (
+                <ResultsPhoto
+                  imageSrc={imageSrc}
+                  fallbackImageSrc={demoImage}
+                  videoSrc={videoSrc}
+                  comparison={coaching.comparison}
+                  note={(() => {
+                    // the same words as the card below, so the video and the text say one thing
+                    const t = coaching.comparison?.topic
+                    const f = feedback.fix.find((x) => x.topic === t)
+                    if (f) return { title: f.title, why: f.why }
+                    if (t === "depth" && feedback.tryNext) return { title: feedback.tryNext.title, why: feedback.tryNext.why }
+                    return null
+                  })()}
+                  startWithVideo={!imageSrc && !framePending && !!videoSrc}
+                  caption={null}
+                  onEnlarge={setFullscreenImage}
+                  fallback={framePending ? spinner : empty}
+                />
+              )
             })()}
 
-            {/* Failed banner */}
             {statusFailed && (
               <div className="mx-4 mb-4 text-sm text-amber-800 bg-amber-50 border border-amber-100 rounded-xl p-3">
-                This session didn't produce a full form score — see coaching notes below.
+                This session didn't produce a full result. Try filming again from the side with your whole body in view.
               </div>
             )}
 
-            <div className="mx-4 mb-4 rounded-2xl p-4" style={{ background: "linear-gradient(135deg, #0284C7 0%, #9747FF 100%)" }}>
-              <div className="text-white text-sm font-bold mb-3">AI Verdict</div>
-              <div className="flex items-start gap-4">
-                <div className="flex flex-col items-center gap-1 flex-shrink-0">
-                  <BigScoreRing score={overall} />
-                  <span className="text-white text-xs opacity-80">Form Score</span>
-                </div>
-                <div className="flex-1 min-w-0">
-                  <p className="text-white text-xs leading-relaxed opacity-90 mb-3">
-                    {coaching.summary_paragraph || "Keep it up — your form is consistent."}
-                  </p>
-                  <div className="flex flex-wrap gap-2">
-                    <ListenButton text={[coaching.summary_paragraph, ...(coaching.next_session_focus || []).map((item, i) => `Focus ${i + 1}. ${item}`)].filter(Boolean).join(" ")} />
-                    {createdAt && (
-                      <span className="text-xs font-semibold px-3 py-1 rounded-full text-white" style={{ background: "rgba(255,255,255,0.2)" }}>{createdAt}</span>
-                    )}
-                    {weightLabel && (
-                      <span className="text-xs font-semibold px-3 py-1 rounded-full text-white" style={{ background: "rgba(255,255,255,0.2)" }}>{weightLabel}</span>
-                    )}
-                    {repCount > 0 && (
-                      <span className="text-xs font-semibold px-3 py-1 rounded-full text-white" style={{ background: "rgba(255,255,255,0.2)" }}>{repCount} Reps</span>
-                    )}
+            {!statusFailed && tooFewReps && (
+              <div className="mx-4 mb-4 rounded-2xl p-4" style={{ background: "#FFFBEB", border: "1px solid #FDE68A" }}>
+                <div className="text-base font-bold" style={{ color: "#92400E" }}>We only saw {repCount} {repCount === 1 ? "rep" : "reps"}</div>
+                <p className="text-sm mt-1 leading-snug" style={{ color: "#92400E" }}>
+                  That isn't enough to tell a pattern from a one-off. Film at least {MIN_REPS} reps and we'll give you feedback you can trust.
+                </p>
+                <button type="button" onClick={() => navigate("/upload", { state: { tooFewReps: repCount } })}
+                  className="mt-3 w-full py-3 rounded-xl text-white text-sm font-bold"
+                  style={{ background: "linear-gradient(135deg, #0284C7 0%, #9747FF 100%)" }}>
+                  Film another video
+                </button>
+              </div>
+            )}
+
+            {!statusFailed && !tooFewReps && (
+              <>
+                {feedback.great && <GreatBanner />}
+                <WentWell items={feedback.good} repTotal={feedback.repTotal} />
+                <WorkOn items={feedback.fix} repTotal={feedback.repTotal} />
+                <TryNext item={feedback.tryNext} />
+                {feedback.nudge && !feedback.tryNext && <WeightNudge />}
+                {feedback.cameraView === "front" && (
+                  <div className="mx-4 mb-4 rounded-2xl p-4" style={{ background: "#fff", border: "1px solid #f3f4f6" }}>
+                    <p className="text-xs text-gray-600 leading-relaxed">
+                      Filmed from the front, we check your knees and timing. Film from the side to get feedback on lean, depth and ankle range.
+                    </p>
                   </div>
-                </div>
-              </div>
-            </div>
+                )}
+                <CoachReminder lines={feedback.reminder} />
+              </>
+            )}
 
-            <div className="mx-4 mb-4">
-              <div className="flex items-center gap-2 mb-3">
-                <svg className="w-5 h-5" style={{ color: "#14b8a6" }} fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-                  <circle cx="12" cy="12" r="10" /><circle cx="12" cy="12" r="6" /><circle cx="12" cy="12" r="2" />
-                </svg>
-                <h2 className="text-sm font-extrabold text-gray-900 tracking-wide uppercase">Key Insights</h2>
-              </div>
-              {PARAMS.map((p, i) => {
-                const d     = params[p.key] || {}
-                const score = Math.round(d.score ?? summary?.[`${p.summaryKey}_score`] ?? 0)
-                return (
-                  <ParamCard
-                    key={p.key}
-                    paramKey={p.key}
-                    label={p.label}
-                    score={score}
-                    observation={d.observation || null}
-                    affirmation={d.affirmation || null}
-                    correction={d.correction || d.feedback || null}
-                    defaultNote={DEFAULT_NOTES[p.key]}
-                    initOpen={i === 0}
-                  />
-                )
-              })}
-            </div>
-
-            <div className="mx-4 mb-4 bg-white rounded-2xl p-4" style={{ border: "1px solid #f3f4f6", boxShadow: "0 1px 3px rgba(0,0,0,0.05)" }}>
-              <div className="flex items-center gap-2 mb-3">
-                <svg className="w-5 h-5" style={{ color: "#14b8a6" }} fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}>
-                  <path strokeLinecap="round" strokeLinejoin="round" d="M3 17l4-8 4 4 4-6 4 4" />
-                </svg>
-                <h2 className="text-sm font-extrabold text-gray-900 tracking-wide uppercase">Performance Over Reps</h2>
-              </div>
-              <RepChart currentRepScores={repScores} previousRepScores={[]} />
-            </div>
-
-            <NextSessionFocusBox focusItems={coaching.next_session_focus} />
+            {!tooFewReps && <RepTempoChart reps={reps} />}
           </>
         )}
 
@@ -1671,10 +1640,10 @@ export default function ResultsPage() {
             style={{ background: "linear-gradient(135deg, #0284C7 0%, #9747FF 100%)" }}>
             New Upload
           </button>
-          <button type="button" onClick={() => navigate("/home")}
+          <button type="button" onClick={() => navigate(hasActiveWorkout() ? "/workout/active" : "/home")}
             className="w-full py-4 rounded-2xl text-sm font-semibold bg-white"
             style={{ border: "1.5px solid #e5e7eb", color: "#374151" }}>
-            Continue to Set 3
+            {hasActiveWorkout() ? "Back to workout" : "Back to Home"}
           </button>
         </div>
 

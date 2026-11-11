@@ -544,6 +544,8 @@ def format_rep_data(rep_count, tempo_data, back_data, depth_data, stability_data
         "stability_data": {
             "knee_valgus_distance": None,
             "knee_gap_hip_gap_ratio": None,
+            "knee_ankle_ratio_at_bottom": None,
+            "knee_travel": None,
             "valgus_severity": None,
             "valgus_label": None,
             "valgus_flag": None,
@@ -565,6 +567,8 @@ def format_rep_data(rep_count, tempo_data, back_data, depth_data, stability_data
         )
         data["stability_data"]["knee_gap_hip_gap_ratio"] = stability_data["knee_gap_hip_gap_ratio"] if stability_data else None
         data["stability_data"]["valgus_severity"] = stability_data["valgus_severity"] if stability_data else None
+        data["stability_data"]["knee_ankle_ratio_at_bottom"] = stability_data.get("knee_ankle_ratio_at_bottom") if stability_data else None
+        data["stability_data"]["knee_travel"] = stability_data.get("knee_travel") if stability_data else None
         data["stability_data"]["valgus_label"] = stability_data["valgus_label"] if stability_data else None
 
     if camera_view == "front":
