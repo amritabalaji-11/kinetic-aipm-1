@@ -3,7 +3,7 @@ import { Link, useLocation } from "react-router-dom"
 import { ChevronDown, Play, X } from "lucide-react"
 import ListenButton from "./ListenButton"
 import { BRICOLAGE, DM_SANS, GRAY, INK, PURPLE } from "./planUi"
-import { getExerciseGuide } from "../data/exerciseGuides"
+import { getExerciseGuide, guideVideo } from "../data/exerciseGuides"
 import { useCoachScript } from "../utils/useCoachScript"
 
 // Shown at the bottom of the workout right after a set is ticked: what comes next, with a quick refresher you can
@@ -59,7 +59,8 @@ export function Refresher({ item, showName }) {
   const scripts = useCoachScript(item.exerciseId)
   const [watching, setWatching] = useState(false)
   const spoken = scripts?.short ?? guide.keyCues.join(" ")
-  const id = guide.video.youtubeId
+  const video = guideVideo(guide)
+  const id = video?.youtubeId
 
   return (
     <div style={{ borderTop: "1px solid rgba(129,51,255,0.12)", paddingTop: 10, marginTop: 4 }}>
@@ -74,8 +75,8 @@ export function Refresher({ item, showName }) {
         <ListenButton variant="light" coach text={spoken} />
         <Link to={`/exercise/${item.exerciseId}`} state={{ from: location.pathname }} style={{ fontFamily: DM_SANS, fontWeight: 600, fontSize: 12, color: PURPLE, marginLeft: "auto" }}>Full guide ›</Link>
       </div>
-      {watching && (
-        <div style={{ position: "relative", width: 150, aspectRatio: guide.video.vertical ? "9 / 16" : "16 / 9", margin: "10px auto 0", borderRadius: 10, overflow: "hidden", background: "#0F172A" }}>
+      {watching && video && (
+        <div style={{ position: "relative", width: 150, aspectRatio: video.vertical ? "9 / 16" : "16 / 9", margin: "10px auto 0", borderRadius: 10, overflow: "hidden", background: "#0F172A" }}>
           <iframe
             title={`${item.name} demo`}
             src={`https://www.youtube-nocookie.com/embed/${id}?autoplay=1&mute=1&controls=0&playsinline=1&loop=1&playlist=${id}&rel=0&modestbranding=1`}

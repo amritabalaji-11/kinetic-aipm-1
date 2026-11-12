@@ -30,9 +30,10 @@ Updated with the chosen video (Live Lean TV, "Perfect Dumbbell Deadlift Form for
 - **Helping muscles:** Lower back (holds your position), upper back, core, forearms (grip).
 - **Starting weight:** Light. A weight you can control for 8–12 reps (ACE). Add weight slowly once the hinge feels automatic.
 
-## Video
+## Video (women)
 - **Chosen:** https://www.youtube.com/shorts/YQgs03p3UxE (Live Lean TV, vertical Short, about 75 seconds). It allows embedding (checked).
 - **[CONFIRM]** I have read its captions, not watched it. Please check: it is filmed from the side, the dumbbells are held where the captions say, and the form matches this guide. The captions mention both "at your sides" and "in front of your thighs".
+- **Video (men):** not chosen yet. Amrita will share a link later.
 
 ## Stance
 Feet hip-width apart, toes turned out slightly, knees soft. Brace your core, as if you were about to take a punch.
