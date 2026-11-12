@@ -96,7 +96,8 @@ def _spec(exercise_id: str) -> dict:
     from exercises.validate import validate_spec  # imported here: validate.py imports this module's helpers
 
     spec = _read_spec_file(EXERCISES_DIR / exercise_id / "spec.md")
-    errors = validate_spec(spec, folder=exercise_id)
+    # The running backend must not depend on the tests folder being shipped, so the file checks (golden data on disk) are left to the tests.
+    errors = validate_spec(spec, folder=exercise_id, check_files=False)
     if errors:
         raise SpecError(f"exercises/{exercise_id}/spec.md is not valid:\n  - " + "\n  - ".join(errors))
     return spec
@@ -145,7 +146,7 @@ def get_spec(name, goal=None) -> dict:
 
 def readiness(name) -> dict:
     """{module: True/False} for every required module. A module is present when its section is in the spec; the prompt
-    reference and the golden test data must also exist on disk."""
+    reference and the golden test data must also exist on disk. This is a development check (the tests folder may not be shipped)."""
     spec = get_spec(name)
     exercise_id = spec["identity"]["exercise_id"]
     backend = EXERCISES_DIR.parent

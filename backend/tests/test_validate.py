@@ -149,6 +149,12 @@ class ValidatorTests(unittest.TestCase):
     def test_golden_data_must_exist_for_every_clip(self):
         self.assertFails(lambda s: s["evidence"]["clips"].append({"id": "ghost", "view": "side", "reps": 8, "label": None, "source_recording": "x"}), "ghost")
 
+    def test_the_running_backend_does_not_need_the_tests_folder(self):
+        """At run time the file checks are skipped, so a deploy that leaves the tests out still starts."""
+        errors = problems(lambda s: s["evidence"].update(golden_dir="tests/golden/not-shipped"), check_files=False)
+        self.assertEqual(errors, [])
+        self.assertTrue(problems(lambda s: s["evidence"].update(golden_dir="tests/golden/not-shipped"), check_files=True))
+
     def test_screen_text_may_not_say_forbidden_things(self):
         self.assertFails(lambda s: s["screen"]["reminders"].append("Keep your chest up."), "forbidden phrase")
 
