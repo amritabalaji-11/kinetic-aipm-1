@@ -3,74 +3,66 @@
 Works out, from the per-rep measurements, which coaching points are allowed for a goblet squat set and on
 which reps they apply. The AI is given the result and may not add topics or change the rep lists. After the AI
 answers, `apply_signals` enforces it: topics that were not allowed are dropped, rep lists are overwritten with the
-real ones, missing allowed points are filled from the short wording below, and over-long wording is replaced.
+real ones, missing allowed points are filled from the short wording in the spec, and over-long wording is replaced.
 
-Draft numbers (kept at the top so they are easy to change after a trainer looks at real samples):
-  - Lean grows:      the lean at the bottom is 5 degrees or more above the person's own first 3 reps.
-  - Lowering quick:  under 0.6 seconds on most reps (a drop). Controlled: 1.5 to 4.5 seconds.
-  - Ankle range:     good at 30 degrees or more (side camera), limited under 25.
-  - Depth:           hip height against knee height (see DEPTH_* below). The first rep is skipped (often a warm-up).
-Lean, depth and ankle range are only used for side-camera videos. Knee drift and side-to-side shift are not here on purpose.
+EVERY number and every line of wording comes from the exercise spec, `exercises/goblet-squat/spec.md` (the
+`kinetic-spec` rules block). Change them there, never here. The spec also says why each number is what it is,
+how far it has been checked, and whether it is a draft. The golden tests (`tests/golden/`) fail if a result changes.
+
+The rules in short (full table in the spec, section 5):
+  - A point is flagged or praised only if it held on MORE THAN HALF the reps considered.
+  - One topic goes in one list only; at most 2 items per list (1 if there are too few reps).
+  - Lean is judged against the person's own first reps (growth), plus a safety line for a lean that is high from the start.
+  - Lean, depth and ankle range need a side camera (depth also an angled one). Knee tracking needs the front camera.
+    Lowering speed and pace work from any camera.
+  - Depth is never a "work on": it only produces the flags `depth_short` and `depth_very_shallow`, which the app turns
+    into a gentle "Try next" card or a "bodyweight first" card.
 """
 from statistics import median
 
-MIN_REPS = 6
-LEAN_GROWTH_DEG = 5.0
-# A lean that is high from the start does not grow, so growth alone misses it. Draft safety line, from the labelled clips:
-# median lean on reps 2+ is 29-31 for the good torso clip and Amrita's side clips, 38 for v2, 41-48 for user_002, 46 for v1, 50 for the torso-fault clip.
-LEAN_HIGH_DEG = 45.0
-QUICK_SECONDS = 0.6      # a drop, not a lowering. Across 17 test videos nearly everyone lowers in 0.7 to 1.3 s; only 6 very fast clips are under this
-CONTROLLED_MIN_SECONDS = 1.5   # praise only a deliberate lowering
-CONTROLLED_MAX_SECONDS = 4.5
-PACE_DROP_SECONDS = 0.3
-ANKLE_GOOD_DEG = 30.0
-# Depth: how low the hips get compared with the knees, as a share of upright torso length (positive = hips lower than
-# the knees). Measured on 17 test videos: good-depth sets sit at +0.1 to +0.2, the clip a person marked "depth good" at -0.04,
-# the clip marked "depth fault" at -0.26, and the very shallow user at -0.28. Front views are not used: they shift it by about 0.3.
-DEPTH_GOOD_RATIO = -0.08
-DEPTH_VERY_SHALLOW_RATIO = -0.20
-ANKLE_LIMITED_DEG = 25.0
-# Knees in (front camera only): knee gap divided by ankle gap at the bottom. Knees normally travel out as you sit.
-# Draft: through the app's own pipeline the labelled knee-fault clip reads 1.06-1.15, the labelled good one 1.17-1.26, user_002 front 1.02-1.08, user_003 1.5+.
-# The gap between the fault and good clips is small, so treat the cut-off as a first guess.
-# It depends on stance width, so it needs labelled front videos before it is trusted.
-KNEE_IN_RATIO = 1.15
-MAX_WORDS_LINE = 12      # headline, why and cue stay this sharp
+from exercises.registry import get_spec
+
+EXERCISE_ID = "goblet-squat"
+_SPEC = get_spec(EXERCISE_ID)
+_R = _SPEC["rules"]
+
+MIN_REPS = _R["min_reps"]                                  # fewer reps than this: ask for another video
+MIN_WITH_DATA = _R["min_reps_with_data"]                   # reps with a usable measurement needed before a rule may fire
+SKIP_FIRST_ABOVE = _R["skip_first_rep_when_more_than"]     # the first rep is often a warm-up: skipped above this many reps
+MAX_ITEMS = _R["max_items_per_list"]
+MAX_ITEMS_FEW_REPS = _R["max_items_when_few_reps"]
+MAX_WORDS_LINE = _R["max_words_per_line"]                  # headline, why and cue stay this sharp
+
+LEAN_BASELINE_REPS = _R["lean"]["baseline_reps"]           # "the person's own start" = this many first reps
+LEAN_GROWTH_DEG = _R["lean"]["growth_deg"]
+LEAN_HIGH_DEG = _R["lean"]["high_deg"]                     # a lean that is high from the start does not grow, so growth alone misses it
+LEAN_STEADY_GROWTH_MAX_DEG = _R["lean"]["steady_growth_max_deg"]
+LEAN_STEADY_MARGIN_DEG = _R["lean"]["steady_rep_margin_deg"]
+LEAN_FLAG_MIN_REPS = _R["lean"]["flag_min_reps"]
+
+QUICK_SECONDS = _R["lowering"]["quick_seconds"]            # a drop, not a lowering (draft: no real clip is this fast)
+CONTROLLED_MIN_SECONDS = _R["lowering"]["controlled_min_seconds"]   # praise only a deliberate lowering
+CONTROLLED_MAX_SECONDS = _R["lowering"]["controlled_max_seconds"]
+PACE_DROP_SECONDS = _R["lowering"]["pace_drop_seconds"]
+PACE_LAST_OVER_FIRST_MAX = _R["lowering"]["pace_last_over_first_max"]
+QUICK_MIN_REPS = _R["lowering"]["quick_min_reps"]
+
+ANKLE_GOOD_DEG = _R["ankle"]["good_deg"]
+ANKLE_LIMITED_DEG = _R["ankle"]["limited_deg"]
+
+# Depth: how low the hips get compared with the knees, as a share of upright torso length (positive = hips lower
+# than the knees). Front views are not used: they shift it by about 0.3.
+DEPTH_GOOD_RATIO = _R["depth"]["good_ratio"]
+DEPTH_VERY_SHALLOW_RATIO = _R["depth"]["very_shallow_ratio"]
+
+KNEE_IN_RATIO = _R["knees"]["inward_ratio"]                # front camera only; draft, one labelled fault clip
+
+WORK_ON_ORDER = list(_R["work_on_order"])                  # safety first, then pace
+WENT_WELL_ORDER = list(_R["went_well_order"])
 
 # Short wording. Used as the suggestion to the AI and as the fallback when the AI's wording is missing or too long.
-WORDING = {
-    ("work_on", "chest_lean"): {
-        "headline": "You leaned further forward as the set went on.",
-        "why": "More forward lean loads your lower back.",
-        "cue": "Sit your hips back as you lower.",
-    },
-    ("work_on", "ankle_mobility"): {
-        "headline": "Your ankle mobility looked limited.",
-        "why": "Limited ankle range pushes the knees in or the body forward.",
-        "cue": "Keep your whole foot on the floor.",
-    },
-    ("work_on", "knee_tracking"): {
-        "headline": "Your knees drifted inward as you lowered.",
-        "why": "Knees caving in loads the inside of the knee.",
-        "cue": "Push your knees out over your little toes.",
-    },
-    ("work_on", "pace_drift"): {
-        "headline": "You rushed more as the set went on.",
-        "why": "Rushing costs you control at the bottom.",
-        "cue": "Count to two on every lowering.",
-    },
-    ("work_on", "lowering_speed"): {
-        "headline": "You dropped into the squat on most reps.",
-        "why": "Dropping fast means less control at the bottom.",
-        "cue": "Lower for about two seconds.",
-    },
-    ("went_well", "depth"): {"headline": "Your depth was consistent."},
-    ("went_well", "ankle_mobility"): {"headline": "Your ankle mobility was good."},
-    ("went_well", "lowering_speed"): {"headline": "You lowered with control."},
-    ("went_well", "chest_lean"): {"headline": "Your torso position stayed steady."},
-}
-WORK_ON_ORDER = ["chest_lean", "knee_tracking", "ankle_mobility", "pace_drift", "lowering_speed"]  # safety, then pace
-WENT_WELL_ORDER = ["depth", "ankle_mobility", "lowering_speed", "chest_lean"]
+WORDING = {(kind, topic): dict(words) for kind in ("work_on", "went_well") for topic, words in _SPEC["wording"][kind].items()}
+LEAN_HIGH_WORDING = WORDING[("work_on", "chest_lean_high")]
 
 
 def _num(x):
@@ -84,13 +76,6 @@ def _series(reps, section, key):
 def _med(values):
     v = [x for x in values if x is not None]
     return median(v) if v else None
-
-
-LEAN_HIGH_WORDING = {
-    "headline": "You leaned well forward on most reps.",
-    "why": "More forward lean loads your lower back.",
-    "cue": "Sit your hips back as you lower.",
-}
 
 
 def _signal(kind, topic, flagged, numbers, wording=None):
@@ -114,31 +99,32 @@ def compute_signals(reps: list) -> dict:
     # ---- lean, against the person's own start (never a fixed number)
     lean = _series(reps, "back_data", "back_angle_at_bottom")
     valid_idx = [i for i, v in enumerate(lean) if v is not None]
-    if side and n >= MIN_REPS and len(valid_idx) >= 4:
-        base = median([lean[i] for i in valid_idx[:3]])
-        later = _med([lean[i] for i in range(half, n)])
+    if side and n >= MIN_REPS and len(valid_idx) >= MIN_WITH_DATA:
+        base = median([lean[i] for i in valid_idx[:LEAN_BASELINE_REPS]])
+        later_start = max(half, LEAN_BASELINE_REPS)   # the "later" reps never include the reps that make up the person's own start
+        later = _med([lean[i] for i in range(later_start, n)])
         growth = (later - base) if later is not None else None
         numbers_all["lean"] = {"own_start_median": round(base, 1), "later_half_median": None if later is None else round(later, 1), "growth_deg": None if growth is None else round(growth, 1)}
-        later_reps = valid_idx[1:] if n > 5 else valid_idx
+        later_reps = valid_idx[1:] if n > SKIP_FIRST_ABOVE else valid_idx
         high = [i for i in later_reps if lean[i] >= LEAN_HIGH_DEG]
         numbers_all["lean"]["median_after_first"] = round(median([lean[i] for i in later_reps]), 1)
-        if len(high) >= 2 and len(high) > len(later_reps) / 2:
+        if len(high) >= LEAN_FLAG_MIN_REPS and len(high) > len(later_reps) / 2:
             numbers_all["lean"]["mode"] = "high"
             out.append(_signal("work_on", "chest_lean", [nums[i] for i in high], numbers_all["lean"], LEAN_HIGH_WORDING))
         elif growth is not None:
             numbers_all["lean"]["mode"] = "growth"
             if growth >= LEAN_GROWTH_DEG:
-                flagged = [nums[i] for i in range(half, n) if lean[i] is not None and lean[i] >= base + LEAN_GROWTH_DEG]
-                if len(flagged) >= 2:
+                flagged = [nums[i] for i in range(later_start, n) if lean[i] is not None and lean[i] >= base + LEAN_GROWTH_DEG]
+                if len(flagged) >= LEAN_FLAG_MIN_REPS:
                     out.append(_signal("work_on", "chest_lean", flagged, numbers_all["lean"]))
-            elif growth <= 2.0:
-                steady = [nums[i] for i in valid_idx if lean[i] <= base + 4.0]
+            elif growth <= LEAN_STEADY_GROWTH_MAX_DEG:
+                steady = [nums[i] for i in valid_idx if lean[i] <= base + LEAN_STEADY_MARGIN_DEG]
                 out.append(_signal("went_well", "chest_lean", steady, numbers_all["lean"]))
 
     # ---- knees tracking in (front camera: the only view where it can be seen)
     kr = _series(reps, "stability_data", "knee_ankle_ratio_at_bottom")
-    ids = [i for i in range(1 if n > 5 else 0, n) if kr[i] is not None]
-    if view == "front" and n >= MIN_REPS and len(ids) >= 4:
+    ids = [i for i in range(1 if n > SKIP_FIRST_ABOVE else 0, n) if kr[i] is not None]
+    if view == "front" and n >= MIN_REPS and len(ids) >= MIN_WITH_DATA:
         inward = [i for i in ids if kr[i] < KNEE_IN_RATIO]
         numbers_all["knees"] = {"median_knee_to_ankle": round(_med([kr[i] for i in ids]), 2), "inward_reps": len(inward), "considered": len(ids)}
         if len(inward) > len(ids) / 2:
@@ -155,10 +141,10 @@ def compute_signals(reps: list) -> dict:
         numbers_all["lowering"] = {"typical_s": round(typical, 2), "first_third_s": None if first is None else round(first, 2), "last_third_s": None if last is None else round(last, 2)}
         quick = [nums[i] for i in ecc_idx if ecc[i] < QUICK_SECONDS]
         drifting = (n >= MIN_REPS and typical >= QUICK_SECONDS and first is not None and last is not None
-                    and first - last >= PACE_DROP_SECONDS and last <= 0.75 * first)
+                    and first - last >= PACE_DROP_SECONDS and last <= PACE_LAST_OVER_FIRST_MAX * first)
         if drifting:
             out.append(_signal("work_on", "pace_drift", [nums[i] for i in range(n - third, n)], numbers_all["lowering"]))
-        elif len(quick) >= 2 and len(quick) > len(ecc_idx) / 2:
+        elif len(quick) >= QUICK_MIN_REPS and len(quick) > len(ecc_idx) / 2:
             out.append(_signal("work_on", "lowering_speed", quick, numbers_all["lowering"]))
         elif CONTROLLED_MIN_SECONDS <= typical <= CONTROLLED_MAX_SECONDS:
             ok = [nums[i] for i in ecc_idx if CONTROLLED_MIN_SECONDS <= ecc[i] <= CONTROLLED_MAX_SECONDS]
@@ -166,13 +152,13 @@ def compute_signals(reps: list) -> dict:
                 out.append(_signal("went_well", "lowering_speed", ok, numbers_all["lowering"]))
 
     # ---- depth: praise only. Short and very shallow depth are handed to the app as flags (it decides what to show).
-    skip_first = n > 5
+    skip_first = n > SKIP_FIRST_ABOVE
     ratio = _series(reps, "depth_data", "hip_below_knee_ratio")
     labels = [(r.get("depth_data") or {}).get("depth_classification") for r in reps]
     depth_short = False
     depth_very_shallow = False
     ids = [i for i in range(1 if skip_first else 0, n) if ratio[i] is not None]
-    if depth_view_ok and n >= MIN_REPS and len(ids) >= 4:
+    if depth_view_ok and n >= MIN_REPS and len(ids) >= MIN_WITH_DATA:
         good = [i for i in ids if ratio[i] >= DEPTH_GOOD_RATIO]
         short = [i for i in ids if ratio[i] < DEPTH_GOOD_RATIO]
         very = [i for i in ids if ratio[i] < DEPTH_VERY_SHALLOW_RATIO]
@@ -185,7 +171,7 @@ def compute_signals(reps: list) -> dict:
     # ---- ankle range (side camera measures it on every rep)
     df = _series(reps, "ankle_data", "dorsiflexion_at_bottom")
     ids = [i for i in range(1 if skip_first else 0, n) if df[i] is not None]
-    if side and n >= MIN_REPS and len(ids) >= 4:
+    if side and n >= MIN_REPS and len(ids) >= MIN_WITH_DATA:
         good = [i for i in ids if df[i] >= ANKLE_GOOD_DEG]
         limited = [i for i in ids if df[i] < ANKLE_LIMITED_DEG]
         numbers_all["ankle"] = {"median_deg": round(_med([df[i] for i in ids]), 1), "good_reps": len(good), "limited_reps": len(limited), "considered": len(ids)}
@@ -245,7 +231,7 @@ def apply_signals(coaching_output: dict, sig: dict) -> dict:
             if kind == "went_well":
                 it.setdefault("detail", "")
 
-    cap = 2 if sig["enough_reps"] else 1
+    cap = MAX_ITEMS if sig["enough_reps"] else MAX_ITEMS_FEW_REPS
     order_w = [t for t in WENT_WELL_ORDER if t in keep["went_well"]]
     order_k = [t for t in WORK_ON_ORDER if t in keep["work_on"]]
     coaching_output["feedback_items"] = {

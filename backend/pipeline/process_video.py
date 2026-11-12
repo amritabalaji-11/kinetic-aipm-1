@@ -27,6 +27,7 @@ from mediapipe_code.llm_run_code import run_llm_comparison
 from services.haiku_call_1_integration import HaikuCall1
 from services.coaching_signals import compute_signals, signals_for_ai, apply_signals
 from services.comparison import choose_comparison
+from exercises.registry import UnknownExercise, canonical_id, get_spec
 import traceback
 
 
@@ -34,8 +35,21 @@ import traceback
 # MODULE-LEVEL SINGLETONS
 # =========================================================
 
-# Cached system prompt — loaded once at startup, reused for every request
-_haiku_call_1 = HaikuCall1(exercise="goblet_squat")
+# The exercise to assume only when an analysis has no exercise name at all (old rows, local test runs).
+DEFAULT_EXERCISE_ID = "goblet-squat"
+
+# One Haiku Call 1 object (with that exercise's coaching reference baked into its prompt) per exercise, built the first
+# time the exercise is analysed and then reused. The default is built now so a missing key or reference fails at start-up.
+_haiku_calls = {}
+
+
+def _haiku_for(exercise_id: str):
+    if exercise_id not in _haiku_calls:
+        _haiku_calls[exercise_id] = HaikuCall1(exercise=get_spec(exercise_id)["reference_file_stem"])
+    return _haiku_calls[exercise_id]
+
+
+_haiku_for(DEFAULT_EXERCISE_ID)
 
 # MediaPipe framework
 framework = LandmarkQualityFramework(
@@ -125,6 +139,11 @@ async def run_mediapipe_analysis(analysis_id: str, file_location: str):
     ctx = {"session_id": session_id, "user_id": user_id}
 
     try:
+        # Which exercise is this? The registry maps the name to one exercise ID. An exercise with no spec stops here with a
+        # clear message, instead of being quietly judged as a goblet squat.
+        raw_exercise = record["exercise_name"] if record else None
+        exercise_id = canonical_id(raw_exercise) if raw_exercise else DEFAULT_EXERCISE_ID
+
         # -------------------------------------------------
         # STEP 0 — upload_received
         # -------------------------------------------------
@@ -291,7 +310,7 @@ async def run_mediapipe_analysis(analysis_id: str, file_location: str):
 
         coaching_output = await loop.run_in_executor(
             _executor,
-            lambda: _haiku_call_1.analyze_form(
+            lambda: _haiku_for(exercise_id).analyze_form(
                 session_data=session_data,
                 biomechanics_json=biomechanics_slim,
                 frame_images=None,
@@ -371,6 +390,19 @@ async def run_mediapipe_analysis(analysis_id: str, file_location: str):
 
 
         return mp_result
+
+    except UnknownExercise as e:
+        print(f"[pipeline] {e}")
+        await _store_failed(analysis_id, "UNSUPPORTED_EXERCISE", str(e))
+        await sse_manager.send_error_event(
+            analysis_id=analysis_id,
+            error_code="UNSUPPORTED_EXERCISE",
+            error_stage="pipeline",
+            retryable="false",
+            message="We can't check form for this exercise yet.",
+            session_id=session_id,
+            user_id=user_id,
+        )
 
     except FileNotFoundError as e:
         print(f"[pipeline] File not found: {e}")

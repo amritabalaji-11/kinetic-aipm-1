@@ -1,0 +1,345 @@
+{
+ "_about": "What the rules must say for each clip, from its per-rep data in reps/<clip>.json. 'snapshot' is what the code said on 2026-11-12 (change it only on purpose, with the spec). 'labelled' holds what a human said about the clip: those expectations must always hold. true_rep_count is the person's own count where we have one.",
+ "spec_version": "1.0.0",
+ "clips": {
+  "amrita_front_17.5": {
+   "source_recording": "Amrita_user_001_front_17.5.mp4",
+   "human_label": null,
+   "snapshot": {
+    "rep_count": 8,
+    "enough_reps": true,
+    "camera_view": "front",
+    "allowed": [],
+    "reps_flagged_counts": {},
+    "depth_short": false,
+    "depth_very_shallow": false
+   }
+  },
+  "amrita_side_12.5": {
+   "source_recording": "Amrita_user_001_side_12.5kg.mp4",
+   "human_label": "true count 10",
+   "snapshot": {
+    "rep_count": 10,
+    "enough_reps": true,
+    "camera_view": "side_right",
+    "allowed": [
+     "went_well:ankle_mobility",
+     "went_well:chest_lean",
+     "went_well:depth"
+    ],
+    "reps_flagged_counts": {
+     "went_well:chest_lean": 9,
+     "went_well:depth": 9,
+     "went_well:ankle_mobility": 9
+    },
+    "depth_short": false,
+    "depth_very_shallow": false
+   },
+   "true_rep_count": 10
+  },
+  "amrita_side_15": {
+   "source_recording": "Amrita_user_001_side_15kg.mp4",
+   "human_label": null,
+   "snapshot": {
+    "rep_count": 11,
+    "enough_reps": true,
+    "camera_view": "side_right",
+    "allowed": [
+     "went_well:ankle_mobility",
+     "went_well:chest_lean",
+     "went_well:depth"
+    ],
+    "reps_flagged_counts": {
+     "went_well:chest_lean": 10,
+     "went_well:depth": 10,
+     "went_well:ankle_mobility": 10
+    },
+    "depth_short": false,
+    "depth_very_shallow": false
+   }
+  },
+  "amrita_side_17.5": {
+   "source_recording": "Amrita_user_001_side_17.5kg.mp4",
+   "human_label": "true count 9",
+   "snapshot": {
+    "rep_count": 9,
+    "enough_reps": true,
+    "camera_view": "side_right",
+    "allowed": [
+     "went_well:ankle_mobility",
+     "went_well:chest_lean",
+     "went_well:depth"
+    ],
+    "reps_flagged_counts": {
+     "went_well:chest_lean": 9,
+     "went_well:depth": 8,
+     "went_well:ankle_mobility": 8
+    },
+    "depth_short": false,
+    "depth_very_shallow": false
+   },
+   "true_rep_count": 9
+  },
+  "u2_front_11": {
+   "source_recording": "user_002_front_11.33kg.mov",
+   "human_label": null,
+   "snapshot": {
+    "rep_count": 8,
+    "enough_reps": true,
+    "camera_view": "front",
+    "allowed": [
+     "work_on:knee_tracking"
+    ],
+    "reps_flagged_counts": {
+     "work_on:knee_tracking": 7
+    },
+    "depth_short": false,
+    "depth_very_shallow": false
+   }
+  },
+  "u2_front_4.5": {
+   "source_recording": "user_002_front_4.5kg.mov",
+   "human_label": null,
+   "snapshot": {
+    "rep_count": 6,
+    "enough_reps": true,
+    "camera_view": "front",
+    "allowed": [
+     "work_on:knee_tracking"
+    ],
+    "reps_flagged_counts": {
+     "work_on:knee_tracking": 5
+    },
+    "depth_short": false,
+    "depth_very_shallow": false
+   }
+  },
+  "u2_side_4.5": {
+   "source_recording": "user_002_side_4.5kg.mov",
+   "human_label": null,
+   "snapshot": {
+    "rep_count": 6,
+    "enough_reps": true,
+    "camera_view": "side_right",
+    "allowed": [
+     "went_well:ankle_mobility",
+     "went_well:chest_lean"
+    ],
+    "reps_flagged_counts": {
+     "went_well:chest_lean": 6,
+     "went_well:ankle_mobility": 5
+    },
+    "depth_short": true,
+    "depth_very_shallow": true
+   }
+  },
+  "u2_side_9.07": {
+   "source_recording": "user_002_side_9.07kg.mov",
+   "human_label": null,
+   "snapshot": {
+    "rep_count": 6,
+    "enough_reps": true,
+    "camera_view": "side_right",
+    "allowed": [
+     "went_well:ankle_mobility",
+     "work_on:chest_lean"
+    ],
+    "reps_flagged_counts": {
+     "work_on:chest_lean": 5,
+     "went_well:ankle_mobility": 5
+    },
+    "depth_short": true,
+    "depth_very_shallow": true
+   }
+  },
+  "u3_video_1": {
+   "source_recording": "user_003_video_1.mp4",
+   "human_label": null,
+   "snapshot": {
+    "rep_count": 10,
+    "enough_reps": true,
+    "camera_view": "front",
+    "allowed": [],
+    "reps_flagged_counts": {},
+    "depth_short": false,
+    "depth_very_shallow": false
+   }
+  },
+  "u3_video_2": {
+   "source_recording": "user_003_video_2.mp4",
+   "human_label": null,
+   "snapshot": {
+    "rep_count": 8,
+    "enough_reps": true,
+    "camera_view": "front",
+    "allowed": [],
+    "reps_flagged_counts": {},
+    "depth_short": false,
+    "depth_very_shallow": false
+   }
+  },
+  "u3_video_3": {
+   "source_recording": "user_003_video_3.mp4",
+   "human_label": null,
+   "snapshot": {
+    "rep_count": 10,
+    "enough_reps": true,
+    "camera_view": "front",
+    "allowed": [],
+    "reps_flagged_counts": {},
+    "depth_short": false,
+    "depth_very_shallow": false
+   }
+  },
+  "v1_depth_fault": {
+   "source_recording": "Testing/videos/v1_depth_fault.mp4",
+   "human_label": "depth fault (labelled)",
+   "snapshot": {
+    "rep_count": 7,
+    "enough_reps": true,
+    "camera_view": "side_right",
+    "allowed": [
+     "work_on:ankle_mobility",
+     "work_on:chest_lean"
+    ],
+    "reps_flagged_counts": {
+     "work_on:chest_lean": 5,
+     "work_on:ankle_mobility": 6
+    },
+    "depth_short": true,
+    "depth_very_shallow": true
+   },
+   "labelled": {
+    "must": [
+     "flag:depth_very_shallow"
+    ],
+    "must_not": [
+     "went_well:depth"
+    ]
+   }
+  },
+  "v2_depth_good": {
+   "source_recording": "Testing/videos/v2_depth_good.mp4",
+   "human_label": "depth good (labelled)",
+   "snapshot": {
+    "rep_count": 7,
+    "enough_reps": true,
+    "camera_view": "side_right",
+    "allowed": [
+     "went_well:chest_lean",
+     "went_well:depth"
+    ],
+    "reps_flagged_counts": {
+     "went_well:chest_lean": 7,
+     "went_well:depth": 6
+    },
+    "depth_short": false,
+    "depth_very_shallow": false
+   },
+   "labelled": {
+    "must": [
+     "went_well:depth"
+    ],
+    "must_not": [
+     "flag:depth_short"
+    ]
+   }
+  },
+  "v3_knee_fault": {
+   "source_recording": "Testing/videos/v3_knee_fault.mp4",
+   "human_label": "knee fault (labelled)",
+   "snapshot": {
+    "rep_count": 6,
+    "enough_reps": true,
+    "camera_view": "front",
+    "allowed": [
+     "work_on:knee_tracking"
+    ],
+    "reps_flagged_counts": {
+     "work_on:knee_tracking": 5
+    },
+    "depth_short": false,
+    "depth_very_shallow": false
+   },
+   "labelled": {
+    "must": [
+     "work_on:knee_tracking"
+    ],
+    "must_not": []
+   }
+  },
+  "v4_knee_good": {
+   "source_recording": "Testing/videos/v4_knee_good.mp4",
+   "human_label": "knee good (labelled)",
+   "snapshot": {
+    "rep_count": 6,
+    "enough_reps": true,
+    "camera_view": "front",
+    "allowed": [],
+    "reps_flagged_counts": {},
+    "depth_short": false,
+    "depth_very_shallow": false
+   },
+   "labelled": {
+    "must": [],
+    "must_not": [
+     "work_on:knee_tracking"
+    ]
+   }
+  },
+  "v5_torso_fault": {
+   "source_recording": "Testing/videos/v5_torso_fault.mp4",
+   "human_label": "torso fault (labelled)",
+   "snapshot": {
+    "rep_count": 8,
+    "enough_reps": true,
+    "camera_view": "side_right",
+    "allowed": [
+     "work_on:ankle_mobility",
+     "work_on:chest_lean"
+    ],
+    "reps_flagged_counts": {
+     "work_on:chest_lean": 5,
+     "work_on:ankle_mobility": 7
+    },
+    "depth_short": true,
+    "depth_very_shallow": false
+   },
+   "labelled": {
+    "must": [
+     "work_on:chest_lean"
+    ],
+    "must_not": [
+     "went_well:chest_lean"
+    ]
+   }
+  },
+  "v6_torso_good": {
+   "source_recording": "Testing/videos/v6_torso_good.mp4",
+   "human_label": "torso good (labelled)",
+   "snapshot": {
+    "rep_count": 6,
+    "enough_reps": true,
+    "camera_view": "side_right",
+    "allowed": [
+     "went_well:chest_lean",
+     "went_well:depth"
+    ],
+    "reps_flagged_counts": {
+     "went_well:chest_lean": 6,
+     "went_well:depth": 5
+    },
+    "depth_short": false,
+    "depth_very_shallow": false
+   },
+   "labelled": {
+    "must": [
+     "went_well:chest_lean"
+    ],
+    "must_not": [
+     "work_on:chest_lean"
+    ]
+   }
+  }
+ }
+}

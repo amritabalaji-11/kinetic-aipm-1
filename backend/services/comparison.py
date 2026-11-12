@@ -15,16 +15,25 @@ Only reps that count (not partial) are used. Times are in seconds on the video's
 """
 from statistics import median
 
-FPS = 30.0
-PAD_S = 0.35                 # a little before the rep starts and after it ends
-ARROW_WINDOW_S = 0.4         # the arrow shows this long either side of the bottom
-SLOW_TARGET_S = 2.0          # the "how to correct" lowering time
-MIN_ANKLE_DIFF = 5.0         # degrees of ankle range between best and typical rep for a pair to be worth showing
-MIN_DEPTH_DIFF = 0.06        # hip-below-knee ratio between deepest and typical rep
+from exercises.registry import get_spec
 
-ARROW_LABELS = {"chest_lean": "Torso lean", "ankle_mobility": "Ankle mobility", "depth": "Depth", "knee_tracking": "Knees in"}
-MIN_KNEE_TRAVEL_RATIO = 1.5  # the shakiest rep must move the knees at least this many times as much as the steadiest, or there is nothing to show as a pair
-MIN_KNEE_DIFF = 0.20         # knee-to-ankle ratio gap between the best and the most-caved rep before a pair is worth showing. Smaller gaps are within the pose model's error on a front view (9 px on v3 ranked two reps the wrong way round)
+# All numbers and labels come from the exercise spec (exercises/goblet-squat/spec.md, section 1 and section 7).
+EXERCISE_ID = "goblet-squat"
+_C = get_spec(EXERCISE_ID)["comparison"]
+
+FPS = 30.0                                       # the pipeline converts every upload to 30 fps before analysing, so frame_index / 30 is seconds
+MIN_REPS = _C["min_reps"]                        # fewer counted reps than this: no comparison
+PAD_S = _C["pad_seconds"]                        # a little before the rep starts and after it ends
+ARROW_WINDOW_S = _C["arrow_window_seconds"]      # the arrow shows this long either side of the bottom (the app caps it shorter; it shows through the freeze)
+SLOW_TARGET_S = _C["slow_target_seconds"]        # the "how to correct" lowering time
+MIN_ANKLE_DIFF = _C["min_ankle_diff_deg"]        # degrees of ankle range between best and typical rep for a pair to be worth showing
+MIN_DEPTH_DIFF = _C["min_depth_diff_ratio"]      # hip-below-knee ratio between deepest and typical rep
+# The shakiest rep must move the knees at least this many times as much as the steadiest, or there is nothing to show as a pair.
+# Rep-to-rep differences in the knee gap itself are a few pixels, less than the pose model's error on a front view
+# (9 px ranked two reps the wrong way round on the labelled knee-fault clip), so the gap is never used to rank reps.
+MIN_KNEE_TRAVEL_RATIO = _C["min_knee_travel_ratio"]
+
+ARROW_LABELS = dict(_C["arrow_labels"])
 
 
 def _num(v):
@@ -91,7 +100,7 @@ def _arrow(pose, topic, camera_view):
 def choose_comparison(coaching_output, final_json, rep_frames):
     """Returns the comparison to store with the analysis, or None when there is nothing to compare."""
     reps = [r for r in (final_json or {}).get("reps", []) if not r.get("partial")]
-    if len(reps) < 4:
+    if len(reps) < MIN_REPS:
         return None
     items = (coaching_output or {}).get("feedback_items") or {}
     work = items.get("work_on") or []
