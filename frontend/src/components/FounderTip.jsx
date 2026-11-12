@@ -1,4 +1,5 @@
-import { ExternalLink, Play } from "lucide-react"
+import { ExternalLink, Play, Plus } from "lucide-react"
+import { useNavigate } from "react-router-dom"
 import ExpandableVideo from "./ExpandableVideo"
 
 // A personal tip on the Home screen. The words are Amrita's own, so they are easy to change here.
@@ -29,6 +30,7 @@ const cover = (
 )
 
 export default function FounderTip() {
+  const navigate = useNavigate()
   return (
     <div style={{ background: "linear-gradient(158.8deg, rgba(255, 35, 38, 0.2) 0%, rgba(151, 71, 255, 0.2) 22.39%, rgba(2, 132, 199, 0.2) 100.81%)", borderRadius: "8px", padding: "15px", marginBottom: "20px" }}>
       <div style={{ display: "flex", gap: "10px", alignItems: "center", marginBottom: "10px" }}>
@@ -48,6 +50,12 @@ export default function FounderTip() {
         {" "}on YouTube{" "}
         <a href={VIDEO.watchUrl} target="_blank" rel="noreferrer" aria-label="Watch on YouTube" style={{ color: "#6D28D9" }}><ExternalLink size={11} style={{ display: "inline", verticalAlign: "-1px" }} /></a>
       </p>
+      {/* reads the video and turns it into a routine to add to today's workout; the routine is remembered after the first read */}
+      <button type="button" onClick={() => navigate("/routine/new", { state: { url: VIDEO.watchUrl, cacheKey: `home-${VIDEO.id}` } })}
+        style={{ width: "100%", border: "none", borderRadius: 12, padding: 13, marginTop: 10, cursor: "pointer", display: "flex", alignItems: "center", justifyContent: "center", gap: 6, fontFamily: font, fontWeight: 700, fontSize: 15, color: "#FFFFFF", background: "linear-gradient(92.52deg, #0284C7 0%, #9747FF 100%)", boxShadow: "0 3px 10px rgba(129,51,255,0.35)" }}>
+        <Plus size={17} strokeWidth={2.8} /> Add to my Workout
+      </button>
+      <p style={{ fontSize: "12px", fontFamily: "'DM Sans'", color: "#64748B", textAlign: "center", margin: "6px 0 0" }}>We read the video and turn it into a routine you can tick off</p>
     </div>
   )
 }

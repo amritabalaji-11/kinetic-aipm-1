@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from "react"
-import { useNavigate } from "react-router-dom"
+import { useLocation, useNavigate } from "react-router-dom"
 import { Check, ChevronLeft, ClipboardPaste, Trash2, X } from "lucide-react"
 import { BottomSheet, BRICOLAGE, DM_SANS, GRADIENT, GRAY, INK, PURPLE } from "../components/planUi"
 import { deleteRoutine, getSources, listRoutines, readVideo, saveRoutine } from "../services/routineService"
@@ -42,8 +42,13 @@ function glance(r) {
 }
 const minutesText = (r) => [`${r.steps.length} moves`, r.total_minutes ? `${r.total_minutes} min` : null].filter(Boolean).join(" · ")
 
+// A video someone else's button sends here (the Home tip): its link, and a key to remember the routine we read, so the next tap is instant
+const cachedRoutine = (key) => { try { return JSON.parse(localStorage.getItem(`routineCache:${key}`) || "null") } catch { return null } }
+const cacheRoutine = (key, routine) => { try { localStorage.setItem(`routineCache:${key}`, JSON.stringify(routine)) } catch { /* storage full or blocked: it just reads again next time */ } }
+
 export default function RoutineFromVideoPage() {
   const navigate = useNavigate()
+  const sent = useLocation().state ?? {} // { url, cacheKey } when a button elsewhere sent us here
   const [stage, setStage] = useState("input") // input | reading | result | error
   const [url, setUrl] = useState("")
   const [routine, setRoutine] = useState(null)
@@ -71,18 +76,30 @@ export default function RoutineFromVideoPage() {
 
   const paste = async () => { try { setUrl((await navigator.clipboard.readText()).trim()) } catch { /* the browser said no: they can paste by hand */ } }
 
-  const read = async () => {
-    if (!url.trim()) return
+  const read = async (link = url) => {
+    if (!link.trim()) return
     abort.current = new AbortController()
     setStage("reading"); setError(null); setSaved(false)
     try {
-      setRoutine(await readVideo(url.trim(), abort.current.signal))
+      const result = await readVideo(link.trim(), abort.current.signal)
+      if (sent.cacheKey && link.trim() === sent.url) cacheRoutine(sent.cacheKey, result)
+      setRoutine(result)
       setStage("result")
     } catch (err) {
       if (err.name === "AbortError") return
       setError({ code: err.code, message: err.message }); setStage("error")
     }
   }
+  // sent here by a button: show the routine we already read, or read the video now
+  const started = useRef(false)
+  useEffect(() => {
+    if (started.current || !sent.url) return
+    started.current = true
+    setUrl(sent.url)
+    const known = sent.cacheKey ? cachedRoutine(sent.cacheKey) : null
+    if (known?.steps?.length) { setRoutine(known); setStage("result") } else read(sent.url)
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [])
   const cancel = () => { abort.current?.abort(); setStage("input") }
 
   const editStep = (i, patch) => setRoutine((r) => ({ ...r, steps: r.steps.map((s, k) => (k === i ? { ...s, ...patch } : s)) }))
@@ -143,7 +160,7 @@ export default function RoutineFromVideoPage() {
             ))}
           </div>
 
-          <button type="button" onClick={read} disabled={!url.trim()} style={{ ...bigButton(false), opacity: url.trim() ? 1 : 0.5, cursor: url.trim() ? "pointer" : "not-allowed" }}>Read the video</button>
+          <button type="button" onClick={() => read()} disabled={!url.trim()} style={{ ...bigButton(false), opacity: url.trim() ? 1 : 0.5, cursor: url.trim() ? "pointer" : "not-allowed" }}>Read the video</button>
           <p style={{ fontFamily: DM_SANS, fontSize: 11.5, color: GRAY, textAlign: "center", margin: "10px 0 0", lineHeight: 1.4 }}>We only use the words in the video, and keep a link and credit to the person who made it.</p>
 
           <h2 style={{ fontFamily: BRICOLAGE, fontWeight: 700, fontSize: 18, color: INK, margin: "26px 0 8px" }}>My routines</h2>
