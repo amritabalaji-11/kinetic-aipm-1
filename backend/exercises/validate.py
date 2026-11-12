@@ -353,8 +353,8 @@ def _selection(spec, r, rules):
         r.need(sec, p, key, lambda v: _is_int(v) and v >= 1, "a whole number of 1 or more")
     r.need(sec, p, "majority_share", lambda v: _is_num(v) and 0 < v < 1, "a number between 0 and 1")
     for kind, key in (("work_on", "work_on_order"), ("went_well", "went_well_order")):
-        order = r.need(sec, p, key, lambda v: isinstance(v, list) and v and all(_is_str(x) for x in v), "a list of topics, highest priority first")
-        if not order:
+        order = r.need(sec, p, key, lambda v: isinstance(v, list) and all(_is_str(x) for x in v), "a list of topics, highest priority first (empty if the exercise has none of that kind)")
+        if order is None:
             continue
         topics = {rule["topic"] for rule in rules.values() if rule.get("kind") == kind}
         for t in order:

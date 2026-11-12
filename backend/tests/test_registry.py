@@ -1,7 +1,9 @@
-"""The exercise registry: one ID links every module, and an unknown exercise is a loud error, never a quiet squat."""
+"""The exercise registry: one ID links every module, goals are explicit, and an unknown exercise is a loud error."""
+import copy
 import unittest
 
 from exercises import registry
+from exercises.schema import SECTIONS
 
 
 class RegistryTests(unittest.TestCase):
@@ -20,19 +22,44 @@ class RegistryTests(unittest.TestCase):
                 registry.canonical_id(name)
         self.assertFalse(registry.is_ai_ready("deadlift"))
 
-    def test_spec_matches_its_folder_and_has_every_required_block(self):
-        spec = registry.get_spec("goblet_squat")
-        self.assertEqual(spec["exercise_id"], "goblet-squat")
-        for block in ("rules", "wording", "comparison", "rep_counting", "reminders", "views", "modules"):
-            self.assertIn(block, spec, block)
-        self.assertEqual(set(spec["modules"]), set(registry.REQUIRED_MODULES))
+    def test_template_folder_is_never_registered(self):
+        self.assertNotIn("new-exercise", registry.known_ids())
+        with self.assertRaises(registry.UnknownExercise):
+            registry.canonical_id("new-exercise")
 
-    def test_every_work_on_topic_has_full_wording_and_every_went_well_topic_a_headline(self):
-        wording = registry.get_spec("goblet-squat")["wording"]
-        for topic, words in wording["work_on"].items():
-            self.assertEqual(set(words), {"headline", "why", "cue"}, topic)
-        for topic, words in wording["went_well"].items():
-            self.assertIn("headline", words, topic)
+    def test_the_spec_has_every_section_in_order(self):
+        spec = registry.get_spec("goblet_squat")
+        self.assertEqual(list(spec), list(SECTIONS))
+        self.assertEqual(spec["identity"]["exercise_id"], "goblet-squat")
+
+    def test_strength_is_the_goal_and_other_goals_are_refused(self):
+        self.assertEqual(registry.DEFAULT_GOAL, "strength")
+        base = registry.get_spec("goblet-squat")
+        self.assertEqual(base["goal_profiles"]["default"], "strength")
+        self.assertIs(registry.get_spec("goblet-squat", "Strength"), base)          # case does not matter
+        for goal in ("endurance", "power", "nonsense"):
+            with self.assertRaises(registry.UnsupportedGoal, msg=goal):
+                registry.get_spec("goblet-squat", goal)
+
+    def test_overrides_change_a_copy_and_never_the_shared_spec(self):
+        base = registry.get_spec("goblet-squat")
+        before = copy.deepcopy(base)
+        resolved = copy.deepcopy(base)
+        registry._set_path(resolved, "selection.min_reps", 8)
+        registry._set_path(resolved, "rules[lowering_quick].test.threshold", 0.4)
+        self.assertEqual(resolved["selection"]["min_reps"], 8)
+        self.assertEqual(next(r for r in resolved["rules"] if r["id"] == "lowering_quick")["test"]["threshold"], 0.4)
+        self.assertEqual(base, before)
+        with self.assertRaises(registry.SpecError):
+            registry._set_path(resolved, "rules[no_such_rule].test.threshold", 1)
+
+    def test_a_spec_with_a_repeated_or_broken_block_is_rejected(self):
+        good = '```json kinetic:identity\n{"a": 1}\n```\n'
+        with self.assertRaises(registry.SpecError):
+            registry.parse_spec_text(good + good)
+        with self.assertRaises(registry.SpecError):
+            registry.parse_spec_text('```json kinetic:identity\n{"a": 1,}\n```\n')
+        self.assertEqual(registry.parse_spec_text(good), {"identity": {"a": 1}})
 
 
 if __name__ == "__main__":

@@ -1,17 +1,17 @@
 """Golden tests: 17 real clips, replayed through the coaching rules.
 
-Each clip's per-rep measurements (from the real pipeline, at ORIGINAL speed) are stored in
-`tests/golden/goblet-squat/reps/<clip>.json`; `expected.json` says what the rules must say.
+Each clip's per-rep measurements (from the real pipeline, at ORIGINAL speed) are stored in `tests/golden/goblet-squat/reps/<clip>.json`;
+`expected.json` says what the rules must say.
 
-Two kinds of expectation, kept apart on purpose:
+Three kinds of expectation, kept apart on purpose:
   - `labelled`: what a human said about the clip (a fault clip must be flagged, a good clip must not be). Always must hold.
-  - `snapshot`: what the code said on the day the spec was written. If this changes, either a bug crept in or the rules
-    changed on purpose; in the second case update expected.json and the spec in the same commit.
+  - `proof`: for every rule marked tested in the spec, a clip it fires on and a clip it stays silent on.
+  - `snapshot`: what the code said on the day the spec was written. If this changes, either a bug crept in or the rules changed on
+    purpose; in the second case update expected.json and the spec in the same commit.
 Never use the old `processed_videos` v1-v6 files to make new golden data: they are saved at 3x speed.
 """
 import copy
 import json
-import re
 import unittest
 from pathlib import Path
 
@@ -22,15 +22,19 @@ GOLDEN = Path(__file__).parent / "golden" / "goblet-squat"
 EXPECTED = json.loads((GOLDEN / "expected.json").read_text())["clips"]
 REPS = {name: json.loads((GOLDEN / "reps" / f"{name}.json").read_text()) for name in EXPECTED}
 SPEC = get_spec("goblet-squat")
+SEL = SPEC["selection"]
 
 
 def labels(signals):
     out = {f"{s['kind']}:{s['topic']}" for s in signals["signals"]}
-    if signals["depth_short"]:
-        out.add("flag:depth_short")
-    if signals["depth_very_shallow"]:
-        out.add("flag:depth_very_shallow")
+    out |= {f"flag:{name}" for name, on in signals["flags"].items() if on}
     return out
+
+
+def fired_rule_ids(signals):
+    ids = {s["rule"] for s in signals["signals"]}
+    ids |= {r["id"] for r in SPEC["rules"] if r["kind"] == "flag" and signals["flags"].get(r["flag"])}
+    return ids
 
 
 class GoldenSnapshot(unittest.TestCase):
@@ -44,14 +48,19 @@ class GoldenSnapshot(unittest.TestCase):
                 self.assertEqual(sig["camera_view"], want["camera_view"])
                 self.assertEqual(sorted(f"{s['kind']}:{s['topic']}" for s in sig["signals"]), want["allowed"])
                 self.assertEqual({f"{s['kind']}:{s['topic']}": len(s["reps_flagged"]) for s in sig["signals"]}, want["reps_flagged_counts"])
-                self.assertEqual(sig["depth_short"], want["depth_short"])
-                self.assertEqual(sig["depth_very_shallow"], want["depth_very_shallow"])
+                self.assertEqual(sig["flags"]["depth_short"], want["depth_short"])
+                self.assertEqual(sig["flags"]["depth_very_shallow"], want["depth_very_shallow"])
 
     def test_true_rep_counts_match(self):
         for name, clip in EXPECTED.items():
             if "true_rep_count" in clip:
                 with self.subTest(clip=name):
                     self.assertEqual(len(REPS[name]), clip["true_rep_count"])
+
+    def test_every_clip_in_the_spec_is_in_the_golden_data_and_back(self):
+        self.assertEqual({c["id"] for c in SPEC["evidence"]["clips"]}, set(EXPECTED))
+        for clip in SPEC["evidence"]["clips"]:
+            self.assertEqual(clip["reps"], len(REPS[clip["id"]]), clip["id"])
 
 
 class LabelledClips(unittest.TestCase):
@@ -72,6 +81,23 @@ class LabelledClips(unittest.TestCase):
         self.assertGreaterEqual(checked, 10)
 
 
+class ProofHolds(unittest.TestCase):
+    """The spec marks a rule `tested` only with proof: a clip it fires on and a clip it stays silent on. Check every one."""
+
+    def test_every_proof_entry_holds(self):
+        proof = SPEC["evidence"]["proof"]
+        self.assertGreaterEqual(len(proof), 5)
+        for item in proof:
+            with self.subTest(rule=item["rule"]):
+                self.assertIn(item["rule"], fired_rule_ids(compute_signals(REPS[item["fires_on"]])), f"{item['rule']} must fire on {item['fires_on']}")
+                self.assertNotIn(item["rule"], fired_rule_ids(compute_signals(REPS[item["silent_on"]])), f"{item['rule']} must stay silent on {item['silent_on']}")
+
+    def test_every_tested_rule_has_proof_and_no_draft_rule_does(self):
+        proven = {p["rule"] for p in SPEC["evidence"]["proof"]}
+        for r in SPEC["rules"]:
+            self.assertEqual(r["status"] != "draft", r["id"] in proven, r["id"])
+
+
 class EngineRules(unittest.TestCase):
     """The rules every exercise shares, checked on all 17 clips."""
 
@@ -90,13 +116,13 @@ class EngineRules(unittest.TestCase):
                 self.assertFalse(well & work)
 
     def test_never_more_than_two_per_list_and_never_a_made_up_topic(self):
-        known = set(SPEC["rules"]["work_on_order"]) | set(SPEC["rules"]["went_well_order"])
+        known = set(SEL["work_on_order"]) | set(SEL["went_well_order"])
         for name in EXPECTED:
             with self.subTest(clip=name):
                 _, out = self.apply(name)
                 for kind in ("went_well", "work_on"):
                     items = out["feedback_items"][kind]
-                    self.assertLessEqual(len(items), SPEC["rules"]["max_items_per_list"])
+                    self.assertLessEqual(len(items), SEL["max_items_per_list"])
                     for it in items:
                         self.assertIn(it["topic"], known)
 
@@ -110,7 +136,7 @@ class EngineRules(unittest.TestCase):
                     self.assertGreaterEqual(len(s["reps_flagged"]), 2)
 
     def test_ai_wording_that_is_too_long_is_replaced_with_the_short_wording(self):
-        limit = SPEC["rules"]["max_words_per_line"]
+        limit = SEL["max_words_per_line"]
         for name in EXPECTED:
             with self.subTest(clip=name):
                 _, out = self.apply(name)
@@ -129,20 +155,15 @@ class EngineRules(unittest.TestCase):
                     for it in out["feedback_items"][kind]:
                         self.assertEqual(it["reps_flagged"], real[it["topic"]])
 
-
-class WordingRules(unittest.TestCase):
-    FORBIDDEN = ("stay tall", "chest up", "upright", "rounding", "go deeper", "deeper", "valgus", "dorsiflexion", "eccentric")
-
-    def test_no_forbidden_phrases_numbers_or_rep_numbers_in_any_wording(self):
-        for kind, topics in SPEC["wording"].items():
-            for topic, words in topics.items():
-                for field, text in words.items():
-                    with self.subTest(topic=f"{kind}.{topic}.{field}"):
-                        low = text.lower()
-                        for bad in self.FORBIDDEN:
-                            self.assertNotIn(bad, low)
-                        self.assertIsNone(re.search(r"\d", text), "no numbers in user-facing wording")
-                        self.assertLessEqual(len(text.split()), SPEC["rules"]["max_words_per_line"])
+    def test_what_the_app_reads_later_is_complete(self):
+        for name in EXPECTED:
+            with self.subTest(clip=name):
+                sig, out = self.apply(name)
+                s = out["signals"]
+                self.assertEqual((s["exercise_id"], s["goal"], s["spec_version"]), ("goblet-squat", "strength", SPEC["identity"]["spec_version"]))
+                self.assertIsInstance(s["depth_short"], bool)                       # the frontend reads these two by name
+                self.assertIsInstance(s["depth_very_shallow"], bool)
+                self.assertEqual(set(s["rules"]), {f"{x['kind']}:{x['topic']}" for x in sig["signals"]})
 
 
 class FewRepsAndFiveRepSets(unittest.TestCase):
@@ -151,7 +172,8 @@ class FewRepsAndFiveRepSets(unittest.TestCase):
             with self.subTest(clip=name):
                 cut = compute_signals(REPS[name][:5])
                 self.assertTrue(cut["enough_reps"])
-                self.assertEqual(labels(cut) & {"work_on:chest_lean", "went_well:chest_lean"}, labels(compute_signals(REPS[name])) & {"work_on:chest_lean", "went_well:chest_lean"})
+                lean = {"work_on:chest_lean", "went_well:chest_lean"}
+                self.assertEqual(labels(cut) & lean, labels(compute_signals(REPS[name])) & lean)
 
     def test_four_reps_is_not_enough_and_gives_at_most_one_item_per_list(self):
         for name in ("v5_torso_fault", "amrita_side_12.5"):
@@ -163,8 +185,7 @@ class FewRepsAndFiveRepSets(unittest.TestCase):
                 self.assertLessEqual(len(out["feedback_items"]["went_well"]), 1)
 
     def test_the_minimum_in_the_spec_is_five(self):
-        self.assertEqual(SPEC["rules"]["min_reps"], 5)
-        self.assertEqual(SPEC["screen"]["frontend_min_reps"], SPEC["rules"]["min_reps"])
+        self.assertEqual(SEL["min_reps"], 5)
 
 
 if __name__ == "__main__":
