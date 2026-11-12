@@ -48,6 +48,7 @@ const ERROR_USER_COPY = {
   FRAME_EXTRACTION_FAILED: "I found things to work on, but couldn't pull out the frames to show you. Your written coaching is still below.",
   PROGRESSION_UNAVAILABLE: "Your form analysis is ready, but I couldn't put your progression together this time.",
   PIPELINE_TIMEOUT: "This is taking much longer than it should. I've flagged it. Please try again, and your earlier data is safe.",
+  UNSUPPORTED_EXERCISE: "I can't check form for this exercise yet. Could you pick Goblet Squat, or film a goblet squat?",
   SYSTEM_ERROR: "Sorry, something went wrong on our end. Your video is saved, so please try again in a moment.",
 }
 

@@ -10,7 +10,7 @@ const TIPS = [
   { bold: "Head to toe", why: "fill ~70% of the screen, so nothing gets cut off" },
   { bold: "Portrait view, hip height", why: "so your body stays big and your depth looks true" },
   { bold: "Just you", why: "we can only track one person: no mirrors, no one else" },
-  { bold: "6 to 10 reps", why: "at least 6, or we can't tell a pattern from a one-off. Only the reps: less to upload" },
+  { bold: "5 to 10 reps", why: "at least 5, or we can't tell a pattern from a one-off. Only the reps: less to upload" },
   { bold: "Fitted clothes", why: "Baggy can hide your joints" },
 ]
 const GREEN = "#22C55E"

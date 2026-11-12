@@ -13,3 +13,7 @@ backend/mediapipe_code/video_results/
 ffmpeg
 echo "backend/backend.log" >> .gitignore
 backend/kinetic.db
+# Golden test data for the coaching rules (per-rep numbers from real clips, no personal data, no credentials).
+# The rule above ignores every .json file, so this folder is let back in on purpose.
+!backend/tests/golden/
+!backend/tests/golden/**

@@ -27,6 +27,7 @@ from mediapipe_code.llm_run_code import run_llm_comparison
 from services.haiku_call_1_integration import HaikuCall1
 from services.coaching_signals import compute_signals, signals_for_ai, apply_signals
 from services.comparison import choose_comparison
+from exercises.registry import UnknownExercise, canonical_id, get_spec
 import traceback
 
 
@@ -34,8 +35,21 @@ import traceback
 # MODULE-LEVEL SINGLETONS
 # =========================================================
 
-# Cached system prompt — loaded once at startup, reused for every request
-_haiku_call_1 = HaikuCall1(exercise="goblet_squat")
+# The exercise to assume only when an analysis has no exercise name at all (old rows, local test runs).
+DEFAULT_EXERCISE_ID = "goblet-squat"
+
+# One Haiku Call 1 object (with that exercise's coaching reference baked into its prompt) per exercise, built the first
+# time the exercise is analysed and then reused. The default is built now so a missing key or reference fails at start-up.
+_haiku_calls = {}
+
+
+def _haiku_for(exercise_id: str):
+    if exercise_id not in _haiku_calls:
+        _haiku_calls[exercise_id] = HaikuCall1(exercise=get_spec(exercise_id)["identity"]["reference_file_stem"])
+    return _haiku_calls[exercise_id]
+
+
+_haiku_for(DEFAULT_EXERCISE_ID)
 
 # MediaPipe framework
 framework = LandmarkQualityFramework(
@@ -125,6 +139,11 @@ async def run_mediapipe_analysis(analysis_id: str, file_location: str):
     ctx = {"session_id": session_id, "user_id": user_id}
 
     try:
+        # Which exercise is this? The registry maps the name to one exercise ID. An exercise with no spec stops here with a
+        # clear message, instead of being quietly judged as a goblet squat.
+        raw_exercise = record["exercise_name"] if record else None
+        exercise_id = canonical_id(raw_exercise) if raw_exercise else DEFAULT_EXERCISE_ID
+
         # -------------------------------------------------
         # STEP 0 — upload_received
         # -------------------------------------------------
@@ -284,14 +303,14 @@ async def run_mediapipe_analysis(analysis_id: str, file_location: str):
         # If this fails for any reason, the analysis carries on without it.
         signals = None
         try:
-            signals = compute_signals(biomechanics_slim["reps"])
+            signals = compute_signals(biomechanics_slim["reps"], exercise_id)
             biomechanics_slim["precomputed_signals"] = signals_for_ai(signals)
         except Exception as e:
             print(f"[pipeline] coaching signals failed ({e}); continuing without them")
 
         coaching_output = await loop.run_in_executor(
             _executor,
-            lambda: _haiku_call_1.analyze_form(
+            lambda: _haiku_for(exercise_id).analyze_form(
                 session_data=session_data,
                 biomechanics_json=biomechanics_slim,
                 frame_images=None,
@@ -307,7 +326,7 @@ async def run_mediapipe_analysis(analysis_id: str, file_location: str):
 
         # Which two of the user's own reps to show side by side, and where to point. Code decides; failure just means no comparison.
         try:
-            coaching_output["comparison"] = choose_comparison(coaching_output, final_json, rep_frames_list)
+            coaching_output["comparison"] = choose_comparison(coaching_output, final_json, rep_frames_list, exercise_id)
         except Exception as e:
             print(f"[pipeline] comparison not built ({e}); the app will play the original video")
             coaching_output["comparison"] = None
@@ -330,7 +349,7 @@ async def run_mediapipe_analysis(analysis_id: str, file_location: str):
         # as its own task; it saves the image address when ready and deletes the temp video.
         # -------------------------------------------------
         asyncio.create_task(_make_annotated_image(
-            analysis_id, local_path, rep_scores, rep_frames_list, final_json, loop, coaching_output,
+            analysis_id, local_path, rep_scores, rep_frames_list, final_json, loop, coaching_output, exercise_id,
         ))
 
         # -------------------------------------------------
@@ -372,6 +391,19 @@ async def run_mediapipe_analysis(analysis_id: str, file_location: str):
 
         return mp_result
 
+    except UnknownExercise as e:
+        print(f"[pipeline] {e}")
+        await _store_failed(analysis_id, "UNSUPPORTED_EXERCISE", str(e))
+        await sse_manager.send_error_event(
+            analysis_id=analysis_id,
+            error_code="UNSUPPORTED_EXERCISE",
+            error_stage="pipeline",
+            retryable="false",
+            message="We can't check form for this exercise yet.",
+            session_id=session_id,
+            user_id=user_id,
+        )
+
     except FileNotFoundError as e:
         print(f"[pipeline] File not found: {e}")
         await _store_failed(analysis_id, "SYSTEM_ERROR", str(e))
@@ -400,7 +432,7 @@ async def run_mediapipe_analysis(analysis_id: str, file_location: str):
         )
 
 
-async def _make_annotated_image(analysis_id, local_path, rep_scores, rep_frames_list, final_json, loop, coaching_output=None):
+async def _make_annotated_image(analysis_id, local_path, rep_scores, rep_frames_list, final_json, loop, coaching_output=None, exercise_id=DEFAULT_EXERCISE_ID):
     """
     Worst-rep picture with angle overlay -> bucket -> address saved on the results row.
     The picture is a bonus: any failure here is logged and the analysis is unaffected.
@@ -412,7 +444,7 @@ async def _make_annotated_image(analysis_id, local_path, rep_scores, rep_frames_
         def build():
             # One arrow and a short label on the rep that shows the first "work on" item (or a plain frame).
             # Named by analysis id so two uploads at once never overwrite each other's picture.
-            return build_focus_picture(local_path, rep_frames_list, final_json, coaching_output, output_filename=analysis_id)
+            return build_focus_picture(local_path, rep_frames_list, final_json, coaching_output, output_filename=analysis_id, exercise_id=exercise_id)
 
         # OpenCV work goes to the thread pool so the server stays responsive
         _, image_path = await loop.run_in_executor(_executor, build)
