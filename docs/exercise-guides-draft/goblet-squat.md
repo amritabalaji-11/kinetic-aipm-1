@@ -75,7 +75,7 @@ Items marked **[CONFIRM]** are choices where sources differ or a trainer should 
 - I have not watched it myself.
 
 Other candidates, in case this one doesn't work out (all allow embedding): LivestrongWoman https://www.youtube.com/watch?v=mF5tnEBrdkc, Naomi Kong https://www.youtube.com/watch?v=9KzZD_n2r64, Colossus Fitness https://www.youtube.com/watch?v=gm4ln6PO4rc.
-- **Video (men):** not chosen yet. Amrita will share a link later.
+- **Video (men):** https://www.youtube.com/shorts/lRYBbchqxtI (SquatCouple, "HOW TO DO A GOBLET SQUAT", vertical Short). Embedding allowed (checked). **[CONFIRM]** not watched yet; check it suits a dumbbell version.
 
 ## Sources
 **Read in full**

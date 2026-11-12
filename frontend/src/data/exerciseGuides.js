@@ -17,7 +17,13 @@ const GOBLET_SQUAT = {
       watchUrl: "https://www.youtube.com/shorts/7-80HiXX1K8",
       vertical: true,
     },
-    men: null, // not chosen yet
+    men: {
+      youtubeId: "lRYBbchqxtI",
+      credit: "SquatCouple",
+      creditUrl: "https://www.youtube.com/@SQUATCOUPLE",
+      watchUrl: "https://www.youtube.com/shorts/lRYBbchqxtI",
+      vertical: true,
+    },
   },
   keyCues: [
     "Big breath in, brace your core, hold the weight tight to your chest.",
