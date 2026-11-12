@@ -45,7 +45,7 @@ _haiku_calls = {}
 
 def _haiku_for(exercise_id: str):
     if exercise_id not in _haiku_calls:
-        _haiku_calls[exercise_id] = HaikuCall1(exercise=get_spec(exercise_id)["reference_file_stem"])
+        _haiku_calls[exercise_id] = HaikuCall1(exercise=get_spec(exercise_id)["identity"]["reference_file_stem"])
     return _haiku_calls[exercise_id]
 
 
@@ -303,7 +303,7 @@ async def run_mediapipe_analysis(analysis_id: str, file_location: str):
         # If this fails for any reason, the analysis carries on without it.
         signals = None
         try:
-            signals = compute_signals(biomechanics_slim["reps"])
+            signals = compute_signals(biomechanics_slim["reps"], exercise_id)
             biomechanics_slim["precomputed_signals"] = signals_for_ai(signals)
         except Exception as e:
             print(f"[pipeline] coaching signals failed ({e}); continuing without them")
@@ -326,7 +326,7 @@ async def run_mediapipe_analysis(analysis_id: str, file_location: str):
 
         # Which two of the user's own reps to show side by side, and where to point. Code decides; failure just means no comparison.
         try:
-            coaching_output["comparison"] = choose_comparison(coaching_output, final_json, rep_frames_list)
+            coaching_output["comparison"] = choose_comparison(coaching_output, final_json, rep_frames_list, exercise_id)
         except Exception as e:
             print(f"[pipeline] comparison not built ({e}); the app will play the original video")
             coaching_output["comparison"] = None
@@ -349,7 +349,7 @@ async def run_mediapipe_analysis(analysis_id: str, file_location: str):
         # as its own task; it saves the image address when ready and deletes the temp video.
         # -------------------------------------------------
         asyncio.create_task(_make_annotated_image(
-            analysis_id, local_path, rep_scores, rep_frames_list, final_json, loop, coaching_output,
+            analysis_id, local_path, rep_scores, rep_frames_list, final_json, loop, coaching_output, exercise_id,
         ))
 
         # -------------------------------------------------
@@ -432,7 +432,7 @@ async def run_mediapipe_analysis(analysis_id: str, file_location: str):
         )
 
 
-async def _make_annotated_image(analysis_id, local_path, rep_scores, rep_frames_list, final_json, loop, coaching_output=None):
+async def _make_annotated_image(analysis_id, local_path, rep_scores, rep_frames_list, final_json, loop, coaching_output=None, exercise_id=DEFAULT_EXERCISE_ID):
     """
     Worst-rep picture with angle overlay -> bucket -> address saved on the results row.
     The picture is a bonus: any failure here is logged and the analysis is unaffected.
@@ -444,7 +444,7 @@ async def _make_annotated_image(analysis_id, local_path, rep_scores, rep_frames_
         def build():
             # One arrow and a short label on the rep that shows the first "work on" item (or a plain frame).
             # Named by analysis id so two uploads at once never overwrite each other's picture.
-            return build_focus_picture(local_path, rep_frames_list, final_json, coaching_output, output_filename=analysis_id)
+            return build_focus_picture(local_path, rep_frames_list, final_json, coaching_output, output_filename=analysis_id, exercise_id=exercise_id)
 
         # OpenCV work goes to the thread pool so the server stays responsive
         _, image_path = await loop.run_in_executor(_executor, build)

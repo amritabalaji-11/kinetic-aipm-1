@@ -1,13 +1,11 @@
-"""The picture at the top of the results screen: your own frame, with one arrow and a short label.
+"""The picture at the top of the results screen when the before/after video cannot play: your own frame, with one arrow and a short label.
 
-Which issue: the first item under "Work on" (decided by the code in services/coaching_signals.py), so the picture
-always matches the words. If nothing needs work, a plain frame is shown.
-Which rep: the rep where that issue is clearest among the reps it applies to.
-Which moment: the bottom of that rep (the frame with the most bent knee).
+Which issue: the focus rule (the first item under "Work on", decided by the code, so the picture always matches the words). If nothing
+needs work, a plain frame is shown. Which rep and which arrow: the rule's `comparison.picture` and `comparison.arrow` in the exercise spec.
+Which moment: the key moment of the rep (for a squat, the bottom, the frame with the smallest thigh angle).
 
-Nothing else is drawn: no angles, no numbers, no target lines, no judging captions. Issues that are about timing
-(lowering speed, rushing) have no body part to point at, so they get the plain frame.
-Only side views are annotated: from the front, lean and ankle range cannot be seen.
+Nothing else is drawn: no angles, no numbers, no target lines, no judging captions. Issues about timing (lowering speed, rushing) have
+no body part to point at, so their rules have no arrow and get the plain frame.
 """
 import math
 import os
@@ -16,53 +14,27 @@ import cv2
 import numpy as np
 from PIL import Image, ImageDraw
 
-from mediapipe_code.mp_utils.visualization.draw_methods import _load_font, get_xy
+from exercises.registry import get_spec
+from mediapipe_code.mp_utils.visualization.draw_methods import _load_font
+from services.rep_picking import Reps, anchor_point, focus_rule
 
 SS = 2                          # draw at 2x and shrink, so edges are smooth
 AMBER = (255, 150, 0)
 WHITE = (255, 255, 255)
 OUT_W, OUT_H = 720, 1280
-
-# topic -> (label, how to find the point to aim at)
-ARROW_TOPICS = {
-    "chest_lean": "Torso lean",
-    "ankle_mobility": "Ankle mobility",
-    "depth": "Depth",
-}
+DEFAULT_EXERCISE_ID = "goblet-squat"
 
 
-def _num(v):
-    return v if isinstance(v, (int, float)) else None
-
-
-def choose_focus(coaching_output, reps):
-    """Returns (topic or None, rep dict). Same priority as the text: the first 'work on' item."""
+def choose_focus(coaching_output, reps, spec):
+    """Returns (rule or None, rep dict). Same priority as the text: the first 'work on' item."""
     reps = [r for r in reps if isinstance(r, dict)]
-    if not reps:
+    counted = [r for r in reps if not r.get("partial")] or reps
+    if not counted:
         return None, None
-    items = (coaching_output or {}).get("feedback_items") or {}
-    work = items.get("work_on") or []
-    topic, flagged = None, []
-    if work:
-        topic = work[0].get("topic")
-        flagged = [int(n) for n in (work[0].get("reps_flagged") or [])]
-    elif (coaching_output or {}).get("signals", {}).get("depth_short") or (coaching_output or {}).get("signals", {}).get("depth_very_shallow"):
-        topic = "depth"
-    pool = [r for r in reps if r.get("rep_number") in flagged] or reps
-
-    def get(r, section, key):
-        return _num((r.get(section) or {}).get(key))
-
-    if topic == "chest_lean":
-        best = max(pool, key=lambda r: get(r, "back_data", "back_angle_at_bottom") if get(r, "back_data", "back_angle_at_bottom") is not None else -1)
-    elif topic == "ankle_mobility":
-        best = min(pool, key=lambda r: get(r, "ankle_data", "dorsiflexion_at_bottom") if get(r, "ankle_data", "dorsiflexion_at_bottom") is not None else 1e9)
-    elif topic == "depth":
-        # the rep where the hips stay highest above the knees
-        best = min(pool, key=lambda r: get(r, "depth_data", "hip_below_knee_ratio") if get(r, "depth_data", "hip_below_knee_ratio") is not None else 1e9)
-    else:
-        best = pool[len(pool) // 2]          # nothing to point at: a typical rep from the middle of the set
-    return topic, best
+    rule, flagged = focus_rule(coaching_output, spec)
+    pick = Reps(counted, spec, flagged)
+    rep = pick.pick(rule["comparison"]["picture"]) if rule else None
+    return rule, rep or pick.pick({"pick": "middle", "pool": "all"})     # nothing to point at: a typical rep from the middle of the set
 
 
 def _arrow(draw, tail, tip, width):
@@ -90,46 +62,36 @@ def _label(draw, anchor, text, img_w, img_h):
     draw.text((x + w / 2, y + h / 2), text, font=font, fill=WHITE, anchor="mm")
 
 
-def _annotate(frame_bgr, frame_info, camera_view, topic):
+def _annotate(frame_bgr, arrow, label):
+    """Draw the arrow and label. `arrow` is {x, y, back}: x and y are 0 to 1 positions in the picture, back is which side the tail comes from."""
     h, w = frame_bgr.shape[:2]
-    pose = frame_info["norm_pose"]
-    right = camera_view == "side_right"
-    ids = {"nose": 0, "sh": 12 if right else 11, "hip": 24 if right else 23, "knee": 26 if right else 25, "ankle": 28 if right else 27}
-    P = {k: get_xy(pose, i, w, h) for k, i in ids.items()}
-    if any(P[k] is None for k in ("nose", "sh", "hip", "knee", "ankle")):
-        return frame_bgr
-    P = {k: np.array(v, np.float32) * SS for k, v in P.items()}
-    facing_right = P["nose"][0] > P["hip"][0]
-    back = -1.0 if facing_right else 1.0          # which side of the picture the person's back is on
-
-    if topic == "chest_lean":
-        tip = (P["sh"] + P["hip"]) / 2 + np.array([back * w * SS * 0.07, 0])
-    elif topic == "ankle_mobility":
-        tip = P["ankle"] + (P["knee"] - P["ankle"]) * 0.35 + np.array([back * w * SS * 0.05, 0])
-    else:  # depth
-        tip = P["hip"] + np.array([back * w * SS * 0.06, 0])
-
+    tip = np.array([arrow["x"] * w * SS, arrow["y"] * h * SS], np.float32)
+    back = arrow["back"]
     length = w * SS * 0.22
     tail = tip + np.array([back * length * 0.85, -length * 0.5])
     layer = Image.new("RGBA", (w * SS, h * SS), (0, 0, 0, 0))
     d = ImageDraw.Draw(layer)
     _arrow(d, tuple(tail), tuple(tip), 9 * SS)
-    _label(d, tuple(tail), ARROW_TOPICS[topic], w * SS, h * SS)
+    _label(d, tuple(tail), label, w * SS, h * SS)
     layer = layer.resize((w, h), Image.LANCZOS)
     base = Image.fromarray(cv2.cvtColor(frame_bgr, cv2.COLOR_BGR2RGB)).convert("RGBA")
     return cv2.cvtColor(np.array(Image.alpha_composite(base, layer).convert("RGB")), cv2.COLOR_RGB2BGR)
 
 
-def build_focus_picture(video_path, rep_frames, final_json, coaching_output, output_filename):
+def build_focus_picture(video_path, rep_frames, final_json, coaching_output, output_filename, exercise_id=DEFAULT_EXERCISE_ID, goal=None):
     """Returns (image, saved path). Never draws numbers, targets or judging captions."""
+    spec = get_spec(exercise_id, goal)
     reps = (final_json or {}).get("reps") or []
-    topic, rep = choose_focus(coaching_output, reps)
+    rule, rep = choose_focus(coaching_output, reps, spec)
     if rep is None:
         raise ValueError("no reps to build a picture from")
     frames = [f for f in rep_frames if f.get("rep_number") == rep["rep_number"]] or list(rep_frames)
     if not frames:
         raise ValueError("no frames for the chosen rep")
-    chosen = min(frames, key=lambda f: f["knee_angle"] if f.get("knee_angle") is not None else float("inf"))
+    field, pick = spec["visuals"]["key_moment"]["frame_field"], spec["visuals"]["key_moment"]["pick"]
+    bad = float("inf") if pick == "min" else float("-inf")
+    key = lambda f: f[field] if f.get(field) is not None else bad
+    chosen = min(frames, key=key) if pick == "min" else max(frames, key=key)
 
     cap = cv2.VideoCapture(video_path)
     cap.set(cv2.CAP_PROP_POS_FRAMES, chosen["frame_index"])
@@ -141,9 +103,11 @@ def build_focus_picture(video_path, rep_frames, final_json, coaching_output, out
 
     view = chosen.get("camera_view") or rep.get("camera_view")
     out = frame
-    if topic in ARROW_TOPICS and view in ("side_left", "side_right"):
+    arrow_spec = rule["comparison"].get("arrow") if rule else None
+    arrow = anchor_point(chosen.get("norm_pose"), arrow_spec, view, spec) if arrow_spec else None
+    if arrow:
         try:
-            out = _annotate(frame, chosen, view, topic)
+            out = _annotate(frame, arrow, arrow_spec["label"])
         except Exception as e:          # a missing landmark must not cost the user the picture
             print(f"[focus overlay] could not annotate ({e}); using the plain frame")
 
@@ -155,5 +119,5 @@ def build_focus_picture(video_path, rep_frames, final_json, coaching_output, out
         if os.path.getsize(path) <= 500 * 1024:
             break
         quality -= 5
-    print(f"[focus overlay] topic={topic} rep={rep['rep_number']} view={view}")
+    print(f"[focus overlay] rule={rule['id'] if rule else None} rep={rep['rep_number']} view={view}")
     return out, path

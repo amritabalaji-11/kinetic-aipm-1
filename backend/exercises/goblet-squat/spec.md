@@ -1,166 +1,51 @@
 # Goblet Squat — exercise spec
 
-| | |
-|---|---|
-| **Exercise ID** | `goblet-squat` (the movement slug; the same one the catalogue uses in its `movement` field) |
-| **Spec version** | 1.0.0 |
-| **Status** | **draft**: no trainer sign-off yet. Rules marked *draft* below rest on very few labelled clips. |
-| **Equipment variants** | DB Goblet Squat (`ex_001`) and KB Goblet Squat (`ex_049`) share this one spec. See section 12. |
-| **Family** | squat |
-| **Last updated** | 2026-11-12 |
+**Exercise ID:** `goblet-squat` · **Spec version:** 2.0.0 · **Status:** draft · **Goal:** strength only
 
-This file is the **single source of truth** for how Kinetic checks a goblet squat: what to film, what we measure, how reps are counted, what we are allowed to say, and what the video and picture show. A second exercise copies this structure (see `../README.md`).
+This file is the **single source of truth** for how Kinetic checks a goblet squat. It follows the 13-section structure every exercise uses (`exercises/SCHEMA.md`). Each section has a short explanation for people and one machine block that the code reads (a fenced `json kinetic:<section>` block). The validator (`exercises/validate.py`) refuses to load a spec that breaks the structure, and the tests replay 17 real clips against it.
 
-## 0. How the code uses this file
+Change a number or a line of wording **here**, never in the code. Anything marked *draft* rests on very little evidence.
 
-- The block in section 1 (`kinetic-spec`) is **read by the code** at start-up (`exercises/registry.py`). The coaching rules (`services/coaching_signals.py`) and the before/after chooser (`services/comparison.py`) take their thresholds and wording from it. Change a number there, not in the code.
-- Some numbers live in code that is not yet driven by this file (the rep counter, the trackers, the frontend). They are written down here too, and **drift tests** (`tests/test_spec_drift.py`) fail if the code and this file disagree.
-- **Golden tests** (`tests/golden/goblet-squat/`) replay 17 real clips through the rules and fail if a result changes without this file changing. See section 11.
-- Anything you read here that is marked *decision* is waiting for the product owner.
+---
 
-## 1. Machine-readable rules
+## 1. Identity
 
-```json kinetic-spec
+The movement slug is the ID. The dumbbell and kettlebell goblet squats share it, because the analysis never reads the equipment. Split into a new ID only if something would change the rep counter, the measures, the rules or the key moment.
+
+```json kinetic:identity
 {
   "exercise_id": "goblet-squat",
-  "spec_version": "1.0.0",
+  "name": "Goblet Squat",
+  "spec_version": "2.0.0",
   "status": "draft",
   "family": "squat",
   "aliases": ["goblet_squat", "goblet squat", "db goblet squat", "kb goblet squat"],
-  "reference_file_stem": "goblet_squat",
-  "views": {
-    "side": ["side_left", "side_right"],
-    "angled": ["angled"],
-    "front": ["front"]
-  },
-  "modules": {
-    "recording_tips": true,
-    "measures": true,
-    "rep_counting": true,
-    "rules": true,
-    "visuals": true,
-    "prompt_reference": true,
-    "golden_tests": true
-  },
-  "rules": {
-    "min_reps": 5,
-    "min_reps_with_data": 4,
-    "skip_first_rep_when_more_than": 5,
-    "max_items_per_list": 2,
-    "max_items_when_few_reps": 1,
-    "max_words_per_line": 12,
-    "lean": {
-      "baseline_reps": 3,
-      "growth_deg": 5.0,
-      "high_deg": 45.0,
-      "steady_growth_max_deg": 2.0,
-      "steady_rep_margin_deg": 4.0,
-      "flag_min_reps": 2
-    },
-    "lowering": {
-      "quick_seconds": 0.6,
-      "controlled_min_seconds": 1.5,
-      "controlled_max_seconds": 4.5,
-      "pace_drop_seconds": 0.3,
-      "pace_last_over_first_max": 0.75,
-      "quick_min_reps": 2
-    },
-    "ankle": {"good_deg": 30.0, "limited_deg": 25.0},
-    "depth": {"good_ratio": -0.08, "very_shallow_ratio": -0.2},
-    "knees": {"inward_ratio": 1.15},
-    "work_on_order": ["chest_lean", "knee_tracking", "ankle_mobility", "pace_drift", "lowering_speed"],
-    "went_well_order": ["depth", "ankle_mobility", "lowering_speed", "chest_lean"]
-  },
-  "wording": {
-    "work_on": {
-      "chest_lean": {
-        "headline": "You leaned further forward as the set went on.",
-        "why": "More forward lean loads your lower back.",
-        "cue": "Sit your hips back as you lower."
-      },
-      "chest_lean_high": {
-        "headline": "You leaned well forward on most reps.",
-        "why": "More forward lean loads your lower back.",
-        "cue": "Sit your hips back as you lower."
-      },
-      "knee_tracking": {
-        "headline": "Your knees drifted inward as you lowered.",
-        "why": "Knees caving in loads the inside of the knee.",
-        "cue": "Push your knees out over your little toes."
-      },
-      "ankle_mobility": {
-        "headline": "Your ankle mobility looked limited.",
-        "why": "Limited ankle range pushes the knees in or the body forward.",
-        "cue": "Keep your whole foot on the floor."
-      },
-      "pace_drift": {
-        "headline": "You rushed more as the set went on.",
-        "why": "Rushing costs you control at the bottom.",
-        "cue": "Count to two on every lowering."
-      },
-      "lowering_speed": {
-        "headline": "You dropped into the squat on most reps.",
-        "why": "Dropping fast means less control at the bottom.",
-        "cue": "Lower for about two seconds."
-      }
-    },
-    "went_well": {
-      "depth": {"headline": "Your depth was consistent."},
-      "ankle_mobility": {"headline": "Your ankle mobility was good."},
-      "lowering_speed": {"headline": "You lowered with control."},
-      "chest_lean": {"headline": "Your torso position stayed steady."}
-    }
-  },
-  "comparison": {
-    "min_reps": 4,
-    "pad_seconds": 0.35,
-    "arrow_window_seconds": 0.4,
-    "slow_target_seconds": 2.0,
-    "min_ankle_diff_deg": 5.0,
-    "min_depth_diff_ratio": 0.06,
-    "min_knee_travel_ratio": 1.5,
-    "arrow_labels": {
-      "chest_lean": "Torso lean",
-      "ankle_mobility": "Ankle mobility",
-      "depth": "Depth",
-      "knee_tracking": "Knees in"
-    }
-  },
-  "rep_counting": {
-    "signal": "hip_angle",
-    "threshold_down": 150,
-    "threshold_up": 155,
-    "min_bottom_hold": 1,
-    "threshold_deep": 120,
-    "turnaround_min_peak": 135,
-    "turnaround_drop": 8,
-    "ascent_rise": 30,
-    "setup_outlier": {"lean_deg": 30.0, "knee_deg": 35.0, "hands_share": 0.45}
-  },
-  "reminders": [
-    "Breathe in as you lower, out as you stand up.",
-    "Push the floor away to drive up. Power comes from your legs, not your knees.",
-    "You shouldn't feel this in your lower back. If you do, lighten the weight or stop."
+  "equipment_variants": [
+    {"catalog_id": "ex_001", "equipment": "dumbbell"},
+    {"catalog_id": "ex_049", "equipment": "kettlebell"}
   ],
-  "screen": {
-    "frontend_min_reps": 5,
-    "frontend_quick_below_seconds": 0.6,
-    "freeze_seconds": 1.6
-  }
+  "reference_file_stem": "goblet_squat",
+  "trainer_signoff": null,
+  "updated": "2026-11-12"
 }
 ```
 
-## 2. Camera and recording
+## 2. Goal profiles
 
-**What we tell the user before they film** (the "filming tips" card on the upload screen):
+Only **strength** is supported: heavier weight, about 5 to 10 controlled reps, a deliberate tempo. Endurance (lighter, more reps, faster) would need different tempo rules, a different rep range and different progression, and we have no endurance clips to set any of it from. A goal without a profile is refused; it is never quietly judged as strength. The goal is hard-coded to strength for now.
 
-1. **Side view**, so we can see your back, hip and knee angles.
-2. **Head to toe** in the frame, just you.
-3. **5 to 10 reps**: at least 5, or we can't tell a pattern from a one-off.
+```json kinetic:goal_profiles
+{
+  "default": "strength",
+  "supported": ["strength"],
+  "unsupported": {"endurance": "no labelled endurance clips yet, so no thresholds can be set"},
+  "profiles": {"strength": {"overrides": {}}}
+}
+```
 
-If a clip has fewer than 5 reps, the results screen says so and the upload screen asks for another video. (The backend quality gate already rejects fewer than 3 outright, before any analysis; 3 or 4 reps are analysed and then the screen asks for another video.)
+## 3. Capture: what we tell the user before they film
 
-**Which view allows which check:**
+Side view is preferred because lean, depth and ankle range can only be read from the side. From the front only knee tracking and timing can be read.
 
 | Check | Side | Angled | Front |
 |---|---|---|---|
@@ -170,166 +55,428 @@ If a clip has fewer than 5 reps, the results screen says so and the upload scree
 | Knee tracking | no | no | yes (draft) |
 | Lowering speed and pace | yes | yes | yes |
 
-From the front, lean, depth and ankle range cannot be judged reliably, so the screen says "Filmed from the front, we check your knees and timing. Film from the side to get feedback on lean, depth and ankle range."
+```json kinetic:capture
+{
+  "preferred_view": "side",
+  "views": {
+    "side": ["side_left", "side_right"],
+    "angled": ["angled"],
+    "front": ["front"]
+  },
+  "target_reps": [5, 10],
+  "tips": [
+    {"bold": "Side view", "why": "so we can see your back, hip and knee angles"},
+    {"bold": "Head to toe", "why": "fill ~70% of the screen, so nothing gets cut off"},
+    {"bold": "Portrait view, hip height", "why": "so your body stays big and your depth looks true"},
+    {"bold": "Just you", "why": "we can only track one person: no mirrors, no one else"},
+    {"bold": "5 to 10 reps", "why": "at least 5, or we can't tell a pattern from a one-off. Only the reps: less to upload"},
+    {"bold": "Fitted clothes", "why": "Baggy can hide your joints"}
+  ],
+  "view_notes": {
+    "front": "Filmed from the front, we check your knees and timing. Film from the side to get feedback on lean, depth and ankle range."
+  }
+}
+```
 
-**Not yet built (future):** a check at upload that the whole body is in frame, the lighting is OK and the video is upright, before we spend analysis time.
+Fewer than 5 reps: the results screen says so and the upload screen asks for another video. The backend quality gate already rejects fewer than 3 outright, before any analysis. Not built yet: a check at upload that the whole body is in frame and the light is OK.
 
-## 3. What we measure (MediaPipe)
+## 4. Measures
 
-| Measure | How it is computed | Views | Used for |
-|---|---|---|---|
-| Pose | MediaPipe pose landmarker (heavy model), every 3rd frame of a 30 fps copy. A landmark under 0.70 visibility is ignored. | all | everything |
-| Camera view | detected from the pose; the most common view in the clip is used | all | which rules are allowed |
-| Hip angle | angle at the hip between shoulder and knee, averaged left and right, smoothed (EMA 0.4) | side, angled | rep counting |
-| Thigh angle ("knee angle" in the data) | thigh's angle from vertical. It is **not** the knee joint angle. | side, angled | information only |
-| Torso lean at the bottom | torso's angle from vertical at the lowest point of the rep | side | lean rules |
-| Ankle range at the bottom | shin's angle from vertical (a stand-in for ankle dorsiflexion) | side | ankle rules |
-| Depth | `hip_below_knee_ratio`: how far the hips are below the knees, as a share of the upright torso length (positive = hips lower than knees). Works from the side and from an angle. | side, angled | depth flags |
-| Lowering time | movement versus stillness: speed under 15% of the rep's top speed counts as "still"; the "near top/bottom" zone is 25% of the range; ranges under 20 degrees are ignored | all | speed rules |
-| Knee gap ÷ ankle gap at the bottom | horizontal distance between the knees divided by the distance between the ankles, at the frames where the hips are lowest | front | knee tracking |
-| Knee travel | summed frame-to-frame change of knee gap ÷ ankle gap over the rep | front | choosing which two reps to show (never used to decide whether to give feedback) |
+Every number a rule uses is a named measure that lives at a fixed place in the per-rep data. Rules refer to measures by `id`, never to data paths.
 
-**Why these and not others:** the trainer's guidance was that fixed angles vary with mobility, so rules compare a person with **their own start of set** wherever possible, and use cues (tempo, bracing, breathing) rather than angle targets.
+- **Pose:** the MediaPipe pose landmarker (heavy model), every 3rd frame of a 30 fps copy of the video. A landmark below 0.70 visibility is ignored. The most common camera view in the clip is used.
+- **Why these measures:** the trainer's guidance was that fixed angles vary with mobility, so rules compare a person with their own start where they can, and use tempo and cues rather than angle targets.
 
-## 4. Counting reps
+```json kinetic:measures
+[
+  {"id": "lean_at_bottom", "label": "Torso lean at the bottom", "field": "back_data.back_angle_at_bottom", "unit": "degrees from vertical", "views": ["side"],
+   "definition": "Torso's angle from vertical at the lowest point of the rep (shoulder to hip, world landmarks)."},
+  {"id": "ankle_deg", "label": "Ankle range at the bottom", "field": "ankle_data.dorsiflexion_at_bottom", "unit": "degrees from vertical", "views": ["side"],
+   "definition": "Shin's angle from vertical at the lowest point of the rep (knee to ankle). A stand-in for ankle dorsiflexion."},
+  {"id": "depth_ratio", "label": "Depth: hips against knees", "field": "depth_data.hip_below_knee_ratio", "unit": "share of upright torso length", "views": ["side", "angled"],
+   "definition": "How far the hips are below the knees at the bottom, divided by the longest upright torso length seen (positive = hips lower than knees). Works from the side and from an angle; a front view shifts it by about 0.3 so it is not used."},
+  {"id": "lowering_s", "label": "Lowering time", "field": "tempo_data.eccentric", "unit": "seconds", "views": ["any"], "valid_above": 0,
+   "definition": "Time spent moving down: speed above 15% of the rep's top speed counts as moving, the near-top and near-bottom zones are 25% of the range, ranges under 20 degrees are ignored."},
+  {"id": "knee_ankle_ratio", "label": "Knee gap against ankle gap at the bottom", "field": "stability_data.knee_ankle_ratio_at_bottom", "unit": "ratio", "views": ["front"],
+   "definition": "Horizontal distance between the knees divided by the distance between the ankles, at the frames where the hips are lowest. Knees normally travel out as you sit, so a ratio near 1.0 means the knees stayed as close as the feet."},
+  {"id": "knee_travel", "label": "How much the knees move in and out", "field": "stability_data.knee_travel", "unit": "summed change in the ratio over the rep", "views": ["front"],
+   "definition": "Sum of the frame-to-frame change in knee gap divided by ankle gap over the rep. Only used to choose which two reps to show; it does not separate a good clip from a faulty one."}
+]
+```
 
-A rep is a hip-angle cycle: standing → descending → bottom → ascending → standing.
+## 5. Rep counting
 
-- Down starts when the hip angle drops under **150°**; the rep finishes when it climbs back over **155°**.
-- **Quick sets:** a rep also finishes when the person turns round on the way up without fully standing, if the hip angle had climbed to at least 135° and then fell 8° from its peak.
-- **Leaners:** coming up is also recognised when the hip angle has risen **30°** from this rep's own lowest point, because people who lean forward never open past 150°.
-- **Setup and pick-up movements** (picking the weight up, putting it down) are removed by testing each counted rep against the set's own typical rep: lean at the bottom more than 30° away from the set median, or knee more than 35° straighter, or the share of time the hands are above the hips far below the median (0.45).
-- A **cut-off last squat** is kept and marked `partial`; partial reps are not used by the rules or the before/after.
-- The **first rep is skipped** for depth, ankle and knee checks when there are more than 5 reps (it is often a warm-up).
+A rep is a hip-angle cycle: standing, descending, bottom, ascending, standing.
 
-**Checked against:** the person's own true counts, 10 (side, 12.5 kg) and 9 (side, 17.5 kg), both match. An independent hip-height peak count agrees with the pipeline on the other clips except v3 and v6, where the independent count said 7 and 8 and the pipeline said 6 and 6; no true count exists for those two, so they are unresolved.
+- **Down** starts under 150 degrees at the hip; the rep finishes back over 155.
+- **Quick sets:** a rep also finishes when the person turns round on the way up without standing fully (the hip angle had climbed to 135 and then fell 8).
+- **People who lean forward** never open past 150, so coming up is also recognised when the hip angle has risen 30 degrees from this rep's own lowest point.
+- **Setup and pick-up movements** (lifting the weight, putting it down) are removed by testing each counted rep against the set's own typical rep: lean at the bottom more than 30 degrees away from the set median, or knee more than 35 degrees straighter, or the share of time the hands are above the hips far below the median.
+- A **cut-off last squat** is kept and marked partial; partial reps are not used by the rules or the before/after.
+- **Checked against** the person's own true counts, 10 (side, 12.5 kg) and 9 (side, 17.5 kg): both match. An independent hip-height peak count agrees on the other clips except v3 and v6, where it said 7 and 8 and the pipeline said 6 and 6; no true count exists for those two, so they are unresolved.
+- **Known limit:** this counter follows the hip angle. An exercise that starts at the bottom, is one-sided or is a timed hold needs its own counter.
 
-**Known limits:** the rep counter is tuned for squats (hip angle). Exercises that start at the bottom (deadlift), are one-sided, or are timed holds need their own counting config (see `../README.md`).
+```json kinetic:rep_counting
+{
+  "counter": "hip_angle_cycle",
+  "signal": "hip_angle",
+  "start_phase": "top",
+  "partial_last_rep": true,
+  "unilateral": false,
+  "timed": false,
+  "thresholds": {
+    "threshold_down": 150,
+    "threshold_up": 155,
+    "min_bottom_hold": 1,
+    "threshold_deep": 120,
+    "turnaround_min_peak": 135,
+    "turnaround_drop": 8,
+    "ascent_rise": 30
+  },
+  "setup_outlier": {"lean_deg": 30.0, "knee_deg": 35.0, "hands_share": 0.45}
+}
+```
 
-## 5. Coaching rules
+## 6. Rules
 
-**The rules every exercise shares** (these are engine rules, not goblet-specific):
+**The engine rules every exercise shares:**
 
 1. **Code decides what can be said; the AI only words it.** The AI may use only the points the code allows, with the rep lists the code gives.
-2. A point is **praised or flagged only if it held on more than half the reps considered.**
-3. **One topic appears in one list only** (never both "went well" and "work on").
-4. **At most 2 items per list** (1 if fewer than 5 reps). Never padded: an empty list is fine, and an empty "work on" with praise shows "You did great!".
-5. **Trend language, no rep numbers, no scores** in anything the user reads. Every line is short (10 words on screen, 12 allowed from the code).
-6. **Never** say "chest up", "stay tall" or "upright"; never claim the back is "rounding" (we cannot see it); never tell anyone to go deeper.
+2. A point is flagged or praised only if it held on **more than half** the reps it considers (`selection.majority_share`).
+3. **One topic appears in one list only.**
+4. **At most 2 items per list** (1 if fewer than 5 reps). Never padded: an empty list is fine.
+5. **Trend language** in anything the user reads. No rep numbers, no scores, no degrees, no ideal ranges.
+6. **Never** "chest up", "stay tall" or "upright"; never claim the back is "rounding" (we cannot see it); never tell anyone to go deeper.
 
-**The goblet-squat rules:**
+**The goblet-squat rules** (each says which camera views it needs; status *draft* means no labelled clip proves it yet, *tested* means a labelled clip makes it fire and another keeps it silent, *validated* adds a trainer's sign-off):
 
-| Topic | Kind | Views | Fires when | Status | Evidence |
-|---|---|---|---|---|---|
-| `chest_lean` (growth) | work on | side | the later reps lean 5° or more further than the person's own first 3 reps, on at least 2 reps. "Later" is the second half of the set, but never reps that are part of the first 3 (so in a 5-rep set it is the last 2). | **draft** | v5 torso-fault clip before it was found to be a constant lean. No clip with exactly 5 reps has been tested. |
-| `chest_lean` (high) | work on | side | the lean is 45° or more on more than half the reps after the first (and at least 2) | **draft** | median lean after rep 1: 29–31° for the good torso clip and Amrita's side clips, 38° v2, 41–48° user_002, 46° v1, 50° v5 (torso fault) |
-| `chest_lean` | went well | side | lean grew by 2° or less and the reps stayed within 4° of the person's own start | draft | the good torso clip reads 30° throughout |
-| `knee_tracking` | work on | front | the knee-to-ankle gap ratio at the bottom is under 1.15 on more than half the reps (first rep skipped) | **draft, weak** | fault clip 1.06–1.15, good clip 1.17–1.26, user_002 1.02–1.08, user_003 1.5+. One labelled fault clip only; the gap to the good clip is about 0.02 |
-| `ankle_mobility` | work on | side | under 25° on more than half the reps | **draft** | no labelled ankle clips; cut-offs from the old reference |
-| `ankle_mobility` | went well | side | 30° or more on more than half the reps | draft | as above |
-| `pace_drift` | work on | any | the last third of the reps are at least 0.3 s quicker than the first third and at most 0.75 of it | draft | none seen yet |
-| `lowering_speed` | work on | any | lowering under 0.6 s on more than half the reps (at least 2) | **draft, unproven** | no real-speed clip is that fast (real clips lower in 0.7–1.3 s). The 0.6 s figure was first set from clips that had been saved at 3x speed. |
-| `lowering_speed` | went well | any | typical lowering between 1.5 and 4.5 s on more than half the reps | draft | none of the 17 clips reaches 1.5 s |
-| `depth` | went well | side, angled | hips at or below 0.08 *above* the knees on more than half the reps | validated against 3 human labels | good-depth sets sit at +0.1 to +0.2; a labelled "depth good" clip at about 0; a labelled "depth fault" clip at −0.26 |
-| depth flag: short | (screen decides) | side, angled | more than half the reps are short of that line | as above | shows "Try next: sit a little lower" only if there is nothing to work on |
-| depth flag: very shallow | (screen decides) | side, angled | more than half the reps are under −0.20 | as above | shows "bodyweight first" |
+| Rule id | Topic | Kind | Fires when | Status |
+|---|---|---|---|---|
+| `lean_high` | chest_lean | work on | lean is 45 degrees or more on more than half the reps after the first (and at least 2) | tested, weak |
+| `lean_growth` | chest_lean | work on | the later reps lean 5 degrees or more further than the person's own first 3 reps, on at least 2 reps. "Later" is the second half of the set but never the first 3 reps, so in a 5-rep set it is the last 2 | draft |
+| `lean_steady` | chest_lean | went well | the later reps are within 2 degrees of the person's own start | tested |
+| `knee_tracking` | knee_tracking | work on | knee gap / ankle gap at the bottom under 1.15 on more than half the reps (front only) | tested, weak |
+| `ankle_limited` | ankle_mobility | work on | ankle range under 25 degrees on more than half the reps | draft |
+| `ankle_good` | ankle_mobility | went well | 30 degrees or more on more than half the reps (only if not limited) | draft |
+| `pace_drift` | pace_drift | work on | the last third of the reps lower 0.3 s or more quicker than the first third, and at most 0.75 of it | draft |
+| `lowering_quick` | lowering_speed | work on | lowering under 0.6 s on more than half the reps (and at least 2) | draft, unproven |
+| `lowering_controlled` | lowering_speed | went well | typical lowering between 1.5 and 4.5 s, on more than half the reps | draft |
+| `depth_good` | depth | went well | hips at or below 0.08 *above* the knees on more than half the reps | tested |
+| `depth_short` | depth | flag | more than half the reps short of that line | tested |
+| `depth_very_shallow` | depth | flag | more than half the reps under −0.20 | tested |
 
-**Depth is never a "work on".** A short depth shows a gentle "Try next" card; a very shallow depth shows "Your squats were quite shallow. Try bodyweight squats first, then add the weight back."
+Where several rules share a group, the first that fires wins: lean (`lean_high`, `lean_growth`, `lean_steady`), ankle (`ankle_limited`, `ankle_good`), lowering (`pace_drift`, `lowering_quick`, `lowering_controlled`).
 
-**Fixed coach's reminder** (shown on every goblet-squat result, spoken by the Listen button): see `reminders` in section 1. The third line is the permanent pain line.
+**Depth is never a "work on".** The two depth rules are flags the app turns into a gentle "Try next" card or a "bodyweight first" card (section 9).
 
-## 6. The results screen
+**What the evidence says, honestly:**
+- `lowering_quick`: no real-speed clip is that fast (real clips lower in 0.7 to 1.3 s). The 0.6 s figure was first set from clips that had been saved at 3x speed.
+- `lowering_controlled`: none of the 17 clips reaches 1.5 s.
+- `knee_tracking`: one labelled fault clip. Through the pipeline it reads 1.06 to 1.15 against 1.17 to 1.26 for the good clip, so the gap is about 0.02.
+- `lean_high`: median lean after rep 1 is 29 to 31 for the good torso clip and Amrita's side clips, 38 for v2, 41 to 48 for user_002, 46 for v1 and 50 for v5 (the torso fault).
+- `depth_*`: good-depth sets sit at +0.1 to +0.2, a labelled "depth good" clip near 0, a labelled "depth fault" clip at −0.26.
+- Nothing has a trainer's sign-off yet.
 
-- **Top:** the before/after video (section 7), or the plain picture when nothing needs fixing, with "▶ Watch the whole set".
-- **Under it:** "What went well" and "Work on" (each item: headline, one-line why for work-on items, a dot strip with one dot per rep, and a Listen button), then the coach's reminder, then the per-rep lowering chart.
-- **Cards:** "Try next" (depth), a gentle weight nudge when earned, and a "Film another video" card when there are fewer than 5 reps.
-- **Not shown:** scores, rep numbers, degree numbers, ideal ranges.
+The `comparison` of each rule says what the before/after video shows (section 8). `picture` says which rep the still picture shows.
 
-## 7. The before/after video and the picture
+```json kinetic:rules
+[
+  {
+    "id": "lean_high", "topic": "chest_lean", "kind": "work_on", "views": ["side"], "measure": "lean_at_bottom",
+    "test": {"type": "share_over", "threshold": 45.0, "skip_first": true, "min_with_data": 4, "min_flagged": 2},
+    "group": "lean", "group_order": 1, "requires_enough_reps": true, "status": "tested",
+    "evidence": ["Fires on the labelled torso-fault clip (v5, median lean 50), silent on the labelled good clip (v6, 30).", "Weak: only one fault clip; user_002 at 41 to 48 sits close to the line."],
+    "wording": {"headline": "You leaned well forward on most reps.", "why": "More forward lean loads your lower back.", "cue": "Sit your hips back as you lower."},
+    "comparison": {
+      "mode": "pair", "labels": ["Your best rep", "Leaning furthest"],
+      "left": {"pick": "min", "measure": "lean_at_bottom", "pool": "after_first"},
+      "right": {"pick": "max", "measure": "lean_at_bottom", "pool": "after_first"},
+      "arrow": {"label": "Torso lean", "views": ["side"], "anchor": {"landmarks": ["shoulder", "hip"], "t": 0.5, "back_offset": 0.07}},
+      "picture": {"pick": "max", "measure": "lean_at_bottom", "pool": "flagged"}
+    }
+  },
+  {
+    "id": "lean_growth", "topic": "chest_lean", "kind": "work_on", "views": ["side"], "measure": "lean_at_bottom",
+    "test": {"type": "growth_vs_start", "baseline_reps": 3, "growth": 5.0, "min_with_data": 4, "min_flagged": 2},
+    "group": "lean", "group_order": 2, "requires_enough_reps": true, "status": "draft",
+    "evidence": ["No labelled clip makes it fire today: the torso-fault clip leans high from the start and does not grow."],
+    "wording": {"headline": "You leaned further forward as the set went on.", "why": "More forward lean loads your lower back.", "cue": "Sit your hips back as you lower."},
+    "comparison": {
+      "mode": "pair", "labels": ["How it was", "How it is now"],
+      "left": {"pick": "typical_early", "measure": "lean_at_bottom", "pool": "all"},
+      "right": {"pick": "max", "measure": "lean_at_bottom", "pool": "flagged"},
+      "arrow": {"label": "Torso lean", "views": ["side"], "anchor": {"landmarks": ["shoulder", "hip"], "t": 0.5, "back_offset": 0.07}},
+      "picture": {"pick": "max", "measure": "lean_at_bottom", "pool": "flagged"}
+    }
+  },
+  {
+    "id": "lean_steady", "topic": "chest_lean", "kind": "went_well", "views": ["side"], "measure": "lean_at_bottom",
+    "test": {"type": "steady_vs_start", "baseline_reps": 3, "growth_max": 2.0, "margin": 4.0, "min_with_data": 4},
+    "group": "lean", "group_order": 3, "requires_enough_reps": true, "status": "tested",
+    "evidence": ["Fires on the labelled good torso clip (v6, lean 30 throughout), silent on the torso-fault clip (v5)."],
+    "wording": {"headline": "Your torso position stayed steady."}
+  },
+  {
+    "id": "knee_tracking", "topic": "knee_tracking", "kind": "work_on", "views": ["front"], "measure": "knee_ankle_ratio",
+    "test": {"type": "share_under", "threshold": 1.15, "skip_first": true, "min_with_data": 4},
+    "requires_enough_reps": true, "status": "tested",
+    "evidence": ["Fires on the labelled knee-fault clip (v3, 1.06 to 1.15), silent on the labelled good clip (v4, 1.17 to 1.26).", "Weak: one fault clip, a gap of about 0.02, and the ratio depends on stance width. user_002 front also fires (1.02 to 1.08)."],
+    "wording": {"headline": "Your knees drifted inward as you lowered.", "why": "Knees caving in loads the inside of the knee.", "cue": "Push your knees out over your little toes."},
+    "comparison": {
+      "mode": "pair", "labels": ["Your steadiest rep", "Knees moving most"],
+      "left": {"pick": "min", "measure": "knee_travel", "pool": "after_first"},
+      "right": {"pick": "max", "measure": "knee_travel", "pool": "after_first"},
+      "pair_if": {"measure": "knee_travel", "ratio_at_least": 1.5},
+      "else_single": {"pick": "closest_to_median", "measure": "knee_ankle_ratio", "pool": "flagged"},
+      "arrow": {"label": "Knees in", "views": ["front"], "anchor": {"landmarks": ["knee_image_left"], "x_offset": -0.02, "tail": "left"}},
+      "picture": {"pick": "middle", "measure": "knee_ankle_ratio", "pool": "flagged"}
+    }
+  },
+  {
+    "id": "ankle_limited", "topic": "ankle_mobility", "kind": "work_on", "views": ["side"], "measure": "ankle_deg",
+    "test": {"type": "share_under", "threshold": 25.0, "skip_first": true, "min_with_data": 4},
+    "group": "ankle", "group_order": 1, "requires_enough_reps": true, "status": "draft",
+    "evidence": ["No labelled ankle clips; the 25 and 30 degree lines come from the old reference."],
+    "wording": {"headline": "Your ankle mobility looked limited.", "why": "Limited ankle range pushes the knees in or the body forward.", "cue": "Keep your whole foot on the floor."},
+    "comparison": {
+      "mode": "pair", "labels": ["Your best rep", "A typical rep"],
+      "left": {"pick": "max", "measure": "ankle_deg", "pool": "all"},
+      "right": {"pick": "closest_to_median", "measure": "ankle_deg", "pool": "all"},
+      "pair_if": {"measure": "ankle_deg", "gap_at_least": 5.0},
+      "arrow": {"label": "Ankle mobility", "views": ["side"], "anchor": {"landmarks": ["ankle", "knee"], "t": 0.35, "back_offset": 0.05}},
+      "picture": {"pick": "min", "measure": "ankle_deg", "pool": "flagged"}
+    }
+  },
+  {
+    "id": "ankle_good", "topic": "ankle_mobility", "kind": "went_well", "views": ["side"], "measure": "ankle_deg",
+    "test": {"type": "share_over", "threshold": 30.0, "skip_first": true, "min_with_data": 4},
+    "group": "ankle", "group_order": 2, "requires_enough_reps": true, "status": "draft",
+    "evidence": ["No labelled ankle clips. Decision pending: hide this praise until a trainer checks the lines."],
+    "wording": {"headline": "Your ankle mobility was good."}
+  },
+  {
+    "id": "pace_drift", "topic": "pace_drift", "kind": "work_on", "views": ["any"], "measure": "lowering_s",
+    "test": {"type": "drop_over_thirds", "drop": 0.3, "last_over_first_max": 0.75, "typical_min": 0.6, "min_with_data": 3},
+    "group": "lowering", "group_order": 1, "requires_enough_reps": true, "status": "draft",
+    "evidence": ["Not seen on any of the 17 clips."],
+    "wording": {"headline": "You rushed more as the set went on.", "why": "Rushing costs you control at the bottom.", "cue": "Count to two on every lowering."},
+    "comparison": {
+      "mode": "pair", "labels": ["How it was", "How it is now"],
+      "left": {"pick": "closest_to_median", "measure": "lowering_s", "pool": "first_third"},
+      "right": {"pick": "min", "measure": "lowering_s", "pool": "last_third"},
+      "picture": {"pick": "middle", "measure": "lowering_s", "pool": "flagged"}
+    }
+  },
+  {
+    "id": "lowering_quick", "topic": "lowering_speed", "kind": "work_on", "views": ["any"], "measure": "lowering_s",
+    "test": {"type": "share_under", "threshold": 0.6, "min_with_data": 3, "min_flagged": 2},
+    "group": "lowering", "group_order": 2, "requires_enough_reps": false, "status": "draft",
+    "evidence": ["Unproven: no real-speed clip lowers in under 0.6 s (real clips: 0.7 to 1.3 s). First set from clips saved at 3x speed."],
+    "wording": {"headline": "You dropped into the squat on most reps.", "why": "Dropping fast means less control at the bottom.", "cue": "Lower for about two seconds."},
+    "comparison": {
+      "mode": "slow", "labels": ["Your pace", "A 2-second lowering"],
+      "left": {"pick": "closest_to_median", "measure": "lowering_s", "pool": "flagged"},
+      "picture": {"pick": "middle", "measure": "lowering_s", "pool": "flagged"}
+    }
+  },
+  {
+    "id": "lowering_controlled", "topic": "lowering_speed", "kind": "went_well", "views": ["any"], "measure": "lowering_s",
+    "test": {"type": "share_between", "min": 1.5, "max": 4.5, "typical_within": true, "min_with_data": 3},
+    "group": "lowering", "group_order": 3, "requires_enough_reps": false, "status": "draft",
+    "evidence": ["None of the 17 clips lowers for 1.5 s or more, so it has never fired."],
+    "wording": {"headline": "You lowered with control."}
+  },
+  {
+    "id": "depth_good", "topic": "depth", "kind": "went_well", "views": ["side", "angled"], "measure": "depth_ratio",
+    "test": {"type": "share_over", "threshold": -0.08, "skip_first": true, "min_with_data": 4},
+    "requires_enough_reps": true, "status": "tested",
+    "evidence": ["Fires on the labelled depth-good clip (v2), silent on the labelled depth-fault clip (v1).", "Good-depth sets sit at +0.1 to +0.2; v2 near 0; v1 at -0.26."],
+    "wording": {"headline": "Your depth was consistent."}
+  },
+  {
+    "id": "depth_short", "topic": "depth", "kind": "flag", "flag": "depth_short", "views": ["side", "angled"], "measure": "depth_ratio",
+    "test": {"type": "share_under", "threshold": -0.08, "skip_first": true, "min_with_data": 4},
+    "requires_enough_reps": true, "status": "tested",
+    "evidence": ["Fires on the labelled depth-fault clip (v1), silent on the labelled depth-good clip (v2)."],
+    "comparison": {
+      "mode": "pair", "labels": ["Your deepest rep", "A typical rep"],
+      "left": {"pick": "max", "measure": "depth_ratio", "pool": "all"},
+      "right": {"pick": "closest_to_median", "measure": "depth_ratio", "pool": "all"},
+      "pair_if": {"measure": "depth_ratio", "gap_at_least": 0.06},
+      "arrow": {"label": "Depth", "views": ["side"], "anchor": {"landmarks": ["hip"], "back_offset": 0.06}},
+      "picture": {"pick": "min", "measure": "depth_ratio", "pool": "all"}
+    }
+  },
+  {
+    "id": "depth_very_shallow", "topic": "depth", "kind": "flag", "flag": "depth_very_shallow", "views": ["side", "angled"], "measure": "depth_ratio",
+    "test": {"type": "share_under", "threshold": -0.2, "skip_first": true, "min_with_data": 4},
+    "requires_enough_reps": true, "status": "tested",
+    "evidence": ["Fires on the labelled depth-fault clip (v1, -0.22 to -0.30), silent on the labelled depth-good clip (v2).", "The very shallow user_002 side clip also fires."],
+    "comparison": {
+      "mode": "pair", "labels": ["Your deepest rep", "A typical rep"],
+      "left": {"pick": "max", "measure": "depth_ratio", "pool": "all"},
+      "right": {"pick": "closest_to_median", "measure": "depth_ratio", "pool": "all"},
+      "pair_if": {"measure": "depth_ratio", "gap_at_least": 0.06},
+      "arrow": {"label": "Depth", "views": ["side"], "anchor": {"landmarks": ["hip"], "back_offset": 0.06}},
+      "picture": {"pick": "min", "measure": "depth_ratio", "pool": "all"}
+    }
+  }
+]
+```
 
-The app plays the **user's own video twice side by side**, each copy jumping to a chosen rep. The server renders nothing. The backend only says *which issue, which two reps, when each starts, bottoms out and ends, and where the arrow goes*. Both copies **freeze together at the bottom of the rep for about 1.6 s** with an arrow and a short label, then play on. A note under the video repeats the first "Work on" line and its why.
+## 7. Selection: how rule results become a short screen
 
-| Focus (first "work on", or depth) | Left | Right | Arrow label and target |
-|---|---|---|---|
-| `chest_lean` (growth) | a typical early rep | the most-leaned rep | "Torso lean", between shoulder and hip |
-| `chest_lean` (high) | the least-leaned rep after rep 1 | the most-leaned rep | same |
-| `lowering_speed` | a typical rep at real speed | the same rep with the lowering slowed to 2 s, with a 1-2 count | none |
-| `pace_drift` | a typical early rep | the fastest-lowered rep | none |
-| `ankle_mobility` | the best rep | a typical rep (one picture if under 5° apart) | "Ankle mobility", on the shin |
-| `depth` | the deepest rep | a typical rep (one picture if under 0.06 apart) | "Depth", at the hip |
-| `knee_tracking` | the steadiest rep (knees move least) | the rep where the knees move most, if at least 1.5x as much; otherwise one typical rep | "Knees in", on the left knee |
-| nothing to fix | none: the original video | | |
+`min_reps` is the smallest set we give feedback on; the backend quality gate rejects under 3 reps before that. The first rep is skipped for the "share" rules when the set has more than `skip_first_rep_when_more_than` reps (it is often a warm-up). A rule needs `min_with_data` reps with a usable value before it may fire. The topic order is priority: safety first, then pace.
 
-**Key moment:** the bottom of the rep (the lowest hip position). Arrows appear on side views for lean, ankle and depth, and on the front view for knees.
+```json kinetic:selection
+{
+  "min_reps": 5,
+  "min_with_data": 4,
+  "skip_first_rep_when_more_than": 5,
+  "majority_share": 0.5,
+  "max_items_per_list": 2,
+  "max_items_when_few_reps": 1,
+  "max_words_per_line": 12,
+  "work_on_order": ["chest_lean", "knee_tracking", "ankle_mobility", "pace_drift", "lowering_speed"],
+  "went_well_order": ["depth", "ankle_mobility", "lowering_speed", "chest_lean"]
+}
+```
 
-**Needs:** a browser-playable (H.264) video link, which the app's upload compression produces. If the video cannot play, the still picture (one arrow and a label, drawn on your own frame by `focus_overlay.py`) is shown.
+## 8. Visuals: the before/after video and the picture
 
-**Not built yet:** an "ideal vs yours" reference clip (the website's Short can only be embedded, not processed), narration, and "how to correct" visuals.
+The app plays the **user's own video twice side by side**, each copy jumping to a chosen rep. The server renders nothing. The backend only says which issue, which two reps, when each starts, bottoms out and ends, and where the arrow goes. Both copies **freeze together at the bottom of the rep** with an arrow and a short label, then play on; a note under the video repeats the first "Work on" line and its why. Each rule's `comparison` (section 6) chooses the reps with these picks and pools:
 
-## 8. The old coaching reference
+- **Picks:** `typical_early` (closest to the median of the person's early reps), `min`, `max`, `closest_to_median`, `middle`.
+- **Pools:** `all`, `flagged` (the reps the rule flagged, or all if none), `after_first`, `first_third`, `last_third`. A pool with no usable value falls back to all reps.
+- **Pair or single:** a pair needs two different reps, and `pair_if` can require a clear gap or ratio between them; otherwise one picture of the chosen rep is shown.
+- **Key moment:** the frame with the smallest thigh angle in the rep (the bottom).
+- **Needs** a browser-playable (H.264) video link, which the app's upload compression produces. If the video cannot play, the still picture (one arrow and a label, drawn on your own frame) is shown. With nothing to fix, the original video or plain picture is shown.
+- **Not built yet:** a reference ("ideal vs yours") clip, narration, "how to correct" visuals.
 
-`coaching_references/goblet_squat_coaching_reference.md` is still injected into the AI's prompt. It holds the root-cause notes (RC1–RC5), drills, and an old scoring system. For the user-facing text its "feedback overrides" block wins. **Superseded and not used by the rules:** the fixed angle bands, the weighted penalty system, and the valgus ratio rule (knee gap ÷ hip gap of 0.95 or more, which reads 1.6–2.9 for everyone in a 2D video, so it cannot separate good from faulty). RC1–RC5 and the drills stay as next-session advice. *Decision (recommended): fold the drills into this spec and retire the rest in the next PR.*
+```json kinetic:visuals
+{
+  "key_moment": {"frame_field": "knee_angle", "pick": "min"},
+  "pad_seconds": 0.35,
+  "freeze_seconds": 1.6,
+  "slow_target_seconds": 2.0,
+  "arrow_window_seconds": 0.4,
+  "min_reps": 4,
+  "single_label": "Your set",
+  "picture_style": "arrow_on_frame",
+  "reference_clip": null
+}
+```
 
-## 9. Scores and progression
+## 9. Screen
 
-The AI still writes a form score and per-rep scores. They are **not shown** on the Analysis tab, but the **Progression** tab, history and the next-weight recommendation still use them. *Decision (recommended): the code computes the scores from these same rules so the AI stops inventing them.* Not done in this PR. The progression logic ignores equipment, so a kettlebell user could be told a weight that does not exist (see section 12).
+Fixed lines under the results, spoken by the Listen button. The third reminder is the permanent pain line, shown separately. Depth cards: a very shallow depth shows "bodyweight first" even when there is something to work on; a short depth shows "sit a little lower" only when there is nothing else to work on. The frontend still holds copies of this text; the drift tests fail if they differ.
 
-## 10. Measured but not used, and not measured
+```json kinetic:screen
+{
+  "reminders": [
+    "Breathe in as you lower, out as you stand up.",
+    "Push the floor away to drive up. Power comes from your legs, not your knees."
+  ],
+  "pain_line": "You shouldn't feel this in your lower back. If you do, lighten the weight or stop.",
+  "depth_cards": {
+    "very_shallow": {
+      "title": "Your squats were quite shallow.",
+      "why": "Building range first makes every rep stronger and safer.",
+      "cue": "Try bodyweight squats first, then add the weight back."
+    },
+    "short": {
+      "title": "You could try sitting a little lower.",
+      "why": "More range works your legs and glutes through more of the movement.",
+      "cue": "Only if it feels comfortable, and keep it controlled: lower slowly, sit your hips back, keep your back steady, and push the floor away as you stand."
+    }
+  }
+}
+```
 
-| Item | Why not used |
-|---|---|
-| Knee valgus from the old tracker (knee gap against shoulder width) | the flag is true on both faulty and good clips |
-| Ascent speed, pause at the bottom | no validation yet |
-| Hip height difference, lateral shift in cm | cannot be measured in cm from a phone video |
-| Butt wink, heel lift, neck and eye position, breathing | MediaPipe cannot see them reliably |
-| Foot turnout | measured, never used |
+## 10. Progression
 
-## 11. Test clips and the golden tests
+The AI still writes a form score and per-rep scores. They are not shown on the Analysis tab, but the Progression tab, history and the next-weight recommendation still use them. Progression ignores equipment, so a kettlebell user could be told a weight that does not exist (kettlebells come in fixed sizes). Not modelled in this spec yet.
 
-17 clips, all at **original speed** (the old `processed_videos` v1–v6 files are saved at 3x speed and must never be used). Per-rep data from each clip is stored in `tests/golden/goblet-squat/reps/`; `expected.json` holds what the rules must say.
+```json kinetic:progression
+{
+  "status": "not_modelled",
+  "notes": "Scores and the next-weight recommendation come from the AI's second call and ignore equipment. Moving the scores into code is a later change."
+}
+```
 
-| Clip | View | Reps | Human label |
-|---|---|---|---|
-| v1_depth_fault | side | 7 | depth fault |
-| v2_depth_good | side | 7 | depth good |
-| v3_knee_fault | front | 6 | knee fault |
-| v4_knee_good | front | 6 | knee good |
-| v5_torso_fault | side | 8 | torso fault |
-| v6_torso_good | side | 6 | torso good |
-| amrita_side_12.5 | side | 10 | true count 10 |
-| amrita_side_15 | side | 11 | |
-| amrita_side_17.5 | side | 9 | true count 9 |
-| amrita_front_17.5 | front | 8 | |
-| u2_side_4.5 | side | 6 | |
-| u2_side_9.07 | side | 6 | |
-| u2_front_11 | front | 8 | |
-| u2_front_4.5 | front | 6 | |
-| u3_video_1 | front | 10 | |
-| u3_video_2 | front | 8 | |
-| u3_video_3 | front | 10 | |
+## 11. Not measured
 
-Run: `python3 -m unittest discover -s tests -v` from the `backend` folder.
+```json kinetic:not_measured
+[
+  {"item": "Knee valgus from the old tracker (knee gap against shoulder width)", "reason": "the flag is true on both the faulty and the good clips"},
+  {"item": "Knee gap divided by hip gap (the old reference rule, 0.95 or more)", "reason": "reads 1.6 to 2.9 for everyone in a 2D video, so it cannot separate good from faulty"},
+  {"item": "Ascent speed and the pause at the bottom", "reason": "no validation yet"},
+  {"item": "Hip height difference and lateral shift in cm", "reason": "cannot be measured in cm from a phone video"},
+  {"item": "Butt wink, heel lift, neck and eye position, breathing", "reason": "MediaPipe cannot see them reliably"},
+  {"item": "Foot turnout", "reason": "measured but never used"},
+  {"item": "Endurance sets (light, fast, many reps)", "reason": "no clips, so no thresholds; the goal is fixed to strength"}
+]
+```
 
-**A rule is only "validated" when** its labelled fault clip is flagged, its labelled good clip is not, and a trainer has signed it off. Today only depth has labels; everything else stays *draft*.
+## 12. Evidence and tests
 
-## 12. Equipment variants
+17 clips, all at **original speed**. The old `processed_videos` v1 to v6 files are saved at 3x speed and must never be used. Per-rep data from each clip is in `tests/golden/goblet-squat/reps/`, and `expected.json` records what the rules must say. `proof` lists, for each *tested* rule, a clip it fires on and a clip it stays silent on; the tests check every one. Run: `python3 -m unittest discover -s tests -t .` from the `backend` folder.
 
-The DB and KB goblet squat share this spec: the analysis never reads the equipment. Three things do differ and are **not** yet handled: (1) weight suggestions (kettlebells come in fixed sizes), (2) the how-to-hold wording in the guide and audio, (3) we have no labelled kettlebell clip, so the pose model's behaviour with a hanging bell is untested. **When to split into a new slug:** if something would change the rep counter, the measures, the rules or the key moment. A barbell front squat is a new slug; a kettlebell goblet squat is not.
+```json kinetic:evidence
+{
+  "golden_dir": "tests/golden/goblet-squat",
+  "clips": [
+    {"id": "v1_depth_fault", "view": "side", "reps": 7, "label": "depth fault", "source_recording": "Testing/videos/v1_depth_fault.mp4"},
+    {"id": "v2_depth_good", "view": "side", "reps": 7, "label": "depth good", "source_recording": "Testing/videos/v2_depth_good.mp4"},
+    {"id": "v3_knee_fault", "view": "front", "reps": 6, "label": "knee fault", "source_recording": "Testing/videos/v3_knee_fault.mp4"},
+    {"id": "v4_knee_good", "view": "front", "reps": 6, "label": "knee good", "source_recording": "Testing/videos/v4_knee_good.mp4"},
+    {"id": "v5_torso_fault", "view": "side", "reps": 8, "label": "torso fault", "source_recording": "Testing/videos/v5_torso_fault.mp4"},
+    {"id": "v6_torso_good", "view": "side", "reps": 6, "label": "torso good", "source_recording": "Testing/videos/v6_torso_good.mp4"},
+    {"id": "amrita_side_12.5", "view": "side", "reps": 10, "label": null, "source_recording": "Amrita_user_001_side_12.5kg.mp4", "true_rep_count": 10},
+    {"id": "amrita_side_15", "view": "side", "reps": 11, "label": null, "source_recording": "Amrita_user_001_side_15kg.mp4"},
+    {"id": "amrita_side_17.5", "view": "side", "reps": 9, "label": null, "source_recording": "Amrita_user_001_side_17.5kg.mp4", "true_rep_count": 9},
+    {"id": "amrita_front_17.5", "view": "front", "reps": 8, "label": null, "source_recording": "Amrita_user_001_front_17.5.mp4"},
+    {"id": "u2_side_4.5", "view": "side", "reps": 6, "label": null, "source_recording": "user_002_side_4.5kg.mov"},
+    {"id": "u2_side_9.07", "view": "side", "reps": 6, "label": null, "source_recording": "user_002_side_9.07kg.mov"},
+    {"id": "u2_front_11", "view": "front", "reps": 8, "label": null, "source_recording": "user_002_front_11.33kg.mov"},
+    {"id": "u2_front_4.5", "view": "front", "reps": 6, "label": null, "source_recording": "user_002_front_4.5kg.mov"},
+    {"id": "u3_video_1", "view": "front", "reps": 10, "label": null, "source_recording": "user_003_video_1.mp4"},
+    {"id": "u3_video_2", "view": "front", "reps": 8, "label": null, "source_recording": "user_003_video_2.mp4"},
+    {"id": "u3_video_3", "view": "front", "reps": 10, "label": null, "source_recording": "user_003_video_3.mp4"}
+  ],
+  "proof": [
+    {"rule": "lean_high", "fires_on": "v5_torso_fault", "silent_on": "v6_torso_good"},
+    {"rule": "lean_steady", "fires_on": "v6_torso_good", "silent_on": "v5_torso_fault"},
+    {"rule": "knee_tracking", "fires_on": "v3_knee_fault", "silent_on": "v4_knee_good"},
+    {"rule": "depth_good", "fires_on": "v2_depth_good", "silent_on": "v1_depth_fault"},
+    {"rule": "depth_short", "fires_on": "v1_depth_fault", "silent_on": "v2_depth_good"},
+    {"rule": "depth_very_shallow", "fires_on": "v1_depth_fault", "silent_on": "v2_depth_good"}
+  ]
+}
+```
 
-## 13. Decision log (waiting for the product owner)
+## 13. Decisions and change log
 
-| # | Decision | Recommended | Status |
-|---|---|---|---|
-| 1 | One spec per exercise, thresholds read by the code | yes | done in this PR |
-| 2 | Code computes the scores, the AI stops inventing them | yes | **not done**, later PR |
-| 3 | Keep the 45° lean safety line | yes | in place, draft |
-| 4 | Depth by hips against knees, not knee-angle bands | yes | in place |
-| 5 | Add "count two on the way down" to the fixed reminder instead of flagging 0.6–1.5 s lowerings | yes | **not done** (needs the reminder text agreed) |
-| 6 | Ankle: show work-on, hide the praise until a trainer checks 25°/30° | yes | **not done** (praise still shows) |
-| 7 | Knee tracking stays live as a labelled draft | keep | in place, weak |
-| 8 | RC1–RC5 kept as next-session drills only | yes | not done |
-| 9 | A clean set autoplays the original video | yes | **not done** (shows the plain picture with a watch button) |
+The product owner has not answered these yet; I used the recommendations and marked what is done. The goal is hard-coded to strength (section 2).
 
-## 14. Change log
-
-- **1.0.0 (2026-11-12):** first spec. Thresholds and wording moved out of code into this file; drift and golden tests added.
+```json kinetic:decisions
+{
+  "open": [
+    {"n": 1, "text": "One spec per exercise in a fixed structure, thresholds and wording read by the code", "recommended": "yes", "status": "done"},
+    {"n": 2, "text": "The code computes the scores and the AI stops inventing them", "recommended": "yes", "status": "not done: later change"},
+    {"n": 3, "text": "Keep the lean safety line at 45 degrees", "recommended": "yes", "status": "in place, tested but weak"},
+    {"n": 4, "text": "Depth by hips against knees, not knee-angle bands", "recommended": "yes", "status": "in place"},
+    {"n": 5, "text": "Add 'count two on the way down' to the fixed reminder instead of flagging 0.6 to 1.5 s lowerings", "recommended": "yes", "status": "not done: the reminder text is not agreed"},
+    {"n": 6, "text": "Ankle: show the work-on, hide the praise until a trainer checks the 25 and 30 degree lines", "recommended": "yes", "status": "not done: the praise still shows"},
+    {"n": 7, "text": "Knee tracking stays live as a labelled draft", "recommended": "keep", "status": "in place, weak"},
+    {"n": 8, "text": "The old reference's drills stay as next-session drills; the penalty weights are dropped", "recommended": "yes", "status": "not done"},
+    {"n": 9, "text": "A clean set autoplays the original video", "recommended": "yes", "status": "not done: shows the plain picture with a watch button"},
+    {"n": 10, "text": "Copy 'Built for strength sets: 5 to 10 controlled reps' on the filming tips, and a note on the results screen", "recommended": "yes", "status": "waiting for the owner to approve the wording"},
+    {"n": 11, "text": "On sets of 12 or more reps, skip the timing comments and keep the form comments", "recommended": "yes (draft guess)", "status": "waiting for the owner"}
+  ],
+  "changelog": [
+    {"version": "1.0.0", "date": "2026-11-12", "text": "First spec: thresholds and wording moved out of the code."},
+    {"version": "2.0.0", "date": "2026-11-12", "text": "13-section structure with a declarative rules list, a validator and a template. Goal profiles (strength only). Rule status draft, tested or validated."}
+  ]
+}
+```
