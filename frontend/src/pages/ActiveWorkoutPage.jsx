@@ -13,6 +13,8 @@ import GoalNote from "../components/GoalNote"
 import RoutineSource from "../components/RoutineSource"
 import SyncedVideo from "../components/SyncedVideo"
 import SectionRunner from "../components/SectionRunner"
+import RoundsForTime from "../components/RoundsForTime"
+import { allRoundsDone, logOf, roundsSpec } from "../utils/roundsForTime"
 import { parseTimedBlock } from "../utils/sectionTimer"
 import SwapSheet from "../components/SwapSheet"
 import AddExerciseSheet from "../components/AddExerciseSheet"
@@ -390,7 +392,7 @@ export default function ActiveWorkoutPage() {
   const swapTarget = swapping ? blocks[swapping.bi].items[swapping.ii] : null
 
   return (
-    <div style={{ minHeight: "100vh", background: "#F0EFFE", padding: "24px 20px 140px" }}>
+    <div style={{ minHeight: "100vh", background: "#F0EFFE", padding: "24px 20px 220px" }}>
       <style>{`
         @keyframes popUpBig { from { opacity: 0; transform: translate(-50%, -50%) scale(0.5) } to { opacity: 1; transform: translate(-50%, -50%) scale(1) } }
         @keyframes fall { to { transform: translateY(100vh) rotate(360deg); opacity: 0 } }
@@ -458,6 +460,30 @@ export default function ActiveWorkoutPage() {
             : state === "current" ? { border: "2.5px solid transparent", background: "linear-gradient(#fff,#fff) padding-box, linear-gradient(135deg,#0284C7,#9747FF) border-box", boxShadow: "0 4px 18px rgba(129,51,255,0.28)" }
             : { border: "1px solid rgba(129,51,255,0.22)", background: "#fff", opacity: 0.92 }
 
+          const rspec = roundsSpec(block) // "N rounds, each for time, rest after every round": one clock and one rest per round
+          // follow-along row: a letter, the line, a clock when it has a time, and a tick on the right (a rounds section passes its own tick)
+          const followRow = (it, ii, own) => {
+            const secs = secondsFromSub(it.sub)
+            const isDone = own ? own.done : it.done
+            const toggle = own ? own.onToggle : () => toggleDone(bi, ii)
+            return (
+              <div key={it.key} style={{ display: "flex", alignItems: "center", gap: 8, padding: "5px 0" }}>
+                {many && <span style={{ width: 20, height: 20, borderRadius: 5, background: isDone ? DARK_GREEN : PURPLE, color: "#fff", fontFamily: DM_SANS, fontWeight: 600, fontSize: 11, display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0 }}>{letter(actionable.indexOf(it))}</span>}
+                <div style={{ flex: 1, minWidth: 0, fontFamily: DM_SANS, fontSize: 15, lineHeight: 1.3 }}>
+                  <span style={{ fontWeight: 600, color: isDone ? DARK_GREEN : PURPLE }}><ExerciseName exerciseId={it.exerciseId}>{it.name}</ExerciseName></span>
+                  {it.sub && <span style={{ color: GRAY }}> · {it.sub}</span>}
+                  {it.tip && <div style={{ fontSize: 12, color: GRAY, lineHeight: 1.35, marginTop: 2 }}>{it.tip}</div>}
+                </div>
+                {secs !== null && !isDone && (
+                  <div style={{ width: 110, flexShrink: 0, display: "flex" }}>
+                    <SetTimer height={36} target={secs} label={`${it.name} timer`} onDone={() => { if (!isDone) toggle() }}>{clock(secs)}</SetTimer>
+                  </div>
+                )}
+                <TickCircle size={30} done={isDone} onClick={toggle} label={isDone ? `Mark ${it.name} not done` : `Mark ${it.name} done`} />
+              </div>
+            )
+          }
+
           return (
             <div key={block.id} id={`block-${block.id}`} style={{ borderRadius: 12, padding: 12, ...cardStyle }}>
               {block.source?.embeddable && block.source.video_id ? (
@@ -471,7 +497,7 @@ export default function ActiveWorkoutPage() {
               <GoalNote block={block} collapsible={!!timedSpec} /> {/* a timed section folds it so the clock is in view */}
               {restBefore.map((r) => (
                 <button key={r.id} type="button" onClick={() => startRest(r.note)} style={{ width: "100%", display: "flex", alignItems: "center", gap: 8, padding: "10px 12px", marginBottom: 10, borderRadius: 12, border: "1.2px dashed rgba(129,51,255,0.5)", background: "#FCF9FF", color: PURPLE, fontFamily: DM_SANS, fontWeight: 600, fontSize: 13, cursor: "pointer", textAlign: "left" }}>
-                  <Timer size={16} /> <span style={{ flex: 1 }}>Rest first · {r.note}</span> <span style={{ fontSize: 12 }}>Start timer</span>
+                  <Timer size={16} /> <span style={{ flex: 1 }}>Rest before this section · {r.note}</span> <span style={{ fontSize: 12 }}>Start timer</span>
                 </button>
               ))}
               <div style={{ display: "flex", alignItems: "center", gap: 8, flexWrap: "wrap" }}>
@@ -502,32 +528,16 @@ export default function ActiveWorkoutPage() {
                     <SectionRunner spec={timedSpec} run={workout.runs?.[block.id] ?? null} onRun={(r) => setRun(block.id, r)} rounds={block.rounds || 0} onRounds={(n) => setRounds(bi, n)} video={block.source?.embeddable && videoReady ? playerRef.current : null} />
                   ) : (
                     <>
-                  {/* the exercises in this block, in the plan's order */}
+                  {rspec ? (
+                    <RoundsForTime block={block} spec={rspec} workout={workout} onChange={(roundLog) => mapBlock(bi, (b) => ({ ...b, roundLog }))} renderRow={(it, ii, own) => followRow(it, block.items.indexOf(it), own)} />
+                  ) : (
+                  /* the exercises in this block, in the plan's order */
                   <div style={{ display: "flex", flexDirection: "column", gap: 4 }}>
                     {block.items.map((it, ii) => {
                       if (it.rest) {
                         return <div key={it.key} style={{ fontFamily: DM_SANS, fontSize: 11, color: GRAY }}>{it.name} · {it.sub}</div>
                       }
-                      if (!it.logged) {
-                        // follow-along: a letter, the line, a clock when it has a time, and a tick on the right
-                        const secs = secondsFromSub(it.sub)
-                        return (
-                          <div key={it.key} style={{ display: "flex", alignItems: "center", gap: 8, padding: "5px 0" }}>
-                            {many && <span style={{ width: 20, height: 20, borderRadius: 5, background: it.done ? DARK_GREEN : PURPLE, color: "#fff", fontFamily: DM_SANS, fontWeight: 600, fontSize: 11, display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0 }}>{letter(actionable.indexOf(it))}</span>}
-                            <div style={{ flex: 1, minWidth: 0, fontFamily: DM_SANS, fontSize: 15, lineHeight: 1.3 }}>
-                              <span style={{ fontWeight: 600, color: it.done ? DARK_GREEN : PURPLE }}><ExerciseName exerciseId={it.exerciseId}>{it.name}</ExerciseName></span>
-                              {it.sub && <span style={{ color: GRAY }}> · {it.sub}</span>}
-                              {it.tip && <div style={{ fontSize: 12, color: GRAY, lineHeight: 1.35, marginTop: 2 }}>{it.tip}</div>}
-                            </div>
-                            {secs !== null && !it.done && (
-                              <div style={{ width: 110, flexShrink: 0, display: "flex" }}>
-                                <SetTimer height={36} target={secs} label={`${it.name} timer`} onDone={() => { if (!it.done) toggleDone(bi, ii) }}>{clock(secs)}</SetTimer>
-                              </div>
-                            )}
-                            <TickCircle size={30} done={it.done} onClick={() => toggleDone(bi, ii)} label={it.done ? `Mark ${it.name} not done` : `Mark ${it.name} done`} />
-                          </div>
-                        )
-                      }
+                      if (!it.logged) return followRow(it, ii)
                       return (
                         <div key={it.key} style={{ display: "flex", alignItems: "center", gap: 8 }}>
                           {many && <span style={{ width: 20, height: 20, borderRadius: 5, background: PURPLE, color: "#fff", fontFamily: DM_SANS, fontWeight: 600, fontSize: 11, display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0 }}>{letter(actionable.indexOf(it))}</span>}
@@ -541,6 +551,7 @@ export default function ActiveWorkoutPage() {
                       )
                     })}
                   </div>
+                  )}
                     </>
                   )}
 
@@ -552,10 +563,10 @@ export default function ActiveWorkoutPage() {
                     return (
                       <div style={{ background: "#FCF9FF", border: "1px solid rgba(129,51,255,0.35)", borderRadius: 12 }}>
                         <button type="button" aria-expanded={open} onClick={() => setCuesOpen((c) => ({ ...c, [block.id]: !open }))} style={{ width: "100%", display: "flex", alignItems: "center", gap: 8, padding: "10px 12px", background: "none", border: "none", cursor: "pointer", color: PURPLE, fontFamily: DM_SANS, fontWeight: 700, fontSize: 14 }}>
-                          <Lightbulb size={16} /> <span style={{ flex: 1, textAlign: "left" }}>Cues for this section</span>
+                          <Lightbulb size={16} /> <span style={{ flex: 1, textAlign: "left" }}>{guided.length === 1 ? `Cues for ${letter(actionable.indexOf(guided[0]))} · ${guided[0].name}` : "Cues for this section"}</span>
                           <ChevronDown size={18} style={{ transform: open ? "rotate(180deg)" : "none" }} />
                         </button>
-                        {open && <div style={{ padding: "0 12px 8px" }}>{guided.map((it) => <Refresher key={it.key} item={{ ...it, label: it.sub || "" }} showName={guided.length > 1} />)}</div>}
+                        {open && <div style={{ padding: "0 12px 8px" }}>{actionable.length > guided.length && <div style={{ fontFamily: DM_SANS, fontSize: 12, color: GRAY, padding: "0 0 4px" }}>{guided.length === 1 ? `Only ${guided[0].name} has cues in this section.` : "Only some exercises here have cues."}</div>}{guided.map((it) => <Refresher key={it.key} item={{ ...it, label: it.sub || "" }} showName={guided.length > 1} />)}</div>}
                       </div>
                     )
                   })()}
@@ -611,7 +622,7 @@ export default function ActiveWorkoutPage() {
                   )}
 
                   {state !== "done" && (() => {
-                    const ready = allSetsTicked(block)
+                    const ready = rspec ? allRoundsDone(logOf(block, rspec)) : allSetsTicked(block)
                     const next = blocks.find((b, i) => i > bi && b.items.some(isActionable) && !b.completed)
                     return (
                       <div style={{ marginTop: 2 }}>
