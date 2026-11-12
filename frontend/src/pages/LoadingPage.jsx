@@ -56,6 +56,52 @@ const EVENT_SUBLABELS = {
 
 const BASE_URL = import.meta.env.VITE_API_URL || "http://localhost:8000"
 
+// A friendly note from the AI while the analysis runs. It sits below the stages so the progress is the first thing seen.
+function CoachIcon({ className = "" }) {
+  return (
+    <svg className={className} viewBox="0 0 40 40" width="36" height="36" aria-hidden="true">
+      <defs>
+        <linearGradient id="coachIconGradient" x1="0" y1="0" x2="1" y2="1">
+          <stop offset="0" stopColor="#0284C7" />
+          <stop offset="1" stopColor="#9747FF" />
+        </linearGradient>
+      </defs>
+      <circle cx="20" cy="20" r="20" fill="#fff" />
+      <line x1="20" y1="8.5" x2="20" y2="12" stroke="url(#coachIconGradient)" strokeWidth="2" strokeLinecap="round" />
+      <circle cx="20" cy="7.5" r="2" fill="url(#coachIconGradient)" />
+      <rect x="9" y="12" width="22" height="18" rx="7" fill="url(#coachIconGradient)" />
+      <rect x="6" y="18" width="3" height="6" rx="1.5" fill="url(#coachIconGradient)" />
+      <rect x="31" y="18" width="3" height="6" rx="1.5" fill="url(#coachIconGradient)" />
+      <circle cx="15.5" cy="20" r="2.2" fill="#fff" />
+      <circle cx="24.5" cy="20" r="2.2" fill="#fff" />
+      <path d="M15.5 25c1.2 1.6 2.7 2.3 4.5 2.3s3.3-.7 4.5-2.3" fill="none" stroke="#fff" strokeWidth="1.8" strokeLinecap="round" />
+    </svg>
+  )
+}
+
+function CoachNote() {
+  // The icon floats top right so the text can start at the left edge and run wider, which keeps the box short.
+  return (
+    <div className="rounded-2xl px-4 py-4 text-sm text-white leading-relaxed" style={{ background: "linear-gradient(135deg, #0284C7 0%, #9747FF 100%)" }}>
+      <CoachIcon className="float-right ml-3 mb-1" />
+      <p className="font-semibold mb-2">Hi, I&apos;m Kinetic, your AI coach.</p>
+      <p className="mb-2">
+        I&apos;m not here to replace a personal trainer. A good one knows your body, your history and your diet far better
+        than I do. But a personal trainer isn&apos;t within reach for everyone, so I&apos;m doing my best to help.
+      </p>
+      <p className="mb-2">
+        I use computer vision to analyse your video, so I only see what a camera sees. A real trainer in the room can watch
+        you from every angle and notice things like your breathing. I can&apos;t do that, so I only give feedback on what I
+        can see clearly, and I&apos;ll stay quiet about the rest.
+      </p>
+      <p>
+        The more you share with me, like your form and your workout logs, the better I get to know you, and the more
+        personal your coaching gets.
+      </p>
+    </div>
+  )
+}
+
 export default function LoadingPage() {
   const navigate  = useNavigate()
   const location  = useLocation()
@@ -277,16 +323,6 @@ export default function LoadingPage() {
         </div>
 
 
-        <div className="rounded-2xl px-4 py-4 flex items-start gap-3" style={{ background: "linear-gradient(135deg, #0284C7 0%, #9747FF 100%)" }}>
-          <svg className="w-5 h-5 text-white shrink-0 mt-0.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-            <path strokeLinecap="round" strokeLinejoin="round" d="M9.663 17h4.673M12 3v1m6.364 1.636l-.707.707M21 12h-1M4 12H3m3.343-5.657l-.707-.707m2.828 9.9a5 5 0 117.072 0l-.548.547A3.374 3.374 0 0014 18.469V19a2 2 0 11-4 0v-.531c0-.895-.356-1.754-.988-2.386l-.548-.547z" />
-          </svg>
-          <p className="text-sm text-white leading-relaxed">
-            <span className="font-semibold">Tips: </span>
-            Take a 45-second breather. Your muscles need this reset for the next set.
-          </p>
-        </div>
-
         {reconnecting && !error && (
           <div role="status" className="rounded-2xl px-4 py-3" style={{ background: "#FFF7E6", border: "1px solid #F5D08A" }}>
             <p className="text-sm" style={{ color: "#92580A" }}>Connection dropped. Reconnecting… your analysis keeps running.</p>
@@ -320,6 +356,8 @@ export default function LoadingPage() {
             </div>
           ))}
         </div>
+
+        <CoachNote />
 
         <div className="flex-1" />
 
