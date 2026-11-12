@@ -563,7 +563,7 @@ export default function ActiveWorkoutPage() {
                     return (
                       <div style={{ background: "#FCF9FF", border: "1px solid rgba(129,51,255,0.35)", borderRadius: 12 }}>
                         <button type="button" aria-expanded={open} onClick={() => setCuesOpen((c) => ({ ...c, [block.id]: !open }))} style={{ width: "100%", display: "flex", alignItems: "center", gap: 8, padding: "10px 12px", background: "none", border: "none", cursor: "pointer", color: PURPLE, fontFamily: DM_SANS, fontWeight: 700, fontSize: 14 }}>
-                          <Lightbulb size={16} /> <span style={{ flex: 1, textAlign: "left" }}>{guided.length === 1 ? `Cues for ${letter(actionable.indexOf(guided[0]))} · ${guided[0].name}` : "Cues for this section"}</span>
+                          <Lightbulb size={16} /> <span style={{ flex: 1, textAlign: "left" }}>{guided.length === 1 ? `Cues for ${many ? `${letter(actionable.indexOf(guided[0]))} · ` : ""}${guided[0].name}` : "Cues for this section"}</span>
                           <ChevronDown size={18} style={{ transform: open ? "rotate(180deg)" : "none" }} />
                         </button>
                         {open && <div style={{ padding: "0 12px 8px" }}>{actionable.length > guided.length && <div style={{ fontFamily: DM_SANS, fontSize: 12, color: GRAY, padding: "0 0 4px" }}>{guided.length === 1 ? `Only ${guided[0].name} has cues in this section.` : "Only some exercises here have cues."}</div>}{guided.map((it) => <Refresher key={it.key} item={{ ...it, label: it.sub || "" }} showName={guided.length > 1} />)}</div>}

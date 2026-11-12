@@ -9,12 +9,15 @@ const GOBLET_SQUAT = {
   summary: "Hold one weight at your chest and sit straight down between your knees. The squat to learn first.",
   level: "Beginner – Intermediate",
   muscles: { main: ["Quads", "Glutes"], helping: ["Hamstrings", "Core", "Upper back"] },
-  video: {
-    youtubeId: "7-80HiXX1K8",
-    credit: "Le Sweat",
-    creditUrl: "https://www.youtube.com/@lesweat",
-    watchUrl: "https://www.youtube.com/shorts/7-80HiXX1K8",
-    vertical: true,
+  videos: {
+    women: {
+      youtubeId: "7-80HiXX1K8",
+      credit: "Le Sweat",
+      creditUrl: "https://www.youtube.com/@lesweat",
+      watchUrl: "https://www.youtube.com/shorts/7-80HiXX1K8",
+      vertical: true,
+    },
+    men: null, // not chosen yet
   },
   keyCues: [
     "Big breath in, brace your core, hold the weight tight to your chest.",
@@ -73,12 +76,15 @@ const DB_DEADLIFT = {
   summary: "Push your hips back, lower the weights down your legs with a flat back, then stand tall by driving through your heels.",
   level: "Beginner – Intermediate",
   muscles: { main: ["Glutes", "Hamstrings"], helping: ["Lower back", "Upper back", "Core", "Forearms"] },
-  video: {
-    youtubeId: "YQgs03p3UxE",
-    credit: "Live Lean TV",
-    creditUrl: "https://www.youtube.com/@LiveLeanTV",
-    watchUrl: "https://www.youtube.com/shorts/YQgs03p3UxE",
-    vertical: true,
+  videos: {
+    women: {
+      youtubeId: "YQgs03p3UxE",
+      credit: "Live Lean TV",
+      creditUrl: "https://www.youtube.com/@LiveLeanTV",
+      watchUrl: "https://www.youtube.com/shorts/YQgs03p3UxE",
+      vertical: true,
+    },
+    men: null, // not chosen yet
   },
   keyCues: [
     "Push your hips back, like closing a car door behind you with your bottom. This is a hinge, not a squat.",
@@ -136,16 +142,90 @@ const DB_DEADLIFT = {
   ],
 }
 
+// Full draft with sources: docs/exercise-guides-draft/db-shoulder-press.md (cues approved by Amrit; cues 2 and 3 still to be checked by a trainer)
+const DB_SHOULDER_PRESS = {
+  status: "draft",
+  summary: "Press two dumbbells straight up from your shoulders, using your shoulders and arms, not your legs. The overhead press to learn first.",
+  level: "Beginner – Intermediate",
+  muscles: { main: ["Shoulders", "Triceps"], helping: ["Chest", "Upper back", "Core"] },
+  videos: {
+    women: {
+      youtubeId: "cw4pTDmf4J0",
+      credit: "SquatCouple",
+      creditUrl: "https://www.youtube.com/@SQUATCOUPLE",
+      watchUrl: "https://www.youtube.com/shorts/cw4pTDmf4J0",
+      vertical: true,
+    },
+    men: null, // not chosen yet
+  },
+  keyCues: [
+    "Sit or stand. Standing: press the floor away, hips and knees stay still. The power comes from your shoulders. Sitting takes your legs out of it.",
+    "Dumbbells side by side, palms forward, forearms straight up. Elbows a little in front of you, not out wide. If palms forward pinches your shoulder, turn them in a little.",
+    "Press straight up until the dumbbells are over your shoulders. Don't arch your back.",
+  ],
+  breathing: "In and brace before each press, out as you press up",
+  tempo: "1 up · 1 at the top · 2 down",
+  setsReps: "3 sets of 8–12",
+  startWeight: "Start light: a weight you could press 12 times with good form. Add weight only when every rep stays controlled and you don't arch your back.",
+  setup: [
+    "Pick up the dumbbells and bring them to shoulder height, side by side, palms facing forward (or turned in a little if that pinches), elbows a little in front of your body.",
+    "Stand with feet about hip-width apart, whole foot planted, knees soft but still. (Or sit on a bench with a back, feet flat.)",
+    "Squeeze your glutes, brace your core and pull your ribs down so your lower back stays flat.",
+    "Keep your wrists straight over your elbows, forearms upright.",
+  ],
+  movement: [
+    "Breathe in, then press both dumbbells straight up until they are over your shoulders and your arms are almost straight. Don't lock out hard.",
+    "Keep your head still and your ribs down. If your lower back starts to arch, stop a little lower.",
+    "Lower slowly, about 2 seconds, back to shoulder height. Elbows stay under your wrists.",
+    "Legs stay still the whole time. Don't dip your knees or bounce to get the weight up.",
+  ],
+  mistakes: [
+    { mistake: "Lower back arches, ribs flare", fix: "Squeeze your glutes and pull your ribs down. Use a lighter weight, or sit with back support." },
+    { mistake: "Legs help push the weight up (knees dip and straighten)", fix: "Keep your knees soft and still. If the weight only moves with leg help, it is too heavy." },
+    { mistake: "Elbows flare wide", fix: "Keep your elbows under your wrists, a little in front of your body." },
+    { mistake: "Wrists bend back", fix: "Stack your wrist over your elbow, with the weight resting on the base of your palm." },
+    { mistake: "Pushing your head forward as the weight passes", fix: "Tuck your chin slightly and keep your neck long." },
+    { mistake: "Dumbbells crash together at the top", fix: "Press straight up and keep them apart. Stop short of a hard lockout." },
+    { mistake: "Dropping the weight quickly", fix: "Take 2 seconds to lower it." },
+  ],
+  easier: [
+    { name: "Seated Shoulder Press", what: "Sit on a bench with back support, feet flat.", pickIf: "you arch your back, or lose balance standing" },
+    { name: "Lighter weight, same press", what: "Drop the weight until every rep is smooth.", pickIf: "the last reps need leg help or a back arch" },
+  ],
+  harder: [
+    { name: "Tempo Press", what: "3 seconds down, 1 second pause at your shoulders.", pickIf: "you can do 12 clean reps" },
+    { name: "Seated Arnold Press", exerciseId: "ex_039", what: "Rotate your palms as you press.", pickIf: "you can do 12 clean reps and want more shoulder work" },
+    { name: "DB Push Press", exerciseId: "ex_043", what: "A different exercise: a small dip and drive from your legs helps lift the weight.", pickIf: "you want to lift heavier with leg help, on purpose" },
+  ],
+  safety: [
+    "Stop if you feel sharp pain or pinching at the top of your shoulder.",
+    "Take care with a shoulder, neck or lower back injury. Ask a doctor or physio before adding weight.",
+    "With high blood pressure or a heart condition, ask your doctor before bracing hard and holding your breath.",
+    "Control the weights and don't drop them from height. A spotter helps with heavy sets.",
+  ],
+}
+
 export const GUIDES = {
   ex_001: GOBLET_SQUAT, // DB Goblet Squat
   ex_049: GOBLET_SQUAT, // KB Goblet Squat: same movement, same guide
   ex_025: DB_DEADLIFT, // DB Deadlift
+  ex_029: DB_SHOULDER_PRESS, // DB Shoulder Press
 }
 
 export const getExerciseGuide = (exerciseId) => GUIDES[exerciseId] ?? null
+// The demo video to show. Women's for everyone until a men's video is chosen (and until the app knows who is watching).
+export const guideVideo = (guide) => guide?.videos?.women ?? guide?.videos?.men ?? null
+
 export const hasExerciseGuide = (exerciseId) => Boolean(GUIDES[exerciseId])
 
 // What the Listen button reads out: the short version only
 export function guideToSpeech(name, guide) {
-  return `${name}. ${guide.summary} Stance: ${guide.stance} Depth: ${guide.depth.goal} Stop going down if ${guide.depth.stopWhen.map((w) => w.replace(/\.$/, "").replace(/^Your/, "your")).join(", or ").replace(/, or (?=[^,]*$)/, " or ").replace(/, or /g, ", ")}. Key cues. ${guide.keyCues.join(" ")} Breathing: ${guide.breathing}. Tempo: ${guide.tempo}.`
+  const stop = guide.depth && `${guide.depth.stopWhen.map((w) => w.replace(/\.$/, "").replace(/^Your/, "your")).join(", or ").replace(/, or (?=[^,]*$)/, " or ").replace(/, or /g, ", ")}`
+  return [
+    `${name}. ${guide.summary}`,
+    guide.stance && `Stance: ${guide.stance}`,
+    guide.depth && `Depth: ${guide.depth.goal} Stop going down if ${stop}.`,
+    `Key cues. ${guide.keyCues.join(" ")}`,
+    `Breathing: ${guide.breathing}. Tempo: ${guide.tempo}.`,
+  ].filter(Boolean).join(" ")
 }

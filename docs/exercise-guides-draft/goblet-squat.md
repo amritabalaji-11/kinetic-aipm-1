@@ -65,7 +65,7 @@ Items marked **[CONFIRM]** are choices where sources differ or a trainer should 
 - Take care if you have a knee, hip or lower back injury. Ask a doctor or physio before loading it.
 - If you have high blood pressure or a heart condition, ask your doctor before bracing hard and holding your breath.
 
-## Video (chosen by you)
+## Video (women)
 - **Link:** https://www.youtube.com/shorts/7-80HiXX1K8
 - **Channel:** Le Sweat (https://www.youtube.com/@lesweat). Title: "Goblet Squat [How To]".
 - **Embedding:** allowed (YouTube's own check passed).
@@ -75,6 +75,7 @@ Items marked **[CONFIRM]** are choices where sources differ or a trainer should 
 - I have not watched it myself.
 
 Other candidates, in case this one doesn't work out (all allow embedding): LivestrongWoman https://www.youtube.com/watch?v=mF5tnEBrdkc, Naomi Kong https://www.youtube.com/watch?v=9KzZD_n2r64, Colossus Fitness https://www.youtube.com/watch?v=gm4ln6PO4rc.
+- **Video (men):** not chosen yet. Amrita will share a link later.
 
 ## Sources
 **Read in full**

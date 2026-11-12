@@ -6,7 +6,7 @@ import ListenButton from "../components/ListenButton"
 import MuscleMap from "../components/MuscleMap"
 import { useCoachScript } from "../utils/useCoachScript"
 import { BRICOLAGE, DM_SANS, GRAY, INK, PURPLE, cardStyle } from "../components/planUi"
-import { getExerciseGuide, guideToSpeech, hasExerciseGuide } from "../data/exerciseGuides"
+import { getExerciseGuide, guideToSpeech, guideVideo, hasExerciseGuide } from "../data/exerciseGuides"
 import { equipmentLabel, getExercise } from "../utils/exerciseCatalog"
 import { FLAT_LILAC } from "../utils/pageBackground"
 
@@ -18,6 +18,7 @@ export default function ExercisePage() {
   const location = useLocation()
   const exercise = getExercise(id)
   const guide = getExerciseGuide(id)
+  const video = guideVideo(guide)
 
   const coachScript = useCoachScript(id)?.full ?? null // trainer-style script for the Listen button (null: read the points instead)
 
@@ -59,12 +60,12 @@ export default function ExercisePage() {
 
       {/* The short version: video beside the three cues */}
       <div style={{ ...cardStyle, padding: 12, display: "flex", gap: 12, alignItems: "flex-start" }}>
-        <div style={{ flexShrink: 0, width: 150 }}>
-          <ExpandableVideo youtubeId={guide.video.youtubeId} title={`${exercise.name} demo`} vertical={guide.video.vertical} width={150} loop />
-          <a href={guide.video.watchUrl} target="_blank" rel="noreferrer" style={{ display: "flex", alignItems: "center", gap: 4, marginTop: 6, fontFamily: DM_SANS, fontSize: 11, color: GRAY, textDecoration: "none" }}>
-            {guide.video.credit} on YouTube <ExternalLink size={11} />
+        {video && <div style={{ flexShrink: 0, width: 150 }}>
+          <ExpandableVideo youtubeId={video.youtubeId} title={`${exercise.name} demo`} vertical={video.vertical} width={150} loop />
+          <a href={video.watchUrl} target="_blank" rel="noreferrer" style={{ display: "flex", alignItems: "center", gap: 4, marginTop: 6, fontFamily: DM_SANS, fontSize: 11, color: GRAY, textDecoration: "none" }}>
+            {video.credit} on YouTube <ExternalLink size={11} />
           </a>
-        </div>
+        </div>}
         <div style={{ flex: 1, minWidth: 0 }}>
           <p style={{ fontFamily: BRICOLAGE, fontWeight: 700, fontSize: 15, color: INK, margin: "0 0 8px" }}>3 key cues</p>
           <ol style={{ margin: 0, paddingLeft: 18, listStyle: "decimal" }}>
