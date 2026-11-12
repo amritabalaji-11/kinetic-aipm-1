@@ -156,7 +156,13 @@ const DB_SHOULDER_PRESS = {
       watchUrl: "https://www.youtube.com/shorts/cw4pTDmf4J0",
       vertical: true,
     },
-    men: null, // not chosen yet
+    men: {
+      youtubeId: "wO0l5jW2NtQ",
+      credit: "Elite Performance",
+      creditUrl: "https://www.youtube.com/@eliteperformance2721",
+      watchUrl: "https://www.youtube.com/shorts/wO0l5jW2NtQ",
+      vertical: true,
+    },
   },
   keyCues: [
     "Sit or stand. Standing: press the floor away, hips and knees stay still. The power comes from your shoulders. Sitting takes your legs out of it.",
@@ -213,8 +219,12 @@ export const GUIDES = {
 }
 
 export const getExerciseGuide = (exerciseId) => GUIDES[exerciseId] ?? null
-// The demo video to show. Women's for everyone until a men's video is chosen (and until the app knows who is watching).
-export const guideVideo = (guide) => guide?.videos?.women ?? guide?.videos?.men ?? null
+// Which demo video to show: the one the person last picked (women / men), else the women's. A guide with one video shows that one.
+const PREF_KEY = "videoAudience"
+export const getVideoPref = () => { try { return localStorage.getItem(PREF_KEY) === "men" ? "men" : "women" } catch { return "women" } }
+export const setVideoPref = (who) => { try { localStorage.setItem(PREF_KEY, who) } catch { /* private mode: the pick lasts until the page closes */ } }
+export const hasBothVideos = (guide) => Boolean(guide?.videos?.women && guide?.videos?.men)
+export const guideVideo = (guide, pref = getVideoPref()) => guide?.videos?.[pref] ?? guide?.videos?.women ?? guide?.videos?.men ?? null
 
 export const hasExerciseGuide = (exerciseId) => Boolean(GUIDES[exerciseId])
 

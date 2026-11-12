@@ -6,7 +6,7 @@ import ListenButton from "../components/ListenButton"
 import MuscleMap from "../components/MuscleMap"
 import { useCoachScript } from "../utils/useCoachScript"
 import { BRICOLAGE, DM_SANS, GRAY, INK, PURPLE, cardStyle } from "../components/planUi"
-import { getExerciseGuide, guideToSpeech, guideVideo, hasExerciseGuide } from "../data/exerciseGuides"
+import { getExerciseGuide, getVideoPref, guideToSpeech, guideVideo, hasBothVideos, hasExerciseGuide, setVideoPref } from "../data/exerciseGuides"
 import { equipmentLabel, getExercise } from "../utils/exerciseCatalog"
 import { FLAT_LILAC } from "../utils/pageBackground"
 
@@ -18,7 +18,8 @@ export default function ExercisePage() {
   const location = useLocation()
   const exercise = getExercise(id)
   const guide = getExerciseGuide(id)
-  const video = guideVideo(guide)
+  const [pref, setPref] = useState(getVideoPref)
+  const video = guideVideo(guide, pref)
 
   const coachScript = useCoachScript(id)?.full ?? null // trainer-style script for the Listen button (null: read the points instead)
 
@@ -61,7 +62,17 @@ export default function ExercisePage() {
       {/* The short version: video beside the three cues */}
       <div style={{ ...cardStyle, padding: 12, display: "flex", gap: 12, alignItems: "flex-start" }}>
         {video && <div style={{ flexShrink: 0, width: 150 }}>
-          <ExpandableVideo youtubeId={video.youtubeId} title={`${exercise.name} demo`} vertical={video.vertical} width={150} loop />
+          {hasBothVideos(guide) && (
+            <div role="tablist" aria-label="Whose demo to watch" style={{ display: "flex", gap: 4, marginBottom: 8 }}>
+              {[["women", "Women"], ["men", "Men"]].map(([who, label]) => (
+                <button key={who} type="button" role="tab" aria-selected={pref === who} onClick={() => { setPref(who); setVideoPref(who) }}
+                  style={{ flex: 1, padding: "5px 0", borderRadius: 999, cursor: "pointer", fontFamily: DM_SANS, fontWeight: 600, fontSize: 12, border: `1.2px solid ${pref === who ? PURPLE : "rgba(129,51,255,0.35)"}`, background: pref === who ? PURPLE : "#fff", color: pref === who ? "#fff" : PURPLE }}>
+                  {label}
+                </button>
+              ))}
+            </div>
+          )}
+          <ExpandableVideo key={video.youtubeId} youtubeId={video.youtubeId} title={`${exercise.name} demo`} vertical={video.vertical} width={150} loop />
           <a href={video.watchUrl} target="_blank" rel="noreferrer" style={{ display: "flex", alignItems: "center", gap: 4, marginTop: 6, fontFamily: DM_SANS, fontSize: 11, color: GRAY, textDecoration: "none" }}>
             {video.credit} on YouTube <ExternalLink size={11} />
           </a>
