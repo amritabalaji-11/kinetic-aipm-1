@@ -557,6 +557,17 @@ const DEFAULT_NOTES = {
   range_of_motion: "Achieve full depth on every rep — hips below knees — while maintaining control and balance."
 }
 
+// A rough per-rep score from the measurements, for a rep the AI gave no score for. It is not shown on the Analysis tab.
+function scoreFromMeasures(rep) {
+  let formScore = 100
+  if (rep.depth_data?.depth_classification === "Warning") formScore -= 20
+  if (rep.depth_data?.depth_insufficient_flag)             formScore -= 15
+  if (rep.back_data?.back_label === "Warning")             formScore -= 15
+  if (rep.back_data?.back_angle_at_bottom > 30)           formScore -= 20
+  if (rep.back_data?.back_angle_at_bottom > 45)           formScore -= 25
+  return Math.max(0, Math.min(100, formScore))
+}
+
 export default function ResultsPage() {
   const { state } = useLocation()
   const navigate  = useNavigate()
@@ -829,18 +840,21 @@ export default function ResultsPage() {
         try {
           const biomech = baseAnalysis.biomechanics_json ? JSON.parse(baseAnalysis.biomechanics_json) : null
           if (biomech?.reps?.length) {
-            parsedReps = biomech.reps.map((rep) => {
-              let formScore = 100
-              if (rep.depth_data?.depth_classification === "Warning") formScore -= 20
-              if (rep.depth_data?.depth_insufficient_flag)             formScore -= 15
-              if (rep.back_data?.back_label === "Warning")             formScore -= 15
-              if (rep.back_data?.back_angle_at_bottom > 30)           formScore -= 20
-              if (rep.back_data?.back_angle_at_bottom > 45)           formScore -= 25
-              return { rep_number: rep.rep_number, form_score: Math.max(0, Math.min(100, formScore)) }
-            })
+            parsedReps = biomech.reps.map((rep) => ({ rep_number: rep.rep_number, form_score: scoreFromMeasures(rep) }))
           }
         } catch (e) { console.warn("Failed to parse biomechanics_json:", e) }
       }
+      // The pipeline's own count of reps is the truth. The AI's per-rep scores can have a different number of entries
+      // (it may miss a rep or invent one), and this list decides the "too few reps" card and the dot strips. So the list
+      // is rebuilt on the counted reps (a cut-off last squat is not one), keeping the AI's score for each rep it did score.
+      try {
+        const counted = (baseAnalysis.biomechanics_json ? JSON.parse(baseAnalysis.biomechanics_json)?.reps || [] : []).filter((r) => r && !r.partial)
+        if (counted.length > 0) {
+          const scoreByRep = {}
+          parsedReps.forEach((r) => { scoreByRep[r.rep_number] = r.form_score })
+          parsedReps = counted.map((rep) => ({ rep_number: rep.rep_number, form_score: scoreByRep[rep.rep_number] ?? scoreFromMeasures(rep) }))
+        }
+      } catch (e) { console.warn("Could not reconcile the rep count:", e) }
       // Keep the measured timing of each rep (lowering, pause, lifting) so the screen can say what actually happened.
       try {
         const bm = baseAnalysis.biomechanics_json ? JSON.parse(baseAnalysis.biomechanics_json) : null
