@@ -1,8 +1,8 @@
 """The structure every exercise spec must follow. One definition, used by the validator, the rule engine and the docs.
 
-An exercise spec (`exercises/<id>/spec.md`) is a document with 13 numbered sections. Each section holds prose for people
+An exercise spec (`exercises/<id>/spec.md`) is a document with 14 numbered sections. Each section holds prose for people
 and exactly one machine block, a fenced ```json kinetic:<section> block. The engine and the validator read only the blocks.
-Adding an exercise means filling in the 13 sections; it must never need new engine code. If it does, this file is missing
+Adding an exercise means filling in the 14 sections; it must never need new engine code. If it does, this file is missing
 a field or a word of vocabulary (add it here, once, and document it in SCHEMA.md).
 """
 
@@ -11,7 +11,8 @@ SECTIONS = (
     "identity",        # who this is: ID, name, aliases, family, equipment variants, status, version, sign-off
     "goal_profiles",   # which training goals the rules are valid for (strength today), and per-goal overrides
     "capture",         # what the user is told before filming: views, tips, target reps
-    "measures",        # named measurements: where each lives in the per-rep data, its unit, the views it works in
+    "landmarks",       # which body points matter for this exercise and how much, and the visibility thresholds for accepting a video
+    "measures",        # named measurements: where each lives in the per-rep data, its unit, the views it works in, the body points it uses
     "rep_counting",    # how reps are counted for this movement
     "rules",           # the coaching rules: what to flag or praise, how it is worded, what the before/after shows
     "selection",       # how rule results become a short screen: caps, order, majority share
@@ -66,6 +67,34 @@ MODES = ("pair", "slow", "single")
 # the picture (front view). Side views use the side nearest the camera.
 LANDMARKS = {"nose": (0, 0), "shoulder": (11, 12), "hip": (23, 24), "knee": (25, 26), "ankle": (27, 28)}
 FRONT_ANCHORS = ("knee_image_left",)
+
+# The 33 MediaPipe pose landmarks, by name, in MediaPipe's own order (the index is the position in this tuple).
+LANDMARK_NAMES = (
+    "nose", "left_eye_inner", "left_eye", "left_eye_outer", "right_eye_inner", "right_eye", "right_eye_outer", "left_ear", "right_ear",
+    "mouth_left", "mouth_right", "left_shoulder", "right_shoulder", "left_elbow", "right_elbow", "left_wrist", "right_wrist",
+    "left_pinky", "right_pinky", "left_index", "right_index", "left_thumb", "right_thumb", "left_hip", "right_hip", "left_knee", "right_knee",
+    "left_ankle", "right_ankle", "left_heel", "right_heel", "left_foot_index", "right_foot_index",
+)
+
+# A measure or an arrow names body parts without a side ("hip"); each stands for both sides. Every side must be tracked, because either side may be
+# the one nearest the camera.
+NEUTRAL_LANDMARKS = {
+    "nose": ("nose",),
+    "eye": ("left_eye", "right_eye"),
+    "ear": ("left_ear", "right_ear"),
+    "shoulder": ("left_shoulder", "right_shoulder"),
+    "elbow": ("left_elbow", "right_elbow"),
+    "wrist": ("left_wrist", "right_wrist"),
+    "hip": ("left_hip", "right_hip"),
+    "knee": ("left_knee", "right_knee"),
+    "ankle": ("left_ankle", "right_ankle"),
+    "heel": ("left_heel", "right_heel"),
+    "foot": ("left_foot_index", "right_foot_index"),
+}
+
+# How much a tracked landmark counts towards the "can we see enough of this person" check. A landmark not listed is ignored.
+IMPORTANCE = ("critical", "important", "least_impact")
+SIDE_VIEW_USE = ("near_side", "all")      # from the side, judge only the landmarks on the side nearest the camera (plus the nose), or all of them
 
 # Words that must never appear in anything the user reads (checked against all wording and screen text).
 FORBIDDEN_PHRASES = ("stay tall", "chest up", "upright", "rounding", "go deeper", "deeper", "valgus", "dorsiflexion", "eccentric")

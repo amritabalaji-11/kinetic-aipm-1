@@ -11,6 +11,7 @@ One **exercise ID** links every module. It is the *movement slug*, hyphenated (`
 | Coaching rules (what to flag or praise, on which reps) | **yes** | `services/rule_engine.py` reads the spec's `rules` | rules written in the spec's test vocabulary |
 | Wording, caps, order, the "one topic in one list" rule | yes | the spec's `selection` and `apply_signals` | the wording |
 | Before/after video and picture (which reps, arrow, labels) | **yes** | `services/comparison.py`, `rep_picking.py`, `focus_overlay.py` read each rule's `comparison` | a `comparison` on each rule |
+| Which body points matter, and the video-quality check | **spec records it, code still reads its own list** | `mediapipe_code/mp_utils/quality/landmark_quality_configuration.py` (squat weights and thresholds) | the landmark list in the spec; a test proves the spec equals the code for squats, and the quality check will read the spec when the counter and trackers move |
 | Rep counting | **no** | `mediapipe_code/mp_utils/trackers/rep_counter.py` (hip-angle cycle for squats) | its own counter if the movement is not a hip-angle cycle (a deadlift starts at the bottom, one-sided and timed exercises) |
 | MediaPipe measures | **no** | `landmark_framework.py` and the trackers write the per-rep data | trackers for any measure the spec names that does not exist yet |
 | Prompt | the generic prompt plus the exercise's coaching reference | `prompts/`, `coaching_references/` | a reference file |
@@ -20,7 +21,7 @@ One **exercise ID** links every module. It is the *movement slug*, hyphenated (`
 ## Checklist for a new exercise
 
 1. **Feasibility first.** For every fault you want to catch, can MediaPipe see it from a phone? List each fault with the camera view that shows it and a grade (clear, weak, not visible). Drop what it cannot see.
-2. **Copy `_template/` to `exercises/<id>/` and fill in the 13 sections.** The template is valid as it stands, so the validator tells you what is missing as you go.
+2. **Copy `_template/` to `exercises/<id>/` and fill in the 14 sections.** The template is valid as it stands, so the validator tells you what is missing as you go.
 3. **Rep counting.** Choose the signal to follow, where a rep starts, what setup movements to ignore, one-sided exercises, timed holds. If the existing counter does not fit, that is new code, not spec.
 4. **Label clips at original speed** (never a sped-up or re-processed copy). Store each clip's per-rep data in `tests/golden/<id>/reps/<clip>.json`, the expectations in `expected.json`, and list the clips and `proof` in the spec's `evidence`.
 5. **Make the tests pass:** `python3 -m unittest discover -s tests -t .` from `backend/`. A rule is `tested` only when `proof` names a clip it fires on and a clip it stays silent on.

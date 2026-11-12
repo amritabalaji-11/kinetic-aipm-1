@@ -37,12 +37,18 @@ class DocsMatchTheCode(unittest.TestCase):
     SCHEMA_DOC = read(EXERCISES / "SCHEMA.md")
 
     def test_the_schema_doc_names_every_section_test_pick_pool_mode_kind_status_and_landmark(self):
-        for word in (*S.SECTIONS, *S.TESTS, *S.PICKS, *S.POOLS, *S.MODES, *S.KINDS, *S.SPEC_STATUSES, *S.RULE_STATUSES, *S.LANDMARKS, *S.FRONT_ANCHORS):
+        for word in (*S.SECTIONS, *S.TESTS, *S.PICKS, *S.POOLS, *S.MODES, *S.KINDS, *S.SPEC_STATUSES, *S.RULE_STATUSES, *S.LANDMARKS, *S.FRONT_ANCHORS,
+                     *S.IMPORTANCE, *S.SIDE_VIEW_USE, *S.NEUTRAL_LANDMARKS):
             self.assertIn(f"`{word}`", self.SCHEMA_DOC, f"SCHEMA.md does not mention {word}")
 
-    def test_the_schema_doc_says_the_sections_are_thirteen(self):
-        self.assertEqual(len(S.SECTIONS), 13)
-        self.assertIn("13 numbered sections", self.SCHEMA_DOC)
+    def test_the_schema_doc_says_how_many_sections_there_are(self):
+        self.assertEqual(len(S.SECTIONS), 14)
+        self.assertIn(f"{len(S.SECTIONS)} numbered sections", self.SCHEMA_DOC)
+
+    def test_the_schema_doc_table_lists_the_sections_in_the_order_the_code_requires(self):
+        listed = re.findall(r"^\| (\d+) \| `(\w+)` \|", self.SCHEMA_DOC, flags=re.MULTILINE)
+        self.assertEqual([name for _, name in listed], list(S.SECTIONS))
+        self.assertEqual([int(n) for n, _ in listed], list(range(1, len(S.SECTIONS) + 1)))
 
     def test_the_goblet_squat_document_has_a_numbered_heading_for_every_section(self):
         text = read(EXERCISES / "goblet-squat" / "spec.md")

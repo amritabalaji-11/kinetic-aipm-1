@@ -139,7 +139,42 @@ def _capture(spec, r):
             r.add(f"{p}.view_notes.{group}", problem)
 
 
-def _measures(spec, r):
+def _tracked_ok(neutral, tracked):
+    """The sided landmarks a neutral name stands for that are NOT tracked (either side may be the one nearest the camera)."""
+    return [n for n in S.NEUTRAL_LANDMARKS.get(neutral, ()) if n not in tracked]
+
+
+def _landmarks(spec, r):
+    """Which body points matter for this exercise, and how much. Returns the set of tracked landmark names."""
+    sec = spec.get("landmarks", {})
+    p = "landmarks"
+    r.only(sec, p, {"importance_weights", "critical", "important", "least_impact", "thresholds", "side_views_use"})
+    weights = r.need(sec, p, "importance_weights", lambda v: isinstance(v, dict) and set(v) == set(S.IMPORTANCE) and all(_is_num(x) and 0 < x <= 1 for x in v.values()),
+                     f"a weight from 0 to 1 for each of {S.IMPORTANCE}")
+    tracked, seen, total = set(), {}, 0.0
+    for level in S.IMPORTANCE:
+        names = r.need(sec, p, level, lambda v: isinstance(v, list) and all(x in S.LANDMARK_NAMES for x in v), "a list of MediaPipe landmark names (see schema.LANDMARK_NAMES)")
+        for name in names or []:
+            if name in seen:
+                r.add(f"{p}.{level}", f"'{name}' is already listed under {seen[name]}")
+            seen[name] = level
+            tracked.add(name)
+            total += (weights or {}).get(level, 0)
+    if isinstance(sec.get("critical"), list) and not sec["critical"]:
+        r.add(f"{p}.critical", "needs at least one critical landmark")
+    if weights and abs(total - 1.0) > 0.01:
+        r.add(f"{p}.importance_weights", f"the weights of the tracked landmarks add up to {total:.3f}; they must add up to 1")
+    th = r.need(sec, p, "thresholds", lambda v: isinstance(v, dict) and set(v) == {"visibility", "presence", "critical_hard_floor", "good", "acceptable"} and all(_is_num(x) and 0 < x <= 1 for x in v.values()),
+                "visibility, presence, critical_hard_floor, good and acceptable, each from 0 to 1")
+    if th and th["critical_hard_floor"] > th["visibility"]:
+        r.add(f"{p}.thresholds", "critical_hard_floor cannot be above visibility")
+    if th and th["acceptable"] > th["good"]:
+        r.add(f"{p}.thresholds", "acceptable cannot be above good")
+    r.need(sec, p, "side_views_use", lambda v: v in S.SIDE_VIEW_USE, f"one of {S.SIDE_VIEW_USE}")
+    return tracked
+
+
+def _measures(spec, r, tracked):
     sec = spec.get("measures")
     p = "measures"
     if not isinstance(sec, list) or not sec:
@@ -151,7 +186,7 @@ def _measures(spec, r):
         if not isinstance(m, dict):
             r.add(here, "must be an object")
             continue
-        r.only(m, here, {"id", "label", "field", "unit", "views", "definition", "valid_above"})
+        r.only(m, here, {"id", "label", "field", "unit", "views", "definition", "valid_above", "landmarks"})
         mid = r.need(m, here, "id", lambda v: isinstance(v, str) and bool(_SNAKE.match(v)), "a snake_case name")
         if mid in ids:
             r.add(here, f"duplicate measure id '{mid}'")
@@ -163,6 +198,11 @@ def _measures(spec, r):
         r.need(m, here, "views", lambda v: isinstance(v, list) and v and all(x in S.VIEW_GROUPS + (S.ANY_VIEW,) for x in v), "a list of view groups or 'any'")
         if "valid_above" in m and not _is_num(m["valid_above"]):
             r.add(f"{here}.valid_above", "must be a number")
+        used = r.need(m, here, "landmarks", lambda v: isinstance(v, list) and v and all(x in S.NEUTRAL_LANDMARKS for x in v), f"a non-empty list of body parts from {sorted(S.NEUTRAL_LANDMARKS)}")
+        for name in used or []:
+            missing = _tracked_ok(name, tracked)
+            if missing:
+                r.add(f"{here}.landmarks", f"uses '{name}' but {missing} is not tracked in the landmarks section")
     return ids
 
 
@@ -191,7 +231,7 @@ def _check_pick(pick, here, ids, r, allow_pool=True):
     r.need(pick, here, "pool", lambda v: v in S.POOLS, f"one of {S.POOLS}")
 
 
-def _check_arrow(arrow, here, r):
+def _check_arrow(arrow, here, r, tracked):
     if not isinstance(arrow, dict):
         r.add(here, "must be an object {label, views, anchor}")
         return
@@ -204,6 +244,11 @@ def _check_arrow(arrow, here, r):
         marks = r.need(anchor, f"{here}.anchor", "landmarks", lambda v: isinstance(v, list) and 1 <= len(v) <= 2 and all(x in S.LANDMARKS or x in S.FRONT_ANCHORS for x in v), f"1-2 of {sorted(S.LANDMARKS)} or {S.FRONT_ANCHORS}")
         if marks and len(marks) == 2:
             r.need(anchor, f"{here}.anchor", "t", lambda v: _is_num(v) and 0 <= v <= 1, "a number from 0 to 1 (how far from the first landmark to the second)")
+        for name in marks or []:
+            neutral = "knee" if name in S.FRONT_ANCHORS else name
+            missing = _tracked_ok(neutral, tracked)
+            if missing:
+                r.add(f"{here}.anchor", f"points at '{name}' but {missing} is not tracked in the landmarks section")
         for key in ("back_offset", "x_offset"):
             if key in anchor and not _is_num(anchor[key]):
                 r.add(f"{here}.anchor.{key}", "must be a number")
@@ -211,7 +256,7 @@ def _check_arrow(arrow, here, r):
             r.add(f"{here}.anchor.tail", "must be left, right or back")
 
 
-def _check_comparison(cmp_, here, ids, r):
+def _check_comparison(cmp_, here, ids, r, tracked):
     if not isinstance(cmp_, dict):
         r.add(here, "must be an object")
         return
@@ -231,7 +276,7 @@ def _check_comparison(cmp_, here, ids, r):
     if "else_single" in cmp_:
         _check_pick(cmp_["else_single"], f"{here}.else_single", ids, r)
     if "arrow" in cmp_:
-        _check_arrow(cmp_["arrow"], f"{here}.arrow", r)
+        _check_arrow(cmp_["arrow"], f"{here}.arrow", r, tracked)
     if "picture" in cmp_:
         _check_pick(cmp_["picture"], f"{here}.picture", ids, r)
     else:
@@ -260,7 +305,7 @@ def _check_test(test, here, r):
         r.add(f"{here}.share", "must be between 0 and 1")
 
 
-def _rules(spec, r, measure_ids):
+def _rules(spec, r, measure_ids, tracked):
     rules = spec.get("rules")
     p = "rules"
     if not isinstance(rules, list) or not rules:
@@ -328,7 +373,7 @@ def _rules(spec, r, measure_ids):
             if kind == "went_well":
                 r.add(f"{here}.comparison", "praise has no before/after")
             else:
-                _check_comparison(rule["comparison"], f"{here}.comparison", measure_ids, r)
+                _check_comparison(rule["comparison"], f"{here}.comparison", measure_ids, r, tracked)
     return ids
 
 
@@ -501,8 +546,9 @@ def validate_spec(spec, folder=None, check_files=True) -> list:
     if folder and (spec["identity"] or {}).get("exercise_id") != folder:
         r.add("identity.exercise_id", f"must equal the folder name '{folder}'")
     _goal_profiles(spec, r)
-    measure_ids = _measures(spec, r)
-    rules = _rules(spec, r, measure_ids)
+    tracked = _landmarks(spec, r)
+    measure_ids = _measures(spec, r, tracked)
+    rules = _rules(spec, r, measure_ids, tracked)
     _topics_one_list(rules, r)
     _selection(spec, r, rules)
     _capture(spec, r)

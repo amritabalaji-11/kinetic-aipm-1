@@ -1,8 +1,8 @@
 # Goblet Squat — exercise spec
 
-**Exercise ID:** `goblet-squat` · **Spec version:** 2.0.0 · **Status:** draft · **Goal:** strength only
+**Exercise ID:** `goblet-squat` · **Spec version:** 2.1.0 · **Status:** draft · **Goal:** strength only
 
-This file is the **single source of truth** for how Kinetic checks a goblet squat. It follows the 13-section structure every exercise uses (`exercises/SCHEMA.md`). Each section has a short explanation for people and one machine block that the code reads (a fenced `json kinetic:<section>` block). The validator (`exercises/validate.py`) refuses to load a spec that breaks the structure, and the tests replay 17 real clips against it.
+This file is the **single source of truth** for how Kinetic checks a goblet squat. It follows the 14-section structure every exercise uses (`exercises/SCHEMA.md`). Each section has a short explanation for people and one machine block that the code reads (a fenced `json kinetic:<section>` block). The validator (`exercises/validate.py`) refuses to load a spec that breaks the structure, and the tests replay 17 real clips against it.
 
 Change a number or a line of wording **here**, never in the code. Anything marked *draft* rests on very little evidence.
 
@@ -16,7 +16,7 @@ The movement slug is the ID. The dumbbell and kettlebell goblet squats share it,
 {
   "exercise_id": "goblet-squat",
   "name": "Goblet Squat",
-  "spec_version": "2.0.0",
+  "spec_version": "2.1.0",
   "status": "draft",
   "family": "squat",
   "aliases": ["goblet_squat", "goblet squat", "db goblet squat", "kb goblet squat"],
@@ -80,7 +80,27 @@ Side view is preferred because lean, depth and ankle range can only be read from
 
 Fewer than 5 reps: the results screen says so and the upload screen asks for another video. The backend quality gate already rejects fewer than 3 outright, before any analysis. Not built yet: a check at upload that the whole body is in frame and the light is OK.
 
-## 4. Measures
+## 4. Landmarks
+
+MediaPipe always finds all 33 body points. This section says which of them matter for *this* exercise and how much, because the video-quality check judges "can we see enough of this person" by looking at the points that matter. For a squat the legs count most; for a chest press it would be the shoulders, elbows and wrists, and the feet would be ignored. A point that is not listed is ignored.
+
+- **Critical** points (the hips, knees and heels) must be seen clearly or the video is not accepted. **Important** points count less, and **least impact** points hardly count. Each level has a weight, and the weights of all tracked points add up to 1.
+- From the **side**, only the points on the side nearest the camera are judged (plus the nose), because the far side is hidden by the body.
+- Every body part a measure or an arrow uses (`landmarks` in section 5, the arrow anchors in section 7) must be tracked here; the validator checks it.
+- **Where this is read today:** the video-quality check still reads the same list from code (`landmark_quality_configuration.py`). A test proves the two are identical, so when the quality check moves to read this section nothing changes for squats.
+
+```json kinetic:landmarks
+{
+  "importance_weights": {"critical": 0.083, "important": 0.044, "least_impact": 0.030},
+  "critical": ["left_hip", "right_hip", "left_knee", "right_knee", "left_heel", "right_heel"],
+  "important": ["left_shoulder", "right_shoulder", "left_ankle", "right_ankle", "left_foot_index", "right_foot_index", "left_ear", "right_ear"],
+  "least_impact": ["left_elbow", "right_elbow", "left_eye", "right_eye", "nose"],
+  "thresholds": {"visibility": 0.70, "presence": 0.70, "critical_hard_floor": 0.60, "good": 0.85, "acceptable": 0.70},
+  "side_views_use": "near_side"
+}
+```
+
+## 5. Measures
 
 Every number a rule uses is a named measure that lives at a fixed place in the per-rep data. Rules refer to measures by `id`, never to data paths.
 
@@ -89,22 +109,22 @@ Every number a rule uses is a named measure that lives at a fixed place in the p
 
 ```json kinetic:measures
 [
-  {"id": "lean_at_bottom", "label": "Torso lean at the bottom", "field": "back_data.back_angle_at_bottom", "unit": "degrees from vertical", "views": ["side"],
+  {"id": "lean_at_bottom", "label": "Torso lean at the bottom", "field": "back_data.back_angle_at_bottom", "unit": "degrees from vertical", "views": ["side"], "landmarks": ["shoulder", "hip"],
    "definition": "Torso's angle from vertical at the lowest point of the rep (shoulder to hip, world landmarks)."},
-  {"id": "ankle_deg", "label": "Ankle range at the bottom", "field": "ankle_data.dorsiflexion_at_bottom", "unit": "degrees from vertical", "views": ["side"],
+  {"id": "ankle_deg", "label": "Ankle range at the bottom", "field": "ankle_data.dorsiflexion_at_bottom", "unit": "degrees from vertical", "views": ["side"], "landmarks": ["knee", "ankle"],
    "definition": "Shin's angle from vertical at the lowest point of the rep (knee to ankle). A stand-in for ankle dorsiflexion."},
-  {"id": "depth_ratio", "label": "Depth: hips against knees", "field": "depth_data.hip_below_knee_ratio", "unit": "share of upright torso length", "views": ["side", "angled"],
+  {"id": "depth_ratio", "label": "Depth: hips against knees", "field": "depth_data.hip_below_knee_ratio", "unit": "share of upright torso length", "views": ["side", "angled"], "landmarks": ["shoulder", "hip", "knee"],
    "definition": "How far the hips are below the knees at the bottom, divided by the longest upright torso length seen (positive = hips lower than knees). Works from the side and from an angle; a front view shifts it by about 0.3 so it is not used."},
-  {"id": "lowering_s", "label": "Lowering time", "field": "tempo_data.eccentric", "unit": "seconds", "views": ["any"], "valid_above": 0,
+  {"id": "lowering_s", "label": "Lowering time", "field": "tempo_data.eccentric", "unit": "seconds", "views": ["any"], "valid_above": 0, "landmarks": ["shoulder", "hip", "knee"],
    "definition": "Time spent moving down: speed above 15% of the rep's top speed counts as moving, the near-top and near-bottom zones are 25% of the range, ranges under 20 degrees are ignored."},
-  {"id": "knee_ankle_ratio", "label": "Knee gap against ankle gap at the bottom", "field": "stability_data.knee_ankle_ratio_at_bottom", "unit": "ratio", "views": ["front"],
+  {"id": "knee_ankle_ratio", "label": "Knee gap against ankle gap at the bottom", "field": "stability_data.knee_ankle_ratio_at_bottom", "unit": "ratio", "views": ["front"], "landmarks": ["knee", "ankle"],
    "definition": "Horizontal distance between the knees divided by the distance between the ankles, at the frames where the hips are lowest. Knees normally travel out as you sit, so a ratio near 1.0 means the knees stayed as close as the feet."},
-  {"id": "knee_travel", "label": "How much the knees move in and out", "field": "stability_data.knee_travel", "unit": "summed change in the ratio over the rep", "views": ["front"],
+  {"id": "knee_travel", "label": "How much the knees move in and out", "field": "stability_data.knee_travel", "unit": "summed change in the ratio over the rep", "views": ["front"], "landmarks": ["knee", "ankle"],
    "definition": "Sum of the frame-to-frame change in knee gap divided by ankle gap over the rep. Only used to choose which two reps to show; it does not separate a good clip from a faulty one."}
 ]
 ```
 
-## 5. Rep counting
+## 6. Rep counting
 
 A rep is a hip-angle cycle: standing, descending, bottom, ascending, standing.
 
@@ -137,7 +157,7 @@ A rep is a hip-angle cycle: standing, descending, bottom, ascending, standing.
 }
 ```
 
-## 6. Rules
+## 7. Rules
 
 **The engine rules every exercise shares:**
 
@@ -167,7 +187,7 @@ A rep is a hip-angle cycle: standing, descending, bottom, ascending, standing.
 
 Where several rules share a group, the first that fires wins: lean (`lean_high`, `lean_growth`, `lean_steady`), ankle (`ankle_limited`, `ankle_good`), lowering (`pace_drift`, `lowering_quick`, `lowering_controlled`).
 
-**Depth is never a "work on".** The two depth rules are flags the app turns into a gentle "Try next" card or a "bodyweight first" card (section 9).
+**Depth is never a "work on".** The two depth rules are flags the app turns into a gentle "Try next" card or a "bodyweight first" card (section 10).
 
 **What the evidence says, honestly:**
 - `lowering_quick`: no real-speed clip is that fast (real clips lower in 0.7 to 1.3 s). The 0.6 s figure was first set from clips that had been saved at 3x speed.
@@ -177,7 +197,7 @@ Where several rules share a group, the first that fires wins: lean (`lean_high`,
 - `depth_*`: good-depth sets sit at +0.1 to +0.2, a labelled "depth good" clip near 0, a labelled "depth fault" clip at −0.26.
 - Nothing has a trainer's sign-off yet.
 
-The `comparison` of each rule says what the before/after video shows (section 8). `picture` says which rep the still picture shows.
+The `comparison` of each rule says what the before/after video shows (section 9). `picture` says which rep the still picture shows.
 
 ```json kinetic:rules
 [
@@ -324,7 +344,7 @@ The `comparison` of each rule says what the before/after video shows (section 8)
 ]
 ```
 
-## 7. Selection: how rule results become a short screen
+## 8. Selection: how rule results become a short screen
 
 `min_reps` is the smallest set we give feedback on; the backend quality gate rejects under 3 reps before that. The first rep is skipped for the "share" rules when the set has more than `skip_first_rep_when_more_than` reps (it is often a warm-up). A rule needs `min_with_data` reps with a usable value before it may fire. The topic order is priority: safety first, then pace.
 
@@ -342,9 +362,9 @@ The `comparison` of each rule says what the before/after video shows (section 8)
 }
 ```
 
-## 8. Visuals: the before/after video and the picture
+## 9. Visuals: the before/after video and the picture
 
-The app plays the **user's own video twice side by side**, each copy jumping to a chosen rep. The server renders nothing. The backend only says which issue, which two reps, when each starts, bottoms out and ends, and where the arrow goes. Both copies **freeze together at the bottom of the rep** with an arrow and a short label, then play on; a note under the video repeats the first "Work on" line and its why. Each rule's `comparison` (section 6) chooses the reps with these picks and pools:
+The app plays the **user's own video twice side by side**, each copy jumping to a chosen rep. The server renders nothing. The backend only says which issue, which two reps, when each starts, bottoms out and ends, and where the arrow goes. Both copies **freeze together at the bottom of the rep** with an arrow and a short label, then play on; a note under the video repeats the first "Work on" line and its why. Each rule's `comparison` (section 7) chooses the reps with these picks and pools:
 
 - **Picks:** `typical_early` (closest to the median of the person's early reps), `min`, `max`, `closest_to_median`, `middle`.
 - **Pools:** `all`, `flagged` (the reps the rule flagged, or all if none), `after_first`, `first_third`, `last_third`. A pool with no usable value falls back to all reps.
@@ -367,7 +387,7 @@ The app plays the **user's own video twice side by side**, each copy jumping to 
 }
 ```
 
-## 9. Screen
+## 10. Screen
 
 Fixed lines under the results, spoken by the Listen button. The third reminder is the permanent pain line, shown separately. Depth cards: a very shallow depth shows "bodyweight first" even when there is something to work on; a short depth shows "sit a little lower" only when there is nothing else to work on. The frontend still holds copies of this text; the drift tests fail if they differ.
 
@@ -393,7 +413,7 @@ Fixed lines under the results, spoken by the Listen button. The third reminder i
 }
 ```
 
-## 10. Progression
+## 11. Progression
 
 The AI still writes a form score and per-rep scores. They are not shown on the Analysis tab, but the Progression tab, history and the next-weight recommendation still use them. Progression ignores equipment, so a kettlebell user could be told a weight that does not exist (kettlebells come in fixed sizes). Not modelled in this spec yet.
 
@@ -404,7 +424,7 @@ The AI still writes a form score and per-rep scores. They are not shown on the A
 }
 ```
 
-## 11. Not measured
+## 12. Not measured
 
 ```json kinetic:not_measured
 [
@@ -418,7 +438,7 @@ The AI still writes a form score and per-rep scores. They are not shown on the A
 ]
 ```
 
-## 12. Evidence and tests
+## 13. Evidence and tests
 
 17 clips, all at **original speed**. The old `processed_videos` v1 to v6 files are saved at 3x speed and must never be used. Per-rep data from each clip is in `tests/golden/goblet-squat/reps/`, and `expected.json` records what the rules must say. `proof` lists, for each *tested* rule, a clip it fires on and a clip it stays silent on; the tests check every one. Run: `python3 -m unittest discover -s tests -t .` from the `backend` folder.
 
@@ -455,7 +475,7 @@ The AI still writes a form score and per-rep scores. They are not shown on the A
 }
 ```
 
-## 13. Decisions and change log
+## 14. Decisions and change log
 
 The product owner has not answered these yet; I used the recommendations and marked what is done. The goal is hard-coded to strength (section 2).
 
@@ -476,7 +496,8 @@ The product owner has not answered these yet; I used the recommendations and mar
   ],
   "changelog": [
     {"version": "1.0.0", "date": "2026-11-12", "text": "First spec: thresholds and wording moved out of the code."},
-    {"version": "2.0.0", "date": "2026-11-12", "text": "13-section structure with a declarative rules list, a validator and a template. Goal profiles (strength only). Rule status draft, tested or validated."}
+    {"version": "2.0.0", "date": "2026-11-12", "text": "13-section structure with a declarative rules list, a validator and a template. Goal profiles (strength only). Rule status draft, tested or validated."},
+    {"version": "2.1.0", "date": "2026-11-12", "text": "New landmarks section (14 sections): which body points matter and how much, plus the visibility thresholds, recorded exactly as the video-quality check uses them today. Each measure now names the body parts it uses."}
   ]
 }
 ```

@@ -23,7 +23,7 @@ _BLOCK = re.compile(r"```json kinetic:([a-z_]+)[ \t]*\n(.*?)\n```", re.DOTALL)
 
 # Every module a finished exercise must have. The sections that make them up are all required by the validator; this list is
 # what `readiness()` reports on (plus whether the golden test data exists on disk).
-REQUIRED_MODULES = ("capture", "measures", "rep_counting", "rules", "visuals", "prompt_reference", "golden_tests")
+REQUIRED_MODULES = ("capture", "landmarks", "measures", "rep_counting", "rules", "visuals", "prompt_reference", "golden_tests")
 
 # The goal every analysis is judged against today. Hard-coded on purpose: only strength has labelled clips.
 DEFAULT_GOAL = "strength"

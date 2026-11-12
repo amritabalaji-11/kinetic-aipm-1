@@ -12,23 +12,24 @@ The ID is the **movement slug**, lowercase and hyphenated (`goblet-squat`, `db-d
 
 ## The file
 
-A spec is a document with 13 numbered sections, **in this order**. Each section has prose for people and exactly one machine block, a fenced block whose first line is `json kinetic:<section>`. Only the blocks are read by code.
+A spec is a document with 14 numbered sections, **in this order**. Each section has prose for people and exactly one machine block, a fenced block whose first line is `json kinetic:<section>`. Only the blocks are read by code.
 
 | # | Section | What it holds |
 |---|---|---|
 | 1 | `identity` | `exercise_id`, `name`, `spec_version` (like 1.0.0), `status` (`draft`, `validated` or `retired`), `family`, `aliases`, `equipment_variants` (catalogue id and equipment), `reference_file_stem` (the coaching reference file), `trainer_signoff` (null, or name and date), `updated` |
 | 2 | `goal_profiles` | `default`, `supported` goals, `unsupported` goals with the reason, and `profiles`: for each supported goal, `overrides` (paths to change from the base spec). A goal that is not supported is refused. Strength is the only goal today. |
 | 3 | `capture` | `preferred_view`, `views` (which camera_view values each view group holds), `target_reps`, `tips` (each a bold line and its reason), `view_notes` (what a view cannot show) |
-| 4 | `measures` | The named measurements. Each has an `id`, `label`, `field` (where it is in the per-rep data, as `section.key`), `unit`, `views`, `definition` (landmarks and calculation), and optionally `valid_above` (values at or below it count as missing) |
-| 5 | `rep_counting` | `counter` type, `signal`, `start_phase` (top or bottom), `partial_last_rep`, `unilateral`, `timed`, `thresholds`, `setup_outlier` |
-| 6 | `rules` | The coaching rules (below) |
-| 7 | `selection` | How rule results become a short screen: `min_reps`, `min_with_data`, `skip_first_rep_when_more_than`, `majority_share`, `max_items_per_list`, `max_items_when_few_reps`, `max_words_per_line`, `work_on_order`, `went_well_order` |
-| 8 | `visuals` | `key_moment` (which frame field and min or max), `pad_seconds`, `freeze_seconds`, `slow_target_seconds`, `arrow_window_seconds`, `min_reps`, `single_label`, `picture_style`, `reference_clip` |
-| 9 | `screen` | `reminders`, `pain_line`, `depth_cards` (a gentle "try next" and a "bodyweight first" card, or empty) |
-| 10 | `progression` | `status` (not_modelled or modelled) and `notes` |
-| 11 | `not_measured` | What is deliberately left out, each with the reason |
-| 12 | `evidence` | `golden_dir`, the `clips` (id, view, reps, label, source recording, true rep count if known), and `proof` |
-| 13 | `decisions` | `open` questions (number, text, recommendation, status) and the `changelog` (the last entry must match `identity.spec_version`) |
+| 4 | `landmarks` | Which of the 33 body points matter for this exercise and how much: `importance_weights`, the `critical`, `important` and `least_impact` lists (a point not listed is ignored), `thresholds` for accepting a video (visibility, presence, a hard floor for critical points, good and acceptable quality), and `side_views_use` (`near_side` or `all`). The weights of the tracked points must add up to 1. Every body part a measure or an arrow uses must be tracked |
+| 5 | `measures` | The named measurements. Each has an `id`, `label`, `field` (where it is in the per-rep data, as `section.key`), `unit`, `views`, `definition` (landmarks and calculation), `landmarks` (the body parts it uses, each standing for both sides), and optionally `valid_above` (values at or below it count as missing) |
+| 6 | `rep_counting` | `counter` type, `signal`, `start_phase` (top or bottom), `partial_last_rep`, `unilateral`, `timed`, `thresholds`, `setup_outlier` |
+| 7 | `rules` | The coaching rules (below) |
+| 8 | `selection` | How rule results become a short screen: `min_reps`, `min_with_data`, `skip_first_rep_when_more_than`, `majority_share`, `max_items_per_list`, `max_items_when_few_reps`, `max_words_per_line`, `work_on_order`, `went_well_order` |
+| 9 | `visuals` | `key_moment` (which frame field and min or max), `pad_seconds`, `freeze_seconds`, `slow_target_seconds`, `arrow_window_seconds`, `min_reps`, `single_label`, `picture_style`, `reference_clip` |
+| 10 | `screen` | `reminders`, `pain_line`, `depth_cards` (a gentle "try next" and a "bodyweight first" card, or empty) |
+| 11 | `progression` | `status` (not_modelled or modelled) and `notes` |
+| 12 | `not_measured` | What is deliberately left out, each with the reason |
+| 13 | `evidence` | `golden_dir`, the `clips` (id, view, reps, label, source recording, true rep count if known), and `proof` |
+| 14 | `decisions` | `open` questions (number, text, recommendation, status) and the `changelog` (the last entry must match `identity.spec_version`) |
 
 ## Rules
 
@@ -58,6 +59,12 @@ Every test judges the reps the rule considers: all counted reps, minus the first
 | `growth_vs_start` | the later reps are `growth` or more above the median of the person's own first `baseline_reps` reps, on at least `min_flagged` reps. "Later" is the second half of the set, but never reps that make up the start |
 | `steady_vs_start` | the later reps are within `growth_max` of the person's own start; the reps within `margin` of it are listed |
 | `drop_over_thirds` | the last third is `drop` or more below the first third and at most `last_over_first_max` of it, and the typical value is at least `typical_min` |
+
+### Landmarks
+
+MediaPipe names 33 body points (`schema.LANDMARK_NAMES`, for example `left_hip`). The `landmarks` section lists the ones that matter under three importance levels: `critical`, `important` and `least_impact`. A point not listed is ignored. `side_views_use` is `near_side` (from the side, judge only the points on the side nearest the camera, plus the nose) or `all`.
+
+A measure or an arrow names a body part without a side, and it stands for both sides: `nose`, `eye`, `ear`, `shoulder`, `elbow`, `wrist`, `hip`, `knee`, `ankle`, `heel`, `foot`. Both sides must be tracked, because either may be the one nearest the camera. The validator refuses a measure or arrow that uses a body part the spec does not track.
 
 ### The comparison (before/after video and picture)
 

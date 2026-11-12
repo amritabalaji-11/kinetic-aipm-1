@@ -64,6 +64,43 @@ class RepCountingMatchesSpec(unittest.TestCase):
             self.assertIn(key, source.get(section, {}), f"{m['id']}: {m['field']} is not in the per-rep data")
 
 
+class LandmarksMatchTheCode(unittest.TestCase):
+    """The spec's landmark list is what the video-quality check really uses today. When that check moves to read the spec, nothing changes for squats."""
+
+    @staticmethod
+    def code_to_spec_name(code_name):
+        name = code_name.lower()
+        return "left_foot_index" if name == "left_foot" else "right_foot_index" if name == "right_foot" else name
+
+    def test_the_importance_of_every_tracked_landmark_is_identical(self):
+        from exercises import schema as S
+        from mediapipe_code.mp_utils.quality import landmark_quality_configuration as cfg
+        lm = SPEC["landmarks"]
+        code = {}
+        for name, data in cfg.LANDMARKS.items():
+            code[self.code_to_spec_name(name)] = (data["category"], data["weight"], data["id"])
+        spec = {}
+        for level in S.IMPORTANCE:
+            for name in lm[level]:
+                spec[name] = (level, lm["importance_weights"][level], S.LANDMARK_NAMES.index(name))
+        self.assertEqual(spec, code)
+
+    def test_the_thresholds_are_identical(self):
+        from mediapipe_code.mp_utils.quality import landmark_quality_configuration as cfg
+        th = SPEC["landmarks"]["thresholds"]
+        self.assertEqual(th["visibility"], cfg.VISIBILITY_THRESHOLD)
+        self.assertEqual(th["presence"], cfg.PRESENCE_THRESHOLD)
+        self.assertEqual(th["critical_hard_floor"], cfg.CRITICAL_HARD_FLOOR)
+        self.assertEqual(th["good"], cfg.GOOD_THRESHOLD)
+        self.assertEqual(th["acceptable"], cfg.ACCEPTABLE_THRESHOLD)
+
+    def test_from_the_side_only_the_near_side_is_judged(self):
+        source = read(BACKEND / "mediapipe_code" / "landmark_framework.py")
+        self.assertEqual(SPEC["landmarks"]["side_views_use"], "near_side")
+        self.assertIn('name.startswith("LEFT") or name == "NOSE"', source)
+        self.assertIn('name.startswith("RIGHT") or name == "NOSE"', source)
+
+
 class FrontendMatchesSpec(unittest.TestCase):
     def test_minimum_reps(self):
         want = SPEC["selection"]["min_reps"]

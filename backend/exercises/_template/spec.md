@@ -1,6 +1,6 @@
 # New exercise — exercise spec (template)
 
-Copy this folder to `exercises/<your-exercise-id>/`, rename the ID everywhere, and fill in every section. Every section has one machine block; the validator (`exercises/validate.py`) checks the whole file and the tests replay your labelled clips. Read `exercises/SCHEMA.md` first: it explains every field and the vocabulary. This template is valid as it stands, so `python3 -m unittest tests.test_template` tells you it still follows the structure after you edit it. Everything marked TODO is a placeholder to replace.
+Copy this folder to `exercises/<your-exercise-id>/`, rename the ID everywhere, and fill in every section (there are 14). Every section has one machine block; the validator (`exercises/validate.py`) checks the whole file and the tests replay your labelled clips. Read `exercises/SCHEMA.md` first: it explains every field and the vocabulary. This template is valid as it stands, so `python3 -m unittest tests.test_template` tells you it still follows the structure after you edit it. Everything marked TODO is a placeholder to replace.
 
 Folders that start with an underscore are never registered, so this template is never mistaken for an exercise.
 
@@ -52,18 +52,33 @@ TODO: which camera views show which checks, and what to tell the user before the
 }
 ```
 
-## 4. Measures
+## 4. Landmarks
+
+TODO: which body points matter for this exercise and how much. MediaPipe always finds all 33; a point that is not listed is ignored. Critical points must be seen clearly or the video is not accepted. For a squat the legs count most; for a chest press it would be the shoulders, elbows and wrists. The weights of all tracked points must add up to 1. Every body part a measure or an arrow uses must be tracked here.
+
+```json kinetic:landmarks
+{
+  "importance_weights": {"critical": 0.4, "important": 0.1, "least_impact": 0.03},
+  "critical": ["left_hip", "right_hip"],
+  "important": ["left_shoulder", "right_shoulder"],
+  "least_impact": [],
+  "thresholds": {"visibility": 0.70, "presence": 0.70, "critical_hard_floor": 0.60, "good": 0.85, "acceptable": 0.70},
+  "side_views_use": "near_side"
+}
+```
+
+## 5. Measures
 
 TODO: every number a rule uses, with where it lives in the per-rep data and how it is calculated.
 
 ```json kinetic:measures
 [
-  {"id": "example_measure", "label": "TODO label", "field": "section_name.field_name", "unit": "TODO unit", "views": ["side"],
-   "definition": "TODO landmarks and calculation"}
+  {"id": "example_measure", "label": "TODO label", "field": "section_name.field_name", "unit": "TODO unit", "views": ["side"], "landmarks": ["hip"],
+   "definition": "TODO calculation, naming the landmarks it uses"}
 ]
 ```
 
-## 5. Rep counting
+## 6. Rep counting
 
 TODO: the signal to follow, where a rep starts (top or bottom), thresholds, how setup movements are ignored, one-sided or timed exercises.
 
@@ -80,7 +95,7 @@ TODO: the signal to follow, where a rep starts (top or bottom), thresholds, how 
 }
 ```
 
-## 6. Rules
+## 7. Rules
 
 TODO: one rule per thing worth saying. Each rule needs a test from the vocabulary in `exercises/schema.py`, wording, a status (`draft` until labelled clips prove it) and evidence. Add a `comparison` to every rule that should show a before/after video and picture.
 
@@ -102,7 +117,7 @@ TODO: one rule per thing worth saying. Each rule needs a test from the vocabular
 ]
 ```
 
-## 7. Selection
+## 8. Selection
 
 TODO: the fewest reps worth giving feedback on, how many items to show, and the order of topics (safety first).
 
@@ -120,7 +135,7 @@ TODO: the fewest reps worth giving feedback on, how many items to show, and the 
 }
 ```
 
-## 8. Visuals
+## 9. Visuals
 
 TODO: what the key moment of a rep is for this exercise (the bottom of a squat, the lockout of a deadlift), and the video settings.
 
@@ -138,7 +153,7 @@ TODO: what the key moment of a rep is for this exercise (the bottom of a squat, 
 }
 ```
 
-## 9. Screen
+## 10. Screen
 
 TODO: the fixed reminders (breathing, bracing, driving force) and the pain line.
 
@@ -150,19 +165,19 @@ TODO: the fixed reminders (breathing, bracing, driving force) and the pain line.
 }
 ```
 
-## 10. Progression
+## 11. Progression
 
 ```json kinetic:progression
 {"status": "not_modelled", "notes": "TODO"}
 ```
 
-## 11. Not measured
+## 12. Not measured
 
 ```json kinetic:not_measured
 [{"item": "TODO something we deliberately do not measure", "reason": "TODO why"}]
 ```
 
-## 12. Evidence and tests
+## 13. Evidence and tests
 
 TODO: label clips at original speed (never a sped-up or re-processed copy), store each clip's per-rep data in `tests/golden/<id>/reps/<clip>.json`, and record what the rules must say in `expected.json`. A rule with a clip it fires on and a clip it is silent on can be marked `tested`.
 
@@ -174,7 +189,7 @@ TODO: label clips at original speed (never a sped-up or re-processed copy), stor
 }
 ```
 
-## 13. Decisions and change log
+## 14. Decisions and change log
 
 ```json kinetic:decisions
 {

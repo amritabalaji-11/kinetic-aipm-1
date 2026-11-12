@@ -142,6 +142,49 @@ class ValidatorTests(unittest.TestCase):
         self.assertFails(lambda s: rule(s, "lean_high")["comparison"]["left"].update(pick="best_vibes"), "pick")
         self.assertFails(lambda s: rule(s, "lean_high")["comparison"]["left"].update(pool="everyone"), "pool")
 
+    # ---- landmarks
+    def test_a_landmark_must_be_a_real_mediapipe_name(self):
+        self.assertFails(lambda s: s["landmarks"]["critical"].append("left_earlobe"), "landmark names")
+
+    def test_a_landmark_cannot_be_listed_twice(self):
+        self.assertFails(lambda s: s["landmarks"]["important"].append("left_hip"), "already listed under critical")
+
+    def test_the_weights_must_add_up_to_one(self):
+        self.assertFails(lambda s: s["landmarks"]["importance_weights"].update(critical=0.2), "add up to")
+
+    def test_there_must_be_a_critical_landmark(self):
+        def none_critical(s):
+            s["landmarks"]["important"] += s["landmarks"]["critical"]
+            s["landmarks"]["critical"] = []
+        self.assertFails(none_critical, "at least one critical")
+
+    def test_thresholds_must_make_sense(self):
+        self.assertFails(lambda s: s["landmarks"]["thresholds"].update(critical_hard_floor=0.9), "cannot be above visibility")
+        self.assertFails(lambda s: s["landmarks"]["thresholds"].pop("presence"), "thresholds")
+
+    def test_side_view_use_comes_from_the_vocabulary(self):
+        self.assertFails(lambda s: s["landmarks"].update(side_views_use="both_sides"), "side_views_use")
+
+    def test_a_measure_may_not_use_a_body_part_the_spec_does_not_track(self):
+        def drop_ankles(s):
+            s["landmarks"]["important"] = [n for n in s["landmarks"]["important"] if "ankle" not in n]
+            s["landmarks"]["important"] += ["left_wrist", "right_wrist"]
+        self.assertFails(drop_ankles, "uses 'ankle'", "not tracked")
+
+    def test_a_measure_needs_both_sides_of_a_body_part_tracked(self):
+        self.assertFails(lambda s: s["landmarks"]["important"].remove("right_ankle"), "right_ankle", "not tracked")
+
+    def test_a_measure_must_say_which_body_parts_it_uses(self):
+        self.assertFails(lambda s: s["measures"][0].pop("landmarks"), "'landmarks' is missing")
+        self.assertFails(lambda s: s["measures"][0].update(landmarks=["tail"]), "landmarks")
+
+    def test_an_arrow_may_not_point_at_a_body_part_the_spec_does_not_track(self):
+        def drop_knees(s):
+            s["landmarks"]["critical"] = [n for n in s["landmarks"]["critical"] if "knee" not in n]
+            s["landmarks"]["least_impact"] += ["left_wrist", "right_wrist", "left_pinky"]
+        errors = problems(drop_knees)
+        self.assertTrue(any("not tracked" in e and "anchor" in e for e in errors), errors)
+
     # ---- the rest
     def test_the_changelog_must_end_at_the_spec_version(self):
         self.assertFails(lambda s: s["identity"].update(spec_version="9.9.9"), "changelog")
