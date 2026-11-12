@@ -3,6 +3,7 @@ import { Check, Search, X } from "lucide-react"
 import { BODY_AREAS, equipmentOptions, isAiReady, pickerExercises } from "../utils/analysableExercises"
 import { equipmentLabel } from "../utils/exerciseCatalog"
 import { BRICOLAGE, Chip, ChipRow, DM_SANS, GRAY, INK, PURPLE, cardStyle } from "./planUi"
+import { CoachIcon } from "./CoachNote"
 
 const FIRST_PAGE = 8
 const READY_BADGE = { background: "rgba(129,51,255,0.1)", color: PURPLE }
@@ -117,9 +118,12 @@ export default function UploadExercisePicker({ exercise, onPick, onClear }) {
           </>
         )}
 
-        <p style={{ fontFamily: DM_SANS, fontSize: 11, color: GRAY, margin: "12px 2px 0", lineHeight: 1.5 }}>
-          The AI form check works for goblet squats today. More exercises are on the way.
-        </p>
+        <div style={{ display: "flex", alignItems: "flex-start", gap: 10, margin: "12px 2px 0" }}>
+          <CoachIcon size={28} ring />
+          <p style={{ fontFamily: DM_SANS, fontSize: 12.5, color: GRAY, margin: 0, lineHeight: 1.45 }}>
+            I can check goblet squats today, with more on the way. I only comment on what I can see clearly, so a side view, head to toe, helps me most.
+          </p>
+        </div>
       </div>
     </div>
   )

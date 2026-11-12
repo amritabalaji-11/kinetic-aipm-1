@@ -9,6 +9,7 @@ import FilmingTips from "../components/FilmingTips"
 import LoadCard from "../components/LoadCard"
 import { convertWeight, readLastLoad, saveLastLoad } from "../utils/weightInput"
 import UploadExercisePicker from "../components/UploadExercisePicker"
+import { CoachIcon } from "../components/CoachNote"
 import { BRICOLAGE, DM_SANS, GRAY, INK } from "../components/planUi"
 import { FLAT_LILAC } from "../utils/pageBackground"
 
@@ -135,8 +136,11 @@ export default function UploadScanPage() {
           What did you film? Pick a body area, then the exercise.
         </p>
         {tooFewReps ? (
-          <div role="alert" className="mb-4 rounded-2xl p-3 text-sm" style={{ background: "#FFFBEB", border: "1px solid #FDE68A", color: "#92400E", fontFamily: DM_SANS }}>
-            <strong>Your last video had only {tooFewReps} {tooFewReps === 1 ? "rep" : "reps"}.</strong> Please film at least {MIN_REPS} reps so we can give you reliable feedback.
+          <div role="alert" className="mb-4 rounded-2xl p-3 text-sm flex items-start gap-3" style={{ background: "#FFFBEB", border: "1px solid #FDE68A", color: "#92400E", fontFamily: DM_SANS }}>
+            <CoachIcon size={28} ring />
+            <span>
+              <strong>I only saw {tooFewReps} {tooFewReps === 1 ? "rep" : "reps"} in your last video.</strong> Could you film at least {MIN_REPS}? It helps me give you feedback you can trust.
+            </span>
           </div>
         ) : null}
         <div className="mb-4">
