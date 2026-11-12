@@ -30,25 +30,25 @@ const DONE_EVENTS = new Set(["analysis_complete", "analysis_ready"])
 
 
 const ERROR_USER_COPY = {
-  occlusion_left_side: "Part of your left side was hidden from view. Rather than switching sides, rotate your camera slightly toward the front of your body.",
-  occlusion_right_side: "Part of your right side was hidden from view. Rather than switching sides, rotate your camera slightly toward the front of your body.",
-  occlusion_both_sides: "We couldn't see your lower body clearly. Try angling your camera slightly toward the front so both legs are fully in view.",
-  out_of_frame_left: "Your left side kept moving out of frame. Move the camera back slightly so your full body stays visible throughout the squat.",
-  out_of_frame_right: "Your right side kept moving out of frame. Move the camera back slightly so your full body stays visible throughout the squat.",
-  poor_video_quality: "We couldn't read your body position clearly. Film from your side with good lighting and a clear background.",
-  no_reps_detected: "We couldn't detect any squats in your video. Make sure you're doing goblet squats and your full body is in frame from the start.",
-  insufficient_reps: "Film a full set to get your analysis. We need at least 3 complete reps — squat all the way down and all the way back up for each one.",
-  VIDEO_TOO_SHORT: "We didn't catch a complete rep. Record at least one full squat and try again.",
-  NO_MOVEMENT_DETECTED: "The video looks still. Make sure the camera is filming your full movement.",
-  NO_REPS_DETECTED: "We couldn't detect a full squat rep. Make sure your full body is visible and complete at least one rep.",
-  BIOMECHANICS_COMPUTE_ERROR: "Something went wrong reading your movement data. Try re-uploading.",
-  HAIKU_TIMEOUT: "Form analysis is taking longer than expected. We'll retry automatically — hang tight.",
-  HAIKU_NO_OUTPUT: "The AI couldn't interpret your movement data. Try re-uploading — if it persists, let us know.",
-  HAIKU_CONTEXT_OVERFLOW: "That video is too long for detailed analysis. Try uploading a 30–60 second clip.",
-  FRAME_EXTRACTION_FAILED: "We identified form issues but couldn't extract the frames to show you. Your text coaching is still available below.",
-  PROGRESSION_UNAVAILABLE: "Your form analysis is ready, but we couldn't generate your progression data this time.",
-  PIPELINE_TIMEOUT: "Your analysis is taking unusually long. We've flagged it — try again and your previous data is saved.",
-  SYSTEM_ERROR: "Something went wrong on our end. Your video is saved — try again in a moment.",
+  occlusion_left_side: "Part of your left side was hidden from me. Could you turn the camera slightly toward the front of your body, rather than switching sides?",
+  occlusion_right_side: "Part of your right side was hidden from me. Could you turn the camera slightly toward the front of your body, rather than switching sides?",
+  occlusion_both_sides: "I couldn't see your lower body clearly. Could you angle the camera slightly toward the front, so both legs are in view?",
+  out_of_frame_left: "Your left side kept moving out of frame. Could you move the camera back a little, so your whole body stays in view through the squat?",
+  out_of_frame_right: "Your right side kept moving out of frame. Could you move the camera back a little, so your whole body stays in view through the squat?",
+  poor_video_quality: "I couldn't read your body position clearly. Could you film from your side, in good light, with a clear background?",
+  no_reps_detected: "I couldn't spot any squats in that video. Please check you're doing goblet squats, with your full body in frame from the start.",
+  insufficient_reps: "I couldn't count enough reps to work with. Could you film at least 5, going all the way down and all the way back up each time?",
+  VIDEO_TOO_SHORT: "That video was too short for me to catch a full rep. Could you film a full set of at least 5 reps and try again?",
+  NO_MOVEMENT_DETECTED: "The video looks still to me. Could you check the camera is filming your whole movement?",
+  NO_REPS_DETECTED: "I couldn't make out a full squat. Could you make sure your whole body is visible, and film at least 5 reps?",
+  BIOMECHANICS_COMPUTE_ERROR: "Sorry, something went wrong while I was reading your movement. Could you try uploading again?",
+  HAIKU_TIMEOUT: "I'm taking longer than expected on your analysis. I'll try again automatically, so hang tight.",
+  HAIKU_NO_OUTPUT: "I couldn't make sense of your movement data this time. Could you try uploading again? If it keeps happening, please let us know.",
+  HAIKU_CONTEXT_OVERFLOW: "That video is too long for me to look at in detail. Could you upload a shorter clip, around 30 to 60 seconds?",
+  FRAME_EXTRACTION_FAILED: "I found things to work on, but couldn't pull out the frames to show you. Your written coaching is still below.",
+  PROGRESSION_UNAVAILABLE: "Your form analysis is ready, but I couldn't put your progression together this time.",
+  PIPELINE_TIMEOUT: "This is taking much longer than it should. I've flagged it. Please try again, and your earlier data is safe.",
+  SYSTEM_ERROR: "Sorry, something went wrong on our end. Your video is saved, so please try again in a moment.",
 }
 
 // If the connection drops (a phone locking its screen, a weak signal), try again instead of giving up: ask the server
@@ -126,7 +126,7 @@ function useSSEStream(analysisId) {
       if (eventName === "error") {
         const code = parsed.error_code || "SYSTEM_ERROR"
         const retryable = parsed.retryable 
-        const userMessage = ERROR_USER_COPY[code] || "Something went wrong. Please try again."
+        const userMessage = ERROR_USER_COPY[code] || "Sorry, something went wrong. Could you try again?"
 
      
         setSteps(prev => prev.map(s => s.status === "active" ? { ...s, status: "error" } : s))
