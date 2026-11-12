@@ -6,6 +6,8 @@
 // `logged` items get a row per round. `track` says which of weight, reps and time that row asks for (all optional).
 // Other items are follow-along: tick `done`.
 import { getExercise } from "./exerciseCatalog"
+import { restSecondsFromNote } from "./restNote"
+import { allRoundsDone, currentRound, logOf, roundsSpec, roundTimes, totalSeconds } from "./roundsForTime"
 
 let seq = 1
 const uid = () => `${Date.now()}-${seq++}`
@@ -115,14 +117,7 @@ export function currentBlockIndex(blocks) {
   return blocks.findIndex((b) => b.items.some(isActionable) && !isBlockComplete(b))
 }
 
-// "3 Rounds · 60-90 secs rest" -> 90. Falls back to 90.
-export function restSecondsFromNote(note = "") {
-  const secs = note.match(/(\d+)(?:-(\d+))?\s*secs?\s*(?:rest|off)/i)
-  if (secs) return Number(secs[2] || secs[1])
-  const mins = note.match(/(\d+)\s*min(?:ute)?s?\s*rest/i)
-  if (mins) return Number(mins[1]) * 60
-  return 90
-}
+export { restSecondsFromNote } // the rest line in a note is read in restNote.js so the rounds logic can use it too
 
 // What gets saved when the workout finishes: only ticked sets, grouped by exercise.
 export function flattenForSave(workout) {
@@ -135,6 +130,12 @@ export function flattenForSave(workout) {
       const ran = run ? Math.round(((run.pausedAtMs ?? Date.now()) - run.startedAtMs - (run.pausedTotalMs || 0)) / 1000) : 0
       const seconds = Math.min(planned || ran, ran > 0 ? ran : planned)
       if (seconds > 0) exercises.push({ id: `routine:${b.source?.video_id ?? "mine"}`, name: b.title, sets: [{ weight: "", reps: "", seconds: String(seconds) }] })
+    }
+    // a "rounds for time" section, once finished, is saved as one timed entry: the section and its total time
+    const rspec = b.completed ? roundsSpec(b) : null
+    if (rspec) {
+      const total = totalSeconds(logOf(b, rspec))
+      if (total > 0) exercises.push({ id: `rounds:${b.id}`, name: b.tag, sets: [{ weight: "", reps: "", seconds: String(total) }] })
     }
     for (const it of b.items) {
       if (!it.logged) continue
@@ -161,8 +162,19 @@ export function nextUpItems(blocks) {
     const pending = logged.filter((it) => it.sets[r] && !it.sets[r].completed)
     if (pending.length) return { tag: block.tag, items: pending.slice(0, 2).map((it) => pick(it, `Set ${r + 1} of ${rounds}`)) }
   }
+  const rspec = roundsSpec(block)
+  if (rspec) {
+    const log = logOf(block, rspec)
+    if (!allRoundsDone(log)) {
+      const r = currentRound(log)
+      const ticked = log.rounds[r]?.ticks ?? []
+      const left = block.items.filter((it) => !it.rest && !ticked.includes(it.key))
+      if (left.length) return { tag: block.tag, items: left.slice(0, 2).map((it) => pick(it, `Round ${r + 1} of ${log.n}`)) }
+    }
+  } else {
   const todo = block.items.filter((it) => !it.logged && !it.rest && !it.done)
   if (todo.length) return { tag: block.tag, items: todo.slice(0, 2).map((it) => pick(it, it.sub || "")) }
+  }
 
   // this section is done, so look at the one after it
   const nextBlock = blocks.slice(bi + 1).find((b) => b.items.some(isActionable) && !isBlockComplete(b))
