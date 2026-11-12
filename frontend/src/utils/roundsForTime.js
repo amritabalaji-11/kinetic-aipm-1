@@ -1,7 +1,7 @@
 // "Rounds for time": a section whose note says how many rounds to do and how long to rest after every round, for example
 // "4 Rounds · each for TIME · 60 secs rest after every round". Each round is timed, and the rest after it starts by itself.
 //
-//   block.roundLog = { n, restEndsAt, rounds: [ { startedAtMs, pausedBase, ticks: [item keys], endedAtMs?, secs? } ] }
+//   block.roundLog = { n, restEndsAt, pausedAtMs?, rounds: [ { startedAtMs, pausedBase, ticks: [item keys], endedAtMs?, secs?, edited?, note? } ] }
 //
 // Everything here is plain functions of the log and the time, so the screen only has to show the result. The workout can be paused:
 // `pause` is { total, at } = the workout's pausedTotalMs and pausedAtMs, and paused time is left out of a round's time.
@@ -44,7 +44,7 @@ export const liveSeconds = (round, pause, now) => (round?.startedAtMs != null ? 
 const setRound = (log, r, round) => ({ ...log, rounds: Object.assign([...log.rounds], { [r]: round }) })
 
 export function startRound(log, r, at, pause) {
-  if (log.rounds[r]?.startedAtMs != null) return log
+  if (log.rounds[r]?.startedAtMs != null || log.pausedAtMs != null) return log
   return setRound(log, r, { startedAtMs: at, pausedBase: pause.total || 0, ticks: [] })
 }
 
@@ -60,7 +60,7 @@ function endRound(log, r, now, pause, restSecs) {
 // Tick or untick one exercise in round r. The first tick starts the round's clock; the last tick ends the round.
 // A finished round is locked, so its time can't be changed by accident.
 export function tick(log, r, key, keys, now, pause, restSecs) {
-  if (log.rounds[r]?.endedAtMs != null || r !== currentRound(log) || isResting(log, now)) return log
+  if (log.pausedAtMs != null || log.rounds[r]?.endedAtMs != null || r !== currentRound(log) || isResting(log, now)) return log
   const started = startRound(log, r, now, pause)
   const round = started.rounds[r]
   const ticks = round.ticks.includes(key) ? round.ticks.filter((k) => k !== key) : [...round.ticks, key]
@@ -70,7 +70,7 @@ export function tick(log, r, key, keys, now, pause, restSecs) {
 
 // "Finish round": the person says the round is done, so every exercise counts as ticked
 export function finishRound(log, r, keys, now, pause, restSecs) {
-  if (r !== currentRound(log) || isResting(log, now)) return log
+  if (log.pausedAtMs != null || r !== currentRound(log) || isResting(log, now)) return log
   const started = startRound(log, r, now, pause)
   const round = started.rounds[r]
   return endRound(setRound(started, r, { ...round, ticks: [...new Set([...round.ticks, ...keys])] }), r, now, pause, restSecs)
@@ -79,17 +79,42 @@ export function finishRound(log, r, keys, now, pause, restSecs) {
 // When the rest is over (or skipped) the next round starts by itself. It starts when the rest ended, so a phone that was
 // locked during the rest still counts the right time. While the workout is paused nothing moves on.
 export function afterRest(log, now, pause) {
-  if (log.restEndsAt == null || now < log.restEndsAt || pause.at) return log
+  if (log.restEndsAt == null || now < log.restEndsAt || pause.at || log.pausedAtMs != null) return log
   const r = currentRound(log)
   const cleared = { ...log, restEndsAt: null }
   return r < log.n ? startRound(cleared, r, log.restEndsAt, pause) : cleared
 }
-export const skipRest = (log, now, pause) => afterRest({ ...log, restEndsAt: log.restEndsAt == null ? null : Math.min(log.restEndsAt, now) }, now, { total: pause.total, at: null })
+export const skipRest = (log, now, pause) => afterRest({ ...log, pausedAtMs: null, restEndsAt: log.restEndsAt == null ? null : Math.min(log.restEndsAt, now) }, now, { total: pause.total, at: null })
+// "Pause" on the section: stops the round clock, or the rest countdown, until "Resume". Only a round under way or a rest can be paused.
+// Resuming moves the round's start (or the rest's end) later by the time spent paused, so nothing else has to know about it.
+export function pauseRound(log, now) {
+  if (log.pausedAtMs != null || currentRound(log) >= log.n) return log
+  const running = log.rounds[currentRound(log)]?.startedAtMs != null
+  const resting = log.restEndsAt != null && now < log.restEndsAt
+  return running || resting ? { ...log, pausedAtMs: now } : log
+}
+export function resumeRound(log, now) {
+  if (log.pausedAtMs == null) return log
+  const gap = Math.max(0, now - log.pausedAtMs)
+  const r = currentRound(log)
+  const base = { ...log, pausedAtMs: null }
+  if (log.restEndsAt != null) return { ...base, restEndsAt: log.restEndsAt + gap }
+  const round = log.rounds[r]
+  return round?.startedAtMs != null ? setRound(base, r, { ...round, pausedBase: (round.pausedBase || 0) - gap }) : base
+}
+// Change a finished round's time (in seconds, or null to clear it) and add a note. The round is marked as edited.
+export function editRound(log, r, { secs, note }) {
+  const round = log.rounds[r]
+  if (!round || round.endedAtMs == null) return log
+  const clean = secs == null ? null : Math.max(0, Math.min(5999, Math.round(secs)))
+  const text = String(note ?? "").trim().slice(0, 80)
+  return setRound(log, r, { ...round, secs: clean, edited: true, note: text || undefined })
+}
 export const addRestTime = (log, secs) => (log.restEndsAt == null ? log : { ...log, restEndsAt: log.restEndsAt + secs * 1000 })
 export const addRound = (log, spec) => (log.n < spec.maxRounds ? { ...log, n: log.n + 1 } : log)
 
 // Seconds of every finished round, in order
-export const roundTimes = (log) => log.rounds.slice(0, log.n).filter((r) => r?.endedAtMs != null).map((r) => r.secs)
+export const roundTimes = (log) => log.rounds.slice(0, log.n).filter((r) => r?.endedAtMs != null && r.secs != null).map((r) => r.secs)
 export const totalSeconds = (log) => roundTimes(log).reduce((a, b) => a + b, 0)
 
 export const formatClock = (secs) => `${Math.floor(secs / 60)}:${String(secs % 60).padStart(2, "0")}`
