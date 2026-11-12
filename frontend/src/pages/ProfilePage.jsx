@@ -1,5 +1,7 @@
 import { TOP_FADE_BACKGROUND } from "../utils/pageBackground"
+import { useState } from "react"
 import { useNavigate } from "react-router-dom"
+import { CoachIcon, CoachNoteSheet } from "../components/CoachNote"
 import { useUser } from "../context/UserContext"
 
 function MenuItem({ icon, label, onPress, danger }) {
@@ -22,6 +24,7 @@ function MenuItem({ icon, label, onPress, danger }) {
 export default function ProfilePage() {
   const navigate    = useNavigate()
   const { activeUser, clearUser } = useUser()
+  const [coachNoteOpen, setCoachNoteOpen] = useState(false)   // the full note from the AI coach
 
   const userName   = activeUser?.name        || "You"
   const initials   = activeUser?.initials    || userName.charAt(0).toUpperCase()
@@ -83,6 +86,11 @@ export default function ProfilePage() {
 
         <div className="mx-4 flex flex-col gap-2 mb-2">
           <MenuItem
+            label="About your AI coach"
+            onPress={() => setCoachNoteOpen(true)}
+            icon={<CoachIcon size={24} ring />}
+          />
+          <MenuItem
             label="Preferences"
             icon={
               <svg width="20" height="20" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.8}>
@@ -134,6 +142,7 @@ export default function ProfilePage() {
         </div>
 
       </div>
+      <CoachNoteSheet open={coachNoteOpen} onClose={() => setCoachNoteOpen(false)} />
     </div>
   )
 }

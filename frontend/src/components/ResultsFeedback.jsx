@@ -31,7 +31,8 @@ export function ResultsPhoto({ imageSrc, fallbackImageSrc, videoSrc, comparison,
   const showVideo = watching && videoSrc
 
   return (
-    <div className="mx-4 mb-4 rounded-2xl overflow-hidden relative" style={{ background: "#0f0f1a" }}>
+    // With the comparison, the button sits in its own strip under the note instead of over the text.
+    <div className="mx-4 mb-4 rounded-2xl overflow-hidden relative" style={{ background: "#0f0f1a", paddingBottom: showCompare ? 52 : 0 }}>
       {showCompare ? (
         <ComparisonPlayer comparison={comparison} videoSrc={videoSrc} note={note} onFail={() => setCompareFailed(true)} />
       ) : showVideo ? (

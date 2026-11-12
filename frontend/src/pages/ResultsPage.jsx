@@ -6,6 +6,7 @@ import ListenButton from "../components/ListenButton"
 import { buildFeedback } from "../utils/feedbackItems"
 import { MIN_REPS } from "../utils/analysisRules"
 import { hasActiveWorkout } from "../utils/routineBlock"
+import { CoachIcon, CoachNoteLine, CoachNoteSheet } from "../components/CoachNote"
 import { ResultsPhoto, WentWell, WorkOn, TryNext, GreatBanner, WeightNudge, CoachReminder, RepTempoChart } from "../components/ResultsFeedback"
 import FIXTURE_CLEAN        from "../../../fixtures/form-analysis.clean.json"
 import FIXTURE_WITH_ISSUES  from "../../../fixtures/form-analysis.with-issues.json"
@@ -582,6 +583,7 @@ export default function ResultsPage() {
   const [selectedLiveSessionData, setSelectedLiveSessionData] = useState(null)
   const [liveCurrentData,  setLiveCurrentData]  = useState(null)
   const [framePending,    setFramePending]    = useState(false) // annotated picture still being made
+  const [coachNoteOpen,   setCoachNoteOpen]   = useState(false) // the full note from the AI coach
   const [liveCompData,     setLiveCompData]      = useState(null)
   const [userAnnotatedFrameUrl, setUserAnnotatedFrameUrl] = useState(null)
   const [formHistory, setFormHistory] = useState([])
@@ -1614,9 +1616,12 @@ export default function ResultsPage() {
 
             {!statusFailed && tooFewReps && (
               <div className="mx-4 mb-4 rounded-2xl p-4" style={{ background: "#FFFBEB", border: "1px solid #FDE68A" }}>
-                <div className="text-base font-bold" style={{ color: "#92400E" }}>We only saw {repCount} {repCount === 1 ? "rep" : "reps"}</div>
-                <p className="text-sm mt-1 leading-snug" style={{ color: "#92400E" }}>
-                  That isn't enough to tell a pattern from a one-off. Film at least {MIN_REPS} reps and we'll give you feedback you can trust.
+                <div className="flex items-center gap-3">
+                  <CoachIcon size={30} ring />
+                  <div className="text-base font-bold" style={{ color: "#92400E" }}>I only saw {repCount} {repCount === 1 ? "rep" : "reps"} this time</div>
+                </div>
+                <p className="text-sm mt-1.5 leading-snug" style={{ color: "#92400E" }}>
+                  Could you film at least {MIN_REPS}? With a few more reps I can tell a real pattern from a one-off, and give you feedback you can trust.
                 </p>
                 <button type="button" onClick={() => navigate("/upload", { state: { tooFewReps: repCount } })}
                   className="mt-3 w-full py-3 rounded-xl text-white text-sm font-bold"
@@ -1641,6 +1646,7 @@ export default function ResultsPage() {
                   </div>
                 )}
                 <CoachReminder lines={feedback.reminder} />
+                <CoachNoteLine onOpen={() => setCoachNoteOpen(true)} />
               </>
             )}
 
@@ -1711,6 +1717,8 @@ export default function ResultsPage() {
       </div>
 
       {/* Fullscreen Image Modal */}
+      <CoachNoteSheet open={coachNoteOpen} onClose={() => setCoachNoteOpen(false)} />
+
       {fullscreenImage && (
         <div className="fixed inset-0 bg-black/90 z-50 flex items-center justify-center p-4" onClick={() => setFullscreenImage(null)}>
           <button
