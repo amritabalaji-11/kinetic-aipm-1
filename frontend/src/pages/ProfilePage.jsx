@@ -107,6 +107,17 @@ export default function ProfilePage() {
               </svg>
             }
           />
+          {activeUser?.role === "admin" && (
+            <MenuItem
+              label="Admin"
+              onPress={() => navigate("/admin")}
+              icon={
+                <svg width="20" height="20" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.8}>
+                  <path strokeLinecap="round" strokeLinejoin="round" d="M12 3l8 3v6c0 4.5-3.2 8.2-8 9-4.8-.8-8-4.5-8-9V6l8-3z" />
+                </svg>
+              }
+            />
+          )}
           <MenuItem
             label="Settings"
             icon={

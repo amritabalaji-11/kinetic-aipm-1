@@ -14,6 +14,7 @@ from utils.security import get_current_user_id
 router = APIRouter(prefix="/admin", tags=["admin"])
 
 _TIME_FORMAT = "%Y-%m-%d %H:%M:%S"  # the same text shape both databases store dates in
+SEEDED_DEMO_USER = "00000000-0000-0000-0000-000000000000"  # the placeholder profile init_db creates: not a real person, so it is left out of every count
 
 
 async def require_admin(user_id: str = Depends(get_current_user_id)) -> str:
@@ -72,13 +73,13 @@ async def summary(admin_id: str = Depends(require_admin)):
                UNION SELECT user_id FROM user_routines WHERE created_at >= :w
                UNION SELECT user_id FROM video_reads WHERE created_at >= :w
                UNION SELECT user_id FROM user_profiles WHERE last_login_at >= :w
-           ) x WHERE user_id IN (SELECT user_id FROM user_profiles)""",
-        {"w": week},
+           ) x WHERE user_id IN (SELECT user_id FROM user_profiles WHERE user_id <> :d)""",
+        {"w": week, "d": SEEDED_DEMO_USER},
     )
     return {
-        "users_total": await count("SELECT COUNT(*) FROM user_profiles"),
-        "new_last_24h": await count("SELECT COUNT(*) FROM user_profiles WHERE created_at >= :t", t=today),
-        "new_last_7d": await count("SELECT COUNT(*) FROM user_profiles WHERE created_at >= :t", t=week),
+        "users_total": await count("SELECT COUNT(*) FROM user_profiles WHERE user_id <> :d", d=SEEDED_DEMO_USER),
+        "new_last_24h": await count("SELECT COUNT(*) FROM user_profiles WHERE created_at >= :t AND user_id <> :d", t=today, d=SEEDED_DEMO_USER),
+        "new_last_7d": await count("SELECT COUNT(*) FROM user_profiles WHERE created_at >= :t AND user_id <> :d", t=week, d=SEEDED_DEMO_USER),
         "active_last_7d": active,
         "analyses_total": await count("SELECT COUNT(*) FROM form_analyses"),
         "analyses_last_7d": await count("SELECT COUNT(*) FROM form_analyses WHERE created_at >= :t", t=week),
@@ -93,9 +94,9 @@ async def users(
     offset: int = Query(0, ge=0),
     admin_id: str = Depends(require_admin),
 ):
-    where, params = "", {"limit": limit, "offset": offset}
+    where, params = "WHERE u.user_id <> :d", {"limit": limit, "offset": offset, "d": SEEDED_DEMO_USER}
     if q.strip():
-        where = "WHERE lower(u.user_id) LIKE :q OR lower(COALESCE(u.display_name, '')) LIKE :q OR lower(COALESCE(u.email, '')) LIKE :q"
+        where += " AND (lower(u.user_id) LIKE :q OR lower(COALESCE(u.display_name, '')) LIKE :q OR lower(COALESCE(u.email, '')) LIKE :q)"
         params["q"] = f"%{q.strip().lower()}%"
     rows = await db.fetch_all(
         f"""SELECT u.user_id, u.display_name, u.email, u.auth_provider, u.role, u.created_at, u.last_login_at,

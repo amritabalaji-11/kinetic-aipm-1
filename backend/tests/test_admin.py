@@ -28,7 +28,8 @@ def build_database(path: Path) -> None:
             pass  # that table is not part of this test database, or the column is already there
     users = [("admin-1", "amrita@example.com", "Amrita", "admin", "2026-11-01 10:00:00", "2026-11-12 09:00:00"),
              ("user-a", "alice.smith@gmail.com", "Alice", "user", "2026-11-10 08:00:00", "2026-11-11 08:00:00"),
-             ("user-b", "bob@example.org", None, None, "2026-11-12 07:00:00", None)]
+             ("user-b", "bob@example.org", None, None, "2026-11-12 07:00:00", None),
+             (admin.SEEDED_DEMO_USER, None, "Demo User", None, "2026-11-12 12:00:00", None)]
     for i, (uid, email, name, role, created, login) in enumerate(users):
         con.execute("INSERT INTO user_profiles (profile_id, user_id, email, display_name, role, created_at, last_login_at, auth_provider) VALUES (?,?,?,?,?,?,?, 'email')",
                     (f"p{i}", uid, email, name, role, created, login))
@@ -109,7 +110,7 @@ class AdminApi(unittest.TestCase):
         self.assertEqual((users["user-a"]["analyses"], users["user-a"]["workouts"], users["user-a"]["routines"]), (1, 1, 1))
         self.assertEqual(users["user-a"]["last_active"], "2026-11-11 18:00:00")  # the latest of login, analysis, workout, routine, read
         self.assertEqual(users["user-b"]["last_active"], None)
-        self.assertEqual([u["user_id"] for u in self.get("/admin/users").json()["users"]], ["user-b", "user-a", "admin-1"])  # newest sign-up first
+        self.assertEqual([u["user_id"] for u in self.get("/admin/users").json()["users"]], ["user-b", "user-a", "admin-1"])  # newest sign-up first; no placeholder profile
 
     def test_search_finds_by_name_id_or_email_part(self):
         for q, expected in (("alice", ["user-a"]), ("USER-B", ["user-b"]), ("example.org", ["user-b"]), ("zzz", [])):
@@ -117,7 +118,7 @@ class AdminApi(unittest.TestCase):
 
     def test_the_summary_counts(self):
         s = self.get("/admin/summary").json()
-        self.assertEqual((s["users_total"], s["analyses_total"], s["workouts_total"]), (3, 1, 1))
+        self.assertEqual((s["users_total"], s["analyses_total"], s["workouts_total"]), (3, 1, 1))  # the seeded placeholder profile is not counted
 
     def test_the_timeline_is_newest_first_and_is_logged(self):
         before = len(self.audit_actions())
