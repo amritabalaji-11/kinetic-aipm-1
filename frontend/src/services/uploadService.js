@@ -179,5 +179,5 @@ async function uploadVideoDirect(videoFile, exercise, weight, weightUnit = "kg",
     return analysisId
 }
 
-export { uploadVideo, uploadVideoDirect }
+export { uploadVideo, uploadVideoDirect, sendInPieces }
 

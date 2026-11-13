@@ -16,3 +16,14 @@ export const getSummary = () => call("/summary")
 export const getUsers = ({ q = "", limit = 30, offset = 0 } = {}) => call(`/users?q=${encodeURIComponent(q)}&limit=${limit}&offset=${offset}`)
 export const getUser = (id) => call(`/users/${encodeURIComponent(id)}`)
 export const revealEmail = (id) => call(`/users/${encodeURIComponent(id)}/email`)
+
+export const getFeedback = ({ topic = "", status = "all", limit = 30, offset = 0 } = {}) => call(`/feedback?topic=${topic}&status=${status}&limit=${limit}&offset=${offset}`)
+export const getFeedbackItem = (id) => call(`/feedback/${encodeURIComponent(id)}`)
+
+export async function reviewFeedback(id, { reviewed = true, note = "" } = {}) {
+  const res = await apiFetch(`${BASE_URL}/admin/feedback/${encodeURIComponent(id)}/review`, {
+    method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ reviewed, note }),
+  })
+  if (!res.ok) throw Object.assign(new Error(`Something went wrong (${res.status}).`), { status: res.status })
+  return res.json()
+}
