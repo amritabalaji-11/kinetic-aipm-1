@@ -33,3 +33,4 @@ class UserOut(BaseModel):
     email: str | None
     display_name: str | None
     auth_provider: str
+    role: str = "user"  # "admin" shows the Admin page; the server checks it again on every admin request

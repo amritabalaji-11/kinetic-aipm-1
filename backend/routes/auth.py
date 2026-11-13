@@ -2,7 +2,7 @@ import secrets
 import time
 
 from fastapi import APIRouter, HTTPException, Depends, Request
-from db.database import db
+from db.database import NOW_TEXT, db
 from schemas.auth import (
     SignUpRequest, LoginRequest, SocialLoginRequest, DemoLoginRequest,
     TokenResponse, UserOut,
@@ -17,6 +17,11 @@ from utils.oauth_providers import (
 )
 
 router = APIRouter(prefix="/auth", tags=["auth"])
+
+
+async def _touch_login(user_id: str) -> None:
+    """Remember when this person last signed in (the admin page shows it as 'last active')."""
+    await db.execute(f"UPDATE user_profiles SET last_login_at = {NOW_TEXT} WHERE user_id = :user_id", {"user_id": user_id})
 
 
 async def _get_user_by_email(email: str):
@@ -59,6 +64,7 @@ async def signup(payload: SignUpRequest):
             "display_name": payload.display_name,
         },
     )
+    await _touch_login(user_id)
     token = create_access_token(user_id)
     return TokenResponse(access_token=token, user_id=user_id)
 
@@ -71,6 +77,7 @@ async def login(payload: LoginRequest):
     if not verify_password(payload.password, user["hashed_password"]):
         raise HTTPException(status_code=401, detail="Invalid email or password")
 
+    await _touch_login(user["user_id"])
     token = create_access_token(user["user_id"])
     return TokenResponse(access_token=token, user_id=user["user_id"])
 
@@ -79,6 +86,7 @@ async def _social_login(provider: str, sub: str, email: str | None, name: str | 
     # 1. already linked to this provider?
     user = await _get_user_by_oauth(provider, sub)
     if user:
+        await _touch_login(user["user_id"])
         token = create_access_token(user["user_id"])
         return TokenResponse(access_token=token, user_id=user["user_id"])
 
@@ -92,6 +100,7 @@ async def _social_login(provider: str, sub: str, email: str | None, name: str | 
                    WHERE user_id = :user_id""",
                 {"provider": provider, "sub": sub, "user_id": existing["user_id"]},
             )
+            await _touch_login(existing["user_id"])
             token = create_access_token(existing["user_id"])
             return TokenResponse(access_token=token, user_id=existing["user_id"])
 
@@ -118,6 +127,7 @@ async def _social_login(provider: str, sub: str, email: str | None, name: str | 
             "verified": 1 if email else 0,
         },
     )
+    await _touch_login(user_id)
     token = create_access_token(user_id)
     return TokenResponse(access_token=token, user_id=user_id)
 
@@ -189,4 +199,5 @@ async def me(user_id: str = Depends(get_current_user_id)):
         email=user["email"],
         display_name=user["display_name"],
         auth_provider=user["auth_provider"],
+        role=user["role"] or "user",
     )
