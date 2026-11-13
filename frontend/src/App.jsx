@@ -21,6 +21,8 @@ import WorkoutCommitPage from "./pages/WorkoutCommitPage"
 import ActiveWorkoutPage from "./pages/ActiveWorkoutPage"
 import ExercisePage from "./pages/ExercisePage"
 import RoutineFromVideoPage from "./pages/RoutineFromVideoPage"
+import AdminPage from "./pages/AdminPage"
+import AdminUserPage from "./pages/AdminUserPage"
 
 function Layout({ children }) {
   return (
@@ -62,6 +64,8 @@ function App() {
           <Route path="/upload/loading" element={<ProtectedLayout><LoadingPage /></ProtectedLayout>} />
           <Route path="/upload/results" element={<ProtectedLayout><ResultsPage /></ProtectedLayout>} />
           <Route path="/upload/comparison" element={<ProtectedLayout><ComparisonPage /></ProtectedLayout>} />
+          <Route path="/admin" element={<ProtectedLayout><AdminPage /></ProtectedLayout>} />
+          <Route path="/admin/users/:id" element={<ProtectedLayout><AdminUserPage /></ProtectedLayout>} />
           <Route path="/profile/subscription" element={<ProtectedLayout><SubscriptionPage /></ProtectedLayout>} />
           <Route path="/exercise/:id" element={<ProtectedLayout><ExercisePage /></ProtectedLayout>} />
           <Route path="/workout/commit" element={<ProtectedLayout><WorkoutCommitPage /></ProtectedLayout>} />

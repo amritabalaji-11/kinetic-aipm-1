@@ -300,6 +300,17 @@ CREATE TABLE IF NOT EXISTS user_routines (
 )
 """
 
+# What an admin looked at (a person's details, a revealed email), so there is a record of it
+CREATE_ADMIN_AUDIT_SQL = """
+CREATE TABLE IF NOT EXISTS admin_audit (
+    audit_id       INTEGER PRIMARY KEY AUTOINCREMENT,
+    admin_user_id  TEXT NOT NULL,
+    action         TEXT NOT NULL,
+    target_user_id TEXT,
+    created_at     TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP
+)
+"""
+
 # One row each time a video is read, so the daily limit can be counted
 CREATE_VIDEO_READS_SQL = """
 CREATE TABLE IF NOT EXISTS video_reads (
@@ -388,6 +399,10 @@ MIGRATIONS = [
     ("user_profiles", "auth_provider", "TEXT DEFAULT 'email'"),  # 'email' | 'google' | 'apple' | 'facebook'
     ("user_profiles", "oauth_sub", "TEXT"),   # provider's unique user id
     ("user_profiles", "email_verified", "INTEGER DEFAULT 0"),
+
+    # roles and activity: 'user' for everyone, 'admin' only by scripts/make_admin.py (never from the app); last_login_at is set at every sign-in
+    ("user_profiles", "role", "TEXT DEFAULT 'user'"),
+    ("user_profiles", "last_login_at", "TEXT"),
 ]
 
 
@@ -423,6 +438,7 @@ def init_db():
     db_.run(CREATE_EXERCISE_GUIDES_SQL)
     db_.run(CREATE_USER_ROUTINES_SQL)
     db_.run(CREATE_VIDEO_READS_SQL)
+    db_.run(CREATE_ADMIN_AUDIT_SQL)
     seed_exercises(db_)
 
     db_.run(CREATE_FORM_ANALYSIS_RESULTS_SQL)

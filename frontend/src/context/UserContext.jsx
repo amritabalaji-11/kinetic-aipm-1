@@ -78,7 +78,7 @@ const UserContext = createContext(null)
 // Shape a real (Google) account like a demo user so pages can read the same fields
 function toActiveUser(me) {
   const name = me.display_name || (me.email ? me.email.split("@")[0] : "You")
-  return { id: me.user_id, name, initials: name.slice(0, 2).toUpperCase(), email: me.email }
+  return { id: me.user_id, name, initials: name.slice(0, 2).toUpperCase(), email: me.email, role: me.role || "user" }
 }
 
 export function UserProvider({ children }) {
