@@ -11,7 +11,7 @@ from init_db import init_db
 
 # routes/analysis_haiku_integration_example.py is a developer example (calls Claude with no login, costs money).
 # It is deliberately NOT registered. To try it locally, import its router and include it, then remove it again.
-from routes import upload, stream, analysis, progression, history, tts, workouts, routines, admin
+from routes import upload, stream, analysis, progression, history, tts, workouts, routines, admin, feedback
 from routes.user import router as user_router
 from routes.auth import router as auth_router
 from routes.exercises import router as exercises_router
@@ -64,6 +64,7 @@ app.include_router(tts.router)
 app.include_router(workouts.router)
 app.include_router(routines.router)
 app.include_router(admin.router)
+app.include_router(feedback.router)
 
 
 #DB connection management
