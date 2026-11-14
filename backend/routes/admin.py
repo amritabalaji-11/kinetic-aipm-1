@@ -87,6 +87,7 @@ async def summary(admin_id: str = Depends(require_admin)):
         "analyses_last_7d": await count("SELECT COUNT(*) FROM form_analyses WHERE created_at >= :t", t=week),
         "workouts_total": await count("SELECT COUNT(*) FROM workouts"),
         "feedback_new": await count("SELECT COUNT(*) FROM feedback WHERE status = 'new'"),
+        "videos_shared": await count("SELECT COUNT(*) FROM form_analyses WHERE team_review_consent = 1"),
     }
 
 
@@ -242,3 +243,99 @@ async def feedback_review(feedback_id: str, body: ReviewIn, admin_id: str = Depe
          "at": datetime.now(timezone.utc).strftime(_TIME_FORMAT) if body.reviewed else None, "id": feedback_id},
     )
     return {"feedback_id": feedback_id, "status": "reviewed" if body.reviewed else "new"}
+
+
+# ---------- videos people agreed to share (never any other video) ----------
+
+VERDICTS = ("good", "mixed", "wrong")
+
+
+def _json(value):
+    if not value or isinstance(value, (dict, list)):
+        return value or None
+    try:
+        return json.loads(value)
+    except (TypeError, ValueError):
+        return value
+
+
+@router.get("/videos")
+async def videos_list(
+    status: str = Query("all", pattern="^(all|new|reviewed)$"),
+    limit: int = Query(30, ge=1, le=100),
+    offset: int = Query(0, ge=0),
+    admin_id: str = Depends(require_admin),
+):
+    """Only videos whose owner has the "let the team watch" switch on right now."""
+    where = {"all": "", "new": "AND rv.analysis_id IS NULL", "reviewed": "AND rv.analysis_id IS NOT NULL"}[status]
+    rows = await db.fetch_all(
+        f"""SELECT a.analysis_id, a.user_id, a.exercise_name, a.status, a.created_at, a.team_review_consent_at, u.display_name, u.email,
+                   r.overall_form_score, r.rep_count, rv.verdict
+            FROM form_analyses a
+            LEFT JOIN user_profiles u ON u.user_id = a.user_id
+            LEFT JOIN form_analysis_results r ON r.analysis_id = a.analysis_id
+            LEFT JOIN analysis_reviews rv ON rv.analysis_id = a.analysis_id
+            WHERE a.team_review_consent = 1 AND a.analysis_id IS NOT NULL {where}
+            ORDER BY a.created_at DESC LIMIT :limit OFFSET :offset""",
+        {"limit": limit, "offset": offset},
+    )
+    return {
+        "videos": [
+            {"analysis_id": r["analysis_id"], "user_id": r["user_id"], "from": r["display_name"] or mask_email(r["email"]) or f"Unnamed · {r['user_id'][:6]}…",
+             "exercise": r["exercise_name"], "status": r["status"], "created_at": r["created_at"], "score": r["overall_form_score"],
+             "rep_count": r["rep_count"], "verdict": r["verdict"]}
+            for r in rows
+        ],
+        "limit": limit, "offset": offset,
+    }
+
+
+@router.get("/videos/{analysis_id}")
+async def video_detail(analysis_id: str, admin_id: str = Depends(require_admin)):
+    a = await db.fetch_one(
+        """SELECT a.analysis_id, a.user_id, a.exercise_name, a.status, a.video_url, a.weight_value, a.weight_unit, a.created_at, a.team_review_consent,
+                  u.display_name, u.email
+           FROM form_analyses a LEFT JOIN user_profiles u ON u.user_id = a.user_id WHERE a.analysis_id = :id""",
+        {"id": analysis_id},
+    )
+    # a video that was never shared, or whose switch was turned off, looks the same as one that does not exist: no way to open it
+    if not a or a["team_review_consent"] != 1:
+        raise HTTPException(status_code=404, detail="No such shared video")
+    r = await db.fetch_one("SELECT * FROM form_analysis_results WHERE analysis_id = :id", {"id": analysis_id})
+    rv = await db.fetch_one("SELECT verdict, note, updated_at FROM analysis_reviews WHERE analysis_id = :id", {"id": analysis_id})
+    await _audit(admin_id, "view_video", a["user_id"])
+    results = None
+    if r:
+        results = {
+            "rep_count": r["rep_count"], "overall_form_score": r["overall_form_score"], "camera_angle": r["camera_angle"],
+            "scores": {"range_of_motion": r["range_of_motion_score"], "posture": r["posture_score"], "stability": r["stability_score"], "movement_quality": r["movement_quality_score"], "tempo": r["tempo_score"]},
+            "rep_scores": _json(r["rep_scores"]), "coaching_output": _json(r["coaching_output"]), "issues": _json(r["issues_json"]),
+            "annotated_frame_url": r["annotated_frame_url"], "annotated_frame_urls": _json(r["annotated_frame_urls"]),
+        }
+    return {
+        "analysis_id": a["analysis_id"], "user_id": a["user_id"], "from": a["display_name"] or f"Unnamed · {a['user_id'][:6]}…", "email": mask_email(a["email"]),
+        "exercise": a["exercise_name"], "status": a["status"], "weight": f"{a['weight_value']} {a['weight_unit']}" if a["weight_value"] else None,
+        "created_at": a["created_at"], "video_url": a["video_url"], "results": results,
+        "review": dict(rv) if rv else None,
+    }
+
+
+class VideoReviewIn(BaseModel):
+    verdict: str
+    note: str | None = Field(default=None, max_length=2000)
+
+
+@router.post("/videos/{analysis_id}/review")
+async def video_review(analysis_id: str, body: VideoReviewIn, admin_id: str = Depends(require_admin)):
+    if body.verdict not in VERDICTS:
+        raise HTTPException(status_code=422, detail="Verdict must be good, mixed or wrong")
+    a = await db.fetch_one("SELECT team_review_consent FROM form_analyses WHERE analysis_id = :id", {"id": analysis_id})
+    if not a or a["team_review_consent"] != 1:
+        raise HTTPException(status_code=404, detail="No such shared video")
+    now = datetime.now(timezone.utc).strftime(_TIME_FORMAT)
+    await db.execute(
+        """INSERT INTO analysis_reviews (analysis_id, admin_user_id, verdict, note, updated_at) VALUES (:id, :admin, :verdict, :note, :at)
+           ON CONFLICT (analysis_id) DO UPDATE SET admin_user_id = :admin, verdict = :verdict, note = :note, updated_at = :at""",
+        {"id": analysis_id, "admin": admin_id, "verdict": body.verdict, "note": (body.note or "").strip() or None, "at": now},
+    )
+    return {"analysis_id": analysis_id, "verdict": body.verdict}
