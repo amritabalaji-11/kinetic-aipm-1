@@ -8,6 +8,7 @@ import { MIN_REPS } from "../utils/analysisRules"
 import FilmingTips from "../components/FilmingTips"
 import LoadCard from "../components/LoadCard"
 import { convertWeight, readLastLoad, saveLastLoad } from "../utils/weightInput"
+import TeamShareSwitch from "../components/TeamShareSwitch"
 import UploadExercisePicker from "../components/UploadExercisePicker"
 import { CoachIcon } from "../components/CoachNote"
 import { BRICOLAGE, DM_SANS, GRAY, INK } from "../components/planUi"
@@ -33,6 +34,7 @@ export default function UploadScanPage() {
   const [videoPreviewUrl,   setVideoPreviewUrl]   = useState(null)
   const [isPlaying,         setIsPlaying]         = useState(false)
   const [weight,            setWeight]            = useState(0)
+  const [shareWithTeam,     setShareWithTeam]     = useState(false)   // "Let the Kinetic team watch this video": off unless ticked
   const [unit,              setUnit]              = useState("kg")
   const [tipsChecked,       setTipsChecked]       = useState(hasSeenTips)  // ticked "I've got the tips" (remembered on this phone)
   const [tipsNudge,         setTipsNudge]         = useState(0)            // goes up each time Start is pressed without ticking
@@ -117,7 +119,7 @@ export default function UploadScanPage() {
       clearInterval(stopWatching)
 
       setPhase("uploading"); setProgress(0); setUploadBytes(prepared.file.size); uploadStartedAt.current = Date.now()
-      const analysisId = await uploadVideoDirect(prepared.file, exercise.movement, needsWeight ? weight : 0, unit, { onProgress: setProgress })
+      const analysisId = await uploadVideoDirect(prepared.file, exercise.movement, needsWeight ? weight : 0, unit, { onProgress: setProgress, teamReview: shareWithTeam })
       if (needsWeight && weight > 0) saveLastLoad(exercise.movement, weight, unit) // so next time it is already filled in
       markTipsSeen() // next time the filming tips start folded
       navigate("/upload/loading", { state: { analysisId, videoPreviewUrl } })
@@ -246,6 +248,9 @@ export default function UploadScanPage() {
         {needsWeight && (
           <LoadCard value={weight} unit={unit} equipment={exercise?.equipment} last={lastLoad} onChange={setWeight} onUnitChange={changeUnit} />
         )}
+
+        {/* Sharing with the Kinetic team: off unless the person turns it on */}
+        <div className="mb-3"><TeamShareSwitch checked={shareWithTeam} onChange={setShareWithTeam} disabled={isUploading} /></div>
 
         {/* Start Analysis */}
         <button

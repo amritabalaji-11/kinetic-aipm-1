@@ -328,6 +328,17 @@ CREATE TABLE IF NOT EXISTS feedback_media (
 )
 """
 
+# An admin's verdict on a video the person agreed to share (one per video; saving again replaces it)
+CREATE_ANALYSIS_REVIEWS_SQL = """
+CREATE TABLE IF NOT EXISTS analysis_reviews (
+    analysis_id    TEXT PRIMARY KEY,
+    admin_user_id  TEXT NOT NULL,
+    verdict        TEXT NOT NULL,
+    note           TEXT NULL,
+    updated_at     TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP
+)
+"""
+
 # What an admin looked at (a person's details, a revealed email), so there is a record of it
 CREATE_ADMIN_AUDIT_SQL = """
 CREATE TABLE IF NOT EXISTS admin_audit (
@@ -431,6 +442,10 @@ MIGRATIONS = [
     # roles and activity: 'user' for everyone, 'admin' only by scripts/make_admin.py (never from the app); last_login_at is set at every sign-in
     ("user_profiles", "role", "TEXT DEFAULT 'user'"),
     ("user_profiles", "last_login_at", "TEXT"),
+
+    # video review: 1 only when the person ticked "Let the Kinetic team watch this video to improve the feedback" (they can turn it off again)
+    ("form_analyses", "team_review_consent", "INTEGER DEFAULT 0"),
+    ("form_analyses", "team_review_consent_at", "TEXT"),
 ]
 
 
@@ -469,6 +484,7 @@ def init_db():
     db_.run(CREATE_ADMIN_AUDIT_SQL)
     db_.run(CREATE_FEEDBACK_SQL)
     db_.run(CREATE_FEEDBACK_MEDIA_SQL)
+    db_.run(CREATE_ANALYSIS_REVIEWS_SQL)
     seed_exercises(db_)
 
     db_.run(CREATE_FORM_ANALYSIS_RESULTS_SQL)

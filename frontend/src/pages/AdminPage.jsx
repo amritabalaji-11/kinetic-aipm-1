@@ -2,6 +2,7 @@ import { useEffect, useState } from "react"
 import { useNavigate } from "react-router-dom"
 import { ChevronLeft, Search } from "lucide-react"
 import AdminFeedbackList from "../components/AdminFeedbackList"
+import AdminVideosList from "../components/AdminVideosList"
 import { BRICOLAGE, DM_SANS, GRAY, INK, PURPLE, cardStyle } from "../components/planUi"
 import { useUser } from "../context/UserContext"
 import { getSummary, getUsers } from "../services/adminService"
@@ -58,15 +59,15 @@ export default function AdminPage() {
       </button>
       <h1 style={{ fontFamily: BRICOLAGE, fontWeight: 700, fontSize: 24, color: INK, margin: "8px 0 12px" }}>Admin</h1>
       <div role="tablist" style={{ display: "flex", gap: 6, marginBottom: 12 }}>
-        {[["users", "Users"], ["feedback", "Feedback"]].map(([id, label]) => (
+        {[["users", "Users"], ["feedback", "Feedback"], ["videos", "Videos"]].map(([id, label]) => (
           <button key={id} type="button" role="tab" aria-selected={tab === id} onClick={() => setTab(id)}
             style={{ flex: 1, padding: 8, borderRadius: 999, cursor: "pointer", border: `1.2px solid ${tab === id ? PURPLE : "rgba(129,51,255,0.35)"}`, background: tab === id ? PURPLE : "#fff", color: tab === id ? "#fff" : PURPLE, fontFamily: DM_SANS, fontWeight: 600, fontSize: 13 }}>
-            {label}{id === "feedback" && summary?.feedback_new > 0 && <span style={{ marginLeft: 6, background: tab === id ? "#fff" : PURPLE, color: tab === id ? PURPLE : "#fff", borderRadius: 10, padding: "1px 7px", fontSize: 11 }}>{summary.feedback_new} new</span>}
+            {label}{id === "videos" && summary?.videos_shared > 0 && <span style={{ marginLeft: 6, opacity: 0.8, fontSize: 11 }}>{summary.videos_shared}</span>}{id === "feedback" && summary?.feedback_new > 0 && <span style={{ marginLeft: 6, background: tab === id ? "#fff" : PURPLE, color: tab === id ? PURPLE : "#fff", borderRadius: 10, padding: "1px 7px", fontSize: 11 }}>{summary.feedback_new} new</span>}
           </button>
         ))}
       </div>
 
-      {tab === "feedback" ? <AdminFeedbackList /> : <>
+      {tab === "videos" ? <AdminVideosList /> : tab === "feedback" ? <AdminFeedbackList /> : <>
       <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 8, marginBottom: 12 }}>
         {tile(summary?.users_total, "people signed up")}{tile(summary?.new_last_24h, "new in 24 hours")}
         {tile(summary?.active_last_7d, "active in 7 days")}{tile(summary?.analyses_total, "videos analysed")}
