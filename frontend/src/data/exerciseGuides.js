@@ -12,6 +12,7 @@ const GOBLET_SQUAT = {
   videos: [
     {
       youtubeId: "7-80HiXX1K8",
+      seconds: 17,
       credit: "Le Sweat",
       creditUrl: "https://www.youtube.com/@lesweat",
       watchUrl: "https://www.youtube.com/shorts/7-80HiXX1K8",
@@ -19,6 +20,7 @@ const GOBLET_SQUAT = {
     },
     {
       youtubeId: "lRYBbchqxtI",
+      seconds: 22,
       credit: "SquatCouple",
       creditUrl: "https://www.youtube.com/@SQUATCOUPLE",
       watchUrl: "https://www.youtube.com/shorts/lRYBbchqxtI",
@@ -85,6 +87,7 @@ const DB_DEADLIFT = {
   videos: [
     {
       youtubeId: "YQgs03p3UxE",
+      seconds: 74,
       credit: "Live Lean TV",
       creditUrl: "https://www.youtube.com/@LiveLeanTV",
       watchUrl: "https://www.youtube.com/shorts/YQgs03p3UxE",
@@ -156,6 +159,7 @@ const DB_SHOULDER_PRESS = {
   videos: [
     {
       youtubeId: "cw4pTDmf4J0",
+      seconds: 24,
       credit: "SquatCouple",
       creditUrl: "https://www.youtube.com/@SQUATCOUPLE",
       watchUrl: "https://www.youtube.com/shorts/cw4pTDmf4J0",
@@ -163,6 +167,7 @@ const DB_SHOULDER_PRESS = {
     },
     {
       youtubeId: "wO0l5jW2NtQ",
+      seconds: 31,
       credit: "Elite Performance",
       creditUrl: "https://www.youtube.com/@eliteperformance2721",
       watchUrl: "https://www.youtube.com/shorts/wO0l5jW2NtQ",
@@ -225,6 +230,7 @@ const DB_ROMANIAN_DEADLIFT = {
   videos: [
     {
       youtubeId: "CBOhr6H7BEY",
+      seconds: 21,
       credit: "ArielYu_Fit",
       creditUrl: "https://www.youtube.com/@ArielYu_Fit",
       watchUrl: "https://www.youtube.com/shorts/CBOhr6H7BEY",
@@ -232,6 +238,7 @@ const DB_ROMANIAN_DEADLIFT = {
     },
     {
       youtubeId: "hu3jRvTc_po",
+      seconds: 12,
       credit: "Andrew Kwong (DeltaBolic)",
       creditUrl: "https://www.youtube.com/shorts/hu3jRvTc_po",
       watchUrl: "https://www.youtube.com/shorts/hu3jRvTc_po",
