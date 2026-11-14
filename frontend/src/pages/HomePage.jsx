@@ -1,4 +1,5 @@
 import FounderTip from "../components/FounderTip"
+import FeedbackCard from "../components/FeedbackCard"
 import { TOP_FADE_BACKGROUND } from "../utils/pageBackground"
 import { useEffect, useState } from "react"
 import { apiFetch } from "../services/api"
@@ -443,6 +444,7 @@ export default function HomePage() {
 
         {/* A tip from the founder (was "Your focus this week") */}
         <FounderTip />
+        <FeedbackCard />
 
         {/* Form History */}
         <div style={{ background: "linear-gradient(135deg, #F9DAD2 0%, #E8D4F8 100%)", borderRadius: "16px", padding: "20px 12px", marginBottom: "20px" }}>

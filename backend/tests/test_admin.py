@@ -14,7 +14,7 @@ from routes import admin, auth
 from utils.security import create_access_token
 
 TABLES = [init_db.CREATE_USER_PROFILE_SQL, init_db.CREATE_FORM_ANALYSES_SQL, init_db.CREATE_WORKOUTS_SQL, init_db.CREATE_USER_ROUTINES_SQL,
-          init_db.CREATE_VIDEO_READS_SQL, init_db.CREATE_ADMIN_AUDIT_SQL]
+          init_db.CREATE_VIDEO_READS_SQL, init_db.CREATE_ADMIN_AUDIT_SQL, init_db.CREATE_FEEDBACK_SQL, init_db.CREATE_FEEDBACK_MEDIA_SQL]
 
 
 def build_database(path: Path) -> None:
@@ -118,7 +118,7 @@ class AdminApi(unittest.TestCase):
 
     def test_the_summary_counts(self):
         s = self.get("/admin/summary").json()
-        self.assertEqual((s["users_total"], s["analyses_total"], s["workouts_total"]), (3, 1, 1))  # the seeded placeholder profile is not counted
+        self.assertEqual((s["users_total"], s["analyses_total"], s["workouts_total"], s["feedback_new"]), (3, 1, 1, 0))  # the seeded placeholder profile is not counted
 
     def test_the_timeline_is_newest_first_and_is_logged(self):
         before = len(self.audit_actions())

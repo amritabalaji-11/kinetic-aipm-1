@@ -300,6 +300,34 @@ CREATE TABLE IF NOT EXISTS user_routines (
 )
 """
 
+# Feedback people send from the app: text, a topic, and up to 3 photos or videos (kept in the private bucket)
+CREATE_FEEDBACK_SQL = """
+CREATE TABLE IF NOT EXISTS feedback (
+    feedback_id  TEXT PRIMARY KEY,
+    user_id      TEXT NOT NULL,
+    topic        TEXT NOT NULL,
+    message      TEXT NOT NULL DEFAULT '',
+    analysis_id  TEXT NULL,
+    app_info     TEXT NULL,
+    status       TEXT NOT NULL DEFAULT 'new',
+    admin_note   TEXT NULL,
+    reviewed_by  TEXT NULL,
+    reviewed_at  TEXT NULL,
+    created_at   TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP
+)
+"""
+
+CREATE_FEEDBACK_MEDIA_SQL = """
+CREATE TABLE IF NOT EXISTS feedback_media (
+    media_id      TEXT PRIMARY KEY,
+    feedback_id   TEXT NOT NULL,
+    gcs_url       TEXT NOT NULL,
+    content_type  TEXT NOT NULL,
+    size_bytes    INTEGER,
+    created_at    TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP
+)
+"""
+
 # What an admin looked at (a person's details, a revealed email), so there is a record of it
 CREATE_ADMIN_AUDIT_SQL = """
 CREATE TABLE IF NOT EXISTS admin_audit (
@@ -439,6 +467,8 @@ def init_db():
     db_.run(CREATE_USER_ROUTINES_SQL)
     db_.run(CREATE_VIDEO_READS_SQL)
     db_.run(CREATE_ADMIN_AUDIT_SQL)
+    db_.run(CREATE_FEEDBACK_SQL)
+    db_.run(CREATE_FEEDBACK_MEDIA_SQL)
     seed_exercises(db_)
 
     db_.run(CREATE_FORM_ANALYSIS_RESULTS_SQL)

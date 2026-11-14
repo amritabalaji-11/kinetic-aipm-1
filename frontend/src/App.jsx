@@ -23,6 +23,8 @@ import ExercisePage from "./pages/ExercisePage"
 import RoutineFromVideoPage from "./pages/RoutineFromVideoPage"
 import AdminPage from "./pages/AdminPage"
 import AdminUserPage from "./pages/AdminUserPage"
+import FeedbackPage from "./pages/FeedbackPage"
+import AdminFeedbackPage from "./pages/AdminFeedbackPage"
 
 function Layout({ children }) {
   return (
@@ -64,6 +66,8 @@ function App() {
           <Route path="/upload/loading" element={<ProtectedLayout><LoadingPage /></ProtectedLayout>} />
           <Route path="/upload/results" element={<ProtectedLayout><ResultsPage /></ProtectedLayout>} />
           <Route path="/upload/comparison" element={<ProtectedLayout><ComparisonPage /></ProtectedLayout>} />
+          <Route path="/feedback" element={<ProtectedLayout><FeedbackPage /></ProtectedLayout>} />
+          <Route path="/admin/feedback/:id" element={<ProtectedLayout><AdminFeedbackPage /></ProtectedLayout>} />
           <Route path="/admin" element={<ProtectedLayout><AdminPage /></ProtectedLayout>} />
           <Route path="/admin/users/:id" element={<ProtectedLayout><AdminUserPage /></ProtectedLayout>} />
           <Route path="/profile/subscription" element={<ProtectedLayout><SubscriptionPage /></ProtectedLayout>} />

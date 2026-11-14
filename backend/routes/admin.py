@@ -4,9 +4,11 @@ Only an account whose `role` is 'admin' can call any of this. The role is read f
 works at once) and can only be set by scripts/make_admin.py, never from the app. Emails are hidden unless the admin asks to reveal one,
 and each reveal and each person opened is written to admin_audit. Nothing here returns videos, birth dates or injury notes.
 """
+import json
 from datetime import datetime, timedelta, timezone
 
 from fastapi import APIRouter, Depends, HTTPException, Query
+from pydantic import BaseModel, Field
 
 from db.database import db
 from utils.security import get_current_user_id
@@ -84,6 +86,7 @@ async def summary(admin_id: str = Depends(require_admin)):
         "analyses_total": await count("SELECT COUNT(*) FROM form_analyses"),
         "analyses_last_7d": await count("SELECT COUNT(*) FROM form_analyses WHERE created_at >= :t", t=week),
         "workouts_total": await count("SELECT COUNT(*) FROM workouts"),
+        "feedback_new": await count("SELECT COUNT(*) FROM feedback WHERE status = 'new'"),
     }
 
 
@@ -153,3 +156,89 @@ async def reveal_email(user_id: str, admin_id: str = Depends(require_admin)):
         raise HTTPException(status_code=404, detail="No such user")
     await _audit(admin_id, "reveal_email", user_id)
     return {"user_id": user_id, "email": u["email"]}
+
+
+# ---------- feedback inbox ----------
+
+FEEDBACK_TOPICS = ("bug", "idea", "form", "other")
+
+
+def _preview(text: str | None, n: int = 140) -> str:
+    text = (text or "").strip().replace("\n", " ")
+    return text if len(text) <= n else text[:n].rstrip() + "…"
+
+
+@router.get("/feedback")
+async def feedback_list(
+    topic: str = Query("", max_length=10),
+    status: str = Query("all", pattern="^(all|new|reviewed)$"),
+    limit: int = Query(30, ge=1, le=100),
+    offset: int = Query(0, ge=0),
+    admin_id: str = Depends(require_admin),
+):
+    where, params = [], {"limit": limit, "offset": offset}
+    if topic:
+        if topic not in FEEDBACK_TOPICS:
+            raise HTTPException(status_code=422, detail="Unknown topic")
+        where.append("f.topic = :topic"); params["topic"] = topic
+    if status != "all":
+        where.append("f.status = :status"); params["status"] = status
+    rows = await db.fetch_all(
+        f"""SELECT f.feedback_id, f.user_id, f.topic, f.message, f.status, f.analysis_id, f.created_at, u.display_name, u.email,
+                   (SELECT COUNT(*) FROM feedback_media m WHERE m.feedback_id = f.feedback_id AND substr(m.content_type, 1, 6) = 'image/') AS photos,
+                   (SELECT COUNT(*) FROM feedback_media m WHERE m.feedback_id = f.feedback_id AND substr(m.content_type, 1, 6) = 'video/') AS videos
+            FROM feedback f LEFT JOIN user_profiles u ON u.user_id = f.user_id
+            {"WHERE " + " AND ".join(where) if where else ""}
+            ORDER BY f.created_at DESC LIMIT :limit OFFSET :offset""",
+        params,
+    )
+    return {
+        "feedback": [
+            {"feedback_id": r["feedback_id"], "user_id": r["user_id"], "from": r["display_name"] or mask_email(r["email"]) or f"Unnamed · {r['user_id'][:6]}…",
+             "topic": r["topic"], "preview": _preview(r["message"]), "status": r["status"], "created_at": r["created_at"],
+             "photos": r["photos"], "videos": r["videos"], "has_analysis": bool(r["analysis_id"])}
+            for r in rows
+        ],
+        "limit": limit, "offset": offset,
+    }
+
+
+@router.get("/feedback/{feedback_id}")
+async def feedback_detail(feedback_id: str, admin_id: str = Depends(require_admin)):
+    f = await db.fetch_one(
+        """SELECT f.*, u.display_name, u.email FROM feedback f LEFT JOIN user_profiles u ON u.user_id = f.user_id WHERE f.feedback_id = :id""",
+        {"id": feedback_id},
+    )
+    if not f:
+        raise HTTPException(status_code=404, detail="No such message")
+    media = await db.fetch_all("SELECT media_id, gcs_url, content_type, size_bytes FROM feedback_media WHERE feedback_id = :id ORDER BY created_at, media_id", {"id": feedback_id})
+    analysis = None
+    if f["analysis_id"]:
+        a = await db.fetch_one("SELECT analysis_id, exercise_name, status, video_score, created_at FROM form_analyses WHERE analysis_id = :id", {"id": f["analysis_id"]})
+        analysis = dict(a) if a else None
+    await _audit(admin_id, "view_feedback", f["user_id"])
+    return {
+        "feedback_id": f["feedback_id"], "user_id": f["user_id"], "from": f["display_name"] or f"Unnamed · {f['user_id'][:6]}…", "email": mask_email(f["email"]),
+        "topic": f["topic"], "message": f["message"], "status": f["status"], "admin_note": f["admin_note"], "created_at": f["created_at"],
+        "reviewed_at": f["reviewed_at"], "app_info": json.loads(f["app_info"]) if f["app_info"] else None,
+        "media": [{"media_id": m["media_id"], "url": m["gcs_url"], "content_type": m["content_type"], "kind": "video" if m["content_type"].startswith("video/") else "photo"} for m in media],
+        "analysis": analysis,
+    }
+
+
+class ReviewIn(BaseModel):
+    reviewed: bool = True
+    note: str | None = Field(default=None, max_length=2000)
+
+
+@router.post("/feedback/{feedback_id}/review")
+async def feedback_review(feedback_id: str, body: ReviewIn, admin_id: str = Depends(require_admin)):
+    found = await db.fetch_one("SELECT feedback_id FROM feedback WHERE feedback_id = :id", {"id": feedback_id})
+    if not found:
+        raise HTTPException(status_code=404, detail="No such message")
+    await db.execute(
+        "UPDATE feedback SET status = :status, admin_note = :note, reviewed_by = :by, reviewed_at = :at WHERE feedback_id = :id",
+        {"status": "reviewed" if body.reviewed else "new", "note": (body.note or "").strip() or None, "by": admin_id if body.reviewed else None,
+         "at": datetime.now(timezone.utc).strftime(_TIME_FORMAT) if body.reviewed else None, "id": feedback_id},
+    )
+    return {"feedback_id": feedback_id, "status": "reviewed" if body.reviewed else "new"}
