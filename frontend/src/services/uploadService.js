@@ -11,7 +11,7 @@ function generateUUID() {
     })
 }
 
-async function uploadVideo(videoFile, exercise, weight, weightUnit = "kg") {
+async function uploadVideo(videoFile, exercise, weight, weightUnit = "kg", teamReview = false) {
     const formData = new FormData()
 
     let userId = localStorage.getItem('active_user_id')
@@ -32,6 +32,7 @@ async function uploadVideo(videoFile, exercise, weight, weightUnit = "kg") {
     formData.append("weight_unit", normalizedUnit)
     formData.append("user_id", userId)
     formData.append("session_id", sessionId)
+    formData.append("team_review", teamReview ? "true" : "false")
 
     const controller = new AbortController()
     const timeoutId = setTimeout(() => controller.abort(), UPLOAD_TIMEOUT_MS)
@@ -131,7 +132,7 @@ async function sendInPieces(url, file, onProgress, signal) {
 }
 
 // onProgress(fraction 0..1) while the file is being sent. Resolves with the analysis id, like uploadVideo.
-async function uploadVideoDirect(videoFile, exercise, weight, weightUnit = "kg", { onProgress = () => {}, signal } = {}) {
+async function uploadVideoDirect(videoFile, exercise, weight, weightUnit = "kg", { onProgress = () => {}, signal, teamReview = false } = {}) {
     const response = await apiFetch(`${BASE_URL}/upload/start`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
@@ -144,13 +145,14 @@ async function uploadVideoDirect(videoFile, exercise, weight, weightUnit = "kg",
             weight_value: weight,
             weight_unit: weightUnit === "lbs" ? "lb" : weightUnit,
             session_id: generateUUID(),
+            team_review: teamReview,
         }),
         signal,
     })
     // The server does not have the big-video upload yet (the website can be updated a few minutes before it):
     // send small files the old way, and say so plainly for big ones.
     if (response.status === 404 || response.status === 405) {
-        if (videoFile.size <= LEGACY_LIMIT_BYTES) return uploadVideo(videoFile, exercise, weight, weightUnit)
+        if (videoFile.size <= LEGACY_LIMIT_BYTES) return uploadVideo(videoFile, exercise, weight, weightUnit, teamReview)
         throw new Error("Large video uploads are being switched on. Please try again in a few minutes, or use a shorter clip.")
     }
     if (!response.ok) throw errorFrom(await jsonOrNull(response), "Upload failed")
@@ -162,7 +164,7 @@ async function uploadVideoDirect(videoFile, exercise, weight, weightUnit = "kg",
         if (signal?.aborted) throw err
         // storage could not be reached from this browser at all: a small file can still go the old way
         if (err instanceof TypeError && videoFile.size <= LEGACY_LIMIT_BYTES) {
-            return uploadVideo(videoFile, exercise, weight, weightUnit)
+            return uploadVideo(videoFile, exercise, weight, weightUnit, teamReview)
         }
         const e = new Error("The upload was interrupted. Check your connection and try again.")
         e.code = "UPLOAD_TIMEOUT"

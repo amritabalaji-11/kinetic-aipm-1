@@ -150,6 +150,24 @@ export default function ProfilePage() {
             }
           />
           <MenuItem
+            label="Terms"
+            onPress={() => navigate("/terms")}
+            icon={
+              <svg width="20" height="20" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.8}>
+                <path strokeLinecap="round" strokeLinejoin="round" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+              </svg>
+            }
+          />
+          <MenuItem
+            label="Privacy"
+            onPress={() => navigate("/privacy")}
+            icon={
+              <svg width="20" height="20" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.8}>
+                <path strokeLinecap="round" strokeLinejoin="round" d="M12 3l8 3v6c0 4.5-3.2 8.2-8 9-4.8-.8-8-4.5-8-9V6l8-3z" />
+              </svg>
+            }
+          />
+          <MenuItem
             label="Sign Out"
             onPress={handleSignOut}
             danger
