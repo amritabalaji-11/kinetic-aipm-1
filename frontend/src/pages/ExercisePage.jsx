@@ -6,7 +6,7 @@ import ListenButton from "../components/ListenButton"
 import MuscleMap from "../components/MuscleMap"
 import { useCoachScript } from "../utils/useCoachScript"
 import { BRICOLAGE, DM_SANS, GRAY, INK, PURPLE, cardStyle } from "../components/planUi"
-import { getExerciseGuide, getVideoPref, guideToSpeech, guideVideo, hasBothVideos, hasExerciseGuide, setVideoPref } from "../data/exerciseGuides"
+import { getExerciseGuide, getVideoPref, guideToSpeech, guideVideo, guideVideos, hasExerciseGuide, setVideoPref } from "../data/exerciseGuides"
 import { equipmentLabel, getExercise } from "../utils/exerciseCatalog"
 import { FLAT_LILAC } from "../utils/pageBackground"
 
@@ -62,12 +62,12 @@ export default function ExercisePage() {
       {/* The short version: video beside the three cues */}
       <div style={{ ...cardStyle, padding: 12, display: "flex", gap: 12, alignItems: "flex-start" }}>
         {video && <div style={{ flexShrink: 0, width: 150 }}>
-          {hasBothVideos(guide) && (
-            <div role="tablist" aria-label="Whose demo to watch" style={{ display: "flex", gap: 4, marginBottom: 8 }}>
-              {[["women", "Women"], ["men", "Men"]].map(([who, label]) => (
-                <button key={who} type="button" role="tab" aria-selected={pref === who} onClick={() => { setPref(who); setVideoPref(who) }}
-                  style={{ flex: 1, padding: "5px 0", borderRadius: 999, cursor: "pointer", fontFamily: DM_SANS, fontWeight: 600, fontSize: 12, border: `1.2px solid ${pref === who ? PURPLE : "rgba(129,51,255,0.35)"}`, background: pref === who ? PURPLE : "#fff", color: pref === who ? "#fff" : PURPLE }}>
-                  {label}
+          {guideVideos(guide).length > 1 && (
+            <div role="tablist" aria-label="Choose a video" style={{ display: "flex", gap: 4, marginBottom: 8 }}>
+              {guideVideos(guide).map((_, i) => (
+                <button key={i} type="button" role="tab" aria-selected={pref === i || (pref >= guideVideos(guide).length && i === 0)} onClick={() => { setPref(i); setVideoPref(i) }}
+                  style={{ flex: 1, padding: "5px 0", borderRadius: 999, cursor: "pointer", fontFamily: DM_SANS, fontWeight: 600, fontSize: 12, border: `1.2px solid ${video === guideVideos(guide)[i] ? PURPLE : "rgba(129,51,255,0.35)"}`, background: video === guideVideos(guide)[i] ? PURPLE : "#fff", color: video === guideVideos(guide)[i] ? "#fff" : PURPLE }}>
+                  Video {i + 1}
                 </button>
               ))}
             </div>

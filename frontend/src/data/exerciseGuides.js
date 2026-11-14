@@ -9,22 +9,22 @@ const GOBLET_SQUAT = {
   summary: "Hold one weight at your chest and sit straight down between your knees. The squat to learn first.",
   level: "Beginner – Intermediate",
   muscles: { main: ["Quads", "Glutes"], helping: ["Hamstrings", "Core", "Upper back"] },
-  videos: {
-    women: {
+  videos: [
+    {
       youtubeId: "7-80HiXX1K8",
       credit: "Le Sweat",
       creditUrl: "https://www.youtube.com/@lesweat",
       watchUrl: "https://www.youtube.com/shorts/7-80HiXX1K8",
       vertical: true,
     },
-    men: {
+    {
       youtubeId: "lRYBbchqxtI",
       credit: "SquatCouple",
       creditUrl: "https://www.youtube.com/@SQUATCOUPLE",
       watchUrl: "https://www.youtube.com/shorts/lRYBbchqxtI",
       vertical: true,
     },
-  },
+  ],
   keyCues: [
     "Big breath in, brace your core, hold the weight tight to your chest.",
     "Sit down between your knees. Knees over your little toes, heels stay down.",
@@ -82,16 +82,15 @@ const DB_DEADLIFT = {
   summary: "Push your hips back, lower the weights down your legs with a flat back, then stand tall by driving through your heels.",
   level: "Beginner – Intermediate",
   muscles: { main: ["Glutes", "Hamstrings"], helping: ["Lower back", "Upper back", "Core", "Forearms"] },
-  videos: {
-    women: {
+  videos: [
+    {
       youtubeId: "YQgs03p3UxE",
       credit: "Live Lean TV",
       creditUrl: "https://www.youtube.com/@LiveLeanTV",
       watchUrl: "https://www.youtube.com/shorts/YQgs03p3UxE",
       vertical: true,
     },
-    men: null, // not chosen yet
-  },
+  ],
   keyCues: [
     "Push your hips back, like closing a car door behind you with your bottom. This is a hinge, not a squat.",
     "Keep the weights close to your legs and your back long and flat, from head to tailbone. Neck in line with your spine.",
@@ -154,22 +153,22 @@ const DB_SHOULDER_PRESS = {
   summary: "Press two dumbbells straight up from your shoulders, using your shoulders and arms, not your legs. The overhead press to learn first.",
   level: "Beginner – Intermediate",
   muscles: { main: ["Shoulders", "Triceps"], helping: ["Chest", "Upper back", "Core"] },
-  videos: {
-    women: {
+  videos: [
+    {
       youtubeId: "cw4pTDmf4J0",
       credit: "SquatCouple",
       creditUrl: "https://www.youtube.com/@SQUATCOUPLE",
       watchUrl: "https://www.youtube.com/shorts/cw4pTDmf4J0",
       vertical: true,
     },
-    men: {
+    {
       youtubeId: "wO0l5jW2NtQ",
       credit: "Elite Performance",
       creditUrl: "https://www.youtube.com/@eliteperformance2721",
       watchUrl: "https://www.youtube.com/shorts/wO0l5jW2NtQ",
       vertical: true,
     },
-  },
+  ],
   keyCues: [
     "Sit or stand. Standing: press the floor away, hips and knees stay still. The power comes from your shoulders. Sitting takes your legs out of it.",
     "Dumbbells side by side, palms forward, forearms straight up. Elbows a little in front of you, not out wide. If palms forward pinches your shoulder, turn them in a little.",
@@ -223,22 +222,22 @@ const DB_ROMANIAN_DEADLIFT = {
   summary: "Push your hips back, slide the dumbbells down your legs with a flat back until you feel your hamstrings stretch, then stand tall.",
   level: "Beginner – Intermediate",
   muscles: { main: ["Hamstrings", "Glutes"], helping: ["Lower back", "Upper back", "Core", "Forearms"] },
-  videos: {
-    women: {
+  videos: [
+    {
       youtubeId: "CBOhr6H7BEY",
       credit: "ArielYu_Fit",
       creditUrl: "https://www.youtube.com/@ArielYu_Fit",
       watchUrl: "https://www.youtube.com/shorts/CBOhr6H7BEY",
       vertical: true,
     },
-    men: {
+    {
       youtubeId: "hu3jRvTc_po",
       credit: "Andrew Kwong (DeltaBolic)",
       creditUrl: "https://www.youtube.com/shorts/hu3jRvTc_po",
       watchUrl: "https://www.youtube.com/shorts/hu3jRvTc_po",
       vertical: true,
     },
-  },
+  ],
   keyCues: [
     "Soft knees, then push your hips back, as if closing a car door behind you with your bottom. It is a hinge, not a squat.",
     "Weights close, back straight. Keep the dumbbells close to your legs and your back long and flat, from head to tailbone.",
@@ -304,12 +303,18 @@ export const GUIDES = {
 }
 
 export const getExerciseGuide = (exerciseId) => GUIDES[exerciseId] ?? null
-// Which demo video to show: the one the person last picked (women / men), else the women's. A guide with one video shows that one.
-const PREF_KEY = "videoAudience"
-export const getVideoPref = () => { try { return localStorage.getItem(PREF_KEY) === "men" ? "men" : "women" } catch { return "women" } }
-export const setVideoPref = (who) => { try { localStorage.setItem(PREF_KEY, who) } catch { /* private mode: the pick lasts until the page closes */ } }
-export const hasBothVideos = (guide) => Boolean(guide?.videos?.women && guide?.videos?.men)
-export const guideVideo = (guide, pref = getVideoPref()) => guide?.videos?.[pref] ?? guide?.videos?.women ?? guide?.videos?.men ?? null
+// A guide has one or more demo videos (Video 1, Video 2 ...). Which one is shown is remembered on that phone; a pick that does not exist falls back to Video 1.
+const PREF_KEY = "videoChoice"
+export const guideVideos = (guide) => (Array.isArray(guide?.videos) ? guide.videos.filter(Boolean) : [])
+export const getVideoPref = () => { try { return Math.max(0, parseInt(localStorage.getItem(PREF_KEY), 10) || 0) } catch { return 0 } }
+export const setVideoPref = (index) => { try { localStorage.setItem(PREF_KEY, String(index)) } catch { /* private mode: the pick lasts until the page closes */ } }
+export const guideVideo = (guide, pref = getVideoPref()) => { const all = guideVideos(guide); return all[pref] ?? all[0] ?? null }
+
+// One entry per guide (a guide that covers two catalogue exercises, like the goblet squat with a dumbbell or a kettlebell, is listed once)
+export function listGuides() {
+  const seen = new Set()
+  return Object.entries(GUIDES).filter(([, guide]) => !seen.has(guide) && seen.add(guide)).map(([exerciseId, guide]) => ({ exerciseId, guide }))
+}
 
 export const hasExerciseGuide = (exerciseId) => Boolean(GUIDES[exerciseId])
 
