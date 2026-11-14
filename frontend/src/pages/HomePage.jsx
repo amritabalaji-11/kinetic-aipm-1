@@ -1,5 +1,6 @@
 import FounderTip from "../components/FounderTip"
 import FeedbackCard from "../components/FeedbackCard"
+import GuidesRow from "../components/GuidesRow"
 import { TOP_FADE_BACKGROUND } from "../utils/pageBackground"
 import { useEffect, useState } from "react"
 import { apiFetch } from "../services/api"
@@ -444,6 +445,7 @@ export default function HomePage() {
 
         {/* A tip from the founder (was "Your focus this week") */}
         <FounderTip />
+        <GuidesRow />
         <FeedbackCard />
 
         {/* Form History */}

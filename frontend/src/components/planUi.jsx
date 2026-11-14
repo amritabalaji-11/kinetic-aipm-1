@@ -1,5 +1,5 @@
 import { Link, useLocation } from "react-router-dom"
-import { Info, X } from "lucide-react"
+import { Play, X } from "lucide-react"
 import { hasExerciseGuide } from "../data/exerciseGuides"
 
 // Small building blocks shared by the planner, swap sheet and builder screens.
@@ -127,7 +127,7 @@ export function BottomSheet({ title, onClose, children, footer }) {
 }
 
 // Purple bold name, small grey line underneath. `right` holds buttons or a tick.
-// An exercise name that opens its form guide when there is one (a small (i) shows which ones), plain text otherwise
+// An exercise name that opens its guide when there is one: the name stays as it was and a "How to" chip beside it says what the link is
 export function ExerciseName({ exerciseId, children }) {
   const location = useLocation()
   if (!exerciseId || !hasExerciseGuide(exerciseId)) return children
@@ -137,9 +137,12 @@ export function ExerciseName({ exerciseId, children }) {
       state={{ from: location.pathname }}
       onClick={(e) => e.stopPropagation()}
       aria-label={`${typeof children === "string" ? children : "Exercise"}: how to do it`}
-      style={{ color: "inherit", textDecoration: "underline dotted", textUnderlineOffset: 3 }}
+      style={{ color: "inherit", textDecoration: "none" }}
     >
-      {children} <Info size={13} style={{ display: "inline", verticalAlign: "-1px" }} />
+      {children}
+      <span style={{ display: "inline-flex", alignItems: "center", gap: 3, marginLeft: 7, padding: "2px 8px", borderRadius: 999, background: "rgba(129,51,255,0.1)", color: "#6D28D9", fontFamily: DM_SANS, fontWeight: 700, fontSize: 11, verticalAlign: "1px", whiteSpace: "nowrap" }}>
+        <Play size={9} fill="currentColor" /> How to
+      </span>
     </Link>
   )
 }
