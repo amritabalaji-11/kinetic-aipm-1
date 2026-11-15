@@ -29,6 +29,7 @@ import TermsPage from "./pages/TermsPage"
 import PrivacyPage from "./pages/PrivacyPage"
 import AdminFeedbackPage from "./pages/AdminFeedbackPage"
 import AdminVideoPage from "./pages/AdminVideoPage"
+import OnboardingPage from "./pages/OnboardingPage"
 
 function Layout({ children }) {
   return (
@@ -70,6 +71,7 @@ function App() {
           <Route path="/upload/loading" element={<ProtectedLayout><LoadingPage /></ProtectedLayout>} />
           <Route path="/upload/results" element={<ProtectedLayout><ResultsPage /></ProtectedLayout>} />
           <Route path="/upload/comparison" element={<ProtectedLayout><ComparisonPage /></ProtectedLayout>} />
+          <Route path="/welcome" element={getToken() ? <OnboardingPage /> : <Navigate to="/" replace />} />
           <Route path="/terms" element={<TermsPage />} />
           <Route path="/privacy" element={<PrivacyPage />} />
           <Route path="/guides" element={<ProtectedLayout><GuidesPage /></ProtectedLayout>} />

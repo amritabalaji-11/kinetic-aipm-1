@@ -7,7 +7,7 @@ import { getTeamReview, setTeamReview } from "../services/videoShareService"
 export const SHARE_LABEL = "Let the Kinetic team watch this video to improve the feedback"
 
 // A plain on/off switch with the wording. Controlled: the parent holds `checked`.
-export default function TeamShareSwitch({ checked, onChange, disabled = false, note }) {
+export default function TeamShareSwitch({ checked, onChange, disabled = false, note, label = SHARE_LABEL }) {
   return (
     <label style={{ display: "flex", gap: 12, alignItems: "flex-start", background: "#fff", border: "1px solid rgba(129,51,255,0.25)", borderRadius: 14, padding: 12, cursor: disabled ? "default" : "pointer", opacity: disabled ? 0.6 : 1 }}>
       <input type="checkbox" role="switch" checked={checked} disabled={disabled} onChange={(e) => onChange(e.target.checked)} style={{ position: "absolute", opacity: 0, width: 1, height: 1 }} />
@@ -15,7 +15,7 @@ export default function TeamShareSwitch({ checked, onChange, disabled = false, n
         <span style={{ position: "absolute", top: 3, left: checked ? 21 : 3, width: 20, height: 20, borderRadius: 10, background: "#fff", transition: "left 0.15s" }} />
       </span>
       <span style={{ fontFamily: DM_SANS, fontSize: 13.5, lineHeight: 1.4, color: INK }}>
-        <b>{SHARE_LABEL}</b>
+        <b>{label}</b>
         <span style={{ display: "block", color: GRAY, fontSize: 12.5, marginTop: 2 }}>
           {note ?? "Off unless you turn it on. Only our team sees it, and you can change this any time."} <Link to="/privacy" style={{ color: PURPLE }}>How we use videos</Link>
         </span>

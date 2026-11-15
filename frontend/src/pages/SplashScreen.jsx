@@ -20,7 +20,7 @@ export default function SplashScreen() {
     setSignInError(null)
     try {
       await loginWithGoogle(idToken)
-      navigate("/home")
+      navigate("/welcome") // asks once about sharing videos; goes straight on to Home when it has been answered
     } catch (e) {
       setSignInError(e.message)
       setSigningIn(false)

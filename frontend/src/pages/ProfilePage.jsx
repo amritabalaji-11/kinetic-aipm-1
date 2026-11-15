@@ -2,7 +2,8 @@ import { TOP_FADE_BACKGROUND } from "../utils/pageBackground"
 import { useState } from "react"
 import { useNavigate } from "react-router-dom"
 import { CoachIcon, CoachNoteSheet } from "../components/CoachNote"
-import { useUser } from "../context/UserContext"
+import { DEMO_USERS, useUser } from "../context/UserContext"
+import TeamShareSwitch from "../components/TeamShareSwitch"
 
 function MenuItem({ icon, label, onPress, danger }) {
   return (
@@ -23,7 +24,8 @@ function MenuItem({ icon, label, onPress, danger }) {
 
 export default function ProfilePage() {
   const navigate    = useNavigate()
-  const { activeUser, clearUser } = useUser()
+  const { activeUser, clearUser, chooseSharing } = useUser()
+  const [sharingError, setSharingError] = useState("")
   const [coachNoteOpen, setCoachNoteOpen] = useState(false)   // the full note from the AI coach
 
   const userName   = activeUser?.name        || "You"
@@ -98,6 +100,21 @@ export default function ProfilePage() {
               </svg>
             }
           />
+          {activeUser && !DEMO_USERS[activeUser.id] && (
+            <div style={{ marginBottom: 8 }}>
+              <TeamShareSwitch
+                label="Let the Kinetic team watch my videos to improve the feedback"
+                checked={activeUser.shareVideos === true}
+                onChange={(v) => { setSharingError(""); chooseSharing(v).catch(() => setSharingError("We couldn't save that. Please try again.")) }}
+                note={activeUser.shareVideos === null
+                  ? "You haven't chosen yet. Turn it on to let our team watch your videos. Each upload still has its own switch."
+                  : activeUser.shareVideos
+                    ? "On for new uploads. Each upload has its own switch, and you can turn off any video you shared from its results screen."
+                    : "Off. Your videos stay private. You can turn it on for a single upload."}
+              />
+              {sharingError && <p role="alert" style={{ fontSize: 12, color: "#DC2626", margin: "6px 4px 0" }}>{sharingError}</p>}
+            </div>
+          )}
           <MenuItem
             label="Subscription"
             onPress={() => navigate("/profile/subscription")}
