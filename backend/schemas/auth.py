@@ -40,6 +40,7 @@ class UserOut(BaseModel):
 class AboutYouIn(BaseModel):
     """The optional "A little about you" step. Every field may be left out."""
     experience: str | None = None            # new | 1-2 | 3+
+    workouts_per_week: str | None = None     # never | 1-2 | 3-4 | 5+
     training_types: list[str] | None = None  # cardio | strength | yoga_pilates | group_classes (any number)
     age_range: str | None = None             # 18-29 | 30-39 | 40+
     gender: str | None = None                # woman | man | non_binary | prefer_not_to_say

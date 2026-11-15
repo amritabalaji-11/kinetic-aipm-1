@@ -1,19 +1,20 @@
 import { useEffect, useState } from "react"
 import { useNavigate } from "react-router-dom"
-import { ClipboardList, GraduationCap, Play, Eye, ShieldCheck, Smartphone, Sun } from "lucide-react"
+import { ClipboardList, GraduationCap, Play, Eye, Sun } from "lucide-react"
 import ShareChoice from "../components/ShareChoice"
-import SquatFigure from "../components/SquatFigure"
+import KineticMark from "../components/KineticMark"
 import { BRICOLAGE, DM_SANS, GRADIENT, GRAY, INK, PURPLE } from "../components/planUi"
 import { DEMO_USERS, useUser } from "../context/UserContext"
 import { saveAboutYou } from "../services/authService"
 import { TOP_FADE_BACKGROUND } from "../utils/pageBackground"
 
-const STEPS = 4
+const STEPS = 3
 
 // One question each. `multi` ones can have several answers. Every answer is optional.
 const QUESTIONS = [
   { key: "experience", label: "How long have you been training?", options: [["new", "Just starting"], ["1-2", "1–2 years"], ["3+", "3+ years"]] },
-  { key: "training_types", multi: true, label: "What do you mostly do to train? Pick any.", options: [["cardio", "Cardio"], ["strength", "Strength training"], ["yoga_pilates", "Yoga / Pilates"], ["group_classes", "Group classes"]] },
+  { key: "workouts_per_week", label: "How many times a week do you work out?", options: [["never", "Never"], ["1-2", "1–2"], ["3-4", "3–4"], ["5+", "5 or more"]] },
+  { key: "training_types", multi: true, label: "What do you mostly do to train? Select all that apply.", options: [["cardio", "Cardio"], ["strength", "Strength training"], ["yoga_pilates", "Yoga / Pilates"], ["group_classes", "Group classes"]] },
   { key: "age_range", label: "Age range", options: [["18-29", "18–29"], ["30-39", "30–39"], ["40+", "40+"]] },
   { key: "gender", label: "Gender", options: [["woman", "Woman"], ["man", "Man"], ["non_binary", "Non-binary"], ["prefer_not_to_say", "Prefer not to say"]] },
 ]
@@ -25,9 +26,7 @@ const lead = { fontFamily: DM_SANS, fontSize: 15, color: "#334155", margin: "0 0
 
 // A line that slides in a moment after the one before it (it just appears when the phone is set to reduce motion)
 const FADE_CSS = `@keyframes onbIn{from{opacity:0;transform:translateY(14px)}to{opacity:1;transform:none}}
-@keyframes onbPulse{0%,100%{transform:scale(1)}50%{transform:scale(1.06)}}
-@keyframes onbRing{0%{transform:scale(.8);opacity:.5}100%{transform:scale(1.5);opacity:0}}
-@media (prefers-reduced-motion: reduce){.onb-in,.onb-pulse,.onb-ring{animation:none!important}}`
+@media (prefers-reduced-motion: reduce){.onb-in{animation:none!important}}`
 const inStyle = (i) => ({ animation: `onbIn .5s ease both`, animationDelay: `${0.12 * i}s` })
 
 function Point({ icon, title, text, i }) {
@@ -79,9 +78,7 @@ export default function OnboardingPage() {
 
         {step === 1 && (
           <>
-            <div aria-hidden="false" style={{ display: "flex", justifyContent: "center", margin: "4px 0 6px", background: "radial-gradient(circle at 50% 55%, rgba(129,51,255,0.16), rgba(129,51,255,0) 68%)" }}>
-              <SquatFigure size={190} />
-            </div>
+            <div style={{ margin: "2px 0 8px" }}><KineticMark scale={0.62} /></div>
             <h1 className="onb-in" style={{ ...heading, ...inStyle(0) }}>{firstName ? `Hi ${firstName}, welcome` : "Welcome"}</h1>
             <p className="onb-in" style={{ ...lead, ...inStyle(1) }}>Here is what Kinetic does for you:</p>
             <Point i={2} icon={<ClipboardList size={18} />} title="Plan and log your workouts" text="Pick a plan or build your own." />
@@ -131,24 +128,12 @@ export default function OnboardingPage() {
           <>
             <h1 style={heading}>Getting a good form check</h1>
             <p style={lead}>We can check goblet squats today, and more exercises are on the way.</p>
-            <div style={{ position: "relative", borderRadius: 18, background: "linear-gradient(135deg, #0F172A 0%, #312E81 60%, #6D28D9 100%)", padding: "14px 0 8px", marginBottom: 14, display: "flex", justifyContent: "center" }}>
-              <SquatFigure skeleton size={190} />
-              <span style={{ position: "absolute", left: 12, bottom: 10, fontFamily: DM_SANS, fontSize: 12, color: "rgba(255,255,255,0.85)" }}>This is how Kinetic sees your joints</span>
-            </div>
             <Point i={0} icon={<Eye size={18} />} title="Film from the side" text="Head to toe, so we can see your whole body." />
-            <Point i={1} icon={<Sun size={18} />} title="Good light" text="So the camera can see you clearly." />
-            <Point i={2} icon={<Smartphone size={18} />} title="Keep the phone still" text="Prop it up rather than holding it." />
-            <button type="button" onClick={() => setStep(4)} style={{ ...nextButton, marginTop: 14 }}>Next</button>
-          </>
-        )}
-
-        {step === 4 && (
-          <>
-            <div style={{ position: "relative", width: 84, height: 84, margin: "6px auto 14px" }} aria-hidden="true">
-              <span className="onb-ring" style={{ position: "absolute", inset: 0, borderRadius: "50%", border: `2px solid ${PURPLE}`, animation: "onbRing 2.4s ease-out infinite" }} />
-              <span className="onb-pulse" style={{ position: "absolute", inset: 8, borderRadius: "50%", background: GRADIENT, color: "#fff", display: "flex", alignItems: "center", justifyContent: "center", animation: "onbPulse 2.4s ease-in-out infinite" }}><ShieldCheck size={34} /></span>
+            <Point i={1} icon={<Sun size={18} />} title="Good light, phone still" text="Prop it up rather than holding it." />
+            <p style={{ fontFamily: DM_SANS, fontSize: 13, color: GRAY, margin: "4px 0 16px", lineHeight: 1.45 }}>To check your form, Kinetic analyses your videos with AI. They stay private to you.</p>
+            <div style={{ borderTop: "1px solid rgba(100,116,139,0.2)", paddingTop: 16 }}>
+              <ShareChoice compact onChoose={async (share) => { await chooseSharing(share); navigate("/home", { replace: true }) }} />
             </div>
-            <ShareChoice onChoose={async (share) => { await chooseSharing(share); navigate("/home", { replace: true }) }} />
           </>
         )}
       </div>

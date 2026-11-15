@@ -79,7 +79,7 @@ class SharingChoice(unittest.TestCase):
     # ---- "A little about you" ----
     def row(self, user):
         con = sqlite3.connect(self.path)
-        r = con.execute("SELECT experience_level, training_types, age_range, gender, injury_report, injury_details FROM user_profiles WHERE user_id = ?", (user,)).fetchone()
+        r = con.execute("SELECT experience_level, training_types, age_range, gender, injury_report, injury_details, workouts_per_week FROM user_profiles WHERE user_id = ?", (user,)).fetchone()
         con.close()
         return r
 
@@ -89,18 +89,20 @@ class SharingChoice(unittest.TestCase):
         self.call("POST", "/auth/me/about", "user-a", json={"age_range": "30-39", "gender": "prefer_not_to_say"})
         self.assertEqual(self.row("user-a")[:4], ("1-2", "cardio,strength", "30-39", "prefer_not_to_say"))  # earlier answers stay
         self.assertEqual(self.call("POST", "/auth/me/about", "user-a", json={}).json()["saved"], [])  # skipping saves nothing
+        self.call("POST", "/auth/me/about", "user-a", json={"workouts_per_week": "3-4"})
+        self.assertEqual(self.row("user-a")[6], "3-4")
 
     def test_injuries_keep_their_text_only_for_yes(self):
         self.call("POST", "/auth/me/about", "user-a", json={"has_injury": True, "injury_details": "  left knee, 2023  "})
-        self.assertEqual(self.row("user-a")[4:], (1, "left knee, 2023"))
+        self.assertEqual(self.row("user-a")[4:6], (1, "left knee, 2023"))
         self.call("POST", "/auth/me/about", "user-a", json={"has_injury": False, "injury_details": "should not be kept"})
-        self.assertEqual(self.row("user-a")[4:], (0, None))
+        self.assertEqual(self.row("user-a")[4:6], (0, None))
         self.assertEqual(self.call("POST", "/auth/me/about", "user-a", json={"has_injury": True, "injury_details": "x" * 1001}).status_code, 422)
 
     def test_about_you_refuses_made_up_values_and_strangers(self):
-        for bad in ({"gender": "other thing"}, {"experience": "forever"}, {"training_types": ["skydiving"]}, {"age_range": "200+"}):
+        for bad in ({"gender": "other thing"}, {"experience": "forever"}, {"training_types": ["skydiving"]}, {"age_range": "200+"}, {"workouts_per_week": "daily"}):
             self.assertEqual(self.call("POST", "/auth/me/about", "user-b", json=bad).status_code, 422, bad)
-        self.assertEqual(self.row("user-b"), (None, None, None, None, 0, None))
+        self.assertEqual(self.row("user-b"), (None, None, None, None, 0, None, None))
         self.assertEqual(self.call("POST", "/auth/me/about", None, json={"gender": "woman"}).status_code, 401)
         self.assertEqual(self.call("POST", "/auth/me/about", "ghost", json={"gender": "woman"}).status_code, 404)
 

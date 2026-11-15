@@ -3,7 +3,7 @@ import { Link } from "react-router-dom"
 import { BRICOLAGE, DM_SANS, GRADIENT, GRAY, INK, PURPLE } from "./planUi"
 
 // The one-time question. Both answers are equally easy to give, nothing is pre-selected, and "no" costs nothing.
-export default function ShareChoice({ onChoose }) {
+export default function ShareChoice({ onChoose, compact = false }) {
   const [busy, setBusy] = useState(false)
   const [error, setError] = useState("")
   const pick = async (share) => {
@@ -13,7 +13,9 @@ export default function ShareChoice({ onChoose }) {
   const button = { width: "100%", height: 54, borderRadius: 16, fontFamily: BRICOLAGE, fontWeight: 700, fontSize: 16, cursor: busy ? "default" : "pointer", opacity: busy ? 0.6 : 1 }
   return (
     <div>
-      <h1 style={{ fontFamily: BRICOLAGE, fontWeight: 700, fontSize: 26, color: INK, margin: "0 0 10px" }}>Help us improve Kinetic?</h1>
+      {compact
+        ? <h2 style={{ fontFamily: BRICOLAGE, fontWeight: 700, fontSize: 20, color: INK, margin: "0 0 8px" }}>Help us improve Kinetic?</h2>
+        : <h1 style={{ fontFamily: BRICOLAGE, fontWeight: 700, fontSize: 26, color: INK, margin: "0 0 10px" }}>Help us improve Kinetic?</h1>}
       <p style={{ fontFamily: DM_SANS, fontSize: 15, lineHeight: 1.5, color: "#1E293B", margin: "0 0 8px" }}>
         Can our team watch your videos to check and improve the feedback?
       </p>

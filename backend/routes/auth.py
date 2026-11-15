@@ -206,6 +206,7 @@ async def me(user_id: str = Depends(get_current_user_id)):
 
 ABOUT_YOU_CHOICES = {
     "experience": {"new", "1-2", "3+"},
+    "workouts_per_week": {"never", "1-2", "3-4", "5+"},
     "age_range": {"18-29", "30-39", "40+"},
     "gender": {"woman", "man", "non_binary", "prefer_not_to_say"},
 }
@@ -217,7 +218,7 @@ async def set_about_you(body: AboutYouIn, user_id: str = Depends(get_current_use
     """The optional "A little about you" step. Only the listed choices are accepted; anything left out is left as it was.
     These answers (gender and injuries are sensitive) are returned only to the person themselves and are never shown on the admin pages."""
     updates: dict[str, object] = {}
-    for key, column in (("experience", "experience_level"), ("age_range", "age_range"), ("gender", "gender")):
+    for key, column in (("experience", "experience_level"), ("workouts_per_week", "workouts_per_week"), ("age_range", "age_range"), ("gender", "gender")):
         value = getattr(body, key)
         if value is not None:
             if value not in ABOUT_YOU_CHOICES[key]:
