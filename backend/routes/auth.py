@@ -204,23 +204,38 @@ async def me(user_id: str = Depends(get_current_user_id)):
     )
 
 
-ABOUT_YOU_CHOICES = {"experience": {"new", "1-2", "3+"}, "goal": {"strength", "muscle", "active"}, "age_range": {"18-29", "30-39", "40+"}}
+ABOUT_YOU_CHOICES = {
+    "experience": {"new", "1-2", "3+"},
+    "age_range": {"18-29", "30-39", "40+"},
+    "gender": {"woman", "man", "non_binary", "prefer_not_to_say"},
+}
+TRAINING_TYPES = {"cardio", "strength", "yoga_pilates", "group_classes"}
 
 
 @router.post("/me/about")
 async def set_about_you(body: AboutYouIn, user_id: str = Depends(get_current_user_id)):
-    """The optional "A little about you" step. Only the listed choices are accepted; anything left out is left as it was."""
-    given = {k: v for k, v in body.model_dump().items() if v is not None}
-    for key, value in given.items():
-        if value not in ABOUT_YOU_CHOICES[key]:
-            raise HTTPException(status_code=422, detail=f"Unknown choice for {key}")
+    """The optional "A little about you" step. Only the listed choices are accepted; anything left out is left as it was.
+    These answers (gender and injuries are sensitive) are returned only to the person themselves and are never shown on the admin pages."""
+    updates: dict[str, object] = {}
+    for key, column in (("experience", "experience_level"), ("age_range", "age_range"), ("gender", "gender")):
+        value = getattr(body, key)
+        if value is not None:
+            if value not in ABOUT_YOU_CHOICES[key]:
+                raise HTTPException(status_code=422, detail=f"Unknown choice for {key}")
+            updates[column] = value
+    if body.training_types is not None:
+        if not set(body.training_types) <= TRAINING_TYPES:
+            raise HTTPException(status_code=422, detail="Unknown choice for training_types")
+        updates["training_types"] = ",".join(sorted(set(body.training_types))) or None
+    if body.has_injury is not None:
+        updates["injury_report"] = 1 if body.has_injury else 0
+        updates["injury_details"] = (body.injury_details or "").strip() or None if body.has_injury else None  # no details are kept for "no"
     found = await db.fetch_one("SELECT user_id FROM user_profiles WHERE user_id = :u", {"u": user_id})
     if not found:
         raise HTTPException(status_code=404, detail="User not found")
-    columns = {"experience": "experience_level", "goal": "fitness_goals", "age_range": "age_range"}
-    for key, value in given.items():
-        await db.execute(f"UPDATE user_profiles SET {columns[key]} = :v WHERE user_id = :u", {"v": value, "u": user_id})
-    return {"saved": sorted(given)}
+    for column, value in updates.items():  # the column names above are fixed in this file, never taken from the request
+        await db.execute(f"UPDATE user_profiles SET {column} = :v WHERE user_id = :u", {"v": value, "u": user_id})
+    return {"saved": sorted(updates)}
 
 
 @router.post("/me/sharing")

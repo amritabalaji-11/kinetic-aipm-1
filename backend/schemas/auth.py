@@ -1,4 +1,4 @@
-from pydantic import BaseModel, EmailStr
+from pydantic import BaseModel, Field, EmailStr
 
 
 class SignUpRequest(BaseModel):
@@ -39,9 +39,12 @@ class UserOut(BaseModel):
 
 class AboutYouIn(BaseModel):
     """The optional "A little about you" step. Every field may be left out."""
-    experience: str | None = None  # new | 1-2 | 3+
-    goal: str | None = None        # strength | muscle | active
-    age_range: str | None = None   # 18-29 | 30-39 | 40+
+    experience: str | None = None            # new | 1-2 | 3+
+    training_types: list[str] | None = None  # cardio | strength | yoga_pilates | group_classes (any number)
+    age_range: str | None = None             # 18-29 | 30-39 | 40+
+    gender: str | None = None                # woman | man | non_binary | prefer_not_to_say
+    has_injury: bool | None = None           # past injuries or pain we should know about
+    injury_details: str | None = Field(default=None, max_length=1000)  # only kept when has_injury is true
 
 
 class SharingChoiceIn(BaseModel):
