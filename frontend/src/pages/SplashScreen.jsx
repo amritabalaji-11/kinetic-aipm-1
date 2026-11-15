@@ -20,7 +20,7 @@ export default function SplashScreen() {
     setSignInError(null)
     try {
       await loginWithGoogle(idToken)
-      navigate("/home")
+      navigate("/welcome") // asks once about sharing videos; goes straight on to Home when it has been answered
     } catch (e) {
       setSignInError(e.message)
       setSigningIn(false)
@@ -336,7 +336,9 @@ export default function SplashScreen() {
               <p style={{ fontSize: 12, color: "#dc2626", margin: 0, textAlign: "center" }}>{signInError}</p>
             )}
             <p style={{ fontSize: 11, color: "#737888", margin: 0, textAlign: "center" }}>
-              By continuing you agree to our Terms &amp; Privacy Policy
+              By continuing you agree to our{" "}
+              <a href="/terms" style={{ color: "inherit", textDecoration: "underline" }}>Terms</a> and{" "}
+              <a href="/privacy" style={{ color: "inherit", textDecoration: "underline" }}>Privacy Policy</a>
             </p>
             <button
               onClick={() => navigate("/select-profile")}

@@ -1,8 +1,10 @@
 import json
 
 from fastapi import APIRouter, Depends, HTTPException, Header
+from pydantic import BaseModel
 from utils.security import get_current_user_id, require_same_user
 from db.database import db
+from services.consent import set_team_review
 
 router = APIRouter()
 
@@ -224,3 +226,18 @@ async def get_user_form_analysis(user_id: str, current_user: str = Depends(get_c
         }
         for r in results
     ]
+
+
+class TeamReviewIn(BaseModel):
+    allowed: bool
+
+
+@router.post("/analysis/{analysis_id}/team-review")
+async def change_team_review(analysis_id: str, body: TeamReviewIn, current_user: str = Depends(get_current_user_id)):
+    """The person's switch: "Let the Kinetic team watch this video to improve the feedback". Turning it off takes the video out of the
+    admin review list straight away. Only the owner can change it (someone else's video looks like one that does not exist)."""
+    row = await db.fetch_one("SELECT user_id FROM form_analyses WHERE analysis_id = :id", {"id": analysis_id})
+    if not row or row["user_id"] != current_user:
+        raise HTTPException(status_code=404, detail="Analysis not found")
+    await set_team_review(analysis_id, body.allowed, db)
+    return {"analysis_id": analysis_id, "team_review": body.allowed}

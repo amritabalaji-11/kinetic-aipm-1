@@ -7,6 +7,7 @@ import { buildFeedback } from "../utils/feedbackItems"
 import { MIN_REPS } from "../utils/analysisRules"
 import { hasActiveWorkout } from "../utils/routineBlock"
 import { CoachIcon, CoachNoteLine, CoachNoteSheet } from "../components/CoachNote"
+import { ShareWithTeam } from "../components/TeamShareSwitch"
 import { ResultsPhoto, WentWell, WorkOn, TryNext, GreatBanner, WeightNudge, CoachReminder, RepTempoChart } from "../components/ResultsFeedback"
 import FIXTURE_CLEAN        from "../../../fixtures/form-analysis.clean.json"
 import FIXTURE_WITH_ISSUES  from "../../../fixtures/form-analysis.with-issues.json"
@@ -1647,6 +1648,7 @@ export default function ResultsPage() {
                 )}
                 <CoachReminder lines={feedback.reminder} />
                 <CoachNoteLine onOpen={() => setCoachNoteOpen(true)} />
+                <ShareWithTeam analysisId={state?.analysisId || selectedLiveSessionId} />
               </>
             )}
 

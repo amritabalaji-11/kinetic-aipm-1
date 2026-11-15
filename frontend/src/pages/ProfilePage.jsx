@@ -2,7 +2,8 @@ import { TOP_FADE_BACKGROUND } from "../utils/pageBackground"
 import { useState } from "react"
 import { useNavigate } from "react-router-dom"
 import { CoachIcon, CoachNoteSheet } from "../components/CoachNote"
-import { useUser } from "../context/UserContext"
+import { DEMO_USERS, useUser } from "../context/UserContext"
+import TeamShareSwitch from "../components/TeamShareSwitch"
 
 function MenuItem({ icon, label, onPress, danger }) {
   return (
@@ -23,7 +24,8 @@ function MenuItem({ icon, label, onPress, danger }) {
 
 export default function ProfilePage() {
   const navigate    = useNavigate()
-  const { activeUser, clearUser } = useUser()
+  const { activeUser, clearUser, chooseSharing } = useUser()
+  const [sharingError, setSharingError] = useState("")
   const [coachNoteOpen, setCoachNoteOpen] = useState(false)   // the full note from the AI coach
 
   const userName   = activeUser?.name        || "You"
@@ -98,6 +100,21 @@ export default function ProfilePage() {
               </svg>
             }
           />
+          {activeUser && !DEMO_USERS[activeUser.id] && (
+            <div style={{ marginBottom: 8 }}>
+              <TeamShareSwitch
+                label="Let the Kinetic team watch my videos to improve the feedback"
+                checked={activeUser.shareVideos === true}
+                onChange={(v) => { setSharingError(""); chooseSharing(v).catch(() => setSharingError("We couldn't save that. Please try again.")) }}
+                note={activeUser.shareVideos === null
+                  ? "You haven't chosen yet. Turn it on to let our team watch your videos. Each upload still has its own switch."
+                  : activeUser.shareVideos
+                    ? "On for new uploads. Each upload has its own switch, and you can turn off any video you shared from its results screen."
+                    : "Off. Your videos stay private. You can turn it on for a single upload."}
+              />
+              {sharingError && <p role="alert" style={{ fontSize: 12, color: "#DC2626", margin: "6px 4px 0" }}>{sharingError}</p>}
+            </div>
+          )}
           <MenuItem
             label="Subscription"
             onPress={() => navigate("/profile/subscription")}
@@ -146,6 +163,24 @@ export default function ProfilePage() {
               <svg width="20" height="20" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.8}>
                 <path strokeLinecap="round" strokeLinejoin="round" d="M5.121 17.804A13.937 13.937 0 0112 16c2.5 0 4.847.655 6.879 1.804M15 10a3 3 0 11-6 0 3 3 0 016 0z" />
                 <rect x="3" y="3" width="18" height="18" rx="9" stroke="currentColor" strokeWidth={1.8} />
+              </svg>
+            }
+          />
+          <MenuItem
+            label="Terms"
+            onPress={() => navigate("/terms")}
+            icon={
+              <svg width="20" height="20" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.8}>
+                <path strokeLinecap="round" strokeLinejoin="round" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+              </svg>
+            }
+          />
+          <MenuItem
+            label="Privacy"
+            onPress={() => navigate("/privacy")}
+            icon={
+              <svg width="20" height="20" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.8}>
+                <path strokeLinecap="round" strokeLinejoin="round" d="M12 3l8 3v6c0 4.5-3.2 8.2-8 9-4.8-.8-8-4.5-8-9V6l8-3z" />
               </svg>
             }
           />

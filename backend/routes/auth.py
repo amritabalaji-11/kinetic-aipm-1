@@ -5,7 +5,7 @@ from fastapi import APIRouter, HTTPException, Depends, Request
 from db.database import NOW_TEXT, db
 from schemas.auth import (
     SignUpRequest, LoginRequest, SocialLoginRequest, DemoLoginRequest,
-    TokenResponse, UserOut,
+    TokenResponse, UserOut, SharingChoiceIn, AboutYouIn,
 )
 from utils.config import ALLOW_DEMO_LOGIN, DEMO_USER_IDS, DEMO_PASSCODE
 from utils.security import (
@@ -200,4 +200,54 @@ async def me(user_id: str = Depends(get_current_user_id)):
         display_name=user["display_name"],
         auth_provider=user["auth_provider"],
         role=user["role"] or "user",
+        share_videos_default=None if user["share_videos_default"] is None else bool(user["share_videos_default"]),
     )
+
+
+ABOUT_YOU_CHOICES = {
+    "experience": {"new", "1-2", "3+"},
+    "workouts_per_week": {"never", "1-2", "3-4", "5+"},
+    "age_range": {"18-29", "30-39", "40+"},
+    "gender": {"woman", "man", "non_binary", "prefer_not_to_say"},
+}
+TRAINING_TYPES = {"cardio", "strength", "yoga_pilates", "group_classes"}
+
+
+@router.post("/me/about")
+async def set_about_you(body: AboutYouIn, user_id: str = Depends(get_current_user_id)):
+    """The optional "A little about you" step. Only the listed choices are accepted; anything left out is left as it was.
+    These answers (gender and injuries are sensitive) are returned only to the person themselves and are never shown on the admin pages."""
+    updates: dict[str, object] = {}
+    for key, column in (("experience", "experience_level"), ("workouts_per_week", "workouts_per_week"), ("age_range", "age_range"), ("gender", "gender")):
+        value = getattr(body, key)
+        if value is not None:
+            if value not in ABOUT_YOU_CHOICES[key]:
+                raise HTTPException(status_code=422, detail=f"Unknown choice for {key}")
+            updates[column] = value
+    if body.training_types is not None:
+        if not set(body.training_types) <= TRAINING_TYPES:
+            raise HTTPException(status_code=422, detail="Unknown choice for training_types")
+        updates["training_types"] = ",".join(sorted(set(body.training_types))) or None
+    if body.has_injury is not None:
+        updates["injury_report"] = 1 if body.has_injury else 0
+        updates["injury_details"] = (body.injury_details or "").strip() or None if body.has_injury else None  # no details are kept for "no"
+    found = await db.fetch_one("SELECT user_id FROM user_profiles WHERE user_id = :u", {"u": user_id})
+    if not found:
+        raise HTTPException(status_code=404, detail="User not found")
+    for column, value in updates.items():  # the column names above are fixed in this file, never taken from the request
+        await db.execute(f"UPDATE user_profiles SET {column} = :v WHERE user_id = :u", {"v": value, "u": user_id})
+    return {"saved": sorted(updates)}
+
+
+@router.post("/me/sharing")
+async def set_sharing_choice(body: SharingChoiceIn, user_id: str = Depends(get_current_user_id)):
+    """Their answer to "Can our team watch your videos to check and improve the feedback?". It only sets the starting point for the share switch
+    on later uploads; each video still has its own switch, and nothing is shared because of this alone."""
+    found = await db.fetch_one("SELECT user_id FROM user_profiles WHERE user_id = :u", {"u": user_id})
+    if not found:
+        raise HTTPException(status_code=404, detail="User not found")
+    await db.execute(
+        f"UPDATE user_profiles SET share_videos_default = :v, share_choice_at = {NOW_TEXT} WHERE user_id = :u",
+        {"v": 1 if body.share else 0, "u": user_id},
+    )
+    return {"share_videos_default": body.share}

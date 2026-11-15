@@ -27,3 +27,14 @@ export async function reviewFeedback(id, { reviewed = true, note = "" } = {}) {
   if (!res.ok) throw Object.assign(new Error(`Something went wrong (${res.status}).`), { status: res.status })
   return res.json()
 }
+
+export const getVideos = ({ status = "all", limit = 30, offset = 0 } = {}) => call(`/videos?status=${status}&limit=${limit}&offset=${offset}`)
+export const getVideoItem = (id) => call(`/videos/${encodeURIComponent(id)}`)
+
+export async function reviewVideo(id, { verdict, note = "" }) {
+  const res = await apiFetch(`${BASE_URL}/admin/videos/${encodeURIComponent(id)}/review`, {
+    method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ verdict, note }),
+  })
+  if (!res.ok) throw Object.assign(new Error(res.status === 404 ? "This video is no longer shared." : `Something went wrong (${res.status}).`), { status: res.status })
+  return res.json()
+}

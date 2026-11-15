@@ -25,7 +25,11 @@ import AdminPage from "./pages/AdminPage"
 import AdminUserPage from "./pages/AdminUserPage"
 import FeedbackPage from "./pages/FeedbackPage"
 import GuidesPage from "./pages/GuidesPage"
+import TermsPage from "./pages/TermsPage"
+import PrivacyPage from "./pages/PrivacyPage"
 import AdminFeedbackPage from "./pages/AdminFeedbackPage"
+import AdminVideoPage from "./pages/AdminVideoPage"
+import OnboardingPage from "./pages/OnboardingPage"
 
 function Layout({ children }) {
   return (
@@ -67,8 +71,12 @@ function App() {
           <Route path="/upload/loading" element={<ProtectedLayout><LoadingPage /></ProtectedLayout>} />
           <Route path="/upload/results" element={<ProtectedLayout><ResultsPage /></ProtectedLayout>} />
           <Route path="/upload/comparison" element={<ProtectedLayout><ComparisonPage /></ProtectedLayout>} />
+          <Route path="/welcome" element={getToken() ? <OnboardingPage /> : <Navigate to="/" replace />} />
+          <Route path="/terms" element={<TermsPage />} />
+          <Route path="/privacy" element={<PrivacyPage />} />
           <Route path="/guides" element={<ProtectedLayout><GuidesPage /></ProtectedLayout>} />
           <Route path="/feedback" element={<ProtectedLayout><FeedbackPage /></ProtectedLayout>} />
+          <Route path="/admin/videos/:id" element={<ProtectedLayout><AdminVideoPage /></ProtectedLayout>} />
           <Route path="/admin/feedback/:id" element={<ProtectedLayout><AdminFeedbackPage /></ProtectedLayout>} />
           <Route path="/admin" element={<ProtectedLayout><AdminPage /></ProtectedLayout>} />
           <Route path="/admin/users/:id" element={<ProtectedLayout><AdminUserPage /></ProtectedLayout>} />

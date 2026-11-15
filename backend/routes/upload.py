@@ -16,6 +16,7 @@ from fastapi import (
 )
 
 from db.database import db, INTEGRITY_ERRORS
+from services.consent import set_team_review
 from utils.security import limit_guest, require_same_user
 from utils.gcs import upload_file_to_gcs, create_resumable_upload_url, uploaded_size, GS_PREFIX
 from utils.security import get_current_user_id
@@ -46,6 +47,7 @@ async def upload(
     #user_id: str = Form("00000000-0000-0000-0000-000000000000"),
     user_id: str = Form(...),
     session_id: str = Form(None),
+    team_review: bool = Form(False),  # "Let the Kinetic team watch this video to improve the feedback" (off unless ticked)
     background_tasks: BackgroundTasks = BackgroundTasks(),
     current_user: str = Depends(limit_guest("video uploads", 3)),  # demo accounts: 3 a day (each one costs money)
   #  background_tasks: BackgroundTasks,
@@ -177,6 +179,9 @@ async def upload(
             }
         )
         
+        if team_review:
+            await set_team_review(analysis_id, True, db)
+
     except INTEGRITY_ERRORS as e:
         if "session_id" in str(e):
             raise HTTPException(
@@ -243,6 +248,7 @@ class StartUploadIn(BaseModel):
     weight_value: float = 0
     weight_unit: str = "kg"
     session_id: str | None = None
+    team_review: bool = False
 
 
 class CompleteUploadIn(BaseModel):
@@ -308,6 +314,8 @@ async def start_upload(
                 "created_at": datetime.utcnow().isoformat(),
             },
         )
+        if body.team_review:
+            await set_team_review(analysis_id, True, db)
     except INTEGRITY_ERRORS:
         raise HTTPException(status_code=409, detail={"error": "SESSION_ALREADY_EXISTS"})
 
