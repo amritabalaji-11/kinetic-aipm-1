@@ -33,4 +33,9 @@ class UserOut(BaseModel):
     email: str | None
     display_name: str | None
     auth_provider: str
+    share_videos_default: bool | None = None  # their answer to "Can our team watch your videos?": None = not asked yet
     role: str = "user"  # "admin" shows the Admin page; the server checks it again on every admin request
+
+
+class SharingChoiceIn(BaseModel):
+    share: bool

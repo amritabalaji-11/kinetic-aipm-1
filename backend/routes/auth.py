@@ -5,7 +5,7 @@ from fastapi import APIRouter, HTTPException, Depends, Request
 from db.database import NOW_TEXT, db
 from schemas.auth import (
     SignUpRequest, LoginRequest, SocialLoginRequest, DemoLoginRequest,
-    TokenResponse, UserOut,
+    TokenResponse, UserOut, SharingChoiceIn,
 )
 from utils.config import ALLOW_DEMO_LOGIN, DEMO_USER_IDS, DEMO_PASSCODE
 from utils.security import (
@@ -200,4 +200,19 @@ async def me(user_id: str = Depends(get_current_user_id)):
         display_name=user["display_name"],
         auth_provider=user["auth_provider"],
         role=user["role"] or "user",
+        share_videos_default=None if user["share_videos_default"] is None else bool(user["share_videos_default"]),
     )
+
+
+@router.post("/me/sharing")
+async def set_sharing_choice(body: SharingChoiceIn, user_id: str = Depends(get_current_user_id)):
+    """Their answer to "Can our team watch your videos to check and improve the feedback?". It only sets the starting point for the share switch
+    on later uploads; each video still has its own switch, and nothing is shared because of this alone."""
+    found = await db.fetch_one("SELECT user_id FROM user_profiles WHERE user_id = :u", {"u": user_id})
+    if not found:
+        raise HTTPException(status_code=404, detail="User not found")
+    await db.execute(
+        f"UPDATE user_profiles SET share_videos_default = :v, share_choice_at = {NOW_TEXT} WHERE user_id = :u",
+        {"v": 1 if body.share else 0, "u": user_id},
+    )
+    return {"share_videos_default": body.share}

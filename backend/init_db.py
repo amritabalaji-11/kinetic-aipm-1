@@ -444,6 +444,9 @@ MIGRATIONS = [
     ("user_profiles", "last_login_at", "TEXT"),
 
     # video review: 1 only when the person ticked "Let the Kinetic team watch this video to improve the feedback" (they can turn it off again)
+    # the person's own answer to "Help us improve Kinetic? Can our team watch your videos...": NULL = not asked yet, 1 = yes, 0 = no
+    ("user_profiles", "share_videos_default", "INTEGER"),
+    ("user_profiles", "share_choice_at", "TEXT"),
     ("form_analyses", "team_review_consent", "INTEGER DEFAULT 0"),
     ("form_analyses", "team_review_consent_at", "TEXT"),
 ]
