@@ -37,5 +37,12 @@ class UserOut(BaseModel):
     role: str = "user"  # "admin" shows the Admin page; the server checks it again on every admin request
 
 
+class AboutYouIn(BaseModel):
+    """The optional "A little about you" step. Every field may be left out."""
+    experience: str | None = None  # new | 1-2 | 3+
+    goal: str | None = None        # strength | muscle | active
+    age_range: str | None = None   # 18-29 | 30-39 | 40+
+
+
 class SharingChoiceIn(BaseModel):
     share: bool

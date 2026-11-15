@@ -445,6 +445,7 @@ MIGRATIONS = [
 
     # video review: 1 only when the person ticked "Let the Kinetic team watch this video to improve the feedback" (they can turn it off again)
     # the person's own answer to "Help us improve Kinetic? Can our team watch your videos...": NULL = not asked yet, 1 = yes, 0 = no
+    ("user_profiles", "age_range", "TEXT"),   # from the optional "A little about you" step: 18-29, 30-39, 40+
     ("user_profiles", "share_videos_default", "INTEGER"),
     ("user_profiles", "share_choice_at", "TEXT"),
     ("form_analyses", "team_review_consent", "INTEGER DEFAULT 0"),

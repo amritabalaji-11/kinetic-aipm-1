@@ -5,7 +5,7 @@ from fastapi import APIRouter, HTTPException, Depends, Request
 from db.database import NOW_TEXT, db
 from schemas.auth import (
     SignUpRequest, LoginRequest, SocialLoginRequest, DemoLoginRequest,
-    TokenResponse, UserOut, SharingChoiceIn,
+    TokenResponse, UserOut, SharingChoiceIn, AboutYouIn,
 )
 from utils.config import ALLOW_DEMO_LOGIN, DEMO_USER_IDS, DEMO_PASSCODE
 from utils.security import (
@@ -202,6 +202,25 @@ async def me(user_id: str = Depends(get_current_user_id)):
         role=user["role"] or "user",
         share_videos_default=None if user["share_videos_default"] is None else bool(user["share_videos_default"]),
     )
+
+
+ABOUT_YOU_CHOICES = {"experience": {"new", "1-2", "3+"}, "goal": {"strength", "muscle", "active"}, "age_range": {"18-29", "30-39", "40+"}}
+
+
+@router.post("/me/about")
+async def set_about_you(body: AboutYouIn, user_id: str = Depends(get_current_user_id)):
+    """The optional "A little about you" step. Only the listed choices are accepted; anything left out is left as it was."""
+    given = {k: v for k, v in body.model_dump().items() if v is not None}
+    for key, value in given.items():
+        if value not in ABOUT_YOU_CHOICES[key]:
+            raise HTTPException(status_code=422, detail=f"Unknown choice for {key}")
+    found = await db.fetch_one("SELECT user_id FROM user_profiles WHERE user_id = :u", {"u": user_id})
+    if not found:
+        raise HTTPException(status_code=404, detail="User not found")
+    columns = {"experience": "experience_level", "goal": "fitness_goals", "age_range": "age_range"}
+    for key, value in given.items():
+        await db.execute(f"UPDATE user_profiles SET {columns[key]} = :v WHERE user_id = :u", {"v": value, "u": user_id})
+    return {"saved": sorted(given)}
 
 
 @router.post("/me/sharing")

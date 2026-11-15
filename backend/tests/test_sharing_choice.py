@@ -76,6 +76,26 @@ class SharingChoice(unittest.TestCase):
         self.assertTrue(con.execute("SELECT share_choice_at FROM user_profiles WHERE user_id = 'user-b'").fetchone()[0])
         con.close()
 
+    # ---- "A little about you" ----
+    def row(self, user):
+        con = sqlite3.connect(self.path)
+        r = con.execute("SELECT experience_level, fitness_goals, age_range FROM user_profiles WHERE user_id = ?", (user,)).fetchone()
+        con.close()
+        return r
+
+    def test_about_you_saves_only_what_was_given(self):
+        self.assertEqual(self.call("POST", "/auth/me/about", "user-a", json={"experience": "1-2", "goal": "strength"}).json()["saved"], ["experience", "goal"])
+        self.assertEqual(self.row("user-a"), ("1-2", "strength", None))
+        self.call("POST", "/auth/me/about", "user-a", json={"age_range": "30-39"})
+        self.assertEqual(self.row("user-a"), ("1-2", "strength", "30-39"))  # the earlier answers stay
+        self.assertEqual(self.call("POST", "/auth/me/about", "user-a", json={}).json()["saved"], [])  # skipping saves nothing
+
+    def test_about_you_refuses_made_up_values_and_strangers(self):
+        self.assertEqual(self.call("POST", "/auth/me/about", "user-b", json={"goal": "world domination"}).status_code, 422)
+        self.assertEqual(self.row("user-b"), (None, None, None))
+        self.assertEqual(self.call("POST", "/auth/me/about", None, json={"goal": "muscle"}).status_code, 401)
+        self.assertEqual(self.call("POST", "/auth/me/about", "ghost", json={"goal": "muscle"}).status_code, 404)
+
 
 if __name__ == "__main__":
     unittest.main()
