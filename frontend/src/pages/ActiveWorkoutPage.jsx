@@ -18,6 +18,7 @@ import WhyCard from "../components/WhyCard"
 import TagLegend from "../components/TagLegend"
 import { hasAnyTag, muscleTag } from "../utils/muscleTags"
 import { whyReps } from "../utils/whyReps"
+import { splitSub } from "../utils/subLine"
 import { canFollow, tickAll } from "../utils/routineFollow"
 import SectionRunner from "../components/SectionRunner"
 import RoundsForTime from "../components/RoundsForTime"
@@ -576,16 +577,29 @@ export default function ActiveWorkoutPage() {
                         return <div key={it.key} style={{ fontFamily: DM_SANS, fontSize: 11, color: GRAY }}>{it.name} · {it.sub}</div>
                       }
                       if (!it.logged) return followRow(it, ii)
+                      const { main, note } = splitSub(it.sub)
                       return (
-                        <div key={it.key} style={{ display: "flex", alignItems: "flex-start", gap: 8, padding: "6px 0" }}>
-                          {many && <span style={{ width: 20, height: 20, marginTop: 1, borderRadius: 5, background: PURPLE, color: "#fff", fontFamily: DM_SANS, fontWeight: 600, fontSize: 11, display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0 }}>{letter(actionable.indexOf(it))}</span>}
-                          <div style={{ flex: 1, minWidth: 0, lineHeight: 1.3 }}>
-                            <div style={{ display: "flex", flexWrap: "wrap", alignItems: "center", columnGap: 8, rowGap: 4, fontFamily: DM_SANS, fontWeight: 600, fontSize: 15, color: PURPLE }}><span><ExerciseName exerciseId={it.exerciseId}>{it.name}</ExerciseName></span>{tagOf(it, 0)}</div>
-                            {it.sub && <div style={{ fontFamily: DM_SANS, fontSize: 12, color: GRAY }}>{it.sub}</div>}
-                            {whyOf(it)}
-                            <TrackChips track={trackOf(it)} onChange={(t) => setTrack(bi, ii, t)} />
+                        // each exercise is its own small card: name bar on top, details below, the "LOG" row at the bottom
+                        <div key={it.key} style={{ border: "1px solid rgba(129,51,255,0.22)", borderRadius: 14, marginBottom: 8, overflow: "hidden", background: "#fff" }}>
+                          <div style={{ display: "flex", alignItems: "center", gap: 8, padding: "9px 10px", background: "#FBFAFF" }}>
+                            {many && <span style={{ width: 22, height: 22, borderRadius: 6, background: PURPLE, color: "#fff", fontFamily: DM_SANS, fontWeight: 600, fontSize: 11.5, display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0 }}>{letter(actionable.indexOf(it))}</span>}
+                            <div style={{ flex: 1, minWidth: 0, fontFamily: DM_SANS, fontWeight: 600, fontSize: 15.5, lineHeight: 1.25, color: PURPLE }}><ExerciseName exerciseId={it.exerciseId}>{it.name}</ExerciseName></div>
+                            {it.exerciseId && <SwapButton name={it.name} locked={itemHasEntries(it)} onClick={() => setSwapping({ bi, ii })} />}
                           </div>
-                          {it.exerciseId && <SwapButton name={it.name} locked={itemHasEntries(it)} onClick={() => setSwapping({ bi, ii })} />}
+                          <div style={{ padding: "8px 10px 10px", lineHeight: 1.3 }}>
+                            {(main || tagOf(it, 0)) && (
+                              <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", flexWrap: "wrap", gap: 6 }}>
+                                <span style={{ fontFamily: DM_SANS, fontWeight: 600, fontSize: 12.5, color: INK }}>{main}</span>
+                                {tagOf(it, 0)}
+                              </div>
+                            )}
+                            {note && <div style={{ fontFamily: DM_SANS, fontSize: 11.5, color: "#94A3B8", marginTop: 2, lineHeight: 1.35 }}>{note}</div>}
+                            {whyOf(it)}
+                            <div style={{ marginTop: 8, paddingTop: 8, borderTop: "1px dashed #E2E8F0", display: "flex", alignItems: "center", gap: 8 }}>
+                              <span style={{ fontFamily: DM_SANS, fontSize: 10.5, fontWeight: 700, color: "#94A3B8", letterSpacing: "0.04em" }}>LOG</span>
+                              <TrackChips track={trackOf(it)} onChange={(t) => setTrack(bi, ii, t)} />
+                            </div>
+                          </div>
                         </div>
                       )
                     })}
