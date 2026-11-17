@@ -191,7 +191,7 @@ export default function SplashScreen() {
           marginBottom: 40,
         }}
       >
-        See Every Rep. Coach Every Lift.
+        What. Why. Go.
       </p>
 
       <div
