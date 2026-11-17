@@ -34,6 +34,7 @@ class UserOut(BaseModel):
     display_name: str | None
     auth_provider: str
     weight_unit: str | None = None  # "kg" or "lbs"; None = not chosen yet (the app then uses a default from the phone's region)
+    motivation_line: str | None = None  # their favourite motivational line, shown under their name on Profile
     health_notice_version: str | None = None  # which version of the health note they ticked; None = not yet
     share_videos_default: bool | None = None  # their answer to "Can our team watch your videos?": None = not asked yet
     role: str = "user"  # "admin" shows the Admin page; the server checks it again on every admin request
@@ -52,6 +53,8 @@ class AboutYouIn(BaseModel):
 
 class WeightUnitIn(BaseModel):
     unit: str = Field(pattern="^(kg|lbs)$")
+class MotivationIn(BaseModel):
+    line: str = Field(default="", max_length=200)  # trimmed and cut to 80 characters on the server; empty clears it
 
 
 class HealthNoticeIn(BaseModel):

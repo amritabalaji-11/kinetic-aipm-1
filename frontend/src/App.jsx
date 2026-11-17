@@ -29,6 +29,7 @@ import GuidesPage from "./pages/GuidesPage"
 import TermsPage from "./pages/TermsPage"
 import PrivacyPage from "./pages/PrivacyPage"
 import SettingsPage from "./pages/SettingsPage"
+import PrivacyTermsPage from "./pages/PrivacyTermsPage"
 import AdminFeedbackPage from "./pages/AdminFeedbackPage"
 import AdminVideoPage from "./pages/AdminVideoPage"
 import OnboardingPage from "./pages/OnboardingPage"
@@ -90,6 +91,7 @@ function App() {
           <Route path="/terms" element={<TermsPage />} />
           <Route path="/privacy" element={<PrivacyPage />} />
           <Route path="/settings" element={<ProtectedLayout><SettingsPage /></ProtectedLayout>} />
+          <Route path="/legal" element={<ProtectedLayout><PrivacyTermsPage /></ProtectedLayout>} />
           <Route path="/guides" element={<ProtectedLayout><GuidesPage /></ProtectedLayout>} />
           <Route path="/feedback" element={<ProtectedLayout><FeedbackPage /></ProtectedLayout>} />
           <Route path="/admin/videos/:id" element={<ProtectedLayout><AdminVideoPage /></ProtectedLayout>} />

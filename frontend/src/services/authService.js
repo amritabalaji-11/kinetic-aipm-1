@@ -63,6 +63,15 @@ export async function saveWeightUnit(unit) {
   return (await res.json()).weight_unit
 }
 
+// The line under their name on Profile (their favourite motivational line). An empty line clears it. Returns what was saved.
+export async function saveMotivationLine(line) {
+  const res = await fetch(`${BASE_URL}/auth/me/motivation`, {
+    method: "POST", headers: { "Content-Type": "application/json", Authorization: `Bearer ${getToken()}` }, body: JSON.stringify({ line }),
+  })
+  if (!res.ok) throw new Error("We couldn't save that. Please try again.")
+  return (await res.json()).motivation_line || ""
+}
+
 // They ticked the health note ("not medical advice..."); we keep which version of the text they saw
 export async function saveHealthNotice(version) {
   const res = await fetch(`${BASE_URL}/auth/me/health-notice`, {

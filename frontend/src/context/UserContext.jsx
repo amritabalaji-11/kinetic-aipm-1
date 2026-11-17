@@ -1,6 +1,6 @@
 import { unitOf } from "../utils/units"
 import { createContext, useContext, useEffect, useState } from "react"
-import { TOKEN_KEY, signInWithGoogle, signInAsDemo, fetchMe, saveSharingChoice, saveHealthNotice, saveWeightUnit } from "../services/authService"
+import { TOKEN_KEY, signInWithGoogle, signInAsDemo, fetchMe, saveSharingChoice, saveHealthNotice, saveWeightUnit, saveMotivationLine } from "../services/authService"
 
 export const DEMO_USERS = {
   user_001: {
@@ -79,7 +79,7 @@ const UserContext = createContext(null)
 // Shape a real (Google) account like a demo user so pages can read the same fields
 function toActiveUser(me) {
   const name = me.display_name || (me.email ? me.email.split("@")[0] : "You")
-  return { id: me.user_id, name, initials: name.slice(0, 2).toUpperCase(), email: me.email, role: me.role || "user", weightUnit: unitOf(me.weight_unit), shareVideos: me.share_videos_default ?? null, healthNotice: me.health_notice_version ?? null }
+  return { id: me.user_id, name, initials: name.slice(0, 2).toUpperCase(), email: me.email, role: me.role || "user", description: me.motivation_line || "", weightUnit: unitOf(me.weight_unit), shareVideos: me.share_videos_default ?? null, healthNotice: me.health_notice_version ?? null }
 }
 
 export function UserProvider({ children }) {
@@ -135,6 +135,13 @@ export function UserProvider({ children }) {
     try { await saveWeightUnit(unit) } catch (e) { setAuthUser((u) => (u ? { ...u, weightUnit: before } : u)); throw e }
   }
 
+  // Their favourite motivational line, shown under their name on Profile
+  const saveMotivation = async (line) => {
+    const saved = await saveMotivationLine(line)
+    setAuthUser((u) => (u ? { ...u, description: saved } : u))
+    return saved
+  }
+
   // They ticked the health note (the version of the text they saw)
   const acceptHealthNotice = async (version) => {
     await saveHealthNotice(version)
@@ -146,7 +153,7 @@ export function UserProvider({ children }) {
     : null
 
   return (
-    <UserContext.Provider value={{ activeUser, activeUserId, loginAsDemo, clearUser, loginWithGoogle, chooseSharing, acceptHealthNotice, chooseUnit, DEMO_USERS }}>
+    <UserContext.Provider value={{ activeUser, activeUserId, loginAsDemo, clearUser, loginWithGoogle, chooseSharing, acceptHealthNotice, chooseUnit, saveMotivation, DEMO_USERS }}>
       {children}
     </UserContext.Provider>
   )
