@@ -38,9 +38,13 @@ export default function ProfilePage() {
     ? `linear-gradient(135deg, ${activeUser.avatarGradient[0]} 0%, ${activeUser.avatarGradient[1]} 100%)`
     : "linear-gradient(135deg, #c4b5fd 0%, #818cf8 100%)"
 
+  // Signing out goes back to the sign-in screen (the splash with "Continue with Google"), not to the demo profile picker.
+  // `replace` so the Back button does not return to the profile. The flag lets the splash show the sign-in straight away; it is kept in
+  // sessionStorage because the page guard also redirects to "/" the moment the sign-in is cleared, and that redirect would drop anything passed along.
   function handleSignOut() {
+    try { sessionStorage.setItem("justSignedOut", "1") } catch { /* private mode: the intro just plays in full */ }
     clearUser()
-    navigate("/profile-screen")
+    navigate("/", { replace: true })
   }
 
   return (
