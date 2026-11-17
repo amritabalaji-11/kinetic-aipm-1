@@ -15,7 +15,8 @@ export default function VideoRoutineRow({ routine, saved, onOpen, onToggle }) {
         </span>
         <span style={{ minWidth: 0 }}>
           <span style={{ display: "-webkit-box", WebkitLineClamp: 2, WebkitBoxOrient: "vertical", overflow: "hidden", fontFamily: BRICOLAGE, fontWeight: 700, fontSize: 13.5, lineHeight: 1.2, color: INK }}>{routine.title}</span>
-          <span style={{ display: "block", fontFamily: DM_SANS, fontSize: 11.5, color: GRAY, marginTop: 2 }}>{[routine.source?.author, minutesText(routine)].filter(Boolean).join(" · ")}</span>
+          {routine.follow_only && <span style={{ display: "inline-block", marginTop: 2, padding: "1px 7px", borderRadius: 8, background: "#EDE9FE", color: "#6D28D9", fontFamily: DM_SANS, fontSize: 10, fontWeight: 800, letterSpacing: "0.03em" }}>FOLLOW ALONG</span>}
+          <span style={{ display: "block", fontFamily: DM_SANS, fontSize: 11.5, color: GRAY, marginTop: 2 }}>{[routine.source?.author, routine.follow_only ? "follow along" : minutesText(routine)].filter(Boolean).join(" · ")}</span>
         </span>
       </button>
       <button type="button" onClick={onToggle} aria-pressed={saved} aria-label={saved ? `Take ${routine.title} out of my workouts` : `Save ${routine.title} to my workouts`}

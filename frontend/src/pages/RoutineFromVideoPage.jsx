@@ -2,7 +2,7 @@ import { useEffect, useRef, useState } from "react"
 import { useLocation, useNavigate } from "react-router-dom"
 import { Check, ChevronLeft, ClipboardPaste, Star, X } from "lucide-react"
 import { BottomSheet, BRICOLAGE, DM_SANS, GRADIENT, GRAY, INK, PURPLE } from "../components/planUi"
-import { deleteRoutine, listRecentVideos, listRoutines, readVideo, saveRoutine } from "../services/routineService"
+import { deleteRoutine, followVideo, listRecentVideos, listRoutines, readVideo, saveRoutine } from "../services/routineService"
 import { activeWorkoutTitle, addRoutineToActiveWorkout, routineToBlock } from "../utils/routineBlock"
 import { confirmWorkout } from "../utils/startWorkout"
 import { TOP_FADE_BACKGROUND } from "../utils/pageBackground"
@@ -59,6 +59,7 @@ export default function RoutineFromVideoPage() {
   const [error, setError] = useState(null)
   const [readingStep, setReadingStep] = useState(0)
   const [saving, setSaving] = useState(false)
+  const [following, setFollowing] = useState(false)
   const [mine, setMine] = useState(null) // my saved routines, null while loading
   const [recent, setRecent] = useState(null) // the videos I read lately, null while loading
   const [adding, setAdding] = useState(null) // the routine being added to a workout
@@ -94,7 +95,7 @@ export default function RoutineFromVideoPage() {
       loadRecent()
     } catch (err) {
       if (err.name === "AbortError") return
-      setError({ code: err.code, message: err.message }); setStage("error")
+      setError({ code: err.code, message: err.message, video: err.video }); setStage("error")
     }
   }
   // sent here by a button: show the routine we already read, or read the video now
@@ -114,6 +115,15 @@ export default function RoutineFromVideoPage() {
   const editStep = (i, patch) => setRoutine((r) => ({ ...r, steps: r.steps.map((s, k) => (k === i ? { ...s, ...patch } : s)) }))
   const removeStep = (i) => setRoutine((r) => ({ ...r, steps: r.steps.filter((_, k) => k !== i) }))
 
+  // "Just follow the video": for a video we could not read (or read only a little of). It goes into recent videos and straight to "Add to today's workout".
+  const followIt = async (video) => {
+    setFollowing(true)
+    try {
+      const r = await followVideo({ video_id: video.video_id, title: video.title, author: video.author, author_url: video.author_url, embeddable: !!video.embeddable })
+      loadRecent()
+      setAdding(r); setWhere("next")
+    } catch (err) { setError({ code: err.code, message: err.message }); setStage("error") } finally { setFollowing(false) }
+  }
   // the star: keep this routine in my workouts, or take it back out
   const toggleSaved = async (r, row) => {
     setSaving(true)
@@ -124,6 +134,9 @@ export default function RoutineFromVideoPage() {
     } catch (err) { setError({ code: err.code, message: err.message }) } finally { setSaving(false) }
   }
   const save = () => toggleSaved(routine, savedRowFor(routine))
+
+  // a YouTube video we could not read but that can play inside the app: it can still be followed
+  const followable = !!(error?.video?.embeddable && ["no_routine", "no_captions", "too_long"].includes(error.code))
 
   // the workout in progress, if there is one
   const inProgress = adding ? activeWorkoutTitle() : null
@@ -232,10 +245,12 @@ export default function RoutineFromVideoPage() {
               <Star size={18} color={savedRowFor(routine) ? "#fff" : PURPLE} fill={savedRowFor(routine) ? "#fff" : "none"} />
             </button>
           </div>
-          <div style={{ display: "flex", gap: 8, alignItems: "center", margin: "8px 0 6px", flexWrap: "wrap" }}>
-            <TypeTag type={routine.workout_type} />
-            <span style={{ fontFamily: DM_SANS, fontSize: 12.5, color: GRAY }}>{minutesText({ ...routine })}</span>
-          </div>
+          {!routine.follow_only && (
+            <div style={{ display: "flex", gap: 8, alignItems: "center", margin: "8px 0 6px", flexWrap: "wrap" }}>
+              <TypeTag type={routine.workout_type} />
+              <span style={{ fontFamily: DM_SANS, fontSize: 12.5, color: GRAY }}>{minutesText({ ...routine })}</span>
+            </div>
+          )}
           {routine.source && <VideoSourceRow source={routine.source} />}
 
           {routine.summary && (
@@ -249,6 +264,19 @@ export default function RoutineFromVideoPage() {
             </div>
           )}
 
+          {routine.follow_only && (
+            <div style={card}>
+              <div style={{ fontFamily: BRICOLAGE, fontWeight: 700, fontSize: 15, color: INK, marginBottom: 4 }}>Follow along</div>
+              <p style={{ fontFamily: DM_SANS, fontSize: 13.5, color: INK, margin: 0, lineHeight: 1.45 }}>We couldn&apos;t list the exercises for this video. Play it in your workout and tap Done when you finish. We&apos;ll log that you did it and for how long.</p>
+            </div>
+          )}
+          {!routine.follow_only && routine.steps.length > 0 && routine.steps.length <= 3 && routine.source?.embeddable && routine.source?.video_id && (
+            <div style={{ background: AMBER_BG, border: `1px solid ${AMBER_BORDER}`, borderRadius: 14, padding: "10px 12px", marginBottom: 12, fontFamily: DM_SANS, fontSize: 13, lineHeight: 1.45, color: "#451A03" }}>
+              <b>We only found {routine.steps.length} {routine.steps.length === 1 ? "move" : "moves"}.</b> The video may have more than we could pick up. Use {routine.steps.length === 1 ? "it" : "these"}, or just follow the video.
+              <button type="button" disabled={following} onClick={() => followIt(routine.source)} style={{ display: "block", marginTop: 6, background: "none", border: "none", padding: 0, cursor: "pointer", fontFamily: DM_SANS, fontWeight: 700, fontSize: 13, color: PURPLE }}>{following ? "Opening…" : "Just follow the video instead →"}</button>
+            </div>
+          )}
+          {!routine.follow_only && (
           <div style={{ ...card, padding: "4px 12px" }}>
             {routine.steps.map((s, i) => (
               <div key={i} style={{ display: "flex", gap: 10, alignItems: "flex-start", padding: "10px 0", borderTop: i ? "1px solid rgba(100,116,139,0.2)" : "none" }}>
@@ -271,6 +299,7 @@ export default function RoutineFromVideoPage() {
             ))}
             {routine.steps.length === 0 && <p style={{ fontFamily: DM_SANS, fontSize: 13, color: GRAY, padding: "10px 0" }}>No moves left. Go back and read another video.</p>}
           </div>
+          )}
 
           {routine.unsure?.length > 0 && (
             <div style={{ background: AMBER_BG, border: `1px solid ${AMBER_BORDER}`, borderRadius: 14, padding: "10px 12px", fontFamily: DM_SANS, fontSize: 12.5, lineHeight: 1.4, color: "#451A03", marginBottom: 12 }}>
@@ -295,8 +324,31 @@ export default function RoutineFromVideoPage() {
           {back("Back", () => setStage("input"))}
           <div style={{ textAlign: "center", padding: "26px 8px 10px" }}>
             <div style={{ width: 64, height: 64, borderRadius: 32, background: "#FEE2E2", color: "#DC2626", fontSize: 30, fontWeight: 700, display: "flex", alignItems: "center", justifyContent: "center", margin: "0 auto 12px" }}>!</div>
-            <h1 style={{ fontFamily: BRICOLAGE, fontWeight: 700, fontSize: 22, color: INK, margin: "0 0 6px" }}>We couldn&apos;t read this video</h1>
+            <h1 style={{ fontFamily: BRICOLAGE, fontWeight: 700, fontSize: 22, color: INK, margin: "0 0 6px" }}>{followable ? "We couldn't pick out the exercises" : "We couldn't read this video"}</h1>
           </div>
+          {followable ? (
+            <>
+              <div style={{ display: "flex", gap: 10, alignItems: "center", background: "#fff", border: "1px solid rgba(129,51,255,0.25)", borderRadius: 14, padding: 8, marginBottom: 12 }}>
+                <span style={{ width: 92, height: 52, borderRadius: 8, flexShrink: 0, overflow: "hidden", background: "linear-gradient(135deg, #FBE7E0 0%, #E6DEFF 55%, #D6F5EA 100%)" }}>
+                  <img src={`https://i.ytimg.com/vi/${error.video.video_id}/mqdefault.jpg`} alt="" style={{ width: "100%", height: "100%", objectFit: "cover", display: "block" }} onError={(e) => { e.currentTarget.style.display = "none" }} />
+                </span>
+                <span style={{ minWidth: 0, fontFamily: DM_SANS, fontSize: 12.5, color: GRAY }}>
+                  <b style={{ display: "-webkit-box", WebkitLineClamp: 2, WebkitBoxOrient: "vertical", overflow: "hidden", color: INK, fontSize: 13, lineHeight: 1.25 }}>{error.video.title || "This video"}</b>
+                  {error.video.author}
+                </span>
+              </div>
+              <div style={card}>
+                <p style={{ fontFamily: DM_SANS, fontSize: 14, color: INK, margin: 0, lineHeight: 1.45 }}>
+                  {error.code === "too_long" ? "This video is too long for us to read. " : "We couldn't find a clear list of exercises in this video. "}We can still track it: <b>follow the video here in Kinetic and tap Done when you finish.</b>
+                </p>
+              </div>
+              <button type="button" disabled={following} onClick={() => followIt(error.video)} style={{ ...bigButton(false), opacity: following ? 0.6 : 1 }}>{following ? "Opening…" : "Follow this video in Kinetic"}</button>
+              <button type="button" onClick={() => setStage("input")} style={bigButton(true)}>Try another link</button>
+              <button type="button" onClick={() => navigate("/plan/custom")} style={{ ...bigButton(true), borderColor: "#CBD5E1", color: GRAY }}>Create a workout myself</button>
+              <p style={{ fontFamily: DM_SANS, fontSize: 11.5, color: GRAY, textAlign: "center", margin: "10px 0 0", lineHeight: 1.4 }}>We&apos;ll log that you did it and for how long, and keep the video in My routines so you can open it again. We won&apos;t know the exercises, sets or weights.</p>
+            </>
+          ) : (
+            <>
           <div style={card}>
             <p style={{ fontFamily: DM_SANS, fontSize: 14, color: INK, margin: 0, lineHeight: 1.45 }}>{WHY_NOT[error.code] || error.message}</p>
           </div>
@@ -308,6 +360,8 @@ export default function RoutineFromVideoPage() {
           )}
           <button type="button" onClick={() => setStage("input")} style={bigButton(false)}>Try another link</button>
           <button type="button" onClick={() => navigate("/plan/custom")} style={bigButton(true)}>Create a workout myself</button>
+            </>
+          )}
         </>
       )}
 

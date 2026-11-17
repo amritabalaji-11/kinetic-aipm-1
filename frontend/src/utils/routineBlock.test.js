@@ -32,3 +32,20 @@ describe("buildSequence", () => {
     expect(names(buildSequence(routine({ sets: 1, set_order: "all_sets_first", work_seconds: 30, rest_seconds: 10 })))).toEqual(["Squat", "Lunge", "Row"])
   })
 })
+
+import { routineToBlock } from "./routineBlock"
+describe("routineToBlock for a video we could not read", () => {
+  const followOnly = { title: "30 Min Full Body Dumbbell Workout", follow_only: true, steps: [{ name: "Follow the video", how_to: "Play it, work out with it, then tap Done." }], source: { site: "youtube", video_id: "CKDYo5CeX9E", url: "https://www.youtube.com/watch?v=CKDYo5CeX9E", embeddable: true } }
+  it("becomes one 'follow along' section named after the video", () => {
+    const b = routineToBlock(followOnly)
+    expect(b).toMatchObject({ followOnly: true, tag: "VIDEO WORKOUT", note: "Follow along", title: "30 Min Full Body Dumbbell Workout" })
+    expect(b.items).toHaveLength(1)
+    expect(b.runner).toBeNull() // no times, so no clock
+  })
+  it("a normal routine is unchanged", () => {
+    const b = routineToBlock({ title: "Leg day", steps: [{ name: "Squat", seconds: 30 }, { name: "Lunge", seconds: 30 }], total_minutes: 30 })
+    expect(b.followOnly).toBe(false)
+    expect(b.tag).toBe("LEG DAY")
+    expect(b.note).toBe("2 moves · about 30 min")
+  })
+})
