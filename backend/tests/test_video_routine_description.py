@@ -59,6 +59,13 @@ class Description(unittest.TestCase):
                 run(v.routine_from_link("https://youtu.be/GViX8riaHX4"))
         self.assertEqual(ctx.exception.code, "no_captions")
 
+    def test_set_order_is_kept_only_when_it_is_one_of_the_two_known_values(self):
+        base = {"title": "T", "steps": [{"order": 1, "name": "Squat", "phase": "main"}]}
+        for given, kept in (("all_sets_first", "all_sets_first"), ("whole_round", "whole_round"), ("nonsense", None), (None, None)):
+            out = v.check_routine({**base, "structure": {"sets": 3, "set_order": given}})
+            self.assertEqual(out["structure"]["set_order"], kept, given)
+        self.assertIsNone(v.check_routine(base)["structure"]["set_order"])
+
     def test_the_rules_tell_the_model_to_use_the_description_and_ignore_lyrics(self):
         self.assertIn("creator's description", v.SYSTEM)
         self.assertIn("Song lyrics", v.SYSTEM)

@@ -260,7 +260,8 @@ Rules:
 - If there is no workout in the captions, return an empty "steps" list.
 - "workout_type" is "strength" (heavier weights, few reps), "endurance" (lighter weights or bodyweight, many reps, short rests), "cardio" (raising the heart rate: running, jumping, intervals), "mobility" (stretching, warming up, flow) or "mixed".
 - "summary" is two or three plain sentences saying what the workout is: how many exercises, how many sets, the work and rest times, and whether it has a warm-up and a cool-down, as far as the captions say. Leave out what they do not say.
-- "structure" holds what the captions state about timing; null for anything they do not state.
+- "structure" holds what the captions and description state about timing; null for anything they do not state.
+- "set_order" says how the sets are done: "all_sets_first" when each exercise is done for all of its sets before the next one starts (for example "three sets of the squat, then we move on to the next"), "whole_round" when the whole list is done once and then repeated (a circuit or rounds), and null when it is not stated. Never guess it.
 - "weights" is "none" (bodyweight only), "light", "heavy", or "unclear". "movement" is a short phrase on how it is done, for example "standing, low impact" or "floor work".
 
 Return ONLY a JSON object, nothing else:
@@ -268,7 +269,7 @@ Return ONLY a JSON object, nothing else:
  "workout_type": "strength"|"endurance"|"cardio"|"mobility"|"mixed",
  "summary": str, "weights": "none"|"light"|"heavy"|"unclear", "movement": str,
  "equipment": [str],
- "structure": {"sets": int|null, "work_seconds": int|null, "rest_seconds": int|null, "rest_between_sets_seconds": int|null, "has_warmup": bool, "has_cooldown": bool},
+ "structure": {"sets": int|null, "set_order": "all_sets_first"|"whole_round"|null, "work_seconds": int|null, "rest_seconds": int|null, "rest_between_sets_seconds": int|null, "has_warmup": bool, "has_cooldown": bool},
  "steps": [{"order": int, "name": str, "phase": "warmup"|"main"|"cooldown", "start_seconds": int|null, "seconds": int|null, "reps": int|null, "sides": "both"|"each side"|null, "how_to": str, "cues": [str]}],
  "unsure": [str]}"""
 
@@ -330,6 +331,7 @@ def check_routine(raw: dict) -> dict:
     raw_structure = raw.get("structure") if isinstance(raw.get("structure"), dict) else {}
     structure = {
         "sets": _clean_int(raw_structure.get("sets"), 1, 20),
+        "set_order": raw_structure.get("set_order") if raw_structure.get("set_order") in ("all_sets_first", "whole_round") else None,
         "work_seconds": _clean_int(raw_structure.get("work_seconds"), 5, 900),
         "rest_seconds": _clean_int(raw_structure.get("rest_seconds"), 0, 600),
         "rest_between_sets_seconds": _clean_int(raw_structure.get("rest_between_sets_seconds"), 0, 900),

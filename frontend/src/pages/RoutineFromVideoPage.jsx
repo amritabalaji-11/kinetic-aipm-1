@@ -32,7 +32,7 @@ function glance(r) {
   const moves = new Set(r.steps.filter((x) => (x.phase || "main") === "main").map((x) => x.name)).size || r.steps.length
   return [
     `${moves} exercise${moves === 1 ? "" : "s"}`,
-    st.sets ? `${st.sets} set${st.sets === 1 ? "" : "s"}` : null,
+    st.sets ? `${st.sets} set${st.sets === 1 ? "" : "s"}${st.set_order === "all_sets_first" && st.sets > 1 ? " of each" : ""}` : null,
     st.work_seconds ? `${st.work_seconds}s work` : null,
     st.rest_seconds ? `${st.rest_seconds}s rest` : null,
     st.has_warmup ? "Warm-up" : null,
@@ -43,8 +43,8 @@ function glance(r) {
 const minutesText = (r) => [`${r.steps.length} moves`, r.total_minutes ? `${r.total_minutes} min` : null].filter(Boolean).join(" · ")
 
 // A video someone else's button sends here (the Home tip): its link, and a key to remember the routine we read, so the next tap is instant
-const cachedRoutine = (key) => { try { return JSON.parse(localStorage.getItem(`routineCache:${key}`) || "null") } catch { return null } }
-const cacheRoutine = (key, routine) => { try { localStorage.setItem(`routineCache:${key}`, JSON.stringify(routine)) } catch { /* storage full or blocked: it just reads again next time */ } }
+const cachedRoutine = (key) => { try { return JSON.parse(localStorage.getItem(`routineCache2:${key}`) || "null") } catch { return null } }
+const cacheRoutine = (key, routine) => { try { localStorage.setItem(`routineCache2:${key}`, JSON.stringify(routine)) } catch { /* storage full or blocked: it just reads again next time */ } }
 
 export default function RoutineFromVideoPage() {
   const navigate = useNavigate()
