@@ -29,3 +29,10 @@ describe("previewOf", () => {
     expect(previewOf("hello")).toBeNull()
   })
 })
+
+import { isOtherSite } from "./videoLink"
+describe("isOtherSite", () => {
+  it.each(["https://www.instagram.com/reel/abc/", "https://vm.tiktok.com/ZM1/", "https://vimeo.com/123", "example.com/video"])("says %s is another site", (l) => expect(isOtherSite(l)).toBe(true))
+  it.each(["https://youtu.be/GViX8riaHX4", "https://www.youtube.com/watch?v=GViX8riaHX4", "https://m.youtube.com/shorts/GViX8riaHX4", "youtu.be/GViX8riaHX4"])("does not say %s is another site", (l) => expect(isOtherSite(l)).toBe(false))
+  it.each(["", "   ", "hello", "my workout link", null])("does not treat %s as a link to another site", (l) => expect(isOtherSite(l)).toBe(false))
+})

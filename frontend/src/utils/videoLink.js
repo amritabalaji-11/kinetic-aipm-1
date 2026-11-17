@@ -19,6 +19,16 @@ export function youtubeIdFrom(link) {
   return id && /^[\w-]{11}$/.test(id) ? id : null
 }
 
+// A link to some site other than YouTube (YouTube is the only site we read for now). Text that is not a link at all is not "another site".
+export function isOtherSite(link) {
+  const text = String(link || "").trim()
+  if (!text || /\s/.test(text)) return false
+  const u = hostOf(text)
+  if (!u || !u.hostname.includes(".")) return false
+  const host = u.hostname.replace(/^www\.|^m\./, "")
+  return !["youtube.com", "youtu.be", "music.youtube.com"].includes(host)
+}
+
 // { site, name, short, pictures } or null when the text is not a link we know yet. `pictures` are tried in order.
 export function previewOf(link) {
   const text = String(link || "").trim()

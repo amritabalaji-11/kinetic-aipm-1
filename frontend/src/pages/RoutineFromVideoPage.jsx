@@ -2,12 +2,13 @@ import { useEffect, useRef, useState } from "react"
 import { useLocation, useNavigate } from "react-router-dom"
 import { Check, ChevronLeft, ClipboardPaste, Trash2, X } from "lucide-react"
 import { BottomSheet, BRICOLAGE, DM_SANS, GRADIENT, GRAY, INK, PURPLE } from "../components/planUi"
-import { deleteRoutine, getSources, listRoutines, readVideo, saveRoutine } from "../services/routineService"
+import { deleteRoutine, listRoutines, readVideo, saveRoutine } from "../services/routineService"
 import { activeWorkoutTitle, addRoutineToActiveWorkout, routineToBlock } from "../utils/routineBlock"
 import { confirmWorkout } from "../utils/startWorkout"
 import { TOP_FADE_BACKGROUND } from "../utils/pageBackground"
 import { TypeTag } from "../components/WorkoutTypeUi"
 import VideoPreview from "../components/VideoPreview"
+import { isOtherSite } from "../utils/videoLink"
 import VideoSourceRow from "../components/VideoSourceRow"
 
 const AMBER_BG = "#FFFBEB"
@@ -15,10 +16,9 @@ const AMBER_BORDER = "#FCD34D"
 const card = { background: "#fff", borderRadius: 16, padding: 14, border: "1px solid rgba(129,51,255,0.25)", marginBottom: 12 }
 const bigButton = (ghost) => ({ width: "100%", height: ghost ? 48 : 54, borderRadius: 16, cursor: "pointer", fontFamily: BRICOLAGE, fontWeight: 700, fontSize: ghost ? 15 : 16, marginTop: ghost ? 8 : 0, border: ghost ? "1.5px solid rgba(129,51,255,0.5)" : "none", background: ghost ? "#fff" : GRADIENT, color: ghost ? PURPLE : "#fff" })
 
-const SOURCE_NAMES = { youtube: "YouTube", instagram: "Instagram", tiktok: "TikTok" }
 const READING = ["Opening the video", "Reading what is said", "Building your routine"]
 const WHY_NOT = {
-  unsupported_site: "Links from that site can't be read. YouTube links work, and Instagram and TikTok links when they are switched on.",
+  unsupported_site: "We only read YouTube links for now. Paste a link from YouTube.",
   bad_link: "That doesn't look like a link to a YouTube video.",
   video_unavailable: "This video is private, removed, or can't be viewed publicly.",
   no_captions: "This video has no captions we can read. It works best when the person talks through the moves.",
@@ -59,14 +59,13 @@ export default function RoutineFromVideoPage() {
   const [readingStep, setReadingStep] = useState(0)
   const [saved, setSaved] = useState(false)
   const [saving, setSaving] = useState(false)
-  const [sources, setSources] = useState({ youtube: true, instagram: false, tiktok: false }) // which sites work right now
   const [mine, setMine] = useState(null) // my saved routines, null while loading
   const [adding, setAdding] = useState(null) // the routine being added to a workout
   const [where, setWhere] = useState("next")
   const abort = useRef(null)
 
   const loadMine = () => listRoutines().then(setMine).catch(() => setMine([]))
-  useEffect(() => { loadMine(); getSources().then(setSources).catch(() => {}) }, [])
+  useEffect(() => { loadMine() }, [])
 
   // the three steps move along while the server works
   useEffect(() => {
@@ -137,7 +136,7 @@ export default function RoutineFromVideoPage() {
         <>
           {back("Back", () => navigate(-1))}
           <h1 style={{ fontFamily: BRICOLAGE, fontWeight: 700, fontSize: 24, color: INK, margin: "0 0 4px" }}>Turn a video into a workout</h1>
-          <p style={{ fontFamily: DM_SANS, fontSize: 14, color: GRAY, lineHeight: 1.4, margin: "0 0 14px" }}>Paste a link to a workout video. We read what the person says and build the routine for you.</p>
+          <p style={{ fontFamily: DM_SANS, fontSize: 14, color: GRAY, lineHeight: 1.4, margin: "0 0 14px" }}>Paste a YouTube link to a workout video. We read what the person says and build the routine for you.</p>
 
           <div style={{ display: "flex", alignItems: "center", gap: 8, height: 50, borderRadius: 14, border: "1.5px solid #C7D2FE", background: "#fff", padding: "0 6px 0 14px" }}>
             <input value={url} onChange={(e) => setUrl(e.target.value)} placeholder="https://www.youtube.com/watch?v=…" aria-label="Video link" inputMode="url" autoCapitalize="none" autoCorrect="off"
@@ -147,24 +146,22 @@ export default function RoutineFromVideoPage() {
             </button>
           </div>
 
-          <div style={{ display: "flex", gap: 8, margin: "10px 0 14px", flexWrap: "wrap" }}>
-            {Object.entries(SOURCE_NAMES).map(([id, name]) => { const works = !!sources[id]; return (
-              <span key={name} style={{ display: "inline-flex", alignItems: "center", gap: 6, height: 34, padding: "0 12px", borderRadius: 17, fontFamily: DM_SANS, fontSize: 13, fontWeight: 600, border: `1.2px solid ${works ? "#16A34A" : "rgba(100,116,139,0.25)"}`, color: works ? "#15803D" : GRAY, background: works ? "#F0FDF4" : "#fff" }}>
-                {name} <small style={{ fontWeight: 500, fontSize: 10.5 }}>{works ? "works" : "soon"}</small>
-              </span>
-            ) })}
-          </div>
 
           <div style={{ background: AMBER_BG, border: `1px solid ${AMBER_BORDER}`, borderRadius: 14, padding: "12px 14px", marginBottom: 14 }}>
             <div style={{ fontFamily: BRICOLAGE, fontWeight: 700, fontSize: 14, color: "#92400E", marginBottom: 6 }}>Before you paste</div>
-            {[[true, <>The video must be <b>public or unlisted</b>.</>], [false, <><b>Private videos and private accounts</b> can&apos;t be read.</>], [true, <>Works best when the person <b>talks through each move</b> and says how long.</>], [false, <>Videos with only music or no talking won&apos;t work well.</>]].map(([ok, text], i) => (
+            {[[true, <>The video must be <b>public or unlisted</b>.</>], [false, <>A <b>private video</b> can&apos;t be read.</>], [true, <>Works best when the person <b>talks through each move</b> and says how long.</>], [false, <>Videos with only music or no talking won&apos;t work well.</>]].map(([ok, text], i) => (
               <div key={i} style={{ display: "flex", gap: 8, fontFamily: DM_SANS, fontSize: 13, lineHeight: 1.4, margin: "5px 0", color: "#451A03" }}>
                 <span style={{ color: ok ? "#16A34A" : "#DC2626", fontWeight: 800 }}>{ok ? "✓" : "✕"}</span><span>{text}</span>
               </div>
             ))}
           </div>
 
-          <button type="button" onClick={() => read()} disabled={!url.trim()} style={{ ...bigButton(false), opacity: url.trim() ? 1 : 0.5, cursor: url.trim() ? "pointer" : "not-allowed" }}>Read the video</button>
+          {isOtherSite(url) && (
+            <p role="alert" style={{ fontFamily: DM_SANS, fontSize: 13, lineHeight: 1.4, color: "#92400E", background: AMBER_BG, border: `1px solid ${AMBER_BORDER}`, borderRadius: 12, padding: "9px 12px", margin: "0 0 10px" }}>
+              We only read YouTube links for now. Paste a link from YouTube.
+            </p>
+          )}
+          <button type="button" onClick={() => read()} disabled={!url.trim() || isOtherSite(url)} style={{ ...bigButton(false), opacity: url.trim() && !isOtherSite(url) ? 1 : 0.5, cursor: url.trim() && !isOtherSite(url) ? "pointer" : "not-allowed" }}>Read the video</button>
           <p style={{ fontFamily: DM_SANS, fontSize: 11.5, color: GRAY, textAlign: "center", margin: "10px 0 0", lineHeight: 1.4 }}>We only use the words in the video, and keep a link and credit to the person who made it.</p>
 
           <h2 style={{ fontFamily: BRICOLAGE, fontWeight: 700, fontSize: 18, color: INK, margin: "26px 0 8px" }}>My routines</h2>
