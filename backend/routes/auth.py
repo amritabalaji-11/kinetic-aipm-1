@@ -5,7 +5,7 @@ from fastapi import APIRouter, HTTPException, Depends, Request
 from db.database import NOW_TEXT, db
 from schemas.auth import (
     SignUpRequest, LoginRequest, SocialLoginRequest, DemoLoginRequest,
-    TokenResponse, UserOut, SharingChoiceIn, AboutYouIn,
+    TokenResponse, UserOut, SharingChoiceIn, AboutYouIn, HealthNoticeIn,
 )
 from utils.config import ALLOW_DEMO_LOGIN, DEMO_USER_IDS, DEMO_PASSCODE
 from utils.security import (
@@ -201,6 +201,7 @@ async def me(user_id: str = Depends(get_current_user_id)):
         auth_provider=user["auth_provider"],
         role=user["role"] or "user",
         share_videos_default=None if user["share_videos_default"] is None else bool(user["share_videos_default"]),
+        health_notice_version=user["health_notice_version"],
     )
 
 
@@ -237,6 +238,19 @@ async def set_about_you(body: AboutYouIn, user_id: str = Depends(get_current_use
     for column, value in updates.items():  # the column names above are fixed in this file, never taken from the request
         await db.execute(f"UPDATE user_profiles SET {column} = :v WHERE user_id = :u", {"v": value, "u": user_id})
     return {"saved": sorted(updates)}
+
+
+@router.post("/me/health-notice")
+async def accept_health_notice(body: HealthNoticeIn, user_id: str = Depends(get_current_user_id)):
+    """They ticked "I understand this isn't medical advice...". We keep when, and which version of the text, so a changed text can be shown again."""
+    found = await db.fetch_one("SELECT user_id FROM user_profiles WHERE user_id = :u", {"u": user_id})
+    if not found:
+        raise HTTPException(status_code=404, detail="User not found")
+    await db.execute(
+        f"UPDATE user_profiles SET health_notice_version = :v, health_notice_accepted_at = {NOW_TEXT} WHERE user_id = :u",
+        {"v": body.version, "u": user_id},
+    )
+    return {"health_notice_version": body.version}
 
 
 @router.post("/me/sharing")

@@ -2,13 +2,15 @@ import { useEffect, useState } from "react"
 import { useNavigate } from "react-router-dom"
 import { ClipboardList, GraduationCap, Play, Eye, Sun } from "lucide-react"
 import ShareChoice from "../components/ShareChoice"
+import HealthNotice from "../components/HealthNotice"
+import { HEALTH_NOTICE_VERSION, INJURY_REMINDER } from "../data/legalText"
 import KineticMark from "../components/KineticMark"
 import { BRICOLAGE, DM_SANS, GRADIENT, GRAY, INK, PURPLE } from "../components/planUi"
 import { DEMO_USERS, useUser } from "../context/UserContext"
 import { saveAboutYou } from "../services/authService"
 import { TOP_FADE_BACKGROUND } from "../utils/pageBackground"
 
-const STEPS = 3
+const STEPS = 4
 
 // One question each. `multi` ones can have several answers. Every answer is optional.
 const QUESTIONS = [
@@ -42,14 +44,20 @@ function Point({ icon, title, text, i }) {
 // sharing videos. Someone who has already answered that question (or a demo account) goes straight on to Home.
 export default function OnboardingPage() {
   const navigate = useNavigate()
-  const { activeUser, activeUserId, chooseSharing } = useUser()
+  const { activeUser, activeUserId, chooseSharing, acceptHealthNotice } = useUser()
   const [step, setStep] = useState(1)
   const [about, setAbout] = useState({})
   const loading = Boolean(activeUserId) && !activeUser  // signed in, profile still loading: wait, do not decide yet
-  const done = !loading && (!activeUser || DEMO_USERS[activeUser.id] || activeUser.shareVideos !== null)
+  const noteDone = activeUser?.healthNotice === HEALTH_NOTICE_VERSION
+  const shareDone = activeUser?.shareVideos !== null && activeUser?.shareVideos !== undefined
+  const done = !loading && (!activeUser || DEMO_USERS[activeUser.id] || (shareDone && noteDone))
+  // someone who has been through onboarding before but has not ticked the (new or changed) health note sees only that
+  const noteOnly = !loading && !done && shareDone && !noteDone
 
   useEffect(() => { if (done) navigate("/home", { replace: true }) }, [done, navigate])
+  useEffect(() => { if (noteOnly) setStep(3) }, [noteOnly])
   if (loading || done) return null
+  const finish = () => navigate("/home", { replace: true })
 
   const toggle = (q, value) => setAbout((a) => {
     const next = { ...a }
@@ -60,6 +68,7 @@ export default function OnboardingPage() {
   })
   const picked = (q, value) => (q.multi ? (about[q.key] ?? []).includes(value) : about[q.key] === value)
   const saveAbout = () => {
+    if (noteOnly) { setStep(3); return }
     const body = { ...about }
     if (typeof about.has_injury === "boolean") body.injury_details = about.has_injury ? (about.injury_details ?? "").trim() : null
     if (Object.keys(body).length) saveAboutYou(body).catch(() => {}) // optional: a failed save never blocks anyone
@@ -71,10 +80,10 @@ export default function OnboardingPage() {
     <div style={{ minHeight: "100vh", background: TOP_FADE_BACKGROUND, padding: "28px 24px 40px" }}>
       <style>{FADE_CSS}</style>
       <div style={{ maxWidth: 430, margin: "0 auto" }}>
-        <div role="progressbar" aria-valuemin={1} aria-valuemax={STEPS} aria-valuenow={step} style={{ display: "flex", gap: 5, marginBottom: 22 }}>
+        {!noteOnly && <div role="progressbar" aria-valuemin={1} aria-valuemax={STEPS} aria-valuenow={step} style={{ display: "flex", gap: 5, marginBottom: 22 }}>
           {Array.from({ length: STEPS }, (_, i) => <span key={i} style={{ flex: 1, height: 4, borderRadius: 2, background: i < step ? PURPLE : "#D4D0EA", transition: "background .3s" }} />)}
-        </div>
-        <div style={{ fontFamily: DM_SANS, fontWeight: 700, fontSize: 11.5, color: GRAY, marginBottom: 4 }}>STEP {step} OF {STEPS}</div>
+        </div>}
+        {!noteOnly && <div style={{ fontFamily: DM_SANS, fontWeight: 700, fontSize: 11.5, color: GRAY, marginBottom: 4 }}>STEP {step} OF {STEPS}</div>}
 
         {step === 1 && (
           <>
@@ -115,6 +124,7 @@ export default function OnboardingPage() {
                   <textarea value={about.injury_details ?? ""} onChange={(e) => setAbout((a) => ({ ...a, injury_details: e.target.value.slice(0, 1000) }))} rows={3} aria-label="Tell us about it"
                     placeholder="For example: left knee, a sprain in 2023. Only what you are comfortable sharing."
                     style={{ width: "100%", boxSizing: "border-box", marginTop: 8, padding: "10px 12px", borderRadius: 12, border: "1px solid rgba(129,51,255,0.3)", background: "#fff", fontFamily: DM_SANS, fontSize: 14, outline: "none", resize: "none" }} />
+                  <p role="status" style={{ fontFamily: DM_SANS, fontSize: 13, lineHeight: 1.45, color: "#7C2D12", background: "#FFF7ED", border: "1px solid #FDBA74", borderRadius: 12, padding: "10px 12px", margin: "8px 0 0" }}>{INJURY_REMINDER}</p>
                   <p style={{ fontFamily: DM_SANS, fontSize: 12, color: GRAY, margin: "6px 0 0", lineHeight: 1.4 }}>Only you can see this. It never appears on the pages our team uses to look at how Kinetic is used.</p>
                 </>
               )}
@@ -125,6 +135,10 @@ export default function OnboardingPage() {
         )}
 
         {step === 3 && (
+          <HealthNotice onAccept={async () => { await acceptHealthNotice(HEALTH_NOTICE_VERSION); if (noteOnly) finish(); else setStep(4) }} />
+        )}
+
+        {step === 4 && (
           <>
             <h1 style={heading}>Getting a good form check</h1>
             <p style={lead}>We can check goblet squats today, and more exercises are on the way.</p>
@@ -132,7 +146,7 @@ export default function OnboardingPage() {
             <Point i={1} icon={<Sun size={18} />} title="Good light, phone still" text="Prop it up rather than holding it." />
             <p style={{ fontFamily: DM_SANS, fontSize: 13, color: GRAY, margin: "4px 0 16px", lineHeight: 1.45 }}>To check your form, Kinetic analyses your videos with AI. They stay private to you.</p>
             <div style={{ borderTop: "1px solid rgba(100,116,139,0.2)", paddingTop: 16 }}>
-              <ShareChoice compact onChoose={async (share) => { await chooseSharing(share); navigate("/home", { replace: true }) }} />
+              <ShareChoice compact onChoose={async (share) => { await chooseSharing(share); finish() }} />
             </div>
           </>
         )}

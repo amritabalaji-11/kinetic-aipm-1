@@ -3,6 +3,7 @@ import { Link, useLocation, useNavigate, useParams } from "react-router-dom"
 import { ChevronDown, ChevronLeft, ExternalLink } from "lucide-react"
 import ExpandableVideo from "../components/ExpandableVideo"
 import ListenButton from "../components/ListenButton"
+import CreatorNoteLink from "../components/CreatorNoteSheet"
 import MuscleMap from "../components/MuscleMap"
 import { useCoachScript } from "../utils/useCoachScript"
 import { BRICOLAGE, DM_SANS, GRAY, INK, PURPLE, cardStyle } from "../components/planUi"
@@ -73,9 +74,6 @@ export default function ExercisePage() {
             </div>
           )}
           <ExpandableVideo key={video.youtubeId} youtubeId={video.youtubeId} title={`${exercise.name} demo`} vertical={video.vertical} width={150} loop />
-          <a href={video.watchUrl} target="_blank" rel="noreferrer" style={{ display: "flex", alignItems: "center", gap: 4, marginTop: 6, fontFamily: DM_SANS, fontSize: 11, color: GRAY, textDecoration: "none" }}>
-            {video.credit} on YouTube <ExternalLink size={11} />
-          </a>
         </div>}
         <div style={{ flex: 1, minWidth: 0 }}>
           <p style={{ fontFamily: BRICOLAGE, fontWeight: 700, fontSize: 15, color: INK, margin: "0 0 8px" }}>3 key cues</p>
@@ -85,6 +83,14 @@ export default function ExercisePage() {
           <ListenButton variant="light" coach text={coachScript ?? guideToSpeech(exercise.name, guide)} />
         </div>
       </div>
+      {video && (
+        <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 10, flexWrap: "wrap", padding: "6px 4px 0" }}>
+          <a href={video.watchUrl} target="_blank" rel="noreferrer" style={{ display: "inline-flex", alignItems: "center", gap: 4, fontFamily: DM_SANS, fontSize: 11.5, color: GRAY, textDecoration: "none" }}>
+            Video by <b style={{ color: PURPLE }}>{video.credit}</b> on YouTube <ExternalLink size={11} />
+          </a>
+          <CreatorNoteLink />
+        </div>
+      )}
 
       {guide.stance && (
         <div style={{ marginTop: 10 }}><Tile label="Stance" value={guide.stance} /></div>
