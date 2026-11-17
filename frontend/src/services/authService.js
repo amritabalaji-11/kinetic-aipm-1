@@ -73,6 +73,20 @@ export async function saveSharingChoice(share) {
 }
 
 // Returns { user_id, email, display_name, auth_provider, role, share_videos_default }, or null if the token is missing/invalid
+// Is the saved sign-in still good? "expired" only when the server says so (401/403/404); a slow server or no signal is "unreachable",
+// and the person stays signed in. Used by the splash screen, which used to sign people out on any failed request.
+export async function checkSession() {
+  const token = getToken()
+  if (!token) return "expired"
+  try {
+    const res = await fetch(`${BASE_URL}/auth/me`, { headers: { Authorization: `Bearer ${token}` } })
+    if (res.ok) return "valid"
+    return [401, 403, 404].includes(res.status) ? "expired" : "unreachable"
+  } catch {
+    return "unreachable"
+  }
+}
+
 export async function fetchMe() {
   const token = getToken()
   if (!token) return null

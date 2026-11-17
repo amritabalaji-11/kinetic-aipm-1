@@ -1,5 +1,6 @@
 import { BrowserRouter, Routes, Route, Navigate } from "react-router-dom"
-import { UserProvider } from "./context/UserContext"
+import { UserProvider, useUser, DEMO_USERS } from "./context/UserContext"
+import { HEALTH_NOTICE_VERSION } from "./data/legalText"
 import { getToken } from "./services/authService"
 import NavBar from "./components/NavBar"
 import SplashScreen from "./pages/SplashScreen"
@@ -45,8 +46,14 @@ function Layout({ children }) {
 }
 
 // App screens need a login (Google, or a demo guest login). Without one, back to the splash screen.
+// Someone with a real account who has not yet answered the sharing question or ticked the health note is sent to /welcome first,
+// whichever way they arrived (fresh sign-in, saved sign-in, a bookmarked page). While their profile is still loading, the page shows as normal.
 function ProtectedLayout({ children }) {
-  return getToken() ? <Layout>{children}</Layout> : <Navigate to="/" replace />
+  const { activeUser } = useUser()
+  if (!getToken()) return <Navigate to="/" replace />
+  const realUser = activeUser && !DEMO_USERS[activeUser.id]
+  if (realUser && (activeUser.shareVideos == null || activeUser.healthNotice !== HEALTH_NOTICE_VERSION)) return <Navigate to="/welcome" replace />
+  return <Layout>{children}</Layout>
 }
 
 function App() {
