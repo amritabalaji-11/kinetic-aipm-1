@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState } from "react"
 import { useLocation, useNavigate } from "react-router-dom"
-import { Check, ChevronLeft, ClipboardPaste, Star, X } from "lucide-react"
+import { Check, ChevronLeft, ClipboardPaste, Play, Star, X } from "lucide-react"
 import { BottomSheet, BRICOLAGE, DM_SANS, GRADIENT, GRAY, INK, PURPLE } from "../components/planUi"
 import { deleteRoutine, followVideo, listRecentVideos, listRoutines, readVideo, saveRoutine } from "../services/routineService"
 import { activeWorkoutTitle, addRoutineToActiveWorkout, routineToBlock } from "../utils/routineBlock"
@@ -322,24 +322,29 @@ export default function RoutineFromVideoPage() {
       {stage === "error" && error && (
         <>
           {back("Back", () => setStage("input"))}
-          <div style={{ textAlign: "center", padding: "26px 8px 10px" }}>
-            <div style={{ width: 64, height: 64, borderRadius: 32, background: "#FEE2E2", color: "#DC2626", fontSize: 30, fontWeight: 700, display: "flex", alignItems: "center", justifyContent: "center", margin: "0 auto 12px" }}>!</div>
-            <h1 style={{ fontFamily: BRICOLAGE, fontWeight: 700, fontSize: 22, color: INK, margin: "0 0 6px" }}>{followable ? "We couldn't pick out the exercises" : "We couldn't read this video"}</h1>
-          </div>
           {followable ? (
-            <>
-              <div style={{ display: "flex", gap: 10, alignItems: "center", background: "#fff", border: "1px solid rgba(129,51,255,0.25)", borderRadius: 14, padding: 8, marginBottom: 12 }}>
-                <span style={{ width: 92, height: 52, borderRadius: 8, flexShrink: 0, overflow: "hidden", background: "linear-gradient(135deg, #FBE7E0 0%, #E6DEFF 55%, #D6F5EA 100%)" }}>
-                  <img src={`https://i.ytimg.com/vi/${error.video.video_id}/mqdefault.jpg`} alt="" style={{ width: "100%", height: "100%", objectFit: "cover", display: "block" }} onError={(e) => { e.currentTarget.style.display = "none" }} />
-                </span>
-                <span style={{ minWidth: 0, fontFamily: DM_SANS, fontSize: 12.5, color: GRAY }}>
-                  <b style={{ display: "-webkit-box", WebkitLineClamp: 2, WebkitBoxOrient: "vertical", overflow: "hidden", color: INK, fontSize: 13, lineHeight: 1.25 }}>{error.video.title || "This video"}</b>
-                  {error.video.author}
+            <div style={{ padding: "6px 0 4px", textAlign: "center" }}>
+              <div style={{ position: "relative", height: 178, borderRadius: 16, overflow: "hidden", background: "linear-gradient(135deg, #FBE7E0 0%, #E6DEFF 55%, #D6F5EA 100%)", marginBottom: 12 }}>
+                <img src={`https://i.ytimg.com/vi/${error.video.video_id}/mqdefault.jpg`} alt="" style={{ position: "absolute", inset: 0, width: "100%", height: "100%", objectFit: "cover" }} onError={(e) => { e.currentTarget.style.display = "none" }} />
+                <span style={{ position: "absolute", inset: 0, background: "linear-gradient(180deg, rgba(15,23,42,0.05), rgba(15,23,42,0.35))" }} />
+                <span style={{ position: "absolute", left: "50%", top: "50%", transform: "translate(-50%, -50%)", width: 58, height: 58, borderRadius: 29, background: "rgba(255,255,255,0.93)", display: "flex", alignItems: "center", justifyContent: "center" }}>
+                  <Play size={24} color="#6D28D9" fill="#6D28D9" style={{ marginLeft: 3 }} />
                 </span>
               </div>
+              <h1 style={{ fontFamily: BRICOLAGE, fontWeight: 700, fontSize: 22, color: INK, margin: "0 0 3px" }}>This one&apos;s best followed along</h1>
+              <div style={{ fontFamily: DM_SANS, fontSize: 12.5, color: GRAY, lineHeight: 1.35 }}>{[error.video.title, error.video.author && !String(error.video.title || "").includes(error.video.author) ? error.video.author : null].filter(Boolean).join(" · ")}</div>
+            </div>
+          ) : (
+            <div style={{ textAlign: "center", padding: "26px 8px 10px" }}>
+              <div style={{ width: 64, height: 64, borderRadius: 32, background: "#FEE2E2", color: "#DC2626", fontSize: 30, fontWeight: 700, display: "flex", alignItems: "center", justifyContent: "center", margin: "0 auto 12px" }}>!</div>
+              <h1 style={{ fontFamily: BRICOLAGE, fontWeight: 700, fontSize: 22, color: INK, margin: "0 0 6px" }}>We couldn&apos;t read this video</h1>
+            </div>
+          )}
+          {followable ? (
+            <>
               <div style={card}>
                 <p style={{ fontFamily: DM_SANS, fontSize: 14, color: INK, margin: 0, lineHeight: 1.45 }}>
-                  {error.code === "too_long" ? "This video is too long for us to read. " : "We couldn't find a clear list of exercises in this video. "}We can still track it: <b>follow the video here in Kinetic and tap Done when you finish.</b>
+                  {error.code === "too_long" ? "This video is too long for us to break into moves." : "There's no clear list of exercises to pull out of this video, so we can't break it into moves."} But you can still <b>follow it here and tap Done when you finish.</b>
                 </p>
               </div>
               <button type="button" disabled={following} onClick={() => followIt(error.video)} style={{ ...bigButton(false), opacity: following ? 0.6 : 1 }}>{following ? "Opening…" : "Follow this video in Kinetic"}</button>
