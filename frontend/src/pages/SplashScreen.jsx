@@ -7,6 +7,9 @@ import GoogleSignInButton from "../components/GoogleSignInButton"
 export default function SplashScreen() {
   const navigate  = useNavigate()
   const navRef    = useRef(navigate)
+  // just signed out (see ProfilePage): no need to sit through the whole intro before the sign-in shows
+  const signedOut = useRef((() => { try { return sessionStorage.getItem("justSignedOut") === "1" } catch { return false } })()).current
+  useEffect(() => { try { sessionStorage.removeItem("justSignedOut") } catch { /* nothing to clear */ } }, []) // once seen, forget it (a later visit plays the whole intro)
   const { clearUser, loginWithGoogle } = useUser()
   const [showAuth, setShowAuth] = useState(false)
   const [signInError, setSignInError] = useState(null)
@@ -141,7 +144,7 @@ export default function SplashScreen() {
         if (hasSession) clearUser()
         setShowAuth(true)
       }
-    }, 3400)
+    }, signedOut ? 1200 : 3400)
     return () => clearTimeout(t)
   }, [])
 
