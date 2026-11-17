@@ -15,7 +15,7 @@ const VIDEO = {
 }
 
 const TIP =
-  "I start my workouts with warm-ups, followed by this 8 min lymphatic and fascia flow, especially on the days before strength training. It gets blood moving to my legs and warms them up before heavy sets. I've seen great benefits, and it needs no equipment."
+  "I start my workouts with a few stretches, then this 8-minute lymphatic flow, before strength or cardio days. It gets my blood moving and warms up all my key muscle groups before heavy sets or hard cardio. It needs no equipment, and I do it on rest days too."
 
 const font = "'Bricolage Grotesque'"
 
@@ -32,7 +32,7 @@ const cover = (
 export default function FounderTip() {
   const navigate = useNavigate()
   return (
-    <div style={{ background: "linear-gradient(158.8deg, rgba(255, 35, 38, 0.2) 0%, rgba(151, 71, 255, 0.2) 22.39%, rgba(2, 132, 199, 0.2) 100.81%)", borderRadius: "8px", padding: "15px", marginBottom: "20px" }}>
+    <div style={{ background: "linear-gradient(135deg, #FBE7E0 0%, #E6DEFF 55%, #D6F5EA 100%)", borderRadius: "12px", padding: "15px", marginBottom: "20px" }}>
       <div style={{ display: "flex", gap: "10px", alignItems: "center", marginBottom: "10px" }}>
         <div aria-hidden="true" style={{ width: 34, height: 34, borderRadius: 17, flexShrink: 0, background: "linear-gradient(92.52deg, #0284C7 0%, #9747FF 100%)", color: "#FFFFFF", display: "flex", alignItems: "center", justifyContent: "center", fontFamily: font, fontWeight: 700, fontSize: 16 }}>{AUTHOR.initial}</div>
         <div style={{ flex: 1, minWidth: 0 }}>
