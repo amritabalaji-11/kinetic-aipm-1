@@ -353,7 +353,7 @@ export default function HomePage() {
             <div style={{ flex: 1 }}>
               <h2 style={{ fontSize: "24px", fontWeight: 700, fontFamily: "'Bricolage Grotesque'", color: "#000000", margin: "0 0 8px 0", lineHeight: "1.2" }}>{headlineFor()}</h2>
               <p style={{ fontSize: "12px", color: "#8b8ba7", margin: "0", fontFamily: "'DM Sans'" }}>
-                Build your sessions in seconds, then log every set as you crush it.
+                No more standing around wondering what&apos;s next. With a plan, your energy goes into lifting, not deciding.
               </p>
             </div>
             <img
