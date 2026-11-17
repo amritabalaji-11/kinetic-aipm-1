@@ -1,21 +1,25 @@
 import { useEffect, useRef, useState } from "react"
 import { useLocation, useNavigate } from "react-router-dom"
-import { Check, ChevronLeft, ClipboardPaste, Trash2, X } from "lucide-react"
+import { Check, ChevronLeft, ClipboardPaste, Star, X } from "lucide-react"
 import { BottomSheet, BRICOLAGE, DM_SANS, GRADIENT, GRAY, INK, PURPLE } from "../components/planUi"
-import { deleteRoutine, getSources, listRoutines, readVideo, saveRoutine } from "../services/routineService"
-import { activeWorkoutTitle, addRoutineToActiveWorkout } from "../utils/routineBlock"
+import { deleteRoutine, listRecentVideos, listRoutines, readVideo, saveRoutine } from "../services/routineService"
+import { activeWorkoutTitle, addRoutineToActiveWorkout, routineToBlock } from "../utils/routineBlock"
+import { confirmWorkout } from "../utils/startWorkout"
 import { TOP_FADE_BACKGROUND } from "../utils/pageBackground"
 import { TypeTag } from "../components/WorkoutTypeUi"
+import VideoPreview from "../components/VideoPreview"
+import { isOtherSite } from "../utils/videoLink"
+import VideoSourceRow from "../components/VideoSourceRow"
+import VideoRoutineRow from "../components/VideoRoutineRow"
 
 const AMBER_BG = "#FFFBEB"
 const AMBER_BORDER = "#FCD34D"
 const card = { background: "#fff", borderRadius: 16, padding: 14, border: "1px solid rgba(129,51,255,0.25)", marginBottom: 12 }
 const bigButton = (ghost) => ({ width: "100%", height: ghost ? 48 : 54, borderRadius: 16, cursor: "pointer", fontFamily: BRICOLAGE, fontWeight: 700, fontSize: ghost ? 15 : 16, marginTop: ghost ? 8 : 0, border: ghost ? "1.5px solid rgba(129,51,255,0.5)" : "none", background: ghost ? "#fff" : GRADIENT, color: ghost ? PURPLE : "#fff" })
 
-const SOURCE_NAMES = { youtube: "YouTube", instagram: "Instagram", tiktok: "TikTok" }
 const READING = ["Opening the video", "Reading what is said", "Building your routine"]
 const WHY_NOT = {
-  unsupported_site: "Links from that site can't be read. YouTube links work, and Instagram and TikTok links when they are switched on.",
+  unsupported_site: "We only read YouTube links for now. Paste a link from YouTube.",
   bad_link: "That doesn't look like a link to a YouTube video.",
   video_unavailable: "This video is private, removed, or can't be viewed publicly.",
   no_captions: "This video has no captions we can read. It works best when the person talks through the moves.",
@@ -32,7 +36,7 @@ function glance(r) {
   const moves = new Set(r.steps.filter((x) => (x.phase || "main") === "main").map((x) => x.name)).size || r.steps.length
   return [
     `${moves} exercise${moves === 1 ? "" : "s"}`,
-    st.sets ? `${st.sets} set${st.sets === 1 ? "" : "s"}` : null,
+    st.sets ? `${st.sets} set${st.sets === 1 ? "" : "s"}${st.set_order === "all_sets_first" && st.sets > 1 ? " of each" : ""}` : null,
     st.work_seconds ? `${st.work_seconds}s work` : null,
     st.rest_seconds ? `${st.rest_seconds}s rest` : null,
     st.has_warmup ? "Warm-up" : null,
@@ -43,8 +47,8 @@ function glance(r) {
 const minutesText = (r) => [`${r.steps.length} moves`, r.total_minutes ? `${r.total_minutes} min` : null].filter(Boolean).join(" · ")
 
 // A video someone else's button sends here (the Home tip): its link, and a key to remember the routine we read, so the next tap is instant
-const cachedRoutine = (key) => { try { return JSON.parse(localStorage.getItem(`routineCache:${key}`) || "null") } catch { return null } }
-const cacheRoutine = (key, routine) => { try { localStorage.setItem(`routineCache:${key}`, JSON.stringify(routine)) } catch { /* storage full or blocked: it just reads again next time */ } }
+const cachedRoutine = (key) => { try { return JSON.parse(localStorage.getItem(`routineCache2:${key}`) || "null") } catch { return null } }
+const cacheRoutine = (key, routine) => { try { localStorage.setItem(`routineCache2:${key}`, JSON.stringify(routine)) } catch { /* storage full or blocked: it just reads again next time */ } }
 
 export default function RoutineFromVideoPage() {
   const navigate = useNavigate()
@@ -54,16 +58,18 @@ export default function RoutineFromVideoPage() {
   const [routine, setRoutine] = useState(null)
   const [error, setError] = useState(null)
   const [readingStep, setReadingStep] = useState(0)
-  const [saved, setSaved] = useState(false)
   const [saving, setSaving] = useState(false)
-  const [sources, setSources] = useState({ youtube: true, instagram: false, tiktok: false }) // which sites work right now
   const [mine, setMine] = useState(null) // my saved routines, null while loading
+  const [recent, setRecent] = useState(null) // the videos I read lately, null while loading
   const [adding, setAdding] = useState(null) // the routine being added to a workout
   const [where, setWhere] = useState("next")
   const abort = useRef(null)
 
   const loadMine = () => listRoutines().then(setMine).catch(() => setMine([]))
-  useEffect(() => { loadMine(); getSources().then(setSources).catch(() => {}) }, [])
+  const loadRecent = () => listRecentVideos().then(setRecent).catch(() => setRecent([]))
+  useEffect(() => { loadMine(); loadRecent() }, [])
+  // is this routine one I have saved? (matched by its video, since the saved copy is a copy)
+  const savedRowFor = (r) => (r?.source?.video_id ? mine?.find((m) => m.routine.source?.video_id === r.source.video_id) ?? null : null)
 
   // the three steps move along while the server works
   useEffect(() => {
@@ -79,12 +85,13 @@ export default function RoutineFromVideoPage() {
   const read = async (link = url) => {
     if (!link.trim()) return
     abort.current = new AbortController()
-    setStage("reading"); setError(null); setSaved(false)
+    setStage("reading"); setError(null)
     try {
       const result = await readVideo(link.trim(), abort.current.signal)
       if (sent.cacheKey && link.trim() === sent.url) cacheRoutine(sent.cacheKey, result)
       setRoutine(result)
       setStage("result")
+      loadRecent()
     } catch (err) {
       if (err.name === "AbortError") return
       setError({ code: err.code, message: err.message }); setStage("error")
@@ -93,7 +100,9 @@ export default function RoutineFromVideoPage() {
   // sent here by a button: show the routine we already read, or read the video now
   const started = useRef(false)
   useEffect(() => {
-    if (started.current || !sent.url) return
+    if (started.current) return
+    if (sent.routine?.steps?.length) { started.current = true; setRoutine(sent.routine); setStage("result"); return } // a saved video opened from the Plan page
+    if (!sent.url) return
     started.current = true
     setUrl(sent.url)
     const known = sent.cacheKey ? cachedRoutine(sent.cacheKey) : null
@@ -105,10 +114,16 @@ export default function RoutineFromVideoPage() {
   const editStep = (i, patch) => setRoutine((r) => ({ ...r, steps: r.steps.map((s, k) => (k === i ? { ...s, ...patch } : s)) }))
   const removeStep = (i) => setRoutine((r) => ({ ...r, steps: r.steps.filter((_, k) => k !== i) }))
 
-  const save = async () => {
+  // the star: keep this routine in my workouts, or take it back out
+  const toggleSaved = async (r, row) => {
     setSaving(true)
-    try { await saveRoutine(routine); setSaved(true); loadMine() } catch (err) { setError({ code: err.code, message: err.message }) } finally { setSaving(false) }
+    try {
+      if (row) await deleteRoutine(row.routine_id)
+      else await saveRoutine(r)
+      await loadMine()
+    } catch (err) { setError({ code: err.code, message: err.message }) } finally { setSaving(false) }
   }
+  const save = () => toggleSaved(routine, savedRowFor(routine))
 
   // the workout in progress, if there is one
   const inProgress = adding ? activeWorkoutTitle() : null
@@ -117,7 +132,8 @@ export default function RoutineFromVideoPage() {
       const id = addRoutineToActiveWorkout(adding, where)
       navigate("/workout/active", { state: { focusBlockId: id } })
     } else {
-      navigate("/plan/custom", { state: { routine: adding } })
+      // the video is the whole workout: straight to the confirm step (more exercises can be added once it has started)
+      confirmWorkout(navigate, { blocks: [routineToBlock(adding)], muscles: [], presetTitle: adding.title || "Workout from a video" })
     }
   }
 
@@ -133,7 +149,7 @@ export default function RoutineFromVideoPage() {
         <>
           {back("Back", () => navigate(-1))}
           <h1 style={{ fontFamily: BRICOLAGE, fontWeight: 700, fontSize: 24, color: INK, margin: "0 0 4px" }}>Turn a video into a workout</h1>
-          <p style={{ fontFamily: DM_SANS, fontSize: 14, color: GRAY, lineHeight: 1.4, margin: "0 0 14px" }}>Paste a link to a workout video. We read what the person says and build the routine for you.</p>
+          <p style={{ fontFamily: DM_SANS, fontSize: 14, color: GRAY, lineHeight: 1.4, margin: "0 0 14px" }}>Paste a YouTube link to a workout video. We read what the person says and build the routine for you.</p>
 
           <div style={{ display: "flex", alignItems: "center", gap: 8, height: 50, borderRadius: 14, border: "1.5px solid #C7D2FE", background: "#fff", padding: "0 6px 0 14px" }}>
             <input value={url} onChange={(e) => setUrl(e.target.value)} placeholder="https://www.youtube.com/watch?v=…" aria-label="Video link" inputMode="url" autoCapitalize="none" autoCorrect="off"
@@ -143,39 +159,41 @@ export default function RoutineFromVideoPage() {
             </button>
           </div>
 
-          <div style={{ display: "flex", gap: 8, margin: "10px 0 14px", flexWrap: "wrap" }}>
-            {Object.entries(SOURCE_NAMES).map(([id, name]) => { const works = !!sources[id]; return (
-              <span key={name} style={{ display: "inline-flex", alignItems: "center", gap: 6, height: 34, padding: "0 12px", borderRadius: 17, fontFamily: DM_SANS, fontSize: 13, fontWeight: 600, border: `1.2px solid ${works ? "#16A34A" : "rgba(100,116,139,0.25)"}`, color: works ? "#15803D" : GRAY, background: works ? "#F0FDF4" : "#fff" }}>
-                {name} <small style={{ fontWeight: 500, fontSize: 10.5 }}>{works ? "works" : "soon"}</small>
-              </span>
-            ) })}
-          </div>
 
           <div style={{ background: AMBER_BG, border: `1px solid ${AMBER_BORDER}`, borderRadius: 14, padding: "12px 14px", marginBottom: 14 }}>
             <div style={{ fontFamily: BRICOLAGE, fontWeight: 700, fontSize: 14, color: "#92400E", marginBottom: 6 }}>Before you paste</div>
-            {[[true, <>The video must be <b>public or unlisted</b>.</>], [false, <><b>Private videos and private accounts</b> can&apos;t be read.</>], [true, <>Works best when the person <b>talks through each move</b> and says how long.</>], [false, <>Videos with only music or no talking won&apos;t work well.</>]].map(([ok, text], i) => (
+            {[[true, <>The video must be <b>public or unlisted</b>.</>], [false, <>A <b>private video</b> can&apos;t be read.</>], [true, <>Works best when the person <b>talks through each move</b> and says how long.</>], [false, <>Videos with only music or no talking won&apos;t work well.</>]].map(([ok, text], i) => (
               <div key={i} style={{ display: "flex", gap: 8, fontFamily: DM_SANS, fontSize: 13, lineHeight: 1.4, margin: "5px 0", color: "#451A03" }}>
                 <span style={{ color: ok ? "#16A34A" : "#DC2626", fontWeight: 800 }}>{ok ? "✓" : "✕"}</span><span>{text}</span>
               </div>
             ))}
           </div>
 
-          <button type="button" onClick={() => read()} disabled={!url.trim()} style={{ ...bigButton(false), opacity: url.trim() ? 1 : 0.5, cursor: url.trim() ? "pointer" : "not-allowed" }}>Read the video</button>
+          {isOtherSite(url) && (
+            <p role="alert" style={{ fontFamily: DM_SANS, fontSize: 13, lineHeight: 1.4, color: "#92400E", background: AMBER_BG, border: `1px solid ${AMBER_BORDER}`, borderRadius: 12, padding: "9px 12px", margin: "0 0 10px" }}>
+              We only read YouTube links for now. Paste a link from YouTube.
+            </p>
+          )}
+          <button type="button" onClick={() => read()} disabled={!url.trim() || isOtherSite(url)} style={{ ...bigButton(false), opacity: url.trim() && !isOtherSite(url) ? 1 : 0.5, cursor: url.trim() && !isOtherSite(url) ? "pointer" : "not-allowed" }}>Read the video</button>
           <p style={{ fontFamily: DM_SANS, fontSize: 11.5, color: GRAY, textAlign: "center", margin: "10px 0 0", lineHeight: 1.4 }}>We only use the words in the video, and keep a link and credit to the person who made it.</p>
 
           <h2 style={{ fontFamily: BRICOLAGE, fontWeight: 700, fontSize: 18, color: INK, margin: "26px 0 8px" }}>My routines</h2>
-          {mine === null && <p style={{ fontFamily: DM_SANS, fontSize: 13, color: GRAY }}>Loading…</p>}
-          {mine?.length === 0 && <p style={{ fontFamily: DM_SANS, fontSize: 13, color: GRAY, margin: 0 }}>Routines you save will be here, ready to add to any workout.</p>}
-          {mine?.map((m) => (
-            <div key={m.routine_id} style={{ ...card, display: "flex", alignItems: "center", gap: 10 }}>
-              <div style={{ flex: 1, minWidth: 0 }}>
-                <div style={{ fontFamily: BRICOLAGE, fontWeight: 700, fontSize: 15, color: INK }}>{m.routine.title}</div>
-                <div style={{ fontFamily: DM_SANS, fontSize: 12, color: GRAY }}>{minutesText(m.routine)}</div>
-              </div>
-              <button type="button" onClick={() => { setAdding(m.routine); setWhere("next") }} style={{ border: "none", borderRadius: 10, padding: "9px 12px", background: "rgba(129,51,255,0.1)", color: PURPLE, fontFamily: DM_SANS, fontWeight: 700, fontSize: 13, cursor: "pointer" }}>Add to workout</button>
-              <button type="button" aria-label={`Delete ${m.routine.title}`} onClick={async () => { await deleteRoutine(m.routine_id).catch(() => {}); loadMine() }} style={{ border: "none", background: "none", cursor: "pointer", padding: 4 }}><Trash2 size={18} color={GRAY} /></button>
-            </div>
-          ))}
+          {(mine === null || recent === null) && <p style={{ fontFamily: DM_SANS, fontSize: 13, color: GRAY }}>Loading…</p>}
+          {mine && recent && mine.length === 0 && recent.length === 0 && (
+            <p style={{ fontFamily: DM_SANS, fontSize: 13, color: GRAY, margin: 0, lineHeight: 1.45 }}>Videos you turn into workouts will show up here. Tap the ☆ to keep one in your workouts.</p>
+          )}
+          {mine?.length > 0 && (
+            <>
+              <div style={{ fontFamily: DM_SANS, fontSize: 11, fontWeight: 700, color: GRAY, letterSpacing: "0.05em", margin: "4px 0 6px" }}>SAVED</div>
+              {mine.map((m) => <VideoRoutineRow key={m.routine_id} routine={m.routine} saved onOpen={() => { setRoutine(m.routine); setStage("result") }} onToggle={() => toggleSaved(m.routine, m)} />)}
+            </>
+          )}
+          {mine && recent?.filter((r) => !savedRowFor(r.routine)).length > 0 && (
+            <>
+              <div style={{ fontFamily: DM_SANS, fontSize: 11, fontWeight: 700, color: GRAY, letterSpacing: "0.05em", margin: "10px 0 6px" }}>RECENT VIDEOS</div>
+              {recent.filter((r) => !savedRowFor(r.routine)).map((r) => <VideoRoutineRow key={r.video_id} routine={r.routine} saved={false} onOpen={() => { setRoutine(r.routine); setStage("result") }} onToggle={() => toggleSaved(r.routine, null)} />)}
+            </>
+          )}
         </>
       )}
 
@@ -197,6 +215,7 @@ export default function RoutineFromVideoPage() {
               )
             })}
           </div>
+          <VideoPreview link={url} />
           <p style={{ fontFamily: DM_SANS, fontSize: 11.5, color: GRAY, textAlign: "center" }}>Nothing is saved until you choose to add it.</p>
           <style>{`.routine-spin{width:14px;height:14px;border:2.5px solid rgba(255,255,255,.4);border-top-color:#fff;border-radius:50%;display:block;animation:rspin .8s linear infinite}@keyframes rspin{to{transform:rotate(360deg)}}`}</style>
         </>
@@ -205,17 +224,19 @@ export default function RoutineFromVideoPage() {
       {stage === "result" && routine && (
         <>
           {back("New link", () => { setStage("input"); setRoutine(null) })}
-          <textarea value={routine.title} rows={routine.title.length > 26 ? 2 : 1} onChange={(e) => setRoutine({ ...routine, title: e.target.value.replace(/\n/g, " ") })} aria-label="Routine name"
-            style={{ width: "100%", boxSizing: "border-box", border: "none", background: "transparent", outline: "none", padding: 0, resize: "none", fontFamily: BRICOLAGE, fontWeight: 700, fontSize: 21, lineHeight: 1.2, color: INK }} />
+          <div style={{ display: "flex", alignItems: "flex-start", gap: 10 }}>
+            <textarea value={routine.title} rows={routine.title.length > 26 ? 2 : 1} onChange={(e) => setRoutine({ ...routine, title: e.target.value.replace(/\n/g, " ") })} aria-label="Routine name"
+            style={{ flex: 1, minWidth: 0, boxSizing: "border-box", border: "none", background: "transparent", outline: "none", padding: 0, resize: "none", fontFamily: BRICOLAGE, fontWeight: 700, fontSize: 21, lineHeight: 1.2, color: INK }} />
+            <button type="button" disabled={saving || routine.steps.length === 0} onClick={save} aria-pressed={!!savedRowFor(routine)} aria-label={savedRowFor(routine) ? "Take this out of my workouts" : "Save this to my workouts"}
+              style={{ width: 38, height: 38, borderRadius: 19, flexShrink: 0, marginTop: 2, cursor: "pointer", display: "flex", alignItems: "center", justifyContent: "center", background: savedRowFor(routine) ? PURPLE : "#fff", border: `1.3px solid ${savedRowFor(routine) ? PURPLE : "rgba(129,51,255,0.45)"}` }}>
+              <Star size={18} color={savedRowFor(routine) ? "#fff" : PURPLE} fill={savedRowFor(routine) ? "#fff" : "none"} />
+            </button>
+          </div>
           <div style={{ display: "flex", gap: 8, alignItems: "center", margin: "8px 0 6px", flexWrap: "wrap" }}>
             <TypeTag type={routine.workout_type} />
             <span style={{ fontFamily: DM_SANS, fontSize: 12.5, color: GRAY }}>{minutesText({ ...routine })}</span>
           </div>
-          {routine.source && (
-            <a href={routine.source.url} target="_blank" rel="noreferrer" style={{ display: "block", fontFamily: DM_SANS, fontSize: 12, color: GRAY, textDecoration: "none", marginBottom: 10 }}>
-              From {routine.source.site === "youtube" ? "a YouTube video" : `an ${SOURCE_NAMES[routine.source.site] ?? "online"} video`}{routine.source.author ? ` by ${routine.source.author}` : ""} ↗
-            </a>
-          )}
+          {routine.source && <VideoSourceRow source={routine.source} />}
 
           {routine.summary && (
             <div style={{ ...card, padding: "12px 14px" }}>
@@ -263,7 +284,7 @@ export default function RoutineFromVideoPage() {
           <div style={{ position: "fixed", left: 0, right: 0, bottom: 0, zIndex: 20, padding: "12px 16px 96px", background: "linear-gradient(180deg, rgba(240,239,254,0), #F0EFFE 28%)" }}>
             <div style={{ maxWidth: 430, margin: "0 auto" }}>
               <button type="button" disabled={routine.steps.length === 0} onClick={() => { setAdding(routine); setWhere("next") }} style={{ ...bigButton(false), opacity: routine.steps.length ? 1 : 0.5 }}>Add to today&apos;s workout</button>
-              <button type="button" disabled={saved || saving || routine.steps.length === 0} onClick={save} style={bigButton(true)}>{saved ? "✓ Saved to My routines" : saving ? "Saving…" : "Save to My routines"}</button>
+              <button type="button" disabled={saving || routine.steps.length === 0} onClick={save} style={bigButton(true)}>{saving ? "Saving…" : savedRowFor(routine) ? "★ Saved to my workouts" : "☆ Save to my workouts"}</button>
             </div>
           </div>
         </>
@@ -308,7 +329,7 @@ export default function RoutineFromVideoPage() {
           )}
           <button type="button" onClick={() => setWhere("new")} style={{ width: "100%", textAlign: "left", background: "#fff", borderRadius: 14, padding: 12, cursor: "pointer", border: !inProgress || where === "new" ? `2px solid ${PURPLE}` : "1.2px solid rgba(100,116,139,0.2)" }}>
             <div style={{ fontFamily: BRICOLAGE, fontWeight: 700, fontSize: 15, color: INK }}>Start a new workout with it</div>
-            <div style={{ fontFamily: DM_SANS, fontSize: 12.5, color: GRAY, lineHeight: 1.4, marginTop: 2 }}>Opens &quot;Create your own&quot; with the routine as the first section, and you add the rest.</div>
+            <div style={{ fontFamily: DM_SANS, fontSize: 12.5, color: GRAY, lineHeight: 1.4, marginTop: 2 }}>The video becomes your workout, and you can start right away. You can add more exercises once you have started.</div>
           </button>
         </BottomSheet>
       )}

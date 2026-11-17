@@ -29,7 +29,17 @@ export function buildSequence(routine) {
   for (const s of phase("warmup")) out.push(step(s, { phase: "warmup" }))
   const main = phase("main")
   const sets = st.sets || 1
-  for (let n = 1; n <= sets; n++) {
+  if (st.set_order === "all_sets_first" && sets > 1) {
+    // each move for all its sets, then the next move: the rest comes after every set except the very last one
+    main.forEach((s, i) => {
+      for (let n = 1; n <= sets; n++) {
+        out.push(step(s, { phase: "main", set: n }))
+        const last = i === main.length - 1 && n === sets
+        const rest = n === sets ? st.rest_between_sets_seconds ?? st.rest_seconds ?? 0 : st.rest_seconds ?? 0
+        if (!last && rest > 0) out.push({ name: "Rest", secs: rest, rest: true, phase: "main" })
+      }
+    })
+  } else for (let n = 1; n <= sets; n++) {
     main.forEach((s, i) => {
       out.push(step(s, { phase: "main", set: sets > 1 ? n : null }))
       const lastOfSet = i === main.length - 1
@@ -48,6 +58,7 @@ export function routineToBlock(routine) {
   const minutes = routine.total_minutes ? ` · about ${routine.total_minutes} min` : ""
   return {
     id: `routine-${stamp}`,
+    fromVideo: !!routine.source, // see isFromVideo: no goal note or set-type guess for these
     section: SECTION_FOR_STYLE[routine.style] ?? "workout",
     tag: String(routine.title || "Routine").toUpperCase().slice(0, 48),
     short: "Routine", // the short name on the progress bar
@@ -56,7 +67,7 @@ export function routineToBlock(routine) {
     note: `${routine.steps.length} moves${minutes}`,
     source: routine.source ?? null, // the video it came from, shown on the section
     items: routine.steps.map((s, i) => ({
-      key: `${stamp}-${i}`, name: s.name, sub: stepLine(s), tip: stepTip(s), exerciseId: null, rest: false, alternatives: [],
+      key: `${stamp}-${i}`, at: s.at_seconds ?? null, name: s.name, sub: stepLine(s), tip: stepTip(s), exerciseId: null, rest: false, alternatives: [],
       logged: false, targetReps: null, targetSeconds: null, track: null, sets: null, done: false,
     })),
   }

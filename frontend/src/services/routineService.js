@@ -24,5 +24,8 @@ export const readVideo = (url, signal) => call("/routines/from-video", { method:
 export const getSources = () => call("/routines/sources")
 
 export const listRoutines = () => call("/routines")
+
+// The videos read lately (up to 10), each with its routine, so one can be opened again without reading it again
+export const listRecentVideos = () => call("/routines/recent")
 export const saveRoutine = (routine) => call("/routines", { method: "POST", body: JSON.stringify({ routine }) })
 export const deleteRoutine = (id) => call(`/routines/${id}`, { method: "DELETE" })

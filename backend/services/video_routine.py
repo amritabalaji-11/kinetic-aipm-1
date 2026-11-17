@@ -141,6 +141,24 @@ def _service_error(status: int, body) -> RoutineError:
     return RoutineError("service_unavailable", "We couldn't read that video just now. Try again in a minute.", 502)
 
 
+MAX_DESCRIPTION_CHARS = 4000
+
+
+async def fetch_description(video_id: str) -> str:
+    """The text the creator wrote under a YouTube video (often the list of exercises, the timings and the sets), from the transcript service.
+    Best effort: when there is no service, or it fails, the routine is made from the captions alone, as before."""
+    if not service_enabled():
+        return ""
+    try:
+        async with httpx.AsyncClient(timeout=20) as client:
+            res = await client.get(f"{SUPADATA_BASE}/youtube/video", headers={"x-api-key": os.getenv("SUPADATA_API_KEY", "")}, params={"id": video_id})
+        if res.status_code != 200:
+            return ""
+        return str(res.json().get("description") or "").strip()[:MAX_DESCRIPTION_CHARS]
+    except (httpx.HTTPError, ValueError):
+        return ""
+
+
 def _segments(content) -> list[dict]:
     out = []
     for seg in content or []:
@@ -228,7 +246,9 @@ def captions_to_text(lines: list[dict]) -> str:
 SYSTEM = """You turn the captions of an exercise video into a workout routine that a person can follow in a fitness app.
 
 Rules:
-- Use ONLY what the captions say. Do not add exercises, durations, repetitions, benefits or safety claims that are not in them.
+- Use ONLY what the captions and the creator's description say. Do not add exercises, durations, repetitions, benefits or safety claims that are not in them.
+- The creator's description (when there is one) often lists the exercises, the work and rest times and the number of sets. Use that list, especially when the captions name only some of the exercises. Where the two differ, take the exercise names from the description and the how-to words from the captions. Ignore links, sponsors, discount codes, social media and the like. Song lyrics and [Music] in the captions are not instructions: ignore them.
+- A step that comes only from the description list (the speaker never says it) gets "start_seconds": null, and "unsure" says once that the order and times of those steps come from the creator's list, not from what is said in the video.
 - If something is unclear (an unclear name, a missing duration, a movement that is named but not described), put it in "unsure". Never guess.
 - A step is one exercise. If the speaker says "eight movements, one minute each", each step gets 60 seconds, and you say where that came from in "unsure".
 - Give a step "seconds" if the video gives a time, "reps" if it gives a count, or neither (null) if it gives neither.
@@ -240,7 +260,8 @@ Rules:
 - If there is no workout in the captions, return an empty "steps" list.
 - "workout_type" is "strength" (heavier weights, few reps), "endurance" (lighter weights or bodyweight, many reps, short rests), "cardio" (raising the heart rate: running, jumping, intervals), "mobility" (stretching, warming up, flow) or "mixed".
 - "summary" is two or three plain sentences saying what the workout is: how many exercises, how many sets, the work and rest times, and whether it has a warm-up and a cool-down, as far as the captions say. Leave out what they do not say.
-- "structure" holds what the captions state about timing; null for anything they do not state.
+- "structure" holds what the captions and description state about timing; null for anything they do not state.
+- "set_order" says how the sets are done: "all_sets_first" when each exercise is done for all of its sets before the next one starts (for example "three sets of the squat, then we move on to the next"), "whole_round" when the whole list is done once and then repeated (a circuit or rounds), and null when it is not stated. Never guess it.
 - "weights" is "none" (bodyweight only), "light", "heavy", or "unclear". "movement" is a short phrase on how it is done, for example "standing, low impact" or "floor work".
 
 Return ONLY a JSON object, nothing else:
@@ -248,14 +269,17 @@ Return ONLY a JSON object, nothing else:
  "workout_type": "strength"|"endurance"|"cardio"|"mobility"|"mixed",
  "summary": str, "weights": "none"|"light"|"heavy"|"unclear", "movement": str,
  "equipment": [str],
- "structure": {"sets": int|null, "work_seconds": int|null, "rest_seconds": int|null, "rest_between_sets_seconds": int|null, "has_warmup": bool, "has_cooldown": bool},
+ "structure": {"sets": int|null, "set_order": "all_sets_first"|"whole_round"|null, "work_seconds": int|null, "rest_seconds": int|null, "rest_between_sets_seconds": int|null, "has_warmup": bool, "has_cooldown": bool},
  "steps": [{"order": int, "name": str, "phase": "warmup"|"main"|"cooldown", "start_seconds": int|null, "seconds": int|null, "reps": int|null, "sides": "both"|"each side"|null, "how_to": str, "cues": [str]}],
  "unsure": [str]}"""
 
 
-def _ask_model_blocking(transcript: str, title: str) -> dict:
+def _ask_model_blocking(transcript: str, title: str, description: str = "") -> dict:
     client = anthropic.Anthropic()
-    user = f"Video title: {title}\n\nCaptions (with timestamps):\n{transcript}"
+    user = f"Video title: {title}\n\n"
+    if description:
+        user += f"Creator's description:\n{description}\n\n"
+    user += f"Captions (with timestamps):\n{transcript}"
     reply = client.messages.create(model=MODEL, max_tokens=8000, system=SYSTEM, messages=[{"role": "user", "content": user}])
     text = "".join(b.text for b in reply.content if b.type == "text")
     match = re.search(r"\{.*\}", text, re.S)
@@ -307,6 +331,7 @@ def check_routine(raw: dict) -> dict:
     raw_structure = raw.get("structure") if isinstance(raw.get("structure"), dict) else {}
     structure = {
         "sets": _clean_int(raw_structure.get("sets"), 1, 20),
+        "set_order": raw_structure.get("set_order") if raw_structure.get("set_order") in ("all_sets_first", "whole_round") else None,
         "work_seconds": _clean_int(raw_structure.get("work_seconds"), 5, 900),
         "rest_seconds": _clean_int(raw_structure.get("rest_seconds"), 0, 600),
         "rest_between_sets_seconds": _clean_int(raw_structure.get("rest_between_sets_seconds"), 0, 900),
@@ -350,9 +375,10 @@ async def routine_from_link(url: str) -> dict:
     if captions and captions[-1]["start"] > MAX_VIDEO_SECONDS:
         raise RoutineError("too_long", "This video is too long for a routine (over 40 minutes). Try a shorter one.")
     transcript = captions_to_text(captions)
-    if len(transcript) < 200:
+    description = await fetch_description(video_id) if site == "youtube" else ""
+    if len(transcript) < 200 and len(description) < 200:
         raise RoutineError("no_captions", "This video has hardly any words we can read. It works best when the person talks through the moves.")
-    raw = await run_in_threadpool(_ask_model_blocking, transcript, info["title"] or "(untitled)")
+    raw = await run_in_threadpool(_ask_model_blocking, transcript, info["title"] or "(untitled)", description)
     routine = check_routine(raw)
     routine["source"] = {
         "site": site,

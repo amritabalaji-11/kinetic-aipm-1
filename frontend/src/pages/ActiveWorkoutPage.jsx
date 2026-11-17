@@ -12,6 +12,8 @@ import { typeOfBlock } from "../utils/setTypes"
 import GoalNote from "../components/GoalNote"
 import RoutineSource from "../components/RoutineSource"
 import SyncedVideo from "../components/SyncedVideo"
+import VideoFollower from "../components/VideoFollower"
+import { canFollow, tickAll } from "../utils/routineFollow"
 import SectionRunner from "../components/SectionRunner"
 import RoundsForTime from "../components/RoundsForTime"
 import { allRoundsDone, logOf, roundsSpec } from "../utils/roundsForTime"
@@ -224,6 +226,8 @@ export default function ActiveWorkoutPage() {
   const [viewBi, setViewBi] = useState(null)
   const playerRef = useRef(null) // the video on the section on screen
   const [videoReady, setVideoReady] = useState(false)
+  const [videoNow, setVideoNow] = useState(null) // { id, index }: the move a followed video is on
+  const latest = useRef(null) // the newest workout and saver, for the video check below that runs on a timer
   // coming from "Add to today's workout": show the section that was just added
   const focusBlockId = useLocation().state?.focusBlockId
   useEffect(() => {
@@ -271,6 +275,9 @@ export default function ActiveWorkoutPage() {
     setWorkout(next)
     setNotice("")
   }
+  latest.current = { workout, commit }
+  // A routine from a video follows the video: a move is ticked once the next one has started, and the one on now is shown.
+  const followId = blocks[viewBlock]?.source?.embeddable && blocks[viewBlock]?.source?.video_id && canFollow(blocks[viewBlock].items) ? blocks[viewBlock].id : null
   const mapItem = (bi, ii, fn) =>
     commit({ ...workout, blocks: blocks.map((b, i) => (i !== bi ? b : { ...b, items: b.items.map((it, j) => (j !== ii ? it : fn(it))) })) })
   const mapBlock = (bi, fn) => commit({ ...workout, blocks: blocks.map((b, i) => (i !== bi ? b : fn(b))) })
@@ -297,6 +304,15 @@ export default function ActiveWorkoutPage() {
       else if (run.pausedAtMs) setRun(block.id, { ...run, pausedAtMs: null, pausedTotalMs: (run.pausedTotalMs || 0) + (Date.now() - run.pausedAtMs) })
     } else if (state === "paused" && run && !run.pausedAtMs) {
       setRun(block.id, { ...run, pausedAtMs: Date.now() })
+    } else if (state === "ended" && (canFollow(block.items) || block.runner)) { // followed by start times, or by the clock
+      // the video finished: every move is done, the section is completed and the next one opens, as if they had pressed "complete"
+      const { workout: w, commit: save } = latest.current
+      const at = w.blocks.findIndex((b) => b.id === block.id)
+      const nextIdx = w.blocks.findIndex((b, i) => i > at && b.items.some(isActionable) && !b.completed)
+      save({ ...w, blocks: w.blocks.map((b) => (b.id === block.id ? { ...b, items: tickAll(b.items), completed: true } : b)) })
+      setToast(`${block.tag} completed`)
+      setTimeout(() => setToast(""), 2200)
+      if (nextIdx !== -1) { setViewBi(nextIdx); window.scrollTo({ top: 0, behavior: "smooth" }) }
     }
   }
   const setRounds = (bi, n) => mapBlock(bi, (b) => ({ ...b, rounds: n }))
@@ -441,6 +457,7 @@ export default function ActiveWorkoutPage() {
         onOpenList={() => setListOpen(true)}
       />
 
+      <VideoFollower followId={followId} ready={videoReady} playerRef={playerRef} latest={latest} onNow={setVideoNow} />
       <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
         {blocks.map((block, bi) => {
           const actionable = block.items.filter(isActionable)
@@ -466,11 +483,13 @@ export default function ActiveWorkoutPage() {
             const secs = secondsFromSub(it.sub)
             const isDone = own ? own.done : it.done
             const toggle = own ? own.onToggle : () => toggleDone(bi, ii)
+            const onNow = !own && !isDone && videoNow?.id === block.id && videoNow.index === ii // the move the video is on
             return (
-              <div key={it.key} style={{ display: "flex", alignItems: "center", gap: 8, padding: "5px 0" }}>
+              <div key={it.key} style={{ display: "flex", alignItems: "center", gap: 8, padding: onNow ? "5px 6px" : "5px 0", margin: onNow ? "0 -6px" : 0, borderRadius: 10, background: onNow ? "rgba(129,51,255,0.08)" : "transparent" }}>
                 {many && <span style={{ width: 20, height: 20, borderRadius: 5, background: isDone ? DARK_GREEN : PURPLE, color: "#fff", fontFamily: DM_SANS, fontWeight: 600, fontSize: 11, display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0 }}>{letter(actionable.indexOf(it))}</span>}
                 <div style={{ flex: 1, minWidth: 0, fontFamily: DM_SANS, fontSize: 15, lineHeight: 1.3 }}>
                   <span style={{ fontWeight: 600, color: isDone ? DARK_GREEN : PURPLE }}><ExerciseName exerciseId={it.exerciseId}>{it.name}</ExerciseName></span>
+                  {onNow && <span style={{ marginLeft: 6, padding: "1px 8px", borderRadius: 999, background: PURPLE, color: "#fff", fontSize: 10.5, fontWeight: 700, letterSpacing: "0.04em", verticalAlign: "middle" }}>NOW</span>}
                   {it.sub && <span style={{ color: GRAY }}> · {it.sub}</span>}
                   {it.tip && <div style={{ fontSize: 12, color: GRAY, lineHeight: 1.35, marginTop: 2 }}>{it.tip}</div>}
                 </div>

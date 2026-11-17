@@ -15,6 +15,7 @@ router = APIRouter(prefix="/routines", tags=["routines"])
 
 READS_PER_DAY = int(os.getenv("ROUTINE_READS_PER_DAY", "20"))  # every read costs money, so it is capped for everyone
 MAX_SAVED = 50
+MAX_RECENT = 10  # the videos shown under "Recent videos"
 
 
 class VideoLink(BaseModel):
@@ -81,7 +82,29 @@ async def read_video(body: VideoLink, user_id: str = Depends(limit_guest("video 
         raise _fail(err)
     # only a video that was really read counts against the day's limit
     await db.execute(f"INSERT INTO video_reads (user_id, video_id, created_at) VALUES (:u, :v, {NOW_TEXT})", {"u": user_id, "v": routine["source"]["video_id"] or routine["source"]["url"][:120]})
+    await _remember(user_id, routine)
     return routine
+
+
+async def _remember(user_id: str, routine: dict):
+    """Keep the routine so the person can open it again later. One row per video (a second read replaces the first), newest 10 kept."""
+    video_id = (routine.get("source") or {}).get("video_id")
+    if not video_id:
+        return  # only YouTube videos have an id to keep it under
+    await db.execute("DELETE FROM recent_videos WHERE user_id = :u AND video_id = :v", {"u": user_id, "v": video_id})
+    await db.execute(f"INSERT INTO recent_videos (user_id, video_id, data, created_at) VALUES (:u, :v, :d, {NOW_TEXT})", {"u": user_id, "v": video_id, "d": json.dumps(routine)})
+    await db.execute(
+        """DELETE FROM recent_videos WHERE user_id = :u AND video_id NOT IN
+           (SELECT video_id FROM recent_videos WHERE user_id = :u ORDER BY created_at DESC LIMIT :n)""",
+        {"u": user_id, "n": MAX_RECENT},
+    )
+
+
+@router.get("/recent")
+async def recent_videos(user_id: str = Depends(get_current_user_id)):
+    """The videos this person read lately, newest first, each with its routine (nothing is read again to show them)."""
+    rows = await db.fetch_all("SELECT video_id, data, created_at FROM recent_videos WHERE user_id = :u ORDER BY created_at DESC LIMIT :n", {"u": user_id, "n": MAX_RECENT})
+    return [{"video_id": r["video_id"], "created_at": r["created_at"], "routine": json.loads(r["data"])} for r in rows]
 
 
 def _row(r) -> dict:
