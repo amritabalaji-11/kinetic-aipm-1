@@ -5,6 +5,7 @@ import { CoachIcon, CoachNoteSheet } from "../components/CoachNote"
 import { DEMO_USERS, useUser } from "../context/UserContext"
 import TeamShareSwitch from "../components/TeamShareSwitch"
 import MotivationLine from "../components/MotivationLine"
+import MotivationBanner from "../components/MotivationBanner"
 import { listWorkouts, pendingAsRows } from "../services/workoutService"
 import { dayStreak, totalWorkouts } from "../utils/workoutStats"
 
@@ -68,11 +69,12 @@ export default function ProfilePage() {
           <h1 className="text-base font-bold text-gray-900">Profile</h1>
         </div>
 
-        <div className="mx-4 mb-5 bg-white rounded-2xl p-5" style={{ border: "1px solid #f3f4f6", boxShadow: "0 1px 4px rgba(0,0,0,0.05)" }}>
-          <div className="flex flex-col items-center mb-4">
+        <div className="mx-4 mb-5 bg-white rounded-2xl overflow-hidden" style={{ border: "1px solid #f3f4f6", boxShadow: "0 1px 4px rgba(0,0,0,0.05)" }}>
+          <MotivationBanner height={118} bottomSpace={26} rounded={0} youSize={38} />
+          <div className="flex flex-col items-center mb-4 px-5">
             <div
               className="w-20 h-20 rounded-full flex items-center justify-center mb-3"
-              style={{ background: avatarGrad }}
+              style={{ background: avatarGrad, marginTop: -40, border: "4px solid #fff", position: "relative" }}
             >
               <span className="text-2xl font-bold text-white">{initials}</span>
             </div>
@@ -80,7 +82,7 @@ export default function ProfilePage() {
             <MotivationLine line={userBio} onSave={isDemoAccount ? undefined : saveMotivation} />
           </div>
 
-          <div className="border-t border-gray-100 pt-4 grid grid-cols-2 divide-x divide-gray-100 text-center">
+          <div className="border-t border-gray-100 pt-4 pb-5 mx-5 grid grid-cols-2 divide-x divide-gray-100 text-center">
             <div>
               <div className="text-base font-bold text-gray-900">{workouts ?? "—"}</div>
               <div className="text-[10px] text-gray-400 mt-0.5 tracking-wider uppercase">Workouts</div>
