@@ -1,6 +1,7 @@
 import { useEffect, useState } from "react"
 import { useNavigate } from "react-router-dom"
 import { apiFetch, BASE_URL } from "../services/api"
+import LoadText from "./LoadText"
 
 const card = { background: "#fff", borderRadius: "16px", padding: "12px", border: "1px solid rgba(129,51,255,0.12)" }
 const nice = (name) => (name || "Session").toLowerCase().replace(/[-_]/g, " ").replace(/\b\w/g, (c) => c.toUpperCase())
@@ -70,7 +71,7 @@ export default function FormHistoryList() {
                   <span style={{ fontSize: "7px", fontFamily: "'Poppins'" }}>/100</span>
                 </span>
               </div>
-              <p style={{ fontSize: "10px", fontFamily: "'DM Sans'", color: "#39414D", margin: 0 }}>{date} • {s.load_kg}Kg • {s.rep_count} Reps</p>
+              <p style={{ fontSize: "10px", fontFamily: "'DM Sans'", color: "#39414D", margin: 0 }}>{date} • <LoadText kg={s.load_kg} /> • {s.rep_count} Reps</p>
               <p style={{ fontSize: "11px", fontFamily: "'DM Sans'", color: "#000", margin: 0, lineHeight: "14px", whiteSpace: "pre-line", ...(isOpen ? {} : { overflow: "hidden", display: "-webkit-box", WebkitLineClamp: 3, WebkitBoxOrient: "vertical" }) }}>{feedback}</p>
               {long && (
                 <button type="button" onClick={() => setOpen({ ...open, [s.analysis_id]: !isOpen })} style={{ background: "none", border: "none", fontSize: "11px", fontWeight: 600, fontFamily: "'DM Sans'", color: "#0284C7", cursor: "pointer", padding: 0, marginTop: "2px", textAlign: "left" }}>

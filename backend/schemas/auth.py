@@ -33,6 +33,7 @@ class UserOut(BaseModel):
     email: str | None
     display_name: str | None
     auth_provider: str
+    weight_unit: str | None = None  # "kg" or "lbs"; None = not chosen yet (the app then uses a default from the phone's region)
     health_notice_version: str | None = None  # which version of the health note they ticked; None = not yet
     share_videos_default: bool | None = None  # their answer to "Can our team watch your videos?": None = not asked yet
     role: str = "user"  # "admin" shows the Admin page; the server checks it again on every admin request
@@ -47,6 +48,10 @@ class AboutYouIn(BaseModel):
     gender: str | None = None                # woman | man | non_binary | prefer_not_to_say
     has_injury: bool | None = None           # past injuries or pain we should know about
     injury_details: str | None = Field(default=None, max_length=1000)  # only kept when has_injury is true
+
+
+class WeightUnitIn(BaseModel):
+    unit: str = Field(pattern="^(kg|lbs)$")
 
 
 class HealthNoticeIn(BaseModel):

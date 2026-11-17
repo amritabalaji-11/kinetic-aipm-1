@@ -461,6 +461,8 @@ MIGRATIONS = [
     ("user_profiles", "workouts_per_week", "TEXT"),  # the same step: never | 1-2 | 3-4 | 5+
     ("user_profiles", "training_types", "TEXT"),  # the same step: what they mostly train (cardio, strength, yoga_pilates, group_classes), comma-separated
     # the health note ("not medical advice; check with a doctor if pregnant, injured...") they ticked: when, and which version of the text
+    # the unit they log weights in: "kg" or "lbs" (None until they choose or onboarding saves the pick); past sets keep their own unit
+    ("user_profiles", "weight_unit", "TEXT"),
     ("user_profiles", "health_notice_version", "TEXT"),
     ("user_profiles", "health_notice_accepted_at", "TEXT"),
     ("user_profiles", "share_videos_default", "INTEGER"),

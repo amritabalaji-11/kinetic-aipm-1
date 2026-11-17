@@ -18,6 +18,7 @@ import WhyCard from "../components/WhyCard"
 import TagLegend from "../components/TagLegend"
 import { hasAnyTag, muscleTag } from "../utils/muscleTags"
 import { whyReps } from "../utils/whyReps"
+import { useWeightUnit } from "../context/UserContext"
 import { splitSub } from "../utils/subLine"
 import { canFollow, tickAll } from "../utils/routineFollow"
 import SectionRunner from "../components/SectionRunner"
@@ -142,6 +143,7 @@ const focusNext = (e) => {
 }
 
 function SetRow({ label, set, item, onChange, onTick, onRecord, onTimerDone, labelColor, labelled }) {
+  const weightUnit = useWeightUnit() // kg or lbs, whichever they chose
   const done = set.completed
   const track = trackOf(item)
   const canTick = canTickSet(item, set)
@@ -177,7 +179,7 @@ function SetRow({ label, set, item, onChange, onTick, onRecord, onTimerDone, lab
           <VideoIcon size={20} color={canRecord ? "#fff" : "#A7A3BF"} />
         </button>
       )}
-      {track.weight && box("weight", set.weight, "kg")}
+      {track.weight && box("weight", set.weight, weightUnit)}
       {track.reps && box("reps", set.reps, "reps")}
       {track.time && (
         <SetTimer height={46} target={timerTarget} label={`${item.name} timer`} onDone={onTimerDone}>
@@ -211,12 +213,13 @@ function SetRow({ label, set, item, onChange, onTick, onRecord, onTimerDone, lab
 
 // The headings above the rows. Only drawn when every row in the block asks for the same things (otherwise each box says what it is).
 function ColumnHeaders({ first, track }) {
+  const weightUnit = useWeightUnit()
   const h = { fontFamily: DM_SANS, fontSize: 11, fontWeight: 600, color: GRAY, textAlign: "center" }
   return (
     <div style={{ display: "flex", gap: 8 }}>
       <span style={{ ...h, width: 22 }}>{first}</span>
       {track.reps && <span style={{ ...h, width: 56 }}>Record</span>}
-      {track.weight && <span style={{ ...h, flex: 1 }}>kg</span>}
+      {track.weight && <span style={{ ...h, flex: 1 }}>{weightUnit}</span>}
       {track.reps && <span style={{ ...h, flex: 1 }}>Reps</span>}
       {track.time && <span style={{ ...h, flex: 1 }}>Time</span>}
       <span style={{ ...h, width: 52 }}>✓</span>
@@ -238,6 +241,7 @@ export default function ActiveWorkoutPage() {
   const [viewBi, setViewBi] = useState(null)
   const playerRef = useRef(null) // the video on the section on screen
   const [videoReady, setVideoReady] = useState(false)
+  const weightUnit = useWeightUnit()
   const [videoNow, setVideoNow] = useState(null) // { id, index }: the move a followed video is on
   const [whyOpen, setWhyOpen] = useState(null) // the key of the exercise whose "Why these reps?" is open
   const [whyHintSeen, setWhyHintSeen] = useState(() => { try { return !!localStorage.getItem("whyHintSeen") } catch { return true } })
@@ -412,7 +416,7 @@ export default function ActiveWorkoutPage() {
     // so a slow or failed save is never lost: the Home and Logger screens retry it and show it meanwhile.
     // finishing while paused: that pause ends now, so it still counts as time off
     const pausedTotalMs = (toSave.pausedTotalMs || 0) + (toSave.pausedAtMs ? endedAtMs - toSave.pausedAtMs : 0)
-    const pending = { ...toSave, pausedTotalMs, pausedAtMs: null, status: "completed", endedAtMs }
+    const pending = { ...toSave, pausedTotalMs, pausedAtMs: null, status: "completed", endedAtMs, weightUnit } // the unit the weights were typed in
     addPendingWorkout(pending)
     saveWorkout(pending)
       .then(() => removePendingWorkout(pending.id))

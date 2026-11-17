@@ -5,7 +5,7 @@ from fastapi import APIRouter, HTTPException, Depends, Request
 from db.database import NOW_TEXT, db
 from schemas.auth import (
     SignUpRequest, LoginRequest, SocialLoginRequest, DemoLoginRequest,
-    TokenResponse, UserOut, SharingChoiceIn, AboutYouIn, HealthNoticeIn,
+    TokenResponse, UserOut, SharingChoiceIn, AboutYouIn, HealthNoticeIn, WeightUnitIn,
 )
 from utils.config import ALLOW_DEMO_LOGIN, DEMO_USER_IDS, DEMO_PASSCODE
 from utils.security import (
@@ -202,6 +202,7 @@ async def me(user_id: str = Depends(get_current_user_id)):
         role=user["role"] or "user",
         share_videos_default=None if user["share_videos_default"] is None else bool(user["share_videos_default"]),
         health_notice_version=user["health_notice_version"],
+        weight_unit=user["weight_unit"],
     )
 
 
@@ -238,6 +239,16 @@ async def set_about_you(body: AboutYouIn, user_id: str = Depends(get_current_use
     for column, value in updates.items():  # the column names above are fixed in this file, never taken from the request
         await db.execute(f"UPDATE user_profiles SET {column} = :v WHERE user_id = :u", {"v": value, "u": user_id})
     return {"saved": sorted(updates)}
+
+
+@router.post("/me/units")
+async def set_weight_unit(body: WeightUnitIn, user_id: str = Depends(get_current_user_id)):
+    """The unit they log weights in. Only changes what new sets use and how numbers are shown: sets already saved keep their own unit."""
+    found = await db.fetch_one("SELECT user_id FROM user_profiles WHERE user_id = :u", {"u": user_id})
+    if not found:
+        raise HTTPException(status_code=404, detail="User not found")
+    await db.execute("UPDATE user_profiles SET weight_unit = :w WHERE user_id = :u", {"w": body.unit, "u": user_id})
+    return {"weight_unit": body.unit}
 
 
 @router.post("/me/health-notice")

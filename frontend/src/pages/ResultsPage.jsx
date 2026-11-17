@@ -1,3 +1,4 @@
+import LoadText from "../components/LoadText"
 import { useState, useMemo, useEffect, useRef } from "react"
 import { apiFetch } from "../services/api"
 import { useLocation, useNavigate } from "react-router-dom"
@@ -530,7 +531,7 @@ function FormHistorySection({ userId, exerciseId, currentAnalysisId }) {
           <div key={session.analysis_id} className="p-3 bg-gray-50 rounded-lg flex items-center justify-between">
             <div className="flex-1">
               <p className="text-xs font-semibold text-gray-900">{session.date ? new Date(session.date).toLocaleDateString("en-GB", { day: "numeric", month: "short" }) : "—"}</p>
-              <p className="text-xs text-gray-600">{session.load_kg ?? "—"} kg • {session.rep_count ?? "—"} reps</p>
+              <p className="text-xs text-gray-600"><LoadText kg={session.load_kg} /> • {session.rep_count ?? "—"} reps</p>
             </div>
             <div className="flex items-center gap-2">
               <span className="text-sm font-bold" style={{ color: session.score >= 80 ? "#22C55E" : session.score >= 65 ? "#F97316" : "#EF4444" }}>
@@ -1526,7 +1527,7 @@ export default function ResultsPage() {
                                   <span style={{ fontSize: "10px", fontWeight: 400, color: "#000000", fontFamily: "'Poppins'" }}>/100</span>
                                 </div>
                               </div>
-                              <p style={{ fontSize: "11px", fontFamily: "'DM Sans'", color: "#39414D", margin: "0", lineHeight: "14px" }}>{dateLabel} • {s.load_kg}Kg • {s.rep_count} Reps</p>
+                              <p style={{ fontSize: "11px", fontFamily: "'DM Sans'", color: "#39414D", margin: "0", lineHeight: "14px" }}>{dateLabel} • <LoadText kg={s.load_kg} /> • {s.rep_count} Reps</p>
                               <p style={{
                                 fontSize: "12px",
                                 fontFamily: "'DM Sans'",
