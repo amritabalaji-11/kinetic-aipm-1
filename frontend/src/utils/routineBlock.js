@@ -66,7 +66,7 @@ export function routineToBlock(routine) {
     note: `${routine.steps.length} moves${minutes}`,
     source: routine.source ?? null, // the video it came from, shown on the section
     items: routine.steps.map((s, i) => ({
-      key: `${stamp}-${i}`, name: s.name, sub: stepLine(s), tip: stepTip(s), exerciseId: null, rest: false, alternatives: [],
+      key: `${stamp}-${i}`, at: s.at_seconds ?? null, name: s.name, sub: stepLine(s), tip: stepTip(s), exerciseId: null, rest: false, alternatives: [],
       logged: false, targetReps: null, targetSeconds: null, track: null, sets: null, done: false,
     })),
   }
