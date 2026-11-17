@@ -15,6 +15,8 @@ import UploadExercisePicker from "../components/UploadExercisePicker"
 import { CoachIcon } from "../components/CoachNote"
 import { BRICOLAGE, BottomSheet, DM_SANS, GRAY, INK } from "../components/planUi"
 import { FLAT_LILAC } from "../utils/pageBackground"
+import { getExercise } from "../utils/exerciseCatalog"
+import { isAiReady } from "../utils/analysableExercises"
 
 const sentence = (text) => text[0].toUpperCase() + text.slice(1)
 const mb = (bytes) => (bytes / (1024 * 1024)).toFixed(bytes < 10 * 1024 * 1024 ? 1 : 0)
@@ -24,14 +26,17 @@ const ACCEPTED_FORMATS = ["video/mp4", "video/quicktime", "video/webm"]
 
 export default function UploadScanPage() {
   const navigate     = useNavigate()
-  const tooFewReps   = useLocation().state?.tooFewReps  // set when the last video had too few reps
+  const navState     = useLocation().state ?? {}
+  const tooFewReps   = navState.tooFewReps  // set when the last video had too few reps
+  // sent here from a workout's Record button: the exercise is already chosen (only when the form check supports it)
+  const sentExercise = navState.exerciseId ? getExercise(navState.exerciseId) : null
   const videoRef     = useRef(null)
   const fileInputRef = useRef(null)
   const prepRef      = useRef(null)  // the video is shrunk in the background as soon as it is chosen
   const uploadStartedAt = useRef(0)  // when the upload itself began, to work out how long is left
   const prepFraction = useRef(0)     // how far along that is, readable from inside the Start handler
 
-  const [exercise,          setExercise]          = useState(null)
+  const [exercise,          setExercise]          = useState(() => (sentExercise && isAiReady(sentExercise) ? sentExercise : null))
   const [videoFile,         setVideoFile]         = useState(null)
   const [videoPreviewUrl,   setVideoPreviewUrl]   = useState(null)
   const [isPlaying,         setIsPlaying]         = useState(false)

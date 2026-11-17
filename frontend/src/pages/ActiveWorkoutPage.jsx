@@ -28,7 +28,8 @@ import SwapSheet from "../components/SwapSheet"
 import AddExerciseSheet from "../components/AddExerciseSheet"
 import { hasGuidance } from "../data/exerciseGuidance"
 import { addPendingWorkout, removePendingWorkout, saveWorkout } from "../services/workoutService"
-import { equipmentLabel } from "../utils/exerciseCatalog"
+import { equipmentLabel, getExercise } from "../utils/exerciseCatalog"
+import { isAiReady } from "../utils/analysableExercises"
 import {
   DEFAULT_TRACK, allSetsTicked, canTickSet, currentBlockIndex, emptySet, ensureBlocks, flattenForSave, isActionable, isBlockComplete,
   itemHasEntries, nextUpItems, restSecondsFromNote, secondsFromSub, trackOf,
@@ -163,12 +164,17 @@ function SetRow({ label, set, item, onChange, onTick, onRecord, onTimerDone, lab
     />
   )
   const timerTarget = Number(set.seconds) || item.targetSeconds || 30 // what was typed, else the plan's time, else 30 seconds
+  const exercise = item.exerciseId ? getExercise(item.exerciseId) : null
+  const canRecord = Boolean(exercise && isAiReady(exercise)) // the form check only exists for some movements; for the rest the button is greyed out
   return (
     <div style={{ display: "flex", alignItems: "center", gap: 8, padding: "3px 0", borderRadius: 12, background: done ? "rgba(34,197,94,0.14)" : "transparent" }}>
       <span style={{ width: 22, textAlign: "center", fontFamily: DM_SANS, fontWeight: 700, fontSize: 15, color: done ? DARK_GREEN : labelColor || INK }}>{label}</span>
       {track.reps && (
-        <button type="button" aria-label="Record video" onClick={onRecord} style={{ width: 56, height: 46, borderRadius: 12, border: "none", cursor: "pointer", background: GRADIENT, opacity: done ? 0.5 : 1, display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0 }}>
-          <VideoIcon size={20} color="#fff" />
+        <button type="button" disabled={!canRecord} onClick={canRecord ? onRecord : undefined}
+          aria-label={canRecord ? `Record a video of ${item.name} for a form check` : `Form check not available for ${item.name} yet`}
+          title={canRecord ? "Record a video for a form check" : "Form check not available for this exercise yet"}
+          style={{ width: 56, height: 46, borderRadius: 12, border: "none", cursor: canRecord ? "pointer" : "not-allowed", background: canRecord ? GRADIENT : "#E2E0EE", opacity: canRecord && done ? 0.5 : 1, display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0 }}>
+          <VideoIcon size={20} color={canRecord ? "#fff" : "#A7A3BF"} />
         </button>
       )}
       {track.weight && box("weight", set.weight, "kg")}
@@ -635,7 +641,7 @@ export default function ActiveWorkoutPage() {
                         {hasGuidance(it.exerciseId) && <FormGuide exerciseId={it.exerciseId} name={it.name} startOpen={false} />}
                         <ColumnHeaders first="Set" track={trackOf(it)} />
                         {it.sets.map((s, si) => (
-                          <SetRow key={s.id} label={si + 1} set={s} item={it} onChange={(f, v) => setField(bi, ii, si, f, v)} onTick={() => toggleSet(bi, ii, si)} onRecord={() => navigate("/upload")} onTimerDone={(secs) => finishTimedSet(bi, ii, si, secs)} />
+                          <SetRow key={s.id} label={si + 1} set={s} item={it} onChange={(f, v) => setField(bi, ii, si, f, v)} onTick={() => toggleSet(bi, ii, si)} onRecord={() => navigate("/upload", { state: { exerciseId: it.exerciseId } })} onTimerDone={(secs) => finishTimedSet(bi, ii, si, secs)} />
                         ))}
                       </>
                     )
@@ -655,7 +661,7 @@ export default function ActiveWorkoutPage() {
                               const ii = block.items.indexOf(it)
                               const s = it.sets[r]
                               if (!s) return null
-                              return <SetRow key={s.id} label={letter(actionable.indexOf(it))} labelColor={INK} set={s} item={it} labelled={!sameTrack(logged)} onChange={(f, v) => setField(bi, ii, r, f, v)} onTick={() => toggleSet(bi, ii, r)} onRecord={() => navigate("/upload")} onTimerDone={(secs) => finishTimedSet(bi, ii, r, secs)} />
+                              return <SetRow key={s.id} label={letter(actionable.indexOf(it))} labelColor={INK} set={s} item={it} labelled={!sameTrack(logged)} onChange={(f, v) => setField(bi, ii, r, f, v)} onTick={() => toggleSet(bi, ii, r)} onRecord={() => navigate("/upload", { state: { exerciseId: it.exerciseId } })} onTimerDone={(secs) => finishTimedSet(bi, ii, r, secs)} />
                             })}
                           </div>
                         )
