@@ -4,6 +4,7 @@ import { useNavigate } from "react-router-dom"
 import { CoachIcon, CoachNoteSheet } from "../components/CoachNote"
 import { DEMO_USERS, useUser } from "../context/UserContext"
 import TeamShareSwitch from "../components/TeamShareSwitch"
+import MotivationLine from "../components/MotivationLine"
 import { listWorkouts, pendingAsRows } from "../services/workoutService"
 import { dayStreak, totalWorkouts } from "../utils/workoutStats"
 
@@ -26,14 +27,14 @@ function MenuItem({ icon, label, onPress, danger }) {
 
 export default function ProfilePage() {
   const navigate    = useNavigate()
-  const { activeUser, clearUser, chooseSharing } = useUser()
+  const { activeUser, clearUser, chooseSharing, saveMotivation } = useUser()
   const isDemoAccount = !!(activeUser && DEMO_USERS[activeUser.id])
   const [sharingError, setSharingError] = useState("")
   const [coachNoteOpen, setCoachNoteOpen] = useState(false)   // the full note from the AI coach
 
   const userName   = activeUser?.name        || "You"
   const initials   = activeUser?.initials    || userName.charAt(0).toUpperCase()
-  const userBio    = activeUser?.description || "" // only a line the person wrote; nothing made up for everyone else
+  const userBio    = activeUser?.description || "" // only a line the person chose; nothing made up for everyone else
   // the two numbers under the name come from their logged workouts (including any still waiting to reach the server); "—" until they load
   const [stats, setStats] = useState(null)
   useEffect(() => {
@@ -76,7 +77,7 @@ export default function ProfilePage() {
               <span className="text-2xl font-bold text-white">{initials}</span>
             </div>
             <h2 className="text-lg font-bold text-gray-900 mb-1">{userName}</h2>
-            {userBio && <p className="text-sm text-gray-500 text-center">{userBio}</p>}
+            <MotivationLine line={userBio} onSave={isDemoAccount ? undefined : saveMotivation} />
           </div>
 
           <div className="border-t border-gray-100 pt-4 grid grid-cols-2 divide-x divide-gray-100 text-center">

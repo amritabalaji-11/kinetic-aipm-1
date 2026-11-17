@@ -1,5 +1,5 @@
 import { createContext, useContext, useEffect, useState } from "react"
-import { TOKEN_KEY, signInWithGoogle, signInAsDemo, fetchMe, saveSharingChoice, saveHealthNotice } from "../services/authService"
+import { TOKEN_KEY, signInWithGoogle, signInAsDemo, fetchMe, saveSharingChoice, saveHealthNotice, saveMotivationLine } from "../services/authService"
 
 export const DEMO_USERS = {
   user_001: {
@@ -78,7 +78,7 @@ const UserContext = createContext(null)
 // Shape a real (Google) account like a demo user so pages can read the same fields
 function toActiveUser(me) {
   const name = me.display_name || (me.email ? me.email.split("@")[0] : "You")
-  return { id: me.user_id, name, initials: name.slice(0, 2).toUpperCase(), email: me.email, role: me.role || "user", shareVideos: me.share_videos_default ?? null, healthNotice: me.health_notice_version ?? null }
+  return { id: me.user_id, name, initials: name.slice(0, 2).toUpperCase(), email: me.email, role: me.role || "user", description: me.motivation_line || "", shareVideos: me.share_videos_default ?? null, healthNotice: me.health_notice_version ?? null }
 }
 
 export function UserProvider({ children }) {
@@ -127,6 +127,13 @@ export function UserProvider({ children }) {
     setAuthUser((u) => (u ? { ...u, shareVideos: share } : u))
   }
 
+  // Their favourite motivational line, shown under their name on Profile
+  const saveMotivation = async (line) => {
+    const saved = await saveMotivationLine(line)
+    setAuthUser((u) => (u ? { ...u, description: saved } : u))
+    return saved
+  }
+
   // They ticked the health note (the version of the text they saw)
   const acceptHealthNotice = async (version) => {
     await saveHealthNotice(version)
@@ -138,7 +145,7 @@ export function UserProvider({ children }) {
     : null
 
   return (
-    <UserContext.Provider value={{ activeUser, activeUserId, loginAsDemo, clearUser, loginWithGoogle, chooseSharing, acceptHealthNotice, DEMO_USERS }}>
+    <UserContext.Provider value={{ activeUser, activeUserId, loginAsDemo, clearUser, loginWithGoogle, chooseSharing, acceptHealthNotice, saveMotivation, DEMO_USERS }}>
       {children}
     </UserContext.Provider>
   )
