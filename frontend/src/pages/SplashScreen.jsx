@@ -1,7 +1,7 @@
 import { useEffect, useRef, useState } from "react"
 import { useNavigate } from "react-router-dom"
 import { useUser } from "../context/UserContext"
-import { fetchMe, getToken } from "../services/authService"
+import { checkSession, getToken } from "../services/authService"
 import GoogleSignInButton from "../components/GoogleSignInButton"
 
 export default function SplashScreen() {
@@ -138,8 +138,8 @@ export default function SplashScreen() {
 
     // After the animation: go Home if the saved session is still valid, else show sign-in
     const t = setTimeout(async () => {
-      if (hasSession && (await fetchMe())) {
-        navRef.current("/home")
+      if (hasSession && (await checkSession()) !== "expired") {
+        navRef.current("/home") // the app itself sends them to /welcome first if the note or sharing question is still open
       } else {
         if (hasSession) clearUser()
         setShowAuth(true)
