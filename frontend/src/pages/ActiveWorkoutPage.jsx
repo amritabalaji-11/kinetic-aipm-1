@@ -489,7 +489,7 @@ export default function ActiveWorkoutPage() {
             : { border: "1px solid rgba(129,51,255,0.22)", background: "#fff", opacity: 0.92 }
 
           // the tag after an exercise's name, and the "Why these reps?" that opens under it
-          const tagOf = (it) => { const tag = muscleTag(it.exerciseId); return tag ? <MuscleTag tag={tag} open={whyOpen === it.key} onClick={() => toggleWhy(it.key)} /> : null }
+          const tagOf = (it, leftGap) => { const tag = muscleTag(it.exerciseId); return tag ? <MuscleTag tag={tag} open={whyOpen === it.key} onClick={() => toggleWhy(it.key)} leftGap={leftGap} /> : null }
           const whyOf = (it) => { const why = whyOpen === it.key ? whyReps(it.exerciseId, it.name, it.sub) : null; return why ? <WhyCard why={why} /> : null }
           const rspec = roundsSpec(block) // "N rounds, each for time, rest after every round": one clock and one rest per round
           // follow-along row: a letter, the line, a clock when it has a time, and a tick on the right (a rounds section passes its own tick)
@@ -577,10 +577,10 @@ export default function ActiveWorkoutPage() {
                       }
                       if (!it.logged) return followRow(it, ii)
                       return (
-                        <div key={it.key} style={{ display: "flex", alignItems: "center", gap: 8 }}>
-                          {many && <span style={{ width: 20, height: 20, borderRadius: 5, background: PURPLE, color: "#fff", fontFamily: DM_SANS, fontWeight: 600, fontSize: 11, display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0 }}>{letter(actionable.indexOf(it))}</span>}
+                        <div key={it.key} style={{ display: "flex", alignItems: "flex-start", gap: 8, padding: "6px 0" }}>
+                          {many && <span style={{ width: 20, height: 20, marginTop: 1, borderRadius: 5, background: PURPLE, color: "#fff", fontFamily: DM_SANS, fontWeight: 600, fontSize: 11, display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0 }}>{letter(actionable.indexOf(it))}</span>}
                           <div style={{ flex: 1, minWidth: 0, lineHeight: 1.3 }}>
-                            <div style={{ fontFamily: DM_SANS, fontWeight: 600, fontSize: 15, color: PURPLE }}><ExerciseName exerciseId={it.exerciseId}>{it.name}</ExerciseName>{tagOf(it)}</div>
+                            <div style={{ display: "flex", flexWrap: "wrap", alignItems: "center", columnGap: 8, rowGap: 4, fontFamily: DM_SANS, fontWeight: 600, fontSize: 15, color: PURPLE }}><span><ExerciseName exerciseId={it.exerciseId}>{it.name}</ExerciseName></span>{tagOf(it, 0)}</div>
                             {it.sub && <div style={{ fontFamily: DM_SANS, fontSize: 12, color: GRAY }}>{it.sub}</div>}
                             {whyOf(it)}
                             <TrackChips track={trackOf(it)} onChange={(t) => setTrack(bi, ii, t)} />
