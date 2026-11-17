@@ -46,7 +46,6 @@ export default function SplashScreen() {
 
     fadeIn("sp-frame",   100)
     fadeIn("sp-logo",    260)
-    fadeIn("sp-tagline", 460)
 
     // Start animations after frame fades in
     setTimeout(() => {
@@ -183,15 +182,24 @@ export default function SplashScreen() {
 
       <p
         id="sp-tagline"
+        aria-label="What. Why. Go."
         style={{
-          fontSize: "0.82rem",
-          fontWeight: 600,
-          letterSpacing: "0.03em",
+          fontSize: "1rem",
+          fontWeight: 700,
+          letterSpacing: "0.04em",
           color: "#3b82f6",
           marginBottom: 40,
         }}
       >
-        What. Why. Go.
+        <style>{`
+          .sp-word{display:inline-block;opacity:0;margin:0 .26em;animation:spWord .6s cubic-bezier(.2,.8,.2,1) forwards}
+          @keyframes spWord{0%{opacity:0;transform:scale(2.4);filter:blur(6px)}100%{opacity:1;transform:scale(1);filter:blur(0)}}
+          @media (prefers-reduced-motion: reduce){.sp-word{animation:none;opacity:1}}
+        `}</style>
+        {/* each word zooms in, one after another, while the logo animation plays (the logo starts at 0.6 s and runs 2.5 s) */}
+        {["What.", "Why.", "Go."].map((word, i) => (
+          <span key={word} className="sp-word" aria-hidden="true" style={{ animationDelay: `${0.7 + i * 0.8}s`, ...(i === 2 ? { color: "#8b5cf6", fontWeight: 800 } : null) }}>{word}</span>
+        ))}
       </p>
 
       <div
