@@ -38,7 +38,7 @@ export default function SectionNav({ sections, viewIndex, onPrev, onNext, onJump
             <span style={{ overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{sections[viewIndex]?.tag}</span>
             <ChevronDown size={16} color={PURPLE} />
           </span>
-          <span style={{ fontFamily: DM_SANS, fontSize: 11.5, color: "#64748B" }}>Section {viewIndex + 1} of {sections.length} · {pct}% done</span>
+          <span style={{ fontFamily: DM_SANS, fontSize: 11.5, color: "#64748B" }}>{done} of {sections.length} section{sections.length === 1 ? "" : "s"} done · {pct}%</span>
         </button>
         <button type="button" aria-label="Next section" disabled={viewIndex >= sections.length - 1} onClick={onNext} style={arrow(viewIndex >= sections.length - 1)}><ChevronRight size={22} color={PURPLE} strokeWidth={2.6} /></button>
       </div>

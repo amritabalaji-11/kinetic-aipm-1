@@ -36,6 +36,8 @@ const DEFAULT_MINUTES = 5
 
 const real = (block) => block.items.filter((i) => !i.rest)
 
+import { hasAnyTag, isPowerSection } from "./muscleTags"
+
 // A section made from a video someone pasted. What it is for (strength, warm-up, cardio) is only a guess from the captions, and its name is the
 // video's title, so it gets no goal note, no set-type explanation and no "Change" button: we say nothing we cannot be sure of.
 export const isFromVideo = (block) => !!block.fromVideo || /^routine-/.test(String(block.id || ""))
@@ -170,11 +172,13 @@ export function changeType(blocks, index, target, { minutes } = {}) {
 // How heavy to go in metcons: about 60-70% of the most you could lift. "12-15 times" is a way to find it without testing a max.
 const load = (why) => `If you are picking weights, target 60-70% of your max weight ${why}. Not sure of your max? Pick a weight you could lift about 12-15 times.`
 const GUIDANCE = {
-  warmup: { objective: "Warm up your joints and muscles so the heavy work feels smoother and safer.", expect: "Keep it easy and move through a full range. Nothing here should feel tiring." },
+  warmup: { objective: "Get your body ready for the work. Please don't skip this.", expect: "These moves warm up your joints and muscles, and they're the best protection against tweaks. Take your time. It's part of the workout, not something to rush." },
+  cooldown: { objective: "Wind down and start recovering. Please don't cut this short.", expect: "Slow your heart rate, stretch what you worked, and let your body shift gears. This is where recovery starts." },
+  power: { objective: "Build explosive power.", expect: "Move fast on the way up and land soft. Speed matters more than load here. Take your time between sets so each one feels as sharp as the first." },
   endurance: { objective: "Build staying power with lighter weights and more reps.", expect: "Pick a weight you can keep moving with for every rep, even as you tire. The last reps should burn, but your form shouldn't fall apart." },
-  emom: { objective: "Keep your heart rate up and build your work capacity.", expect: `${load("so you can repeat it every minute")} Start the work at the top of each minute. The quicker you finish, the more rest you get.` },
-  amrap: { objective: "Raise your heart rate and keep moving.", expect: `${load("so you can keep going until time is up")} Keep your form clean and count each full round.` },
-  tabata: { objective: "Short, hard bursts with very short rests.", expect: `${load("so every round feels the same")} Go hard for the work seconds and rest fully in the gaps.` },
+  emom: { objective: "Work for the first part of each minute, then rest until the next one starts.", expect: "Pick a weight you can keep moving well for every minute, not just the first." },
+  amrap: { objective: "Do as many rounds as you can in the time.", expect: "Keep a pace you can hold. Clean reps beat fast, messy ones." },
+  tabata: { objective: "20 seconds hard, 10 seconds easy, repeated.", expect: "Go all out in the work, then let your breathing settle." },
   metcon: { objective: "Raise your heart rate with a hard, timed block.", expect: `${load("so you can keep going")} Move steadily and break up big sets early, before you have to stop.` },
   cardio: { objective: "Build stamina and raise your heart rate.", expect: "Follow the effort in the note above, and keep a pace you can hold." },
 }
@@ -192,15 +196,17 @@ const repRange = (block) => {
 export function sectionGuidance(block) {
   if (isFromVideo(block)) return null
   if (block.section === "warmup") return GUIDANCE.warmup // even when the warm-up is laid out as a tri-set
+  if (block.section !== "conditioning" && /COOL/i.test(block.tag || "")) return GUIDANCE.cooldown
   const type = typeOfBlock(block)
   const family = type ? SET_TYPES[type].family : null
+  if (family === "strength" && isPowerSection(block.items)) return GUIDANCE.power // mostly explosive moves: speed, not load
   if (family === "strength") {
     const r = repRange(block)
     return {
       objective: "Build muscle and strength.",
       expect: r
-        ? `Pick a weight where you can do ${r.low}-${r.high} reps with good form. If you can do more than ${r.high + 2} reps easily, go heavier.`
-        : "Pick a weight that makes the last couple of reps hard but still clean. If it feels easy, go heavier.",
+        ? `Pick a weight where you can do ${r.low}-${r.high} reps with good form. If you can do more than ${r.high + 2} reps easily, go heavier.${hasAnyTag(block.items) ? " Tap a muscle tag to see why." : ""}`
+        : `Pick a weight that makes the last couple of reps hard but still clean. If it feels easy, go heavier.${hasAnyTag(block.items) ? " Tap a muscle tag to see why." : ""}`,
     }
   }
   if (type && GUIDANCE[type]) return GUIDANCE[type]

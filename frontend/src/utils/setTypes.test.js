@@ -25,7 +25,7 @@ describe("sections made from a pasted video", () => {
 })
 
 describe("planned sections keep their notes", () => {
-  it("a warm-up still gets its goal", () => expect(sectionGuidance(planned("WARM UP", "warmup"))?.objective).toMatch(/warm/i))
+  it("a warm-up still gets its goal", () => expect(sectionGuidance(planned("WARM UP", "warmup"))?.objective).toMatch(/ready for the work/i))
   it("a superset still gets the strength goal", () => expect(sectionGuidance(planned("SUPERSET 1"))?.objective).toMatch(/muscle/i))
   it("a superset is still a superset", () => expect(typeOfBlock(planned("SUPERSET 1"))).toBe("superset"))
 })
