@@ -25,6 +25,7 @@ function MenuItem({ icon, label, onPress, danger }) {
 export default function ProfilePage() {
   const navigate    = useNavigate()
   const { activeUser, clearUser, chooseSharing } = useUser()
+  const isDemoAccount = !!(activeUser && DEMO_USERS[activeUser.id])
   const [sharingError, setSharingError] = useState("")
   const [coachNoteOpen, setCoachNoteOpen] = useState(false)   // the full note from the AI coach
 
@@ -157,19 +158,22 @@ export default function ProfilePage() {
               </svg>
             }
           />
-          <MenuItem
-            label="Change Profile"
-            onPress={() => {
-              clearUser()
-              navigate("/profile-screen")
-            }}
-            icon={
-              <svg width="20" height="20" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.8}>
-                <path strokeLinecap="round" strokeLinejoin="round" d="M5.121 17.804A13.937 13.937 0 0112 16c2.5 0 4.847.655 6.879 1.804M15 10a3 3 0 11-6 0 3 3 0 016 0z" />
-                <rect x="3" y="3" width="18" height="18" rx="9" stroke="currentColor" strokeWidth={1.8} />
-              </svg>
-            }
-          />
+          {/* Switching between the built-in demo profiles only makes sense for a demo account; a real account signs out instead */}
+          {isDemoAccount && (
+            <MenuItem
+              label="Change Profile"
+              onPress={() => {
+                clearUser()
+                navigate("/profile-screen")
+              }}
+              icon={
+                <svg width="20" height="20" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.8}>
+                  <path strokeLinecap="round" strokeLinejoin="round" d="M5.121 17.804A13.937 13.937 0 0112 16c2.5 0 4.847.655 6.879 1.804M15 10a3 3 0 11-6 0 3 3 0 016 0z" />
+                  <rect x="3" y="3" width="18" height="18" rx="9" stroke="currentColor" strokeWidth={1.8} />
+                </svg>
+              }
+            />
+          )}
           <MenuItem
             label="Terms"
             onPress={() => navigate("/terms")}
