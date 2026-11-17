@@ -448,6 +448,9 @@ MIGRATIONS = [
     ("user_profiles", "age_range", "TEXT"),   # from the optional "A little about you" step: 18-29, 30-39, 40+
     ("user_profiles", "workouts_per_week", "TEXT"),  # the same step: never | 1-2 | 3-4 | 5+
     ("user_profiles", "training_types", "TEXT"),  # the same step: what they mostly train (cardio, strength, yoga_pilates, group_classes), comma-separated
+    # the health note ("not medical advice; check with a doctor if pregnant, injured...") they ticked: when, and which version of the text
+    ("user_profiles", "health_notice_version", "TEXT"),
+    ("user_profiles", "health_notice_accepted_at", "TEXT"),
     ("user_profiles", "share_videos_default", "INTEGER"),
     ("user_profiles", "share_choice_at", "TEXT"),
     ("form_analyses", "team_review_consent", "INTEGER DEFAULT 0"),

@@ -106,6 +106,21 @@ class SharingChoice(unittest.TestCase):
         self.assertEqual(self.call("POST", "/auth/me/about", None, json={"gender": "woman"}).status_code, 401)
         self.assertEqual(self.call("POST", "/auth/me/about", "ghost", json={"gender": "woman"}).status_code, 404)
 
+    # ---- the health note ----
+    def test_health_note_starts_unticked_and_is_recorded_with_its_version(self):
+        self.assertIsNone(self.call("GET", "/auth/me").json()["health_notice_version"])
+        self.assertEqual(self.call("POST", "/auth/me/health-notice", json={"version": "2026-11-16"}).status_code, 200)
+        self.assertEqual(self.call("GET", "/auth/me").json()["health_notice_version"], "2026-11-16")
+        con = sqlite3.connect(self.path)
+        self.assertTrue(con.execute("SELECT health_notice_accepted_at FROM user_profiles WHERE user_id = 'user-a'").fetchone()[0])
+        con.close()
+        self.assertIsNone(self.call("GET", "/auth/me", "user-b").json()["health_notice_version"])  # someone else is untouched
+
+    def test_health_note_needs_a_signed_in_person_and_a_version(self):
+        self.assertEqual(self.call("POST", "/auth/me/health-notice", None, json={"version": "x"}).status_code, 401)
+        self.assertEqual(self.call("POST", "/auth/me/health-notice", "ghost", json={"version": "x"}).status_code, 404)
+        self.assertEqual(self.call("POST", "/auth/me/health-notice", json={"version": ""}).status_code, 422)
+
 
 if __name__ == "__main__":
     unittest.main()
