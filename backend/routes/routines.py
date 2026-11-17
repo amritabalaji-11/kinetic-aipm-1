@@ -8,7 +8,7 @@ from fastapi import APIRouter, Depends, HTTPException
 from pydantic import BaseModel, Field
 
 from db.database import NOW_TEXT, db
-from services.video_routine import RoutineError, available_sources, check_routine, routine_from_link
+from services.video_routine import RoutineError, available_sources, check_routine, follow_only_routine, routine_from_link
 from utils.security import get_current_user_id, limit_guest
 
 router = APIRouter(prefix="/routines", tags=["routines"])
@@ -26,8 +26,19 @@ class RoutineIn(BaseModel):
     routine: dict
 
 
+class FollowIn(BaseModel):
+    video_id: str = Field(max_length=20)
+    title: str = Field(default="", max_length=300)
+    author: str = Field(default="", max_length=200)
+    author_url: str = Field(default="", max_length=300)
+    embeddable: bool = False
+
+
 def _fail(err: RoutineError):
-    return HTTPException(status_code=err.status, detail={"code": err.code, "message": err.message})
+    detail = {"code": err.code, "message": err.message}
+    if err.video:
+        detail["video"] = err.video  # lets the screen offer "follow the video anyway"
+    return HTTPException(status_code=err.status, detail=detail)
 
 
 def _source(raw) -> dict | None:
@@ -98,6 +109,18 @@ async def _remember(user_id: str, routine: dict):
            (SELECT video_id FROM recent_videos WHERE user_id = :u ORDER BY created_at DESC LIMIT :n)""",
         {"u": user_id, "n": MAX_RECENT},
     )
+
+
+@router.post("/follow")
+async def follow_video(body: FollowIn, user_id: str = Depends(get_current_user_id)):
+    """The person chose to just follow a video we could not read. It is kept in their recent videos (so it can be opened again) and returned as a one-line routine."""
+    try:
+        routine = follow_only_routine(body.model_dump())
+    except RoutineError as err:
+        raise _fail(err)
+    routine["source"] = _source(routine["source"])
+    await _remember(user_id, routine)
+    return routine
 
 
 @router.get("/recent")

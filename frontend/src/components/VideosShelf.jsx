@@ -24,7 +24,7 @@ export default function VideosShelf({ saved }) {
               </span>
               <span style={{ display: "block", padding: "8px 10px" }}>
                 <span style={{ display: "-webkit-box", WebkitLineClamp: 2, WebkitBoxOrient: "vertical", overflow: "hidden", fontFamily: BRICOLAGE, fontWeight: 700, fontSize: 12.5, lineHeight: 1.2, color: INK }}>{r.title}</span>
-                <span style={{ display: "block", fontFamily: DM_SANS, fontSize: 11.5, color: GRAY, marginTop: 2 }}>{[r.source?.author, r.total_minutes ? `${r.total_minutes} min` : `${r.steps.length} moves`].filter(Boolean).join(" · ")}</span>
+                <span style={{ display: "block", fontFamily: DM_SANS, fontSize: 11.5, color: GRAY, marginTop: 2 }}>{[r.source?.author, r.follow_only ? "Follow along" : r.total_minutes ? `${r.total_minutes} min` : `${r.steps.length} moves`].filter(Boolean).join(" · ")}</span>
               </span>
             </button>
           )

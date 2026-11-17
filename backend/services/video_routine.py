@@ -28,6 +28,30 @@ class RoutineError(Exception):
     def __init__(self, code: str, message: str, status: int = 422):
         super().__init__(message)
         self.code, self.message, self.status = code, message, status
+        self.video = None  # for a video we could not read: what the screen needs to offer "follow it anyway" (see routine_from_link)
+
+
+# When a YouTube video could not be turned into a routine for one of these reasons, the person can still follow it inside the app.
+FOLLOWABLE = ("no_captions", "no_routine", "too_long")
+VIDEO_ID = re.compile(r"[\w-]{11}")
+
+
+def follow_only_routine(video: dict) -> dict:
+    """A routine for a video we could not read: one line, "Follow the video". The person plays it in the app and taps Done at the end."""
+    video_id = str((video or {}).get("video_id") or "")
+    if not VIDEO_ID.fullmatch(video_id):
+        raise RoutineError("bad_video", "That doesn't look like a YouTube video.")
+    if not (video or {}).get("embeddable"):
+        raise RoutineError("not_embeddable", "This video can't play inside Kinetic, so we can't follow it here. You can still open it on YouTube.")
+    title = _clean_text(video.get("title"), 90) or "Workout video"
+    return {
+        "title": title, "follow_only": True, "total_minutes": None, "style": "other", "workout_type": "mixed", "summary": "", "weights": "unclear", "movement": "",
+        "equipment": [], "unsure": [],
+        "structure": {"sets": None, "set_order": None, "work_seconds": None, "rest_seconds": None, "rest_between_sets_seconds": None, "has_warmup": False, "has_cooldown": False},
+        "steps": [{"order": 1, "name": "Follow the video", "phase": "main", "at_seconds": None, "seconds": None, "reps": None, "sides": None, "how_to": "Play it, work out with it, then tap Done.", "cues": []}],
+        "source": {"site": "youtube", "video_id": video_id, "url": f"https://www.youtube.com/watch?v={video_id}", "title": _clean_text(video.get("title"), 150), "author": _clean_text(video.get("author"), 80),
+                   "author_url": _clean_text(video.get("author_url"), 200), "embeddable": True},
+    }
 
 
 # ---------- the link ----------
@@ -350,6 +374,7 @@ def check_routine(raw: dict) -> dict:
         "equipment": [e for e in (_clean_text(e, 40) for e in (raw.get("equipment") or [])[:8]) if e],
         "steps": steps,
         "unsure": [u for u in (_clean_text(u, 400) for u in (raw.get("unsure") or [])[:8]) if u],
+        "follow_only": bool(raw.get("follow_only")),  # a video we could not read, kept as "just follow the video"
     }
 
 
@@ -371,15 +396,20 @@ async def routine_from_link(url: str) -> dict:
         info = await fetch_video_info(video_id)
     else:
         info = {"title": "", "author": "", "author_url": "", "embeddable": False}  # no title from these sites; the model names it
-    captions = await get_captions(site, video_id, clean_url)
-    if captions and captions[-1]["start"] > MAX_VIDEO_SECONDS:
-        raise RoutineError("too_long", "This video is too long for a routine (over 40 minutes). Try a shorter one.")
-    transcript = captions_to_text(captions)
-    description = await fetch_description(video_id) if site == "youtube" else ""
-    if len(transcript) < 200 and len(description) < 200:
-        raise RoutineError("no_captions", "This video has hardly any words we can read. It works best when the person talks through the moves.")
-    raw = await run_in_threadpool(_ask_model_blocking, transcript, info["title"] or "(untitled)", description)
-    routine = check_routine(raw)
+    try:
+        captions = await get_captions(site, video_id, clean_url)
+        if captions and captions[-1]["start"] > MAX_VIDEO_SECONDS:
+            raise RoutineError("too_long", "This video is too long for a routine (over 40 minutes). Try a shorter one.")
+        transcript = captions_to_text(captions)
+        description = await fetch_description(video_id) if site == "youtube" else ""
+        if len(transcript) < 200 and len(description) < 200:
+            raise RoutineError("no_captions", "This video has hardly any words we can read. It works best when the person talks through the moves.")
+        raw = await run_in_threadpool(_ask_model_blocking, transcript, info["title"] or "(untitled)", description)
+        routine = check_routine(raw)
+    except RoutineError as err:
+        if site == "youtube" and err.code in FOLLOWABLE:
+            err.video = {"video_id": video_id, "title": info["title"], "author": info["author"], "author_url": info["author_url"], "embeddable": info["embeddable"]}
+        raise
     routine["source"] = {
         "site": site,
         "url": clean_url,

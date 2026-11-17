@@ -60,11 +60,12 @@ export function routineToBlock(routine) {
     id: `routine-${stamp}`,
     fromVideo: !!routine.source, // see isFromVideo: no goal note or set-type guess for these
     section: SECTION_FOR_STYLE[routine.style] ?? "workout",
-    tag: String(routine.title || "Routine").toUpperCase().slice(0, 48),
+    tag: routine.follow_only ? "VIDEO WORKOUT" : String(routine.title || "Routine").toUpperCase().slice(0, 48),
+    followOnly: !!routine.follow_only, // a video we could not read: just play it and tap Done
     short: "Routine", // the short name on the progress bar
     title: routine.title || "Routine", // the name it is saved under in your history
     runner: (() => { const steps = buildSequence(routine); return steps ? { steps } : null })(), // the clock, when every move has a time
-    note: `${routine.steps.length} moves${minutes}`,
+    note: routine.follow_only ? "Follow along" : `${routine.steps.length} moves${minutes}`,
     source: routine.source ?? null, // the video it came from, shown on the section
     items: routine.steps.map((s, i) => ({
       key: `${stamp}-${i}`, at: s.at_seconds ?? null, name: s.name, sub: stepLine(s), tip: stepTip(s), exerciseId: null, rest: false, alternatives: [],

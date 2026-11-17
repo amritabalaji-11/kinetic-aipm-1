@@ -12,7 +12,7 @@ async function call(path, options = {}) {
   if (!res.ok) {
     const body = await res.json().catch(() => ({}))
     const d = body.detail
-    throw Object.assign(new Error((d && d.message) || (typeof d === "string" ? d : `Something went wrong (${res.status})`)), { code: (d && d.code) || `http_${res.status}` })
+    throw Object.assign(new Error((d && d.message) || (typeof d === "string" ? d : `Something went wrong (${res.status})`)), { code: (d && d.code) || `http_${res.status}`, video: (d && d.video) || null }) // `video`: for a video we could not read, what is needed to follow it anyway
   }
   return res.json()
 }
@@ -27,5 +27,8 @@ export const listRoutines = () => call("/routines")
 
 // The videos read lately (up to 10), each with its routine, so one can be opened again without reading it again
 export const listRecentVideos = () => call("/routines/recent")
+
+// "Just follow the video": keeps a video we could not read as a one-line routine (and in recent videos), and gives it back
+export const followVideo = (video) => call("/routines/follow", { method: "POST", body: JSON.stringify(video) })
 export const saveRoutine = (routine) => call("/routines", { method: "POST", body: JSON.stringify({ routine }) })
 export const deleteRoutine = (id) => call(`/routines/${id}`, { method: "DELETE" })
