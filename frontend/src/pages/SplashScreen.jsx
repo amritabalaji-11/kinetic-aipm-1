@@ -57,22 +57,20 @@ export default function SplashScreen() {
 
       const animateCorners = () => {
         const elapsed = Date.now() - startTime
-        const progress = (elapsed % animationDuration) / animationDuration
-        // Ease in-out for smooth zoom
-        const easeProgress = progress < 0.5
-          ? 2 * progress * progress
-          : -1 + (4 - 2 * progress) * progress
-        // Scale from 1 to 0.85 (zoom in) then back to 1
-        const scale = 1 - (easeProgress * 0.15)
-        const offsetX = (1 - scale) * 105 // Half of frame width
-        const offsetY = (1 - scale) * 125 // Half of frame height
-
+        // In and then back out, once: 0 -> 1 -> 0, smoothly
+        const e = Math.sin(Math.PI * Math.min(elapsed / animationDuration, 1))
+        const scale = 1 - e * 0.15
+        // Every corner moves toward the middle of the frame by the same amount, so all four sides stay equal
+        // (before, all four moved the same way, down and to the right, which pushed the bottom right corner out of the frame)
         corners.forEach(corner => {
-          corner.style.transform = `scale(${scale}) translate(${offsetX}px, ${offsetY}px)`
+          const [sx, sy] = CORNER_DIRECTION[corner.dataset.corner]
+          corner.style.transform = `translate(${sx * e * CORNER_INSET}px, ${sy * e * CORNER_INSET}px) scale(${scale})`
         })
 
-        if (elapsed < animationDuration + 200) {
+        if (elapsed < animationDuration) {
           requestAnimationFrame(animateCorners)
+        } else {
+          corners.forEach(corner => { corner.style.transform = "none" })
         }
       }
       animateCorners()
@@ -381,6 +379,10 @@ function WaveIcon({ flip = false }) {
     </span>
   )
 }
+
+// which way each corner moves to go toward the middle, and how far (in pixels, the same on every side)
+const CORNER_DIRECTION = { tl: [1, 1], tr: [-1, 1], bl: [1, -1], br: [-1, -1] }
+const CORNER_INSET = 12
 
 function Corner({ pos, color }) {
   const size   = 36

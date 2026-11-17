@@ -1,7 +1,7 @@
 // The Kinetic logo animation from the splash screen: the four corners breathe in and out, the K fills from the bottom, a green scanner line
 // sweeps down and back, and the glow pulses. It loops. Scaled down with `scale`. It stands still (K filled) when the phone is set to reduce motion.
 const CSS = `
-@keyframes kmCorner{0%,100%{transform:scale(1) translate(0,0)}50%{transform:scale(.85) translate(15.75px,18.75px)}}
+@keyframes kmCorner{0%,100%{transform:translate(0,0) scale(1)}50%{transform:translate(var(--cx),var(--cy)) scale(.85)}}
 @keyframes kmFill{0%{clip-path:inset(100% 0 0 0)}70%,100%{clip-path:inset(0 0 0 0)}}
 @keyframes kmScan{0%{top:0;opacity:0}10%{opacity:.8}50%{top:250px;opacity:.8}90%{opacity:.8}100%{top:0;opacity:0}}
 @keyframes kmGlow{0%,100%{transform:scale(1)}50%{transform:scale(1.16)}}
@@ -10,13 +10,15 @@ const CSS = `
 function Corner({ pos, color }) {
   const thick = 7, size = 36, radius = 5
   const edge = `${thick}px solid ${color}`
+  // each corner moves toward the middle by the same amount, so all four sides stay equal
+  const toward = { tl: ["12px", "12px"], tr: ["-12px", "12px"], bl: ["12px", "-12px"], br: ["-12px", "-12px"] }[pos]
   const place = {
     tl: { top: 0, left: 0, borderTop: edge, borderLeft: edge, borderTopLeftRadius: radius },
     tr: { top: 0, right: 0, borderTop: edge, borderRight: edge, borderTopRightRadius: radius },
     bl: { bottom: 0, left: 0, borderBottom: edge, borderLeft: edge, borderBottomLeftRadius: radius },
     br: { bottom: 0, right: 0, borderBottom: edge, borderRight: edge, borderBottomRightRadius: radius },
   }
-  return <div className="km-a" style={{ position: "absolute", width: size, height: size, transformOrigin: "center", animation: "kmCorner 2.5s ease-in-out infinite", ...place[pos] }} />
+  return <div className="km-a" style={{ position: "absolute", width: size, height: size, transformOrigin: "center", animation: "kmCorner 2.5s ease-in-out infinite", "--cx": toward[0], "--cy": toward[1], ...place[pos] }} />
 }
 
 const K_TEXT = { x: 8, y: 118, fontSize: 118, fontWeight: 900, fontFamily: "Arial Black, Impact, sans-serif" }
