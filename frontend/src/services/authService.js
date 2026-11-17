@@ -54,6 +54,15 @@ export async function saveAboutYou(answers) {
   if (!res.ok) throw new Error("We couldn't save that.")
 }
 
+// They ticked the health note ("not medical advice..."); we keep which version of the text they saw
+export async function saveHealthNotice(version) {
+  const res = await fetch(`${BASE_URL}/auth/me/health-notice`, {
+    method: "POST", headers: { "Content-Type": "application/json", Authorization: `Bearer ${getToken()}` }, body: JSON.stringify({ version }),
+  })
+  if (!res.ok) throw new Error("We couldn't save that. Please try again.")
+  return version
+}
+
 // Saves their answer to "Can our team watch your videos to check and improve the feedback?" (true / false)
 export async function saveSharingChoice(share) {
   const res = await fetch(`${BASE_URL}/auth/me/sharing`, {
