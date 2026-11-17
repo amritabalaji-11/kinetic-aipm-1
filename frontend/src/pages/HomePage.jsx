@@ -1,4 +1,5 @@
 import { greetingLine, headlineFor } from "../utils/homeLines"
+import MotivationBanner from "../components/MotivationBanner"
 import FounderTip from "../components/FounderTip"
 import FeedbackCard from "../components/FeedbackCard"
 import GuidesRow from "../components/GuidesRow"
@@ -428,6 +429,8 @@ export default function HomePage() {
         <FounderTip />
         <GuidesRow />
         <FeedbackCard />
+
+        <div style={{ marginBottom: 20 }}><MotivationBanner height={104} youSize={36} /></div>
 
       </div>
 

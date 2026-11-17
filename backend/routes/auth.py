@@ -5,7 +5,7 @@ from fastapi import APIRouter, HTTPException, Depends, Request
 from db.database import NOW_TEXT, db
 from schemas.auth import (
     SignUpRequest, LoginRequest, SocialLoginRequest, DemoLoginRequest,
-    TokenResponse, UserOut, SharingChoiceIn, AboutYouIn, HealthNoticeIn,
+    TokenResponse, UserOut, SharingChoiceIn, AboutYouIn, HealthNoticeIn, MotivationIn,
 )
 from utils.config import ALLOW_DEMO_LOGIN, DEMO_USER_IDS, DEMO_PASSCODE
 from utils.security import (
@@ -202,6 +202,7 @@ async def me(user_id: str = Depends(get_current_user_id)):
         role=user["role"] or "user",
         share_videos_default=None if user["share_videos_default"] is None else bool(user["share_videos_default"]),
         health_notice_version=user["health_notice_version"],
+        motivation_line=user["motivation_line"],
     )
 
 
@@ -238,6 +239,17 @@ async def set_about_you(body: AboutYouIn, user_id: str = Depends(get_current_use
     for column, value in updates.items():  # the column names above are fixed in this file, never taken from the request
         await db.execute(f"UPDATE user_profiles SET {column} = :v WHERE user_id = :u", {"v": value, "u": user_id})
     return {"saved": sorted(updates)}
+
+
+@router.post("/me/motivation")
+async def set_motivation(body: MotivationIn, user_id: str = Depends(get_current_user_id)):
+    """The line under their name on Profile. Plain text, one line, 80 characters at most; an empty line clears it."""
+    line = " ".join(body.line.split())[:80] or None
+    found = await db.fetch_one("SELECT user_id FROM user_profiles WHERE user_id = :u", {"u": user_id})
+    if not found:
+        raise HTTPException(status_code=404, detail="User not found")
+    await db.execute("UPDATE user_profiles SET motivation_line = :l WHERE user_id = :u", {"l": line, "u": user_id})
+    return {"motivation_line": line}
 
 
 @router.post("/me/health-notice")
