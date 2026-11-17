@@ -36,8 +36,13 @@ const DEFAULT_MINUTES = 5
 
 const real = (block) => block.items.filter((i) => !i.rest)
 
+// A section made from a video someone pasted. What it is for (strength, warm-up, cardio) is only a guess from the captions, and its name is the
+// video's title, so it gets no goal note, no set-type explanation and no "Change" button: we say nothing we cannot be sure of.
+export const isFromVideo = (block) => !!block.fromVideo || /^routine-/.test(String(block.id || ""))
+
 // What kind a block is, or null when it is none of the ones above
 export function typeOfBlock(block) {
+  if (isFromVideo(block)) return null
   const tag = (block.tag || "").toUpperCase()
   if (/^ISOLATION|^STRAIGHT SETS?\b/.test(tag)) return "straight"
   if (/^PYRAMID\b/.test(tag)) return "pyramid"
@@ -185,6 +190,7 @@ const repRange = (block) => {
 
 // { objective, expect } for a section, or null when it has none (a plain rest block). Strength sections quote the plan's own reps.
 export function sectionGuidance(block) {
+  if (isFromVideo(block)) return null
   if (block.section === "warmup") return GUIDANCE.warmup // even when the warm-up is laid out as a tri-set
   const type = typeOfBlock(block)
   const family = type ? SET_TYPES[type].family : null

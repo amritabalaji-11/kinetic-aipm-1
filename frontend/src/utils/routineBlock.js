@@ -58,6 +58,7 @@ export function routineToBlock(routine) {
   const minutes = routine.total_minutes ? ` · about ${routine.total_minutes} min` : ""
   return {
     id: `routine-${stamp}`,
+    fromVideo: !!routine.source, // see isFromVideo: no goal note or set-type guess for these
     section: SECTION_FOR_STYLE[routine.style] ?? "workout",
     tag: String(routine.title || "Routine").toUpperCase().slice(0, 48),
     short: "Routine", // the short name on the progress bar
