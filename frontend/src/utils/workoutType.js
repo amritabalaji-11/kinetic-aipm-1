@@ -2,7 +2,7 @@
 // Worked out from the exercises that were logged (each exercise in the catalogue has a muscle group), falling back to
 // the workout's name or focus label. Works on workouts from the server and on ones still waiting on the device.
 
-import { BicepsFlexed, Dumbbell, HeartPulse } from "lucide-react"
+import { BicepsFlexed, CirclePlay, Dumbbell, HeartPulse } from "lucide-react"
 import LegIcon from "../components/LegIcon"
 import PlankIcon from "../components/PlankIcon"
 import { EXERCISES } from "../data/dummyData"
@@ -15,6 +15,7 @@ export const TYPE_META = {
   legs: { label: "Legs", Icon: LegIcon, color: "#0284C7", tint: "rgba(2, 132, 199, 0.16)" },
   full: { label: "Full body", Icon: PlankIcon, color: "#0D9488", tint: "rgba(13, 148, 136, 0.16)" },
   cardio: { label: "Cardio", Icon: HeartPulse, color: "#E11D48", tint: "rgba(225, 29, 72, 0.14)" },
+  video: { label: "Followed a video", Icon: CirclePlay, color: "#EA580C", tint: "rgba(234, 88, 12, 0.14)" },
   other: { label: "Workout", Icon: Dumbbell, color: "#64748B", tint: "rgba(100, 116, 139, 0.16)" },
 }
 
@@ -27,7 +28,11 @@ const fromText = (text) => {
   return null
 }
 
+// A routine made from a video is saved as one entry whose id starts with "routine:" ("routine:mine" is a routine that did not come from a video)
+export const followedVideo = (workout) => (workout.exercises || []).some((ex) => { const id = String(ex.exercise_id || ex.id || ""); return id.startsWith("routine:") && id !== "routine:mine" })
+
 export function workoutType(workout) {
+  if (followedVideo(workout)) return "video" // following a video wins: it is what makes this session different
   let legs = 0, upper = 0, conditioning = 0, total = 0
   for (const ex of workout.exercises || []) {
     const e = EX[ex.exercise_id || ex.id]

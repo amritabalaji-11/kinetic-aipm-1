@@ -129,7 +129,7 @@ export function flattenForSave(workout) {
       const planned = (b.runner?.steps ?? []).reduce((n, x) => n + x.secs, 0) || b.items.reduce((n, it) => n + (secondsFromSub(it.sub) || 0), 0)
       const ran = run ? Math.round(((run.pausedAtMs ?? Date.now()) - run.startedAtMs - (run.pausedTotalMs || 0)) / 1000) : 0
       const seconds = Math.min(planned || ran, ran > 0 ? ran : planned)
-      if (seconds > 0) exercises.push({ id: `routine:${b.source?.video_id ?? "mine"}`, name: b.title, sets: [{ weight: "", reps: "", seconds: String(seconds) }] })
+      if (seconds > 0) exercises.push({ id: `routine:${b.source ? (b.source.video_id ?? "link") : "mine"}`, name: b.title, sets: [{ weight: "", reps: "", seconds: String(seconds) }] })
     }
     // a "rounds for time" section, once finished, is saved as one timed entry: the section and its total time
     const rspec = b.completed ? roundsSpec(b) : null

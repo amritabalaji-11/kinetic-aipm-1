@@ -1,5 +1,6 @@
 import { useState, useEffect, useRef } from "react"
 import { useLocation } from "react-router-dom"
+import FormHistoryList from "../components/FormHistoryList"
 import { Clock, Dumbbell, Calendar, ChevronDown, Pencil, Trash2, TrendingUp } from "lucide-react"
 import {
   listWorkouts, updateWorkout, deleteWorkout, getExerciseProgress, getPendingWorkouts, syncPendingWorkouts, fromDbTime,
@@ -232,9 +233,13 @@ function WorkoutCard({ workout, onChanged, onDeleted, defaultOpen = false }) {
 }
 
 const WorkoutLoggerPage = () => {
+  const linkedTab = useLocation().state?.tab
   const [workouts, setWorkouts] = useState([])
   const [status, setStatus] = useState("loading") // loading | ready | error
   const openWorkoutId = useLocation().state?.openWorkoutId
+  // Workouts | Form checks. Opening a workout from Home lands on Workouts; otherwise the tab you last used in this visit.
+  const [tab, setTabState] = useState(() => { try { return (openWorkoutId && "workouts") || linkedTab || sessionStorage.getItem("historyTab") || "workouts" } catch { return "workouts" } })
+  const setTab = (t) => { setTabState(t); try { sessionStorage.setItem("historyTab", t) } catch { /* private mode: the tab just is not remembered */ } }
   const [local, setLocal] = useState([]) // finished workouts that have not reached the server yet
   const [syncing, setSyncing] = useState(false)
 
@@ -265,10 +270,21 @@ const WorkoutLoggerPage = () => {
           History
         </h1>
         <p style={{ fontSize: "14px", fontFamily: "'DM Sans'", color: "#454850", margin: 0 }}>
-          Tap a workout to see every set, edit it, or check your progress.
+          {tab === "form" ? "Every form check you have done. Tap one to see the full result." : "Tap a workout to see every set, edit it, or check your progress."}
         </p>
       </div>
 
+      <div role="tablist" aria-label="History" style={{ display: "flex", background: "#E4E1F7", borderRadius: "999px", padding: "4px", marginBottom: "16px" }}>
+        {[["workouts", "Workouts"], ["form", "Form checks"]].map(([id, label]) => (
+          <button key={id} type="button" role="tab" aria-selected={tab === id} onClick={() => setTab(id)}
+            style={{ flex: 1, padding: "9px 6px", borderRadius: "999px", border: "none", cursor: "pointer", fontFamily: "'DM Sans'", fontWeight: 700, fontSize: "13.5px", background: tab === id ? "#fff" : "transparent", color: tab === id ? "#8133ff" : "#64748B", boxShadow: tab === id ? "0 1px 4px rgba(129,51,255,0.2)" : "none" }}>
+            {label}
+          </button>
+        ))}
+      </div>
+
+      {tab === "form" ? <FormHistoryList /> : (
+      <>
       {local.length > 0 && (
         <div style={{ ...card, marginBottom: "12px", borderColor: "#A36CFB" }}>
           <p style={{ ...small, margin: "0 0 8px 0", color: "#0F172A" }}>
@@ -327,6 +343,8 @@ const WorkoutLoggerPage = () => {
           />
         ))}
       </div>
+      </>
+      )}
     </div>
   )
 }

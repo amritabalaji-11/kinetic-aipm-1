@@ -1,9 +1,9 @@
+import { greetingLine, headlineFor } from "../utils/homeLines"
 import FounderTip from "../components/FounderTip"
 import FeedbackCard from "../components/FeedbackCard"
 import GuidesRow from "../components/GuidesRow"
 import { TOP_FADE_BACKGROUND } from "../utils/pageBackground"
 import { useEffect, useState } from "react"
-import { apiFetch } from "../services/api"
 import { useNavigate } from "react-router-dom"
 import { useUser } from "../context/UserContext"
 import { listWorkouts, fromDbTime, pendingAsRows, syncPendingWorkouts } from "../services/workoutService"
@@ -12,7 +12,6 @@ import { TYPE_META, workoutType } from "../utils/workoutType"
 import TypeIcon from "../components/TypeIcon"
 import { BottomSheet, GradientButton } from "../components/planUi"
 
-const BASE_URL = import.meta.env.VITE_API_URL || "http://localhost:8000"
 
 const scanStyle = `
   @keyframes scanLine {
@@ -183,15 +182,13 @@ export default function HomePage() {
   const navigate = useNavigate()
   const { activeUser } = useUser()
 
-  const [history, setHistory] = useState([])
-  const [historyLoading, setHistoryLoading] = useState(true)
-  const [expandedCards, setExpandedCards] = useState({})
   const [workouts, setWorkouts] = useState([])
+  const [workoutsLoaded, setWorkoutsLoaded] = useState(false) // the greeting says nothing about "no workouts" until the list has come back
 
   // Logged workouts drive the "Last 7 Days" card. Workouts that finished but have not reached the server yet
   // count too (and are retried here), so this matches what you actually did.
   useEffect(() => {
-    const load = () => listWorkouts().then(setWorkouts).catch(() => setWorkouts([]))
+    const load = () => listWorkouts().then((w) => { setWorkouts(w); setWorkoutsLoaded(true) }).catch(() => { setWorkouts([]); setWorkoutsLoaded(false) }) // a failed load stays "unknown", not "none"
     load()
     if (pendingAsRows().length) syncPendingWorkouts().then(({ sent }) => { if (sent) load() })
   }, [])
@@ -220,22 +217,6 @@ export default function HomePage() {
         }
       : {}
 
-  useEffect(() => {
-    const userId = localStorage.getItem("active_user_id") || "user_001"
-    apiFetch(`${BASE_URL}/form_analysis_results/${userId}`)
-      .then(r => r.ok ? r.json() : [])
-      .then(data => {
-        console.log("Form history data:", data)
-        if (Array.isArray(data)) {
-          setHistory(data)
-        }
-        setHistoryLoading(false)
-      })
-      .catch(err => {
-        console.error("Error fetching form history:", err)
-        setHistoryLoading(false)
-      })
-  }, [])
 
   return (
     <div style={{ background: TOP_FADE_BACKGROUND, colorScheme: "light", minHeight: "100vh", paddingBottom: "140px" }}>
@@ -250,7 +231,7 @@ export default function HomePage() {
             <div style={{ display: "flex", alignItems: "center", gap: "8px", marginBottom: "8px" }}>
               <h1 style={{ fontSize: "24px", fontWeight: 700, fontFamily: "'Bricolage Grotesque'", color: "#0F172A", margin: "0" }}>Hey {activeUser?.name?.split(" ")[0] || "There"}</h1>
             </div>
-            <p style={{ fontSize: "14px", fontWeight: 400, color: "#64748B", fontFamily: "'DM Sans'", margin: "0" }}>You're stronger than last week!</p>
+            <p style={{ fontSize: "14px", fontWeight: 400, color: "#64748B", fontFamily: "'DM Sans'", margin: "0" }}>{greetingLine({ loaded: workoutsLoaded, dates: countable.map((w) => fromDbTime(w.started_at || w.created_at)).filter(Boolean) })}</p>
           </div>
           <div style={{ display: "flex", alignItems: "center", gap: "4px", flexShrink: 0 }}>
             <Barbell color="#4a90d9" />
@@ -349,9 +330,9 @@ export default function HomePage() {
         }}>
           <div style={{ display: "flex", alignItems: "flex-start", justifyContent: "space-between", gap: "12px", marginBottom: "15px" }}>
             <div style={{ flex: 1 }}>
-              <h2 style={{ fontSize: "24px", fontWeight: 700, fontFamily: "'Bricolage Grotesque'", color: "#000000", margin: "0 0 8px 0", lineHeight: "1.2" }}>Let's get you to work.</h2>
+              <h2 style={{ fontSize: "24px", fontWeight: 700, fontFamily: "'Bricolage Grotesque'", color: "#000000", margin: "0 0 8px 0", lineHeight: "1.2" }}>{headlineFor()}</h2>
               <p style={{ fontSize: "12px", color: "#8b8ba7", margin: "0", fontFamily: "'DM Sans'" }}>
-                Build your sessions in seconds, then log every set as you crush it.
+                No more standing around wondering what&apos;s next. With a plan, your energy goes into lifting, not deciding.
               </p>
             </div>
             <img
@@ -447,160 +428,6 @@ export default function HomePage() {
         <FounderTip />
         <GuidesRow />
         <FeedbackCard />
-
-        {/* Form History */}
-        <div style={{ background: "linear-gradient(135deg, #F9DAD2 0%, #E8D4F8 100%)", borderRadius: "16px", padding: "20px 12px", marginBottom: "20px" }}>
-          <div style={{ display: "flex", flexDirection: "row", justifyContent: "space-between", alignItems: "center", marginBottom: "16px" }}>
-            <div style={{ display: "flex", flexDirection: "column", gap: "4px" }}>
-              <p style={{ fontSize: "16px", fontWeight: 700, fontFamily: "'Bricolage Grotesque'", color: "#020D1B", margin: "0" }}>Form History</p>
-              <p style={{ fontSize: "14px", fontFamily: "'Bricolage Grotesque'", color: "#39414D", margin: "0" }}>Your last 3 Analyses</p>
-            </div>
-          </div>
-
-          {historyLoading ? (
-            <div style={{ display: "flex", flexDirection: "column", gap: "12px" }}>
-              {[1, 2, 3].map(i => (
-                <div key={i} style={{ height: "99px", background: "#F4F2FA", borderRadius: "16px", animation: "pulse 2s infinite" }} />
-              ))}
-            </div>
-          ) : history.length === 0 ? (
-            <div style={{ textAlign: "center", padding: "30px", background: "#F4F2FA", borderRadius: "16px" }}>
-              <p style={{ fontSize: "14px", color: "#999", marginBottom: "15px" }}>No sessions yet</p>
-              <button onClick={() => navigate("/upload")} style={{
-                padding: "10px 20px",
-                background: "linear-gradient(92.52deg, #0284C7 0%, #9747FF 100%)",
-                color: "#FFFFFF",
-                border: "none",
-                borderRadius: "8px",
-                cursor: "pointer",
-                fontFamily: "'Bricolage Grotesque'"
-              }}>Upload your first video</button>
-            </div>
-          ) : (
-            <div style={{ display: "flex", flexDirection: "column", gap: "12px" }}>
-              {history.map((s, index) => {
-                const exerciseName = (s.exercise || "Session").toLowerCase().replace(/[-_]/g, " ").replace(/\b\w/g, c => c.toUpperCase());
-                const dateLabel = s.date ? new Date(s.date).toLocaleDateString("en-US", { month: "short", day: "numeric" }) : "Unknown date";
-                const score = Math.round(s.score ?? 0);
-                const isExpanded = expandedCards[s.analysis_id] || false;
-                const feedback = s.feedback || "No feedback available";
-
-                // Construct image URL from formhistory folder if available
-                const userId = localStorage.getItem("active_user_id") || "user_001";
-                console.log(`Processing history item ${index}, userId:`, userId, "s.image_url:", s.image_url);
-                let imageUrl = s.image_url;
-                if (!imageUrl) {
-                  if (userId === "user_001") {
-                    imageUrl = `/formhistory/${userId}/user_001_${index + 1}.jpg`;
-                  } else if (userId === "user_003") {
-                    imageUrl = `/formhistory/${userId}/user_003_${index + 1}.jpg`;
-                  } else if (userId === "user_002") {
-                    const user002Images = ["user_002_front_1133.jpg", "user_002_front_45.jpg"];
-                    imageUrl = `/formhistory/${userId}/${user002Images[index % user002Images.length]}`;
-                    console.log(`📸 user_002 image URL for index ${index}:`, imageUrl);
-                  }
-                }
-                console.log(`Final imageUrl for index ${index}:`, imageUrl);
-
-                // Check if feedback is long enough to warrant truncation
-                const lines = feedback.split('\n');
-                const needsTruncation = lines.length > 3 || feedback.length > 200;
-                const displayFeedback = isExpanded ? feedback : (lines.slice(0, 3).join('\n'));
-
-                return (
-                  <div key={s.analysis_id} style={{
-                    background: "#F4F2FA",
-                    borderRadius: "16px",
-                    padding: "10px",
-                    display: "flex",
-                    gap: "10px",
-                    textAlign: "left"
-                  }}>
-                    {/* Thumbnail */}
-                    <div style={{
-                      width: "70px",
-                      height: "56px",
-                      flexShrink: 0,
-                      background: "linear-gradient(158.8deg, rgba(255, 35, 38, 0.2) 0%, rgba(151, 71, 255, 0.2) 22.39%, rgba(2, 132, 199, 0.2) 100.81%)",
-                      borderRadius: "8px",
-                      display: "flex",
-                      alignItems: "center",
-                      justifyContent: "center",
-                      cursor: "pointer",
-                      overflow: "hidden"
-                    }} onClick={() => navigate("/upload/results", { state: { analysisId: s.analysis_id } })}>
-                      {imageUrl ? (
-                        <img
-                          src={imageUrl}
-                          alt={exerciseName}
-                          style={{
-                            width: "100%",
-                            height: "100%",
-                            objectFit: "cover"
-                          }}
-                          onError={(e) => {
-                            console.warn("Failed to load image:", imageUrl);
-                            e.target.style.display = "none";
-                          }}
-                          onLoad={() => {
-                            console.log("Image loaded:", imageUrl);
-                          }}
-                        />
-                      ) : null}
-                      <svg width="40" height="40" viewBox="0 0 24 24" fill="none" stroke="#9747FF" strokeWidth="1.5" style={{ display: imageUrl ? "none" : "block" }}><path d="M23 19a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h4l2-3h6l2 3h4a2 2 0 0 1 2 2z"/><circle cx="12" cy="13" r="4"/></svg>
-                    </div>
-
-                    {/* Content */}
-                    <div style={{ flex: 1, display: "flex", flexDirection: "column", gap: "4px" }}>
-                      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", gap: "8px" }}>
-                        <button onClick={() => navigate("/upload/results", { state: { analysisId: s.analysis_id } })} style={{ background: "none", border: "none", cursor: "pointer", padding: "0" }}>
-                          <p style={{ fontSize: "14px", fontWeight: 500, fontFamily: "'Bricolage Grotesque'", color: "#000000", margin: "0" }}>{exerciseName}</p>
-                        </button>
-                        <div style={{ display: "flex", alignItems: "flex-end", gap: "2px", flexShrink: 0 }}>
-                          <span style={{ fontSize: "14px", fontWeight: 700, color: "#FF8D28", fontFamily: "'Poppins'" }}>{score}</span>
-                          <span style={{ fontSize: "7px", fontWeight: 400, color: "#000000", fontFamily: "'Poppins'" }}>/100</span>
-                        </div>
-                      </div>
-                      <p style={{ fontSize: "7px", fontFamily: "'DM Sans'", color: "#39414D", margin: "0", lineHeight: "10px" }}>{dateLabel} • {s.load_kg}Kg • {s.rep_count} Reps</p>
-                      <p style={{
-                        fontSize: "11px",
-                        fontFamily: "'DM Sans'",
-                        color: "#000000",
-                        margin: "0",
-                        lineHeight: "14px",
-                        overflow: isExpanded ? "visible" : "hidden",
-                        display: isExpanded ? "block" : "-webkit-box",
-                        WebkitLineClamp: isExpanded ? "unset" : 3,
-                        WebkitBoxOrient: "vertical"
-                      }}>
-                        {displayFeedback}
-                      </p>
-                      {needsTruncation && (
-                        <button
-                          onClick={() => setExpandedCards({ ...expandedCards, [s.analysis_id]: !isExpanded })}
-                          style={{
-                            background: "none",
-                            border: "none",
-                            fontSize: "8px",
-                            fontWeight: 600,
-                            fontFamily: "'DM Sans'",
-                            color: "#0284C7",
-                            cursor: "pointer",
-                            padding: "0",
-                            marginTop: "2px",
-                            textAlign: "left"
-                          }}
-                        >
-                          {isExpanded ? "See less" : "See more"}
-                        </button>
-                      )}
-                    </div>
-                  </div>
-                );
-              })}
-            </div>
-          )}
-        </div>
 
       </div>
 
