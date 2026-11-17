@@ -14,6 +14,15 @@ export default function LegalPage({ title, updated, sections }) {
         <ChevronLeft size={18} /> Back
       </button>
       <h1 style={{ fontFamily: BRICOLAGE, fontWeight: 700, fontSize: 26, color: INK, margin: "10px 0 2px" }}>{title}</h1>
+      <LegalBody updated={updated} sections={sections} />
+    </div>
+  )
+}
+
+// The "Last updated" line and the sections: shared by the Terms page, the Privacy page and the combined Privacy & Terms page
+export function LegalBody({ updated, sections }) {
+  return (
+    <>
       <p style={{ fontFamily: DM_SANS, fontSize: 12.5, color: GRAY, margin: "0 0 18px" }}>Last updated {updated}</p>
       {sections.map((s) => (
         <section key={s.heading} style={{ marginBottom: 18 }}>
@@ -23,6 +32,6 @@ export default function LegalPage({ title, updated, sections }) {
             : <p key={i} style={{ fontFamily: DM_SANS, fontSize: 14.5, lineHeight: 1.55, color: "#1E293B", margin: "0 0 8px" }}>{p}</p>)}
         </section>
       ))}
-    </div>
+    </>
   )
 }

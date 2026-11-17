@@ -1,9 +1,11 @@
 import { TOP_FADE_BACKGROUND } from "../utils/pageBackground"
-import { useState } from "react"
+import { useEffect, useState } from "react"
 import { useNavigate } from "react-router-dom"
 import { CoachIcon, CoachNoteSheet } from "../components/CoachNote"
 import { DEMO_USERS, useUser } from "../context/UserContext"
 import TeamShareSwitch from "../components/TeamShareSwitch"
+import { listWorkouts, pendingAsRows } from "../services/workoutService"
+import { dayStreak, totalWorkouts } from "../utils/workoutStats"
 
 function MenuItem({ icon, label, onPress, danger }) {
   return (
@@ -31,10 +33,16 @@ export default function ProfilePage() {
 
   const userName   = activeUser?.name        || "You"
   const initials   = activeUser?.initials    || userName.charAt(0).toUpperCase()
-  const userBio    = activeUser?.description || "Pushing for new PRs every week."
-  const bodyWeight = activeUser?.currentWeight ?? null
-  const workouts   = activeUser?.workouts    ?? null
-  const dayStreak  = activeUser?.dayStreak   ?? null
+  const userBio    = activeUser?.description || "" // only a line the person wrote; nothing made up for everyone else
+  // the two numbers under the name come from their logged workouts (including any still waiting to reach the server); "—" until they load
+  const [stats, setStats] = useState(null)
+  useEffect(() => {
+    let cancelled = false
+    listWorkouts().then((rows) => { if (!cancelled) { const all = [...rows, ...pendingAsRows()]; setStats({ workouts: totalWorkouts(all), streak: dayStreak(all) }) } }).catch(() => {})
+    return () => { cancelled = true }
+  }, [activeUser?.id])
+  const workouts  = stats?.workouts ?? null
+  const streakNow = stats?.streak ?? null
   const avatarGrad = activeUser?.avatarGradient
     ? `linear-gradient(135deg, ${activeUser.avatarGradient[0]} 0%, ${activeUser.avatarGradient[1]} 100%)`
     : "linear-gradient(135deg, #c4b5fd 0%, #818cf8 100%)"
@@ -68,20 +76,16 @@ export default function ProfilePage() {
               <span className="text-2xl font-bold text-white">{initials}</span>
             </div>
             <h2 className="text-lg font-bold text-gray-900 mb-1">{userName}</h2>
-            <p className="text-sm text-gray-500 text-center">{userBio}</p>
+            {userBio && <p className="text-sm text-gray-500 text-center">{userBio}</p>}
           </div>
 
-          <div className="border-t border-gray-100 pt-4 grid grid-cols-3 divide-x divide-gray-100 text-center">
-            <div>
-              <div className="text-base font-bold text-gray-900">{bodyWeight != null ? `${bodyWeight} KG` : "—"}</div>
-              <div className="text-[10px] text-gray-400 mt-0.5 tracking-wider uppercase">Body Weight</div>
-            </div>
+          <div className="border-t border-gray-100 pt-4 grid grid-cols-2 divide-x divide-gray-100 text-center">
             <div>
               <div className="text-base font-bold text-gray-900">{workouts ?? "—"}</div>
               <div className="text-[10px] text-gray-400 mt-0.5 tracking-wider uppercase">Workouts</div>
             </div>
             <div>
-              <div className="text-base font-bold text-gray-900">{dayStreak ?? "—"}</div>
+              <div className="text-base font-bold text-gray-900">{streakNow ?? "—"}</div>
               <div className="text-[10px] text-gray-400 mt-0.5 tracking-wider uppercase">Day Streak</div>
             </div>
           </div>
@@ -175,20 +179,11 @@ export default function ProfilePage() {
             />
           )}
           <MenuItem
-            label="Terms"
-            onPress={() => navigate("/terms")}
+            label="Privacy & Terms"
+            onPress={() => navigate("/legal")}
             icon={
               <svg width="20" height="20" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.8}>
                 <path strokeLinecap="round" strokeLinejoin="round" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
-              </svg>
-            }
-          />
-          <MenuItem
-            label="Privacy"
-            onPress={() => navigate("/privacy")}
-            icon={
-              <svg width="20" height="20" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.8}>
-                <path strokeLinecap="round" strokeLinejoin="round" d="M12 3l8 3v6c0 4.5-3.2 8.2-8 9-4.8-.8-8-4.5-8-9V6l8-3z" />
               </svg>
             }
           />
