@@ -6,6 +6,8 @@ import { deleteRoutine, getSources, listRoutines, readVideo, saveRoutine } from 
 import { activeWorkoutTitle, addRoutineToActiveWorkout } from "../utils/routineBlock"
 import { TOP_FADE_BACKGROUND } from "../utils/pageBackground"
 import { TypeTag } from "../components/WorkoutTypeUi"
+import VideoPreview from "../components/VideoPreview"
+import VideoSourceRow from "../components/VideoSourceRow"
 
 const AMBER_BG = "#FFFBEB"
 const AMBER_BORDER = "#FCD34D"
@@ -197,6 +199,7 @@ export default function RoutineFromVideoPage() {
               )
             })}
           </div>
+          <VideoPreview link={url} />
           <p style={{ fontFamily: DM_SANS, fontSize: 11.5, color: GRAY, textAlign: "center" }}>Nothing is saved until you choose to add it.</p>
           <style>{`.routine-spin{width:14px;height:14px;border:2.5px solid rgba(255,255,255,.4);border-top-color:#fff;border-radius:50%;display:block;animation:rspin .8s linear infinite}@keyframes rspin{to{transform:rotate(360deg)}}`}</style>
         </>
@@ -211,11 +214,7 @@ export default function RoutineFromVideoPage() {
             <TypeTag type={routine.workout_type} />
             <span style={{ fontFamily: DM_SANS, fontSize: 12.5, color: GRAY }}>{minutesText({ ...routine })}</span>
           </div>
-          {routine.source && (
-            <a href={routine.source.url} target="_blank" rel="noreferrer" style={{ display: "block", fontFamily: DM_SANS, fontSize: 12, color: GRAY, textDecoration: "none", marginBottom: 10 }}>
-              From {routine.source.site === "youtube" ? "a YouTube video" : `an ${SOURCE_NAMES[routine.source.site] ?? "online"} video`}{routine.source.author ? ` by ${routine.source.author}` : ""} ↗
-            </a>
-          )}
+          {routine.source && <VideoSourceRow source={routine.source} />}
 
           {routine.summary && (
             <div style={{ ...card, padding: "12px 14px" }}>
