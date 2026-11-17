@@ -1,8 +1,8 @@
 import { useEffect, useRef, useState } from "react"
 import { useLocation, useNavigate } from "react-router-dom"
-import { Check, ChevronLeft, ClipboardPaste, Trash2, X } from "lucide-react"
+import { Check, ChevronLeft, ClipboardPaste, Star, X } from "lucide-react"
 import { BottomSheet, BRICOLAGE, DM_SANS, GRADIENT, GRAY, INK, PURPLE } from "../components/planUi"
-import { deleteRoutine, listRoutines, readVideo, saveRoutine } from "../services/routineService"
+import { deleteRoutine, listRecentVideos, listRoutines, readVideo, saveRoutine } from "../services/routineService"
 import { activeWorkoutTitle, addRoutineToActiveWorkout, routineToBlock } from "../utils/routineBlock"
 import { confirmWorkout } from "../utils/startWorkout"
 import { TOP_FADE_BACKGROUND } from "../utils/pageBackground"
@@ -10,6 +10,7 @@ import { TypeTag } from "../components/WorkoutTypeUi"
 import VideoPreview from "../components/VideoPreview"
 import { isOtherSite } from "../utils/videoLink"
 import VideoSourceRow from "../components/VideoSourceRow"
+import VideoRoutineRow from "../components/VideoRoutineRow"
 
 const AMBER_BG = "#FFFBEB"
 const AMBER_BORDER = "#FCD34D"
@@ -57,15 +58,18 @@ export default function RoutineFromVideoPage() {
   const [routine, setRoutine] = useState(null)
   const [error, setError] = useState(null)
   const [readingStep, setReadingStep] = useState(0)
-  const [saved, setSaved] = useState(false)
   const [saving, setSaving] = useState(false)
   const [mine, setMine] = useState(null) // my saved routines, null while loading
+  const [recent, setRecent] = useState(null) // the videos I read lately, null while loading
   const [adding, setAdding] = useState(null) // the routine being added to a workout
   const [where, setWhere] = useState("next")
   const abort = useRef(null)
 
   const loadMine = () => listRoutines().then(setMine).catch(() => setMine([]))
-  useEffect(() => { loadMine() }, [])
+  const loadRecent = () => listRecentVideos().then(setRecent).catch(() => setRecent([]))
+  useEffect(() => { loadMine(); loadRecent() }, [])
+  // is this routine one I have saved? (matched by its video, since the saved copy is a copy)
+  const savedRowFor = (r) => (r?.source?.video_id ? mine?.find((m) => m.routine.source?.video_id === r.source.video_id) ?? null : null)
 
   // the three steps move along while the server works
   useEffect(() => {
@@ -81,12 +85,13 @@ export default function RoutineFromVideoPage() {
   const read = async (link = url) => {
     if (!link.trim()) return
     abort.current = new AbortController()
-    setStage("reading"); setError(null); setSaved(false)
+    setStage("reading"); setError(null)
     try {
       const result = await readVideo(link.trim(), abort.current.signal)
       if (sent.cacheKey && link.trim() === sent.url) cacheRoutine(sent.cacheKey, result)
       setRoutine(result)
       setStage("result")
+      loadRecent()
     } catch (err) {
       if (err.name === "AbortError") return
       setError({ code: err.code, message: err.message }); setStage("error")
@@ -95,7 +100,9 @@ export default function RoutineFromVideoPage() {
   // sent here by a button: show the routine we already read, or read the video now
   const started = useRef(false)
   useEffect(() => {
-    if (started.current || !sent.url) return
+    if (started.current) return
+    if (sent.routine?.steps?.length) { started.current = true; setRoutine(sent.routine); setStage("result"); return } // a saved video opened from the Plan page
+    if (!sent.url) return
     started.current = true
     setUrl(sent.url)
     const known = sent.cacheKey ? cachedRoutine(sent.cacheKey) : null
@@ -107,10 +114,16 @@ export default function RoutineFromVideoPage() {
   const editStep = (i, patch) => setRoutine((r) => ({ ...r, steps: r.steps.map((s, k) => (k === i ? { ...s, ...patch } : s)) }))
   const removeStep = (i) => setRoutine((r) => ({ ...r, steps: r.steps.filter((_, k) => k !== i) }))
 
-  const save = async () => {
+  // the star: keep this routine in my workouts, or take it back out
+  const toggleSaved = async (r, row) => {
     setSaving(true)
-    try { await saveRoutine(routine); setSaved(true); loadMine() } catch (err) { setError({ code: err.code, message: err.message }) } finally { setSaving(false) }
+    try {
+      if (row) await deleteRoutine(row.routine_id)
+      else await saveRoutine(r)
+      await loadMine()
+    } catch (err) { setError({ code: err.code, message: err.message }) } finally { setSaving(false) }
   }
+  const save = () => toggleSaved(routine, savedRowFor(routine))
 
   // the workout in progress, if there is one
   const inProgress = adding ? activeWorkoutTitle() : null
@@ -165,18 +178,22 @@ export default function RoutineFromVideoPage() {
           <p style={{ fontFamily: DM_SANS, fontSize: 11.5, color: GRAY, textAlign: "center", margin: "10px 0 0", lineHeight: 1.4 }}>We only use the words in the video, and keep a link and credit to the person who made it.</p>
 
           <h2 style={{ fontFamily: BRICOLAGE, fontWeight: 700, fontSize: 18, color: INK, margin: "26px 0 8px" }}>My routines</h2>
-          {mine === null && <p style={{ fontFamily: DM_SANS, fontSize: 13, color: GRAY }}>Loading…</p>}
-          {mine?.length === 0 && <p style={{ fontFamily: DM_SANS, fontSize: 13, color: GRAY, margin: 0 }}>Routines you save will be here, ready to add to any workout.</p>}
-          {mine?.map((m) => (
-            <div key={m.routine_id} style={{ ...card, display: "flex", alignItems: "center", gap: 10 }}>
-              <div style={{ flex: 1, minWidth: 0 }}>
-                <div style={{ fontFamily: BRICOLAGE, fontWeight: 700, fontSize: 15, color: INK }}>{m.routine.title}</div>
-                <div style={{ fontFamily: DM_SANS, fontSize: 12, color: GRAY }}>{minutesText(m.routine)}</div>
-              </div>
-              <button type="button" onClick={() => { setAdding(m.routine); setWhere("next") }} style={{ border: "none", borderRadius: 10, padding: "9px 12px", background: "rgba(129,51,255,0.1)", color: PURPLE, fontFamily: DM_SANS, fontWeight: 700, fontSize: 13, cursor: "pointer" }}>Add to workout</button>
-              <button type="button" aria-label={`Delete ${m.routine.title}`} onClick={async () => { await deleteRoutine(m.routine_id).catch(() => {}); loadMine() }} style={{ border: "none", background: "none", cursor: "pointer", padding: 4 }}><Trash2 size={18} color={GRAY} /></button>
-            </div>
-          ))}
+          {(mine === null || recent === null) && <p style={{ fontFamily: DM_SANS, fontSize: 13, color: GRAY }}>Loading…</p>}
+          {mine && recent && mine.length === 0 && recent.length === 0 && (
+            <p style={{ fontFamily: DM_SANS, fontSize: 13, color: GRAY, margin: 0, lineHeight: 1.45 }}>Videos you turn into workouts will show up here. Tap the ☆ to keep one in your workouts.</p>
+          )}
+          {mine?.length > 0 && (
+            <>
+              <div style={{ fontFamily: DM_SANS, fontSize: 11, fontWeight: 700, color: GRAY, letterSpacing: "0.05em", margin: "4px 0 6px" }}>SAVED</div>
+              {mine.map((m) => <VideoRoutineRow key={m.routine_id} routine={m.routine} saved onOpen={() => { setRoutine(m.routine); setStage("result") }} onToggle={() => toggleSaved(m.routine, m)} />)}
+            </>
+          )}
+          {mine && recent?.filter((r) => !savedRowFor(r.routine)).length > 0 && (
+            <>
+              <div style={{ fontFamily: DM_SANS, fontSize: 11, fontWeight: 700, color: GRAY, letterSpacing: "0.05em", margin: "10px 0 6px" }}>RECENT VIDEOS</div>
+              {recent.filter((r) => !savedRowFor(r.routine)).map((r) => <VideoRoutineRow key={r.video_id} routine={r.routine} saved={false} onOpen={() => { setRoutine(r.routine); setStage("result") }} onToggle={() => toggleSaved(r.routine, null)} />)}
+            </>
+          )}
         </>
       )}
 
@@ -207,8 +224,14 @@ export default function RoutineFromVideoPage() {
       {stage === "result" && routine && (
         <>
           {back("New link", () => { setStage("input"); setRoutine(null) })}
-          <textarea value={routine.title} rows={routine.title.length > 26 ? 2 : 1} onChange={(e) => setRoutine({ ...routine, title: e.target.value.replace(/\n/g, " ") })} aria-label="Routine name"
-            style={{ width: "100%", boxSizing: "border-box", border: "none", background: "transparent", outline: "none", padding: 0, resize: "none", fontFamily: BRICOLAGE, fontWeight: 700, fontSize: 21, lineHeight: 1.2, color: INK }} />
+          <div style={{ display: "flex", alignItems: "flex-start", gap: 10 }}>
+            <textarea value={routine.title} rows={routine.title.length > 26 ? 2 : 1} onChange={(e) => setRoutine({ ...routine, title: e.target.value.replace(/\n/g, " ") })} aria-label="Routine name"
+            style={{ flex: 1, minWidth: 0, boxSizing: "border-box", border: "none", background: "transparent", outline: "none", padding: 0, resize: "none", fontFamily: BRICOLAGE, fontWeight: 700, fontSize: 21, lineHeight: 1.2, color: INK }} />
+            <button type="button" disabled={saving || routine.steps.length === 0} onClick={save} aria-pressed={!!savedRowFor(routine)} aria-label={savedRowFor(routine) ? "Take this out of my workouts" : "Save this to my workouts"}
+              style={{ width: 38, height: 38, borderRadius: 19, flexShrink: 0, marginTop: 2, cursor: "pointer", display: "flex", alignItems: "center", justifyContent: "center", background: savedRowFor(routine) ? PURPLE : "#fff", border: `1.3px solid ${savedRowFor(routine) ? PURPLE : "rgba(129,51,255,0.45)"}` }}>
+              <Star size={18} color={savedRowFor(routine) ? "#fff" : PURPLE} fill={savedRowFor(routine) ? "#fff" : "none"} />
+            </button>
+          </div>
           <div style={{ display: "flex", gap: 8, alignItems: "center", margin: "8px 0 6px", flexWrap: "wrap" }}>
             <TypeTag type={routine.workout_type} />
             <span style={{ fontFamily: DM_SANS, fontSize: 12.5, color: GRAY }}>{minutesText({ ...routine })}</span>
@@ -261,7 +284,7 @@ export default function RoutineFromVideoPage() {
           <div style={{ position: "fixed", left: 0, right: 0, bottom: 0, zIndex: 20, padding: "12px 16px 96px", background: "linear-gradient(180deg, rgba(240,239,254,0), #F0EFFE 28%)" }}>
             <div style={{ maxWidth: 430, margin: "0 auto" }}>
               <button type="button" disabled={routine.steps.length === 0} onClick={() => { setAdding(routine); setWhere("next") }} style={{ ...bigButton(false), opacity: routine.steps.length ? 1 : 0.5 }}>Add to today&apos;s workout</button>
-              <button type="button" disabled={saved || saving || routine.steps.length === 0} onClick={save} style={bigButton(true)}>{saved ? "✓ Saved to My routines" : saving ? "Saving…" : "Save to My routines"}</button>
+              <button type="button" disabled={saving || routine.steps.length === 0} onClick={save} style={bigButton(true)}>{saving ? "Saving…" : savedRowFor(routine) ? "★ Saved to my workouts" : "☆ Save to my workouts"}</button>
             </div>
           </div>
         </>

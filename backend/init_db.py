@@ -351,6 +351,18 @@ CREATE TABLE IF NOT EXISTS admin_audit (
 """
 
 # One row each time a video is read, so the daily limit can be counted
+# The last videos a person turned into a routine (up to 10, newest first), with the routine itself, so they can open one again without a new read.
+# Kept apart from video_reads, which only counts reads for the daily limit and must never shrink.
+CREATE_RECENT_VIDEOS_SQL = """
+CREATE TABLE IF NOT EXISTS recent_videos (
+    user_id     TEXT NOT NULL,
+    video_id    TEXT NOT NULL,
+    data        TEXT NOT NULL,
+    created_at  TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    PRIMARY KEY (user_id, video_id)
+)
+"""
+
 CREATE_VIDEO_READS_SQL = """
 CREATE TABLE IF NOT EXISTS video_reads (
     user_id     TEXT NOT NULL,
@@ -490,6 +502,7 @@ def init_db():
     db_.run(CREATE_EXERCISE_GUIDES_SQL)
     db_.run(CREATE_USER_ROUTINES_SQL)
     db_.run(CREATE_VIDEO_READS_SQL)
+    db_.run(CREATE_RECENT_VIDEOS_SQL)
     db_.run(CREATE_ADMIN_AUDIT_SQL)
     db_.run(CREATE_FEEDBACK_SQL)
     db_.run(CREATE_FEEDBACK_MEDIA_SQL)

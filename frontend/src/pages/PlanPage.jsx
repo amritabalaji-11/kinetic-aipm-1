@@ -7,6 +7,8 @@ import { listWorkouts } from "../services/workoutService"
 import { TOP_FADE_BACKGROUND } from "../utils/pageBackground"
 import { lastDoneText, matchesQuery, planProfile, suggestions, trainingHistory, workoutType } from "../utils/planProfile"
 import { FilterSheet, HeroCard, PlanCard, PreviewSheet, Shelf } from "../components/PlanDiscovery"
+import VideosShelf from "../components/VideosShelf"
+import { listRoutines } from "../services/routineService"
 import { TypeFilter } from "../components/WorkoutTypeUi"
 
 const GRADIENT = "linear-gradient(92.52deg, #0284C7 0%, #9747FF 100%)"
@@ -56,6 +58,8 @@ export default function PlanPage() {
   const [preview, setPreview] = useState(null)
   const [heroIndex, setHeroIndex] = useState(0)
   const [workouts, setWorkouts] = useState(null) // null while loading
+  const [savedVideos, setSavedVideos] = useState([]) // video routines I have saved (the "Videos" row)
+  useEffect(() => { listRoutines().then(setSavedVideos).catch(() => setSavedVideos([])) }, [])
 
   useEffect(() => {
     let cancelled = false
@@ -168,6 +172,8 @@ export default function PlanPage() {
           </div>
         </div>
       )}
+
+      {browsing && <VideosShelf saved={savedVideos} />}
 
       {/* type of workout: the first filter */}
       <p style={{ fontSize: 11, fontWeight: 600, fontFamily: DM_SANS, color: "#64748B", margin: "18px 0 8px" }}>TYPE OF WORKOUT</p>
