@@ -1,3 +1,4 @@
+import { greetingLine, headlineFor } from "../utils/homeLines"
 import FounderTip from "../components/FounderTip"
 import FeedbackCard from "../components/FeedbackCard"
 import GuidesRow from "../components/GuidesRow"
@@ -187,11 +188,12 @@ export default function HomePage() {
   const [historyLoading, setHistoryLoading] = useState(true)
   const [expandedCards, setExpandedCards] = useState({})
   const [workouts, setWorkouts] = useState([])
+  const [workoutsLoaded, setWorkoutsLoaded] = useState(false) // the greeting says nothing about "no workouts" until the list has come back
 
   // Logged workouts drive the "Last 7 Days" card. Workouts that finished but have not reached the server yet
   // count too (and are retried here), so this matches what you actually did.
   useEffect(() => {
-    const load = () => listWorkouts().then(setWorkouts).catch(() => setWorkouts([]))
+    const load = () => listWorkouts().then((w) => { setWorkouts(w); setWorkoutsLoaded(true) }).catch(() => { setWorkouts([]); setWorkoutsLoaded(false) }) // a failed load stays "unknown", not "none"
     load()
     if (pendingAsRows().length) syncPendingWorkouts().then(({ sent }) => { if (sent) load() })
   }, [])
@@ -250,7 +252,7 @@ export default function HomePage() {
             <div style={{ display: "flex", alignItems: "center", gap: "8px", marginBottom: "8px" }}>
               <h1 style={{ fontSize: "24px", fontWeight: 700, fontFamily: "'Bricolage Grotesque'", color: "#0F172A", margin: "0" }}>Hey {activeUser?.name?.split(" ")[0] || "There"}</h1>
             </div>
-            <p style={{ fontSize: "14px", fontWeight: 400, color: "#64748B", fontFamily: "'DM Sans'", margin: "0" }}>You're stronger than last week!</p>
+            <p style={{ fontSize: "14px", fontWeight: 400, color: "#64748B", fontFamily: "'DM Sans'", margin: "0" }}>{greetingLine({ loaded: workoutsLoaded, dates: countable.map((w) => fromDbTime(w.started_at || w.created_at)).filter(Boolean) })}</p>
           </div>
           <div style={{ display: "flex", alignItems: "center", gap: "4px", flexShrink: 0 }}>
             <Barbell color="#4a90d9" />
@@ -349,7 +351,7 @@ export default function HomePage() {
         }}>
           <div style={{ display: "flex", alignItems: "flex-start", justifyContent: "space-between", gap: "12px", marginBottom: "15px" }}>
             <div style={{ flex: 1 }}>
-              <h2 style={{ fontSize: "24px", fontWeight: 700, fontFamily: "'Bricolage Grotesque'", color: "#000000", margin: "0 0 8px 0", lineHeight: "1.2" }}>Let's get you to work.</h2>
+              <h2 style={{ fontSize: "24px", fontWeight: 700, fontFamily: "'Bricolage Grotesque'", color: "#000000", margin: "0 0 8px 0", lineHeight: "1.2" }}>{headlineFor()}</h2>
               <p style={{ fontSize: "12px", color: "#8b8ba7", margin: "0", fontFamily: "'DM Sans'" }}>
                 Build your sessions in seconds, then log every set as you crush it.
               </p>
