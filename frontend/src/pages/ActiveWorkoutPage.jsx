@@ -304,7 +304,7 @@ export default function ActiveWorkoutPage() {
       else if (run.pausedAtMs) setRun(block.id, { ...run, pausedAtMs: null, pausedTotalMs: (run.pausedTotalMs || 0) + (Date.now() - run.pausedAtMs) })
     } else if (state === "paused" && run && !run.pausedAtMs) {
       setRun(block.id, { ...run, pausedAtMs: Date.now() })
-    } else if (state === "ended" && canFollow(block.items)) {
+    } else if (state === "ended" && (canFollow(block.items) || block.runner)) { // followed by start times, or by the clock
       // the video finished: every move is done, the section is completed and the next one opens, as if they had pressed "complete"
       const { workout: w, commit: save } = latest.current
       const at = w.blocks.findIndex((b) => b.id === block.id)

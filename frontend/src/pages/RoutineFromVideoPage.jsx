@@ -3,7 +3,8 @@ import { useLocation, useNavigate } from "react-router-dom"
 import { Check, ChevronLeft, ClipboardPaste, Trash2, X } from "lucide-react"
 import { BottomSheet, BRICOLAGE, DM_SANS, GRADIENT, GRAY, INK, PURPLE } from "../components/planUi"
 import { deleteRoutine, getSources, listRoutines, readVideo, saveRoutine } from "../services/routineService"
-import { activeWorkoutTitle, addRoutineToActiveWorkout } from "../utils/routineBlock"
+import { activeWorkoutTitle, addRoutineToActiveWorkout, routineToBlock } from "../utils/routineBlock"
+import { confirmWorkout } from "../utils/startWorkout"
 import { TOP_FADE_BACKGROUND } from "../utils/pageBackground"
 import { TypeTag } from "../components/WorkoutTypeUi"
 import VideoPreview from "../components/VideoPreview"
@@ -119,7 +120,8 @@ export default function RoutineFromVideoPage() {
       const id = addRoutineToActiveWorkout(adding, where)
       navigate("/workout/active", { state: { focusBlockId: id } })
     } else {
-      navigate("/plan/custom", { state: { routine: adding } })
+      // the video is the whole workout: straight to the confirm step (more exercises can be added once it has started)
+      confirmWorkout(navigate, { blocks: [routineToBlock(adding)], muscles: [], presetTitle: adding.title || "Workout from a video" })
     }
   }
 
@@ -307,7 +309,7 @@ export default function RoutineFromVideoPage() {
           )}
           <button type="button" onClick={() => setWhere("new")} style={{ width: "100%", textAlign: "left", background: "#fff", borderRadius: 14, padding: 12, cursor: "pointer", border: !inProgress || where === "new" ? `2px solid ${PURPLE}` : "1.2px solid rgba(100,116,139,0.2)" }}>
             <div style={{ fontFamily: BRICOLAGE, fontWeight: 700, fontSize: 15, color: INK }}>Start a new workout with it</div>
-            <div style={{ fontFamily: DM_SANS, fontSize: 12.5, color: GRAY, lineHeight: 1.4, marginTop: 2 }}>Opens &quot;Create your own&quot; with the routine as the first section, and you add the rest.</div>
+            <div style={{ fontFamily: DM_SANS, fontSize: 12.5, color: GRAY, lineHeight: 1.4, marginTop: 2 }}>The video becomes your workout, and you can start right away. You can add more exercises once you have started.</div>
           </button>
         </BottomSheet>
       )}
