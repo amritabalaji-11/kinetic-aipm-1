@@ -56,6 +56,13 @@ function ProtectedLayout({ children }) {
   return <Layout>{children}</Layout>
 }
 
+// The welcome steps need a sign-in. This is a component, so the check happens each time someone arrives here. Checked inline in the route
+// above it would be answered once, when the app first draws: for anyone who opened the app signed out (every fresh sign-in) it would keep
+// saying "not signed in" and bounce them to the splash screen, over and over.
+function WelcomeRoute() {
+  return getToken() ? <OnboardingPage /> : <Navigate to="/" replace />
+}
+
 function App() {
   return (
     <UserProvider>
@@ -78,7 +85,7 @@ function App() {
           <Route path="/upload/loading" element={<ProtectedLayout><LoadingPage /></ProtectedLayout>} />
           <Route path="/upload/results" element={<ProtectedLayout><ResultsPage /></ProtectedLayout>} />
           <Route path="/upload/comparison" element={<ProtectedLayout><ComparisonPage /></ProtectedLayout>} />
-          <Route path="/welcome" element={getToken() ? <OnboardingPage /> : <Navigate to="/" replace />} />
+          <Route path="/welcome" element={<WelcomeRoute />} />
           <Route path="/terms" element={<TermsPage />} />
           <Route path="/privacy" element={<PrivacyPage />} />
           <Route path="/guides" element={<ProtectedLayout><GuidesPage /></ProtectedLayout>} />
