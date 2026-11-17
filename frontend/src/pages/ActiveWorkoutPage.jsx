@@ -13,6 +13,11 @@ import GoalNote from "../components/GoalNote"
 import RoutineSource from "../components/RoutineSource"
 import SyncedVideo from "../components/SyncedVideo"
 import VideoFollower from "../components/VideoFollower"
+import MuscleTag from "../components/MuscleTag"
+import WhyCard from "../components/WhyCard"
+import TagLegend from "../components/TagLegend"
+import { hasAnyTag, muscleTag } from "../utils/muscleTags"
+import { whyReps } from "../utils/whyReps"
 import { canFollow, tickAll } from "../utils/routineFollow"
 import SectionRunner from "../components/SectionRunner"
 import RoundsForTime from "../components/RoundsForTime"
@@ -227,6 +232,12 @@ export default function ActiveWorkoutPage() {
   const playerRef = useRef(null) // the video on the section on screen
   const [videoReady, setVideoReady] = useState(false)
   const [videoNow, setVideoNow] = useState(null) // { id, index }: the move a followed video is on
+  const [whyOpen, setWhyOpen] = useState(null) // the key of the exercise whose "Why these reps?" is open
+  const [whyHintSeen, setWhyHintSeen] = useState(() => { try { return !!localStorage.getItem("whyHintSeen") } catch { return true } })
+  const toggleWhy = (key) => {
+    setWhyOpen((k) => (k === key ? null : key))
+    if (!whyHintSeen) { setWhyHintSeen(true); try { localStorage.setItem("whyHintSeen", "1") } catch { /* private mode: the hint just shows again next time */ } }
+  }
   const latest = useRef(null) // the newest workout and saver, for the video check below that runs on a timer
   // coming from "Add to today's workout": show the section that was just added
   const focusBlockId = useLocation().state?.focusBlockId
@@ -477,6 +488,9 @@ export default function ActiveWorkoutPage() {
             : state === "current" ? { border: "2.5px solid transparent", background: "linear-gradient(#fff,#fff) padding-box, linear-gradient(135deg,#0284C7,#9747FF) border-box", boxShadow: "0 4px 18px rgba(129,51,255,0.28)" }
             : { border: "1px solid rgba(129,51,255,0.22)", background: "#fff", opacity: 0.92 }
 
+          // the tag after an exercise's name, and the "Why these reps?" that opens under it
+          const tagOf = (it) => { const tag = muscleTag(it.exerciseId); return tag ? <MuscleTag tag={tag} open={whyOpen === it.key} onClick={() => toggleWhy(it.key)} /> : null }
+          const whyOf = (it) => { const why = whyOpen === it.key ? whyReps(it.exerciseId, it.name, it.sub) : null; return why ? <WhyCard why={why} /> : null }
           const rspec = roundsSpec(block) // "N rounds, each for time, rest after every round": one clock and one rest per round
           // follow-along row: a letter, the line, a clock when it has a time, and a tick on the right (a rounds section passes its own tick)
           const followRow = (it, ii, own) => {
@@ -489,9 +503,11 @@ export default function ActiveWorkoutPage() {
                 {many && <span style={{ width: 20, height: 20, borderRadius: 5, background: isDone ? DARK_GREEN : PURPLE, color: "#fff", fontFamily: DM_SANS, fontWeight: 600, fontSize: 11, display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0 }}>{letter(actionable.indexOf(it))}</span>}
                 <div style={{ flex: 1, minWidth: 0, fontFamily: DM_SANS, fontSize: 15, lineHeight: 1.3 }}>
                   <span style={{ fontWeight: 600, color: isDone ? DARK_GREEN : PURPLE }}><ExerciseName exerciseId={it.exerciseId}>{it.name}</ExerciseName></span>
+                  {tagOf(it)}
                   {onNow && <span style={{ marginLeft: 6, padding: "1px 8px", borderRadius: 999, background: PURPLE, color: "#fff", fontSize: 10.5, fontWeight: 700, letterSpacing: "0.04em", verticalAlign: "middle" }}>NOW</span>}
                   {it.sub && <span style={{ color: GRAY }}> · {it.sub}</span>}
                   {it.tip && <div style={{ fontSize: 12, color: GRAY, lineHeight: 1.35, marginTop: 2 }}>{it.tip}</div>}
+                  {whyOf(it)}
                 </div>
                 {secs !== null && !isDone && (
                   <div style={{ width: 110, flexShrink: 0, display: "flex" }}>
@@ -552,6 +568,9 @@ export default function ActiveWorkoutPage() {
                   ) : (
                   /* the exercises in this block, in the plan's order */
                   <div style={{ display: "flex", flexDirection: "column", gap: 4 }}>
+                    {!whyHintSeen && hasAnyTag(actionable) && (
+                      <p style={{ fontFamily: DM_SANS, fontSize: 11.5, color: PURPLE, margin: "0 0 4px" }}>Tap the <b>tag</b> next to an exercise to see why these reps.</p>
+                    )}
                     {block.items.map((it, ii) => {
                       if (it.rest) {
                         return <div key={it.key} style={{ fontFamily: DM_SANS, fontSize: 11, color: GRAY }}>{it.name} · {it.sub}</div>
@@ -561,8 +580,9 @@ export default function ActiveWorkoutPage() {
                         <div key={it.key} style={{ display: "flex", alignItems: "center", gap: 8 }}>
                           {many && <span style={{ width: 20, height: 20, borderRadius: 5, background: PURPLE, color: "#fff", fontFamily: DM_SANS, fontWeight: 600, fontSize: 11, display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0 }}>{letter(actionable.indexOf(it))}</span>}
                           <div style={{ flex: 1, minWidth: 0, lineHeight: 1.3 }}>
-                            <div style={{ fontFamily: DM_SANS, fontWeight: 600, fontSize: 15, color: PURPLE }}><ExerciseName exerciseId={it.exerciseId}>{it.name}</ExerciseName></div>
+                            <div style={{ fontFamily: DM_SANS, fontWeight: 600, fontSize: 15, color: PURPLE }}><ExerciseName exerciseId={it.exerciseId}>{it.name}</ExerciseName>{tagOf(it)}</div>
                             {it.sub && <div style={{ fontFamily: DM_SANS, fontSize: 12, color: GRAY }}>{it.sub}</div>}
+                            {whyOf(it)}
                             <TrackChips track={trackOf(it)} onChange={(t) => setTrack(bi, ii, t)} />
                           </div>
                           {it.exerciseId && <SwapButton name={it.name} locked={itemHasEntries(it)} onClick={() => setSwapping({ bi, ii })} />}
@@ -573,6 +593,8 @@ export default function ActiveWorkoutPage() {
                   )}
                     </>
                   )}
+
+                  <TagLegend items={actionable} />
 
                   {(() => {
                     const seen = new Set()
