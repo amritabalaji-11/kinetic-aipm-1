@@ -28,7 +28,8 @@ import { parseTimedBlock } from "../utils/sectionTimer"
 import SwapSheet from "../components/SwapSheet"
 import AddExerciseSheet from "../components/AddExerciseSheet"
 import { hasGuidance } from "../data/exerciseGuidance"
-import { addPendingWorkout, removePendingWorkout, saveWorkout } from "../services/workoutService"
+import { addPendingWorkout, getLastTimes, removePendingWorkout, saveWorkout } from "../services/workoutService"
+import { lastTimeHints, lastTimeText } from "../utils/lastTime"
 import { equipmentLabel, getExercise } from "../utils/exerciseCatalog"
 import { isAiReady } from "../utils/analysableExercises"
 import {
@@ -142,7 +143,7 @@ const focusNext = (e) => {
   else e.currentTarget.blur()
 }
 
-function SetRow({ label, set, item, onChange, onTick, onRecord, onTimerDone, labelColor, labelled }) {
+function SetRow({ label, set, item, onChange, onTick, onRecord, onTimerDone, labelColor, labelled, hints }) {
   const weightUnit = useWeightUnit() // kg or lbs, whichever they chose
   const done = set.completed
   const track = trackOf(item)
@@ -155,7 +156,7 @@ function SetRow({ label, set, item, onChange, onTick, onRecord, onTimerDone, lab
       data-set-input
       aria-label={hint}
       value={value ?? ""}
-      placeholder={labelled ? hint : "–"}
+      placeholder={(!done && hints?.[field]) || (labelled ? hint : "–")}
       onChange={(e) => onChange(field, e.target.value)}
       onKeyDown={focusNext}
       style={{
@@ -258,6 +259,16 @@ export default function ActiveWorkoutPage() {
     if (i >= 0) setViewBi(i)
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [])
+  // what they did last time on each exercise (a quiet reminder under the exercise, and light numbers in the empty boxes); no history, or no connection, just shows nothing
+  const [lastTimes, setLastTimes] = useState({})
+  const loggedNames = (workout?.blocks || []).flatMap((b) => b.items).filter((it) => it.logged && !it.rest && it.name).map((it) => it.name)
+  const loggedNamesKey = [...new Set(loggedNames)].sort().join("|")
+  useEffect(() => {
+    if (!loggedNamesKey) return
+    let cancelled = false
+    getLastTimes(loggedNamesKey.split("|")).then((r) => { if (!cancelled) setLastTimes(r) }).catch(() => {})
+    return () => { cancelled = true }
+  }, [loggedNamesKey])
   const [listOpen, setListOpen] = useState(false) // the list of every section
   const [cuesOpen, setCuesOpen] = useState({}) // block id -> cues panel opened or folded by hand
   const [restEndsAt, setRestEndsAt] = useState(null)
@@ -501,6 +512,11 @@ export default function ActiveWorkoutPage() {
 
           // the tag after an exercise's name, and the "Why these reps?" that opens under it
           const tagOf = (it, leftGap) => { const tag = muscleTag(it.exerciseId); return tag ? <MuscleTag tag={tag} open={whyOpen === it.key} onClick={() => toggleWhy(it.key)} leftGap={leftGap} /> : null }
+          const lastTimeOf = (it) => {
+            const track = trackOf(it)
+            const text = track.weight || track.reps ? lastTimeText(lastTimes[it.name], weightUnit) : null
+            return text ? <div style={{ fontFamily: DM_SANS, fontSize: 12, fontWeight: 600, color: "#6B5BA8", marginTop: 6 }}>↺ {text}</div> : null
+          }
           const whyOf = (it) => { const why = whyOpen === it.key ? whyReps(it.exerciseId, it.name, it.sub) : null; return why ? <WhyCard why={why} /> : null }
           const rspec = roundsSpec(block) // "N rounds, each for time, rest after every round": one clock and one rest per round
           // follow-along row: a letter, the line, a clock when it has a time, and a tick on the right (a rounds section passes its own tick)
@@ -605,6 +621,7 @@ export default function ActiveWorkoutPage() {
                             )}
                             {note && <div style={{ fontFamily: DM_SANS, fontSize: 11.5, color: "#94A3B8", marginTop: 2, lineHeight: 1.35 }}>{note}</div>}
                             {whyOf(it)}
+                            {lastTimeOf(it)}
                             <div style={{ marginTop: 8, paddingTop: 8, borderTop: "1px dashed #E2E8F0", display: "flex", alignItems: "center", gap: 8 }}>
                               <span style={{ fontFamily: DM_SANS, fontSize: 10.5, fontWeight: 700, color: "#94A3B8", letterSpacing: "0.04em" }}>LOG</span>
                               <TrackChips track={trackOf(it)} onChange={(t) => setTrack(bi, ii, t)} />
@@ -645,7 +662,7 @@ export default function ActiveWorkoutPage() {
                         {hasGuidance(it.exerciseId) && <FormGuide exerciseId={it.exerciseId} name={it.name} startOpen={false} />}
                         <ColumnHeaders first="Set" track={trackOf(it)} />
                         {it.sets.map((s, si) => (
-                          <SetRow key={s.id} label={si + 1} set={s} item={it} onChange={(f, v) => setField(bi, ii, si, f, v)} onTick={() => toggleSet(bi, ii, si)} onRecord={() => navigate("/upload", { state: { exerciseId: it.exerciseId } })} onTimerDone={(secs) => finishTimedSet(bi, ii, si, secs)} />
+                          <SetRow key={s.id} label={si + 1} set={s} item={it} hints={lastTimeHints(lastTimes[it.name], weightUnit)} onChange={(f, v) => setField(bi, ii, si, f, v)} onTick={() => toggleSet(bi, ii, si)} onRecord={() => navigate("/upload", { state: { exerciseId: it.exerciseId } })} onTimerDone={(secs) => finishTimedSet(bi, ii, si, secs)} />
                         ))}
                       </>
                     )
@@ -665,7 +682,7 @@ export default function ActiveWorkoutPage() {
                               const ii = block.items.indexOf(it)
                               const s = it.sets[r]
                               if (!s) return null
-                              return <SetRow key={s.id} label={letter(actionable.indexOf(it))} labelColor={INK} set={s} item={it} labelled={!sameTrack(logged)} onChange={(f, v) => setField(bi, ii, r, f, v)} onTick={() => toggleSet(bi, ii, r)} onRecord={() => navigate("/upload", { state: { exerciseId: it.exerciseId } })} onTimerDone={(secs) => finishTimedSet(bi, ii, r, secs)} />
+                              return <SetRow key={s.id} label={letter(actionable.indexOf(it))} labelColor={INK} set={s} item={it} labelled={!sameTrack(logged)} hints={lastTimeHints(lastTimes[it.name], weightUnit)} onChange={(f, v) => setField(bi, ii, r, f, v)} onTick={() => toggleSet(bi, ii, r)} onRecord={() => navigate("/upload", { state: { exerciseId: it.exerciseId } })} onTimerDone={(secs) => finishTimedSet(bi, ii, r, secs)} />
                             })}
                           </div>
                         )
