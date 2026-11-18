@@ -3,14 +3,22 @@ import { useNavigate } from "react-router-dom"
 import { ChevronLeft } from "lucide-react"
 import { BRICOLAGE, DM_SANS, GRAY, INK, PURPLE } from "../components/planUi"
 import { DEMO_USERS, useUser, useWeightUnit } from "../context/UserContext"
+import TeamShareSwitch from "../components/TeamShareSwitch"
 import { TOP_FADE_BACKGROUND } from "../utils/pageBackground"
 
-// App settings. For now: the unit weights are logged and shown in.
+// The timer sound is kept on this phone (the section timers read the same key)
+const SOUND_KEY = "timerSound"
+const readSound = () => { try { return localStorage.getItem(SOUND_KEY) !== "off" } catch { return true } }
+
+// App settings: the weight unit, who can watch your videos, and the timer sounds.
 export default function SettingsPage() {
   const navigate = useNavigate()
-  const { activeUser, chooseUnit } = useUser()
+  const { activeUser, chooseUnit, chooseSharing } = useUser()
   const unit = useWeightUnit()
   const [error, setError] = useState("")
+  const [sharingError, setSharingError] = useState("")
+  const [sound, setSound] = useState(readSound)
+  const toggleSound = (on) => { setSound(on); try { localStorage.setItem(SOUND_KEY, on ? "on" : "off") } catch { /* private mode: it just is not remembered */ } }
   const isDemo = !!(activeUser && DEMO_USERS[activeUser.id])
 
   const pick = (u) => { if (u === unit) return; setError(""); chooseUnit(u).catch(() => setError("We couldn't save that. Please try again.")) }
@@ -39,6 +47,34 @@ export default function SettingsPage() {
         </p>
         {error && <p role="alert" style={{ fontFamily: DM_SANS, fontSize: 12.5, color: "#DC2626", margin: "6px 0 0" }}>{error}</p>}
       </div>
+
+      {!isDemo && (
+        <>
+          <div style={label}>PRIVACY</div>
+          <TeamShareSwitch
+            label="Let the Kinetic team watch my videos to improve the feedback"
+            checked={activeUser?.shareVideos === true}
+            onChange={(v) => { setSharingError(""); chooseSharing(v).catch(() => setSharingError("We couldn't save that. Please try again.")) }}
+            note={activeUser?.shareVideos === null
+              ? "You haven't chosen yet. Turn it on to let our team watch your videos. Each upload still has its own switch."
+              : activeUser?.shareVideos
+                ? "On for new uploads. Each upload has its own switch, and you can turn off any video you shared from its results screen."
+                : "Off. Your videos stay private. You can turn it on for a single upload."}
+          />
+          {sharingError && <p role="alert" style={{ fontFamily: DM_SANS, fontSize: 12.5, color: "#DC2626", margin: "6px 4px 0" }}>{sharingError}</p>}
+        </>
+      )}
+
+      <div style={label}>TIMERS</div>
+      <label style={{ display: "flex", gap: 12, alignItems: "center", background: "#fff", borderRadius: 14, padding: "12px 14px", border: "1px solid #F1F1F6", cursor: "pointer" }}>
+        <input type="checkbox" role="switch" checked={sound} onChange={(e) => toggleSound(e.target.checked)} style={{ position: "absolute", opacity: 0, width: 1, height: 1 }} />
+        <span aria-hidden="true" style={{ width: 44, height: 26, borderRadius: 13, background: sound ? PURPLE : "#CBD5E1", position: "relative", flexShrink: 0, transition: "background .15s" }}>
+          <span style={{ position: "absolute", top: 3, left: sound ? 21 : 3, width: 20, height: 20, borderRadius: 10, background: "#fff", transition: "left .15s" }} />
+        </span>
+        <span style={{ fontFamily: DM_SANS, fontSize: 14, color: INK }}><b>Timer sounds</b>
+          <span style={{ display: "block", fontSize: 12.5, color: GRAY, marginTop: 1 }}>Beeps and spoken cues when work and rest change in timed sections. Kept on this phone.</span>
+        </span>
+      </label>
     </div>
   )
 }

@@ -46,7 +46,14 @@ export async function signInAsDemo(userId, passcode) {
   return user_id
 }
 
-// The optional "A little about you" answers: { experience, goal, age_range }, any of them may be left out
+// The person's own "A little about you" answers (only theirs), for the About you page
+export async function fetchAbout() {
+  const res = await fetch(`${BASE_URL}/auth/me/about`, { headers: { Authorization: `Bearer ${getToken()}` } })
+  if (!res.ok) throw new Error("We couldn't load your answers.")
+  return res.json()
+}
+
+// The optional "A little about you" answers: any of them may be left out; `clear: ["gender", ...]` takes an answer back
 export async function saveAboutYou(answers) {
   const res = await fetch(`${BASE_URL}/auth/me/about`, {
     method: "POST", headers: { "Content-Type": "application/json", Authorization: `Bearer ${getToken()}` }, body: JSON.stringify(answers),

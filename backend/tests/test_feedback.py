@@ -93,11 +93,11 @@ class FeedbackApi(unittest.TestCase):
         self.assertEqual(self.call("GET", "/feedback/mine", None).status_code, 401)
 
     def test_attachment_rules_at_start(self):
-        ok = self.call("POST", "/feedback/start", json={"files": [{"filename": "a.mov", "content_type": "video/quicktime", "size_bytes": 5_000_000}]})
+        ok = self.call("POST", "/feedback/start", json={"files": [{"filename": "my-private-name.mov", "content_type": "video/quicktime", "size_bytes": 5_000_000}]})
         self.assertEqual(ok.status_code, 200)
         upload = ok.json()["uploads"][0]
         self.assertTrue(upload["path"].startswith(f"feedback/user-a/{ok.json()['feedback_id']}/"))
-        self.assertNotIn("a.mov", upload["path"])  # the person's own file name is never used
+        self.assertNotIn("my-private-name", upload["path"])  # the person's own file name is never used
         bad = lambda f: self.call("POST", "/feedback/start", json={"files": [f]}).status_code
         self.assertEqual(bad({"filename": "x.pdf", "content_type": "application/pdf", "size_bytes": 10}), 415)
         self.assertEqual(bad({"filename": "x.jpg", "content_type": "image/jpeg", "size_bytes": 11 * 1024 * 1024}), 413)
