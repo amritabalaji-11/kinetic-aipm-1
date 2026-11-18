@@ -54,6 +54,15 @@ export async function saveAboutYou(answers) {
   if (!res.ok) throw new Error("We couldn't save that.")
 }
 
+// The unit they log weights in ("kg" or "lbs"). Past sets keep their own unit. Returns what was saved.
+export async function saveWeightUnit(unit) {
+  const res = await fetch(`${BASE_URL}/auth/me/units`, {
+    method: "POST", headers: { "Content-Type": "application/json", Authorization: `Bearer ${getToken()}` }, body: JSON.stringify({ unit }),
+  })
+  if (!res.ok) throw new Error("We couldn't save that. Please try again.")
+  return (await res.json()).weight_unit
+}
+
 // The line under their name on Profile (their favourite motivational line). An empty line clears it. Returns what was saved.
 export async function saveMotivationLine(line) {
   const res = await fetch(`${BASE_URL}/auth/me/motivation`, {

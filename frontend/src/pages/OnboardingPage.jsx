@@ -6,7 +6,7 @@ import HealthNotice from "../components/HealthNotice"
 import { HEALTH_NOTICE_VERSION, INJURY_REMINDER } from "../data/legalText"
 import KineticMark from "../components/KineticMark"
 import { BRICOLAGE, DM_SANS, GRADIENT, GRAY, INK, PURPLE } from "../components/planUi"
-import { DEMO_USERS, useUser } from "../context/UserContext"
+import { DEMO_USERS, useUser, useWeightUnit } from "../context/UserContext"
 import { saveAboutYou } from "../services/authService"
 import { TOP_FADE_BACKGROUND } from "../utils/pageBackground"
 
@@ -44,7 +44,10 @@ function Point({ icon, title, text, i }) {
 // sharing videos. Someone who has already answered that question (or a demo account) goes straight on to Home.
 export default function OnboardingPage() {
   const navigate = useNavigate()
-  const { activeUser, activeUserId, chooseSharing, acceptHealthNotice } = useUser()
+  const { activeUser, activeUserId, chooseSharing, acceptHealthNotice, chooseUnit } = useUser()
+  const startUnit = useWeightUnit() // their saved unit, or the default from the phone's region: always one of the two
+  const [unit, setUnit] = useState(null) // null until they tap one; the pre-selected one is `startUnit`
+  const shownUnit = unit ?? startUnit
   const [step, setStep] = useState(1)
   const [about, setAbout] = useState({})
   const loading = Boolean(activeUserId) && !activeUser  // signed in, profile still loading: wait, do not decide yet
@@ -72,8 +75,11 @@ export default function OnboardingPage() {
     const body = { ...about }
     if (typeof about.has_injury === "boolean") body.injury_details = about.has_injury ? (about.injury_details ?? "").trim() : null
     if (Object.keys(body).length) saveAboutYou(body).catch(() => {}) // optional: a failed save never blocks anyone
+    keepUnit()
     setStep(3)
   }
+  // the unit shown (picked by them or pre-selected) is saved whether they answer the rest or skip, so no one is left without one
+  const keepUnit = () => { chooseUnit(shownUnit).catch(() => {}) }
   const firstName = (activeUser?.name || "").split(" ")[0]
 
   return (
@@ -101,6 +107,15 @@ export default function OnboardingPage() {
           <>
             <h1 style={heading}>A little about you</h1>
             <p style={lead}>Helps us tailor tips. Skip anything you like.</p>
+            <div role="radiogroup" aria-label="Weight units" style={{ marginBottom: 16 }}>
+              <div style={{ fontFamily: DM_SANS, fontWeight: 700, fontSize: 13.5, color: INK, marginBottom: 7 }}>Which units do you use for weight?</div>
+              <div style={{ display: "flex", gap: 6, flexWrap: "wrap" }}>
+                {[["kg", "Kilograms (kg)"], ["lbs", "Pounds (lbs)"]].map(([value, label]) => (
+                  <button key={value} type="button" role="radio" aria-checked={shownUnit === value} style={chip(shownUnit === value)} onClick={() => setUnit(value)}>{label}</button>
+                ))}
+              </div>
+              <p style={{ fontFamily: DM_SANS, fontSize: 11.5, color: GRAY, margin: "6px 0 0", lineHeight: 1.4 }}>We picked this from your phone&apos;s region. You can change it any time in Settings.</p>
+            </div>
             {QUESTIONS.map((q) => (
               <div key={q.key} role={q.multi ? "group" : "radiogroup"} aria-label={q.label} style={{ marginBottom: 16 }}>
                 <div style={{ fontFamily: DM_SANS, fontWeight: 700, fontSize: 13.5, color: INK, marginBottom: 7 }}>{q.label}</div>
@@ -130,7 +145,7 @@ export default function OnboardingPage() {
               )}
             </div>
             <button type="button" onClick={saveAbout} style={nextButton}>Next</button>
-            <button type="button" onClick={() => setStep(3)} style={{ display: "block", margin: "10px auto 0", background: "none", border: "none", color: GRAY, textDecoration: "underline", fontFamily: DM_SANS, fontSize: 13.5, cursor: "pointer" }}>Skip</button>
+            <button type="button" onClick={() => { keepUnit(); setStep(3) }} style={{ display: "block", margin: "10px auto 0", background: "none", border: "none", color: GRAY, textDecoration: "underline", fontFamily: DM_SANS, fontSize: 13.5, cursor: "pointer" }}>Skip</button>
           </>
         )}
 

@@ -176,12 +176,15 @@ async def list_workouts(user_id: str = Depends(get_current_user_id)):
 async def exercise_progress(exercise_name: str, user_id: str = Depends(get_current_user_id)):
     """Per-session summary for one exercise: best weight, total volume, estimated 1RM.
     Includes older demo rows (no workout_id) because it matches on exercise name."""
+    # Every set is first turned into kg (pounds x 0.45359237), so sets logged in different units add up correctly.
+    # The screen shows the result in the person's own unit.
+    kg = "(CASE WHEN SUBSTR(LOWER(COALESCE(weight_unit, 'kg')), 1, 2) = 'lb' THEN weight_value * 0.45359237 ELSE weight_value END)"
     rows = await db.fetch_all(
-        """
+        f"""
         SELECT session_id, MIN(logged_at) AS logged_at,
-               MAX(weight_value)                        AS best_weight,
-               SUM(COALESCE(weight_value,0) * COALESCE(rep_count,0)) AS volume,
-               MAX(COALESCE(weight_value,0) * (1 + COALESCE(rep_count,0) / 30.0)) AS est_1rm,
+               MAX({kg})                        AS best_weight,
+               SUM(COALESCE({kg},0) * COALESCE(rep_count,0)) AS volume,
+               MAX(COALESCE({kg},0) * (1 + COALESCE(rep_count,0) / 30.0)) AS est_1rm,
                COUNT(*)                                 AS sets
         FROM workout_sessions_log
         WHERE user_id = :uid AND LOWER(exercise_name) = LOWER(:name)
@@ -194,6 +197,7 @@ async def exercise_progress(exercise_name: str, user_id: str = Depends(get_curre
     best = max(history, key=lambda r: r["best_weight"] or 0, default=None)
     return {
         "exercise_name": exercise_name,
+        "unit": "kg",  # best_weight, volume and est_1rm above are all in kg
         "sessions": history,
         "personal_best_weight": best["best_weight"] if best else None,
         "personal_best_date": best["logged_at"] if best else None,

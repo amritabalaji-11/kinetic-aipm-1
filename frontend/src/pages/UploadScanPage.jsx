@@ -10,7 +10,7 @@ import LoadCard from "../components/LoadCard"
 import { convertWeight, readLastLoad, saveLastLoad } from "../utils/weightInput"
 import TeamShareSwitch from "../components/TeamShareSwitch"
 import ShareChoice from "../components/ShareChoice"
-import { DEMO_USERS, useUser } from "../context/UserContext"
+import { DEMO_USERS, useUser, useWeightUnit } from "../context/UserContext"
 import UploadExercisePicker from "../components/UploadExercisePicker"
 import { CoachIcon } from "../components/CoachNote"
 import { BRICOLAGE, BottomSheet, DM_SANS, GRAY, INK } from "../components/planUi"
@@ -42,6 +42,7 @@ export default function UploadScanPage() {
   const [isPlaying,         setIsPlaying]         = useState(false)
   const [weight,            setWeight]            = useState(0)
   const { activeUser, chooseSharing } = useUser()
+  const preferredUnit = useWeightUnit() // the unit the upload starts on (it can still be switched for one upload)
   const [shareWithTeam,     setShareWithTeam]     = useState(false)   // "Let the Kinetic team watch this video": off unless they said yes when they joined, or turn it on here
   const [shareTouched,      setShareTouched]      = useState(false)   // they changed the switch themselves
   const [askShare,          setAskShare]          = useState(false)   // the one-time question, for someone who has not answered it yet
@@ -49,7 +50,7 @@ export default function UploadScanPage() {
   const needsChoice = realUser && activeUser.shareVideos === null
   const preselected = shareWithTeam && !shareTouched && activeUser?.shareVideos === true
   useEffect(() => { if (!shareTouched && activeUser?.shareVideos === true) setShareWithTeam(true) }, [activeUser?.shareVideos, shareTouched])
-  const [unit,              setUnit]              = useState("kg")
+  const [unit,              setUnit]              = useState(() => preferredUnit)
   const [tipsChecked,       setTipsChecked]       = useState(hasSeenTips)  // ticked "I've got the tips" (remembered on this phone)
   const [tipsNudge,         setTipsNudge]         = useState(0)            // goes up each time Start is pressed without ticking
   const [lastLoad,          setLastLoad]          = useState(null)   // weight used last time for the chosen exercise

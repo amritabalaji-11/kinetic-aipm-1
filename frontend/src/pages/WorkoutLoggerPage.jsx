@@ -1,5 +1,7 @@
 import { useState, useEffect, useRef } from "react"
 import { useLocation } from "react-router-dom"
+import { useWeightUnit } from "../context/UserContext"
+import { fromKg, normaliseUnit } from "../utils/units"
 import FormHistoryList from "../components/FormHistoryList"
 import { Clock, Dumbbell, Calendar, ChevronDown, Pencil, Trash2, TrendingUp } from "lucide-react"
 import {
@@ -29,6 +31,7 @@ const dateLabel = (w) => (fromDbTime(w.started_at || w.created_at) || new Date()
 
 // Shows personal best + recent sessions for one exercise (loaded when you tap the chart icon)
 function ProgressPanel({ name }) {
+  const unit = useWeightUnit()
   const [data, setData] = useState(null)
   const [failed, setFailed] = useState(false)
 
@@ -45,7 +48,7 @@ function ProgressPanel({ name }) {
   return (
     <div style={{ background: "#F7F5FF", borderRadius: "8px", padding: "10px", margin: "6px 0 10px 0" }}>
       <p style={{ ...small, margin: "0 0 8px 0", color: "#0F172A", fontWeight: 600 }}>
-        Personal best: {data.personal_best_weight} kg
+        Personal best: {fromKg(data.personal_best_weight, unit)} {unit}
         {data.personal_best_date && ` (${(fromDbTime(data.personal_best_date) || new Date()).toLocaleDateString()})`}
       </p>
       {recent.map((s) => (
@@ -55,7 +58,7 @@ function ProgressPanel({ name }) {
             <div style={{ width: `${((s.volume || 0) / maxVol) * 100}%`, height: "8px", borderRadius: "4px", background: "#8133FF" }} />
           </div>
           <span style={{ ...small, width: "96px", textAlign: "right" }}>
-            {s.best_weight} kg · {Math.round(s.volume || 0)} vol
+            {fromKg(s.best_weight, unit)} {unit} · {Math.round(fromKg(s.volume, unit) || 0)} vol
           </span>
         </div>
       ))}
@@ -159,7 +162,7 @@ function WorkoutCard({ workout, onChanged, onDeleted, defaultOpen = false }) {
                   {editing ? (
                     <>
                       <input type="number" style={input} value={s.weight ?? ""} onChange={(e) => setField(exIdx, setIdx, "weight", e.target.value)} />
-                      <span style={small}>kg ×</span>
+                      <span style={small}>{normaliseUnit(s.weight_unit)} ×</span>
                       <input type="number" style={input} value={s.reps ?? ""} onChange={(e) => setField(exIdx, setIdx, "reps", e.target.value)} />
                       <span style={small}>reps</span>
                       {s.duration_sec != null && (

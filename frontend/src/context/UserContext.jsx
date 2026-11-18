@@ -1,5 +1,6 @@
+import { unitOf } from "../utils/units"
 import { createContext, useContext, useEffect, useState } from "react"
-import { TOKEN_KEY, signInWithGoogle, signInAsDemo, fetchMe, saveSharingChoice, saveHealthNotice, saveMotivationLine } from "../services/authService"
+import { TOKEN_KEY, signInWithGoogle, signInAsDemo, fetchMe, saveSharingChoice, saveHealthNotice, saveWeightUnit, saveMotivationLine } from "../services/authService"
 
 export const DEMO_USERS = {
   user_001: {
@@ -78,7 +79,7 @@ const UserContext = createContext(null)
 // Shape a real (Google) account like a demo user so pages can read the same fields
 function toActiveUser(me) {
   const name = me.display_name || (me.email ? me.email.split("@")[0] : "You")
-  return { id: me.user_id, name, initials: name.slice(0, 2).toUpperCase(), email: me.email, role: me.role || "user", description: me.motivation_line || "", shareVideos: me.share_videos_default ?? null, healthNotice: me.health_notice_version ?? null }
+  return { id: me.user_id, name, initials: name.slice(0, 2).toUpperCase(), email: me.email, role: me.role || "user", description: me.motivation_line || "", weightUnit: unitOf(me.weight_unit), shareVideos: me.share_videos_default ?? null, healthNotice: me.health_notice_version ?? null }
 }
 
 export function UserProvider({ children }) {
@@ -127,6 +128,13 @@ export function UserProvider({ children }) {
     setAuthUser((u) => (u ? { ...u, shareVideos: share } : u))
   }
 
+  // The unit they log weights in. Shown straight away; if the save fails the screen goes back to what it was and says so to the caller.
+  const chooseUnit = async (unit) => {
+    const before = authUser?.weightUnit
+    setAuthUser((u) => (u ? { ...u, weightUnit: unit } : u))
+    try { await saveWeightUnit(unit) } catch (e) { setAuthUser((u) => (u ? { ...u, weightUnit: before } : u)); throw e }
+  }
+
   // Their favourite motivational line, shown under their name on Profile
   const saveMotivation = async (line) => {
     const saved = await saveMotivationLine(line)
@@ -145,10 +153,16 @@ export function UserProvider({ children }) {
     : null
 
   return (
-    <UserContext.Provider value={{ activeUser, activeUserId, loginAsDemo, clearUser, loginWithGoogle, chooseSharing, acceptHealthNotice, saveMotivation, DEMO_USERS }}>
+    <UserContext.Provider value={{ activeUser, activeUserId, loginAsDemo, clearUser, loginWithGoogle, chooseSharing, acceptHealthNotice, chooseUnit, saveMotivation, DEMO_USERS }}>
       {children}
     </UserContext.Provider>
   )
 }
 
 export const useUser = () => useContext(UserContext)
+
+// The unit to log and show weights in: their choice, or the default from the phone's region (demo accounts always use that default)
+export function useWeightUnit() {
+  const { activeUser } = useContext(UserContext)
+  return unitOf(activeUser?.weightUnit)
+}

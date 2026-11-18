@@ -45,7 +45,7 @@ export function toApiWorkout(workout, extra = {}) {
         .map((s, i) => ({
           set_number: i + 1,
           weight: num(s.weight),
-          weight_unit: "kg",
+          weight_unit: workout.weightUnit === "lbs" ? "lbs" : "kg", // the unit it was logged in (older workouts have none: kg)
           reps: num(s.reps),
           duration_sec: num(s.seconds),
           notes: s.notes || null,
