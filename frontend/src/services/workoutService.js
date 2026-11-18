@@ -125,3 +125,9 @@ export const deleteWorkout = (workoutId) =>
 
 export const getExerciseProgress = (exerciseName) =>
   request(`/workouts/progress?exercise_name=${encodeURIComponent(exerciseName)}`)
+
+// What you did last time on each of these exercises (the heaviest set of the latest session, and your best weight), keyed by exercise name
+export const getLastTimes = (names) => {
+  const q = [...new Set(names)].map((n) => `exercise_name=${encodeURIComponent(n)}`).join("&")
+  return q ? request(`/workouts/last-times?${q}`).then((r) => r.last_times || {}) : Promise.resolve({})
+}

@@ -2,7 +2,7 @@ import json
 import uuid
 from typing import Optional
 
-from fastapi import APIRouter, Depends, HTTPException
+from fastapi import APIRouter, Depends, HTTPException, Query
 from pydantic import BaseModel, Field
 
 from db.database import db, NOW_TEXT
@@ -202,6 +202,43 @@ async def exercise_progress(exercise_name: str, user_id: str = Depends(get_curre
         "personal_best_weight": best["best_weight"] if best else None,
         "personal_best_date": best["logged_at"] if best else None,
     }
+
+
+# What you did last time on each exercise, so the workout screen can remind you. One call for the whole workout.
+# Defined before "/{workout_id}" so "last-times" isn't read as a workout id.
+@router.get("/last-times")
+async def last_times(exercise_name: list[str] = Query(default_factory=list), user_id: str = Depends(get_current_user_id)):
+    """For each exercise name asked about: the heaviest set of the most recent session (weight in kg, reps) and the heaviest weight ever.
+    Names with nothing logged (or nothing but empty sets) are left out. Matches on the name, like /workouts/progress."""
+    kg = "(CASE WHEN SUBSTR(LOWER(COALESCE(weight_unit, 'kg')), 1, 2) = 'lb' THEN weight_value * 0.45359237 ELSE weight_value END)"
+    found = {}
+    for name in list(dict.fromkeys(n.strip() for n in exercise_name if n and n.strip()))[:40]:
+        rows = await db.fetch_all(
+            f"""
+            SELECT session_id, logged_at, {kg} AS weight_kg, rep_count
+            FROM workout_sessions_log
+            WHERE user_id = :uid AND LOWER(exercise_name) = LOWER(:name)
+              AND (COALESCE(weight_value, 0) > 0 OR COALESCE(rep_count, 0) > 0)
+            """,
+            {"uid": user_id, "name": name},
+        )
+        if not rows:
+            continue
+        started: dict[str, str] = {}
+        for r in rows:
+            at = r["logged_at"] or ""
+            if r["session_id"] not in started or at < started[r["session_id"]]:
+                started[r["session_id"]] = at
+        latest = max(started, key=lambda sid: started[sid])
+        top = max((r for r in rows if r["session_id"] == latest), key=lambda r: (r["weight_kg"] or 0, r["rep_count"] or 0))
+        best = max((r["weight_kg"] or 0) for r in rows)
+        found[name] = {
+            "weight_kg": top["weight_kg"] if (top["weight_kg"] or 0) > 0 else None,
+            "reps": top["rep_count"] if (top["rep_count"] or 0) > 0 else None,
+            "logged_at": started[latest] or None,
+            "best_weight_kg": best if best > 0 else None,
+        }
+    return {"last_times": found}
 
 
 @router.get("/{workout_id}")
