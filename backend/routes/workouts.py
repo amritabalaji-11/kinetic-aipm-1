@@ -206,38 +206,56 @@ async def exercise_progress(exercise_name: str, user_id: str = Depends(get_curre
 
 # What you did last time on each exercise, so the workout screen can remind you. One call for the whole workout.
 # Defined before "/{workout_id}" so "last-times" isn't read as a workout id.
+_KG = "(CASE WHEN SUBSTR(LOWER(COALESCE(weight_unit, 'kg')), 1, 2) = 'lb' THEN weight_value * 0.45359237 ELSE weight_value END)"
+
+
+def _last_time_of(rows) -> Optional[dict]:
+    """The heaviest set of the most recent session, plus the heaviest weight ever, from one exercise's sets. None when there is nothing."""
+    if not rows:
+        return None
+    started: dict[str, str] = {}
+    for r in rows:
+        at = r["logged_at"] or ""
+        if r["session_id"] not in started or at < started[r["session_id"]]:
+            started[r["session_id"]] = at
+    latest = max(started, key=lambda sid: started[sid])
+    top = max((r for r in rows if r["session_id"] == latest), key=lambda r: (r["weight_kg"] or 0, r["rep_count"] or 0))
+    best = max((r["weight_kg"] or 0) for r in rows)
+    return {
+        "weight_kg": top["weight_kg"] if (top["weight_kg"] or 0) > 0 else None,
+        "reps": top["rep_count"] if (top["rep_count"] or 0) > 0 else None,
+        "logged_at": started[latest] or None,
+        "best_weight_kg": best if best > 0 else None,
+    }
+
+
 @router.get("/last-times")
-async def last_times(exercise_name: list[str] = Query(default_factory=list), user_id: str = Depends(get_current_user_id)):
-    """For each exercise name asked about: the heaviest set of the most recent session (weight in kg, reps) and the heaviest weight ever.
-    Names with nothing logged (or nothing but empty sets) are left out. Matches on the name, like /workouts/progress."""
-    kg = "(CASE WHEN SUBSTR(LOWER(COALESCE(weight_unit, 'kg')), 1, 2) = 'lb' THEN weight_value * 0.45359237 ELSE weight_value END)"
+async def last_times(
+    exercise_name: list[str] = Query(default_factory=list),
+    exercise_id: list[str] = Query(default_factory=list),
+    user_id: str = Depends(get_current_user_id),
+):
+    """For each exercise asked about, by name and/or by exercise id: the heaviest set of the most recent session (weight in kg, reps)
+    and the heaviest weight ever. Answers by name come back under the name, answers by id under the id. Anything with nothing logged
+    (or only empty sets) is left out. The id is the steadier match: plans spell the same exercise differently, and names can change."""
     found = {}
+    has_data = "(COALESCE(weight_value, 0) > 0 OR COALESCE(rep_count, 0) > 0)"
     for name in list(dict.fromkeys(n.strip() for n in exercise_name if n and n.strip()))[:40]:
         rows = await db.fetch_all(
-            f"""
-            SELECT session_id, logged_at, {kg} AS weight_kg, rep_count
-            FROM workout_sessions_log
-            WHERE user_id = :uid AND LOWER(exercise_name) = LOWER(:name)
-              AND (COALESCE(weight_value, 0) > 0 OR COALESCE(rep_count, 0) > 0)
-            """,
+            f"SELECT session_id, logged_at, {_KG} AS weight_kg, rep_count FROM workout_sessions_log "
+            f"WHERE user_id = :uid AND LOWER(exercise_name) = LOWER(:name) AND {has_data}",
             {"uid": user_id, "name": name},
         )
-        if not rows:
-            continue
-        started: dict[str, str] = {}
-        for r in rows:
-            at = r["logged_at"] or ""
-            if r["session_id"] not in started or at < started[r["session_id"]]:
-                started[r["session_id"]] = at
-        latest = max(started, key=lambda sid: started[sid])
-        top = max((r for r in rows if r["session_id"] == latest), key=lambda r: (r["weight_kg"] or 0, r["rep_count"] or 0))
-        best = max((r["weight_kg"] or 0) for r in rows)
-        found[name] = {
-            "weight_kg": top["weight_kg"] if (top["weight_kg"] or 0) > 0 else None,
-            "reps": top["rep_count"] if (top["rep_count"] or 0) > 0 else None,
-            "logged_at": started[latest] or None,
-            "best_weight_kg": best if best > 0 else None,
-        }
+        if (got := _last_time_of(rows)):
+            found[name] = got
+    for eid in list(dict.fromkeys(i.strip() for i in exercise_id if i and i.strip()))[:40]:
+        rows = await db.fetch_all(
+            f"SELECT session_id, logged_at, {_KG} AS weight_kg, rep_count FROM workout_sessions_log "
+            f"WHERE user_id = :uid AND exercise_id = :eid AND {has_data}",
+            {"uid": user_id, "eid": eid},
+        )
+        if (got := _last_time_of(rows)):
+            found[eid] = got
     return {"last_times": found}
 
 

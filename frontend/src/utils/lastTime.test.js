@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest"
-import { historyName, lastTimeHints, lastTimeText } from "./lastTime"
+import { historyName, lastTimeEntry, lastTimeHints, lastTimeText } from "./lastTime"
 
 describe("lastTimeText", () => {
   it("shows the last weight and reps, and the best when it was heavier", () => {
@@ -35,5 +35,16 @@ describe("historyName", () => {
   it("falls back to the item's own name when the exercise is not in the catalog", () => {
     expect(historyName({ exerciseId: "custom_1", name: "My Own Move" })).toBe("My Own Move")
     expect(historyName({ name: "Plain" })).toBe("Plain")
+  })
+})
+
+describe("lastTimeEntry", () => {
+  const byId = { weight_kg: 20, reps: 10 }
+  const byName = { weight_kg: 15, reps: 8 }
+  it("prefers the match by exercise id, then falls back to the name", () => {
+    expect(lastTimeEntry({ ex_038: byId, "DB Bent Over Row": byName }, { exerciseId: "ex_038", name: "DB Bent Over Rows" })).toBe(byId)
+    expect(lastTimeEntry({ "DB Bent Over Row": byName }, { exerciseId: "ex_038", name: "DB Bent Over Rows" })).toBe(byName)
+    expect(lastTimeEntry({}, { exerciseId: "ex_038", name: "x" })).toBeNull()
+    expect(lastTimeEntry(undefined, { name: "x" })).toBeNull()
   })
 })

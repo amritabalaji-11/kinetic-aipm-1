@@ -57,19 +57,20 @@ class LastTimes(unittest.TestCase):
         con.commit()
         con.close()
 
-    def add(self, user, name, session, at, weight, unit, reps):
+    def add(self, user, name, session, at, weight, unit, reps, eid="ex_x"):
         con = sqlite3.connect(self.path)
         cols = [r[1] for r in con.execute("PRAGMA table_info(workout_sessions_log)")]
-        vals = {"session_id": session, "user_id": user, "exercise_id": "ex_x", "exercise_name": name, "logged_at": at,
+        vals = {"session_id": session, "user_id": user, "exercise_id": eid, "exercise_name": name, "logged_at": at,
                 "weight_value": weight, "weight_use": weight, "weight_unit": unit, "rep_count": reps, "set_number": 1}
         vals = {k: v for k, v in vals.items() if k in cols}
         con.execute(f"INSERT INTO workout_sessions_log ({','.join(vals)}) VALUES ({','.join('?' * len(vals))})", list(vals.values()))
         con.commit()
         con.close()
 
-    def get(self, names, user="user-a"):
+    def get(self, names, user="user-a", ids=()):
         headers = {"Authorization": f"Bearer {create_access_token(user)}"}
-        return self.client.get("/workouts/last-times", params=[("exercise_name", n) for n in names], headers=headers)
+        params = [("exercise_name", n) for n in names] + [("exercise_id", i) for i in ids]
+        return self.client.get("/workouts/last-times", params=params, headers=headers)
 
     def test_needs_sign_in(self):
         self.assertEqual(self.client.get("/workouts/last-times", params={"exercise_name": "Goblet Squat"}).status_code, 401)
@@ -108,6 +109,21 @@ class LastTimes(unittest.TestCase):
         got = self.get(["Goblet Squat", "Row", "Row"]).json()["last_times"]
         self.assertEqual(list(got), ["Row"])
         self.assertAlmostEqual(got["Row"]["weight_kg"], 40)
+
+    def test_the_id_finds_history_saved_under_a_different_spelling(self):
+        self.add("user-a", "DB Bent Over Row", "s1", "2026-11-10 10:00:00", 20, "kg", 10, eid="ex_038")
+        got = self.get(["DB Bent Over Rows"], ids=["ex_038"]).json()["last_times"]
+        self.assertNotIn("DB Bent Over Rows", got)          # the name alone misses it
+        self.assertAlmostEqual(got["ex_038"]["weight_kg"], 20)  # the id finds it
+        self.assertEqual(got["ex_038"]["reps"], 10)
+
+    def test_id_answers_are_per_person_and_empty_ids_are_ignored(self):
+        self.add("user-b", "Row", "s1", "2026-11-10 10:00:00", 50, "kg", 5, eid="ex_038")
+        self.assertEqual(self.get([], ids=["ex_038", "  ", ""]).json(), {"last_times": {}})
+
+    def test_the_old_name_only_call_still_works(self):
+        self.add("user-a", "Row", "s1", "2026-11-10 10:00:00", 40, "kg", 10, eid="ex_9")
+        self.assertAlmostEqual(self.get(["Row"]).json()["last_times"]["Row"]["weight_kg"], 40)
 
 
 if __name__ == "__main__":
