@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest"
-import { lastTimeHints, lastTimeText } from "./lastTime"
+import { historyName, lastTimeHints, lastTimeText } from "./lastTime"
 
 describe("lastTimeText", () => {
   it("shows the last weight and reps, and the best when it was heavier", () => {
@@ -24,5 +24,16 @@ describe("lastTimeHints", () => {
     expect(lastTimeHints({ weight_kg: 20.41, reps: 10 }, "lbs")).toEqual({ weight: "45", reps: "10" })
     expect(lastTimeHints({ weight_kg: null, reps: 15 }, "kg")).toEqual({ reps: "15" })
     expect(lastTimeHints(undefined, "kg")).toBeNull()
+  })
+})
+
+describe("historyName", () => {
+  it("uses the catalog name, so different plan spellings find the same history", () => {
+    expect(historyName({ exerciseId: "ex_038", name: "DB Bent Over Rows" })).toBe("DB Bent Over Row")
+    expect(historyName({ exerciseId: "ex_038", name: "DB Bent Over Row" })).toBe("DB Bent Over Row")
+  })
+  it("falls back to the item's own name when the exercise is not in the catalog", () => {
+    expect(historyName({ exerciseId: "custom_1", name: "My Own Move" })).toBe("My Own Move")
+    expect(historyName({ name: "Plain" })).toBe("Plain")
   })
 })

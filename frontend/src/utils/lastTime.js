@@ -1,6 +1,11 @@
 // "Last time" on the workout screen: what you did on this exercise before, so you are never guessing the weight.
 // The server sends weights in kg; they are shown in the person's own unit.
+import { getExercise } from "./exerciseCatalog"
 import { fromKg } from "./units"
+
+// The name history is saved and looked up under: the catalog name of the exercise, not the spelling a plan happens to use
+// (one plan says "DB Bent Over Row", another "DB Bent Over Rows"). This matches what flattenForSave stores.
+export const historyName = (item) => getExercise(item.exerciseId)?.name || item.name
 
 const unitLabel = (unit) => (unit === "lbs" ? "lb" : "kg")
 
