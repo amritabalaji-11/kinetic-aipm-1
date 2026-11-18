@@ -126,8 +126,12 @@ export const deleteWorkout = (workoutId) =>
 export const getExerciseProgress = (exerciseName) =>
   request(`/workouts/progress?exercise_name=${encodeURIComponent(exerciseName)}`)
 
-// What you did last time on each of these exercises (the heaviest set of the latest session, and your best weight), keyed by exercise name
-export const getLastTimes = (names) => {
-  const q = [...new Set(names)].map((n) => `exercise_name=${encodeURIComponent(n)}`).join("&")
+// What you did last time on these exercises (the heaviest set of the latest session, and your best weight), asked for by exercise id and by name.
+// The answer is keyed by id for the ids and by name for the names.
+export const getLastTimes = ({ names = [], ids = [] }) => {
+  const q = [
+    ...[...new Set(names)].map((n) => `exercise_name=${encodeURIComponent(n)}`),
+    ...[...new Set(ids)].map((i) => `exercise_id=${encodeURIComponent(i)}`),
+  ].join("&")
   return q ? request(`/workouts/last-times?${q}`).then((r) => r.last_times || {}) : Promise.resolve({})
 }

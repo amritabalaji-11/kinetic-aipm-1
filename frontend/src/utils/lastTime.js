@@ -34,3 +34,6 @@ export function lastTimeHints(entry, unit) {
   if (entry.reps) hints.reps = String(entry.reps)
   return Object.keys(hints).length ? hints : null
 }
+
+// The entry for an exercise from what the server sent back: matched by exercise id first (the steady match), then by name
+export const lastTimeEntry = (lastTimes, item) => (item.exerciseId && lastTimes?.[item.exerciseId]) || lastTimes?.[historyName(item)] || null

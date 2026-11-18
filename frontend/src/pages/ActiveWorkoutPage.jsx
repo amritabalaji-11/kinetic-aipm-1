@@ -29,7 +29,7 @@ import SwapSheet from "../components/SwapSheet"
 import AddExerciseSheet from "../components/AddExerciseSheet"
 import { hasGuidance } from "../data/exerciseGuidance"
 import { addPendingWorkout, getLastTimes, removePendingWorkout, saveWorkout } from "../services/workoutService"
-import { historyName, lastTimeHints, lastTimeText } from "../utils/lastTime"
+import { historyName, lastTimeEntry, lastTimeHints, lastTimeText } from "../utils/lastTime"
 import { equipmentLabel, getExercise } from "../utils/exerciseCatalog"
 import { isAiReady } from "../utils/analysableExercises"
 import {
@@ -261,14 +261,15 @@ export default function ActiveWorkoutPage() {
   }, [])
   // what they did last time on each exercise (a quiet reminder under the exercise, and light numbers in the empty boxes); no history, or no connection, just shows nothing
   const [lastTimes, setLastTimes] = useState({})
-  const loggedNames = (workout?.blocks || []).flatMap((b) => b.items).filter((it) => it.logged && !it.rest && it.name).map(historyName)
-  const loggedNamesKey = [...new Set(loggedNames)].sort().join("|")
+  const loggedItems = (workout?.blocks || []).flatMap((b) => b.items).filter((it) => it.logged && !it.rest && it.name)
+  const loggedKey = JSON.stringify([[...new Set(loggedItems.map(historyName))].sort(), [...new Set(loggedItems.map((it) => it.exerciseId).filter(Boolean))].sort()])
   useEffect(() => {
-    if (!loggedNamesKey) return
+    const [names, ids] = JSON.parse(loggedKey)
+    if (!names.length && !ids.length) return
     let cancelled = false
-    getLastTimes(loggedNamesKey.split("|")).then((r) => { if (!cancelled) setLastTimes(r) }).catch(() => {})
+    getLastTimes({ names, ids }).then((r) => { if (!cancelled) setLastTimes(r) }).catch(() => {})
     return () => { cancelled = true }
-  }, [loggedNamesKey])
+  }, [loggedKey])
   const [listOpen, setListOpen] = useState(false) // the list of every section
   const [cuesOpen, setCuesOpen] = useState({}) // block id -> cues panel opened or folded by hand
   const [restEndsAt, setRestEndsAt] = useState(null)
@@ -514,7 +515,7 @@ export default function ActiveWorkoutPage() {
           const tagOf = (it, leftGap) => { const tag = muscleTag(it.exerciseId); return tag ? <MuscleTag tag={tag} open={whyOpen === it.key} onClick={() => toggleWhy(it.key)} leftGap={leftGap} /> : null }
           const lastTimeOf = (it) => {
             const track = trackOf(it)
-            const text = track.weight || track.reps ? lastTimeText(lastTimes[historyName(it)], weightUnit) : null
+            const text = track.weight || track.reps ? lastTimeText(lastTimeEntry(lastTimes, it), weightUnit) : null
             return text ? <div style={{ fontFamily: DM_SANS, fontSize: 12, fontWeight: 600, color: "#6B5BA8", marginTop: 6 }}>↺ {text}</div> : null
           }
           const whyOf = (it) => { const why = whyOpen === it.key ? whyReps(it.exerciseId, it.name, it.sub) : null; return why ? <WhyCard why={why} /> : null }
@@ -662,7 +663,7 @@ export default function ActiveWorkoutPage() {
                         {hasGuidance(it.exerciseId) && <FormGuide exerciseId={it.exerciseId} name={it.name} startOpen={false} />}
                         <ColumnHeaders first="Set" track={trackOf(it)} />
                         {it.sets.map((s, si) => (
-                          <SetRow key={s.id} label={si + 1} set={s} item={it} hints={lastTimeHints(lastTimes[historyName(it)], weightUnit)} onChange={(f, v) => setField(bi, ii, si, f, v)} onTick={() => toggleSet(bi, ii, si)} onRecord={() => navigate("/upload", { state: { exerciseId: it.exerciseId } })} onTimerDone={(secs) => finishTimedSet(bi, ii, si, secs)} />
+                          <SetRow key={s.id} label={si + 1} set={s} item={it} hints={lastTimeHints(lastTimeEntry(lastTimes, it), weightUnit)} onChange={(f, v) => setField(bi, ii, si, f, v)} onTick={() => toggleSet(bi, ii, si)} onRecord={() => navigate("/upload", { state: { exerciseId: it.exerciseId } })} onTimerDone={(secs) => finishTimedSet(bi, ii, si, secs)} />
                         ))}
                       </>
                     )
@@ -682,7 +683,7 @@ export default function ActiveWorkoutPage() {
                               const ii = block.items.indexOf(it)
                               const s = it.sets[r]
                               if (!s) return null
-                              return <SetRow key={s.id} label={letter(actionable.indexOf(it))} labelColor={INK} set={s} item={it} labelled={!sameTrack(logged)} hints={lastTimeHints(lastTimes[historyName(it)], weightUnit)} onChange={(f, v) => setField(bi, ii, r, f, v)} onTick={() => toggleSet(bi, ii, r)} onRecord={() => navigate("/upload", { state: { exerciseId: it.exerciseId } })} onTimerDone={(secs) => finishTimedSet(bi, ii, r, secs)} />
+                              return <SetRow key={s.id} label={letter(actionable.indexOf(it))} labelColor={INK} set={s} item={it} labelled={!sameTrack(logged)} hints={lastTimeHints(lastTimeEntry(lastTimes, it), weightUnit)} onChange={(f, v) => setField(bi, ii, r, f, v)} onTick={() => toggleSet(bi, ii, r)} onRecord={() => navigate("/upload", { state: { exerciseId: it.exerciseId } })} onTimerDone={(secs) => finishTimedSet(bi, ii, r, secs)} />
                             })}
                           </div>
                         )
