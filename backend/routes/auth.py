@@ -214,6 +214,9 @@ ABOUT_YOU_CHOICES = {
     "gender": {"woman", "man", "non_binary", "prefer_not_to_say"},
 }
 TRAINING_TYPES = {"cardio", "strength", "yoga_pilates", "group_classes"}
+# the answers a person can take back, and the profile columns each one lives in (fixed here, never taken from the request)
+CLEARABLE = {"experience": ["experience_level"], "workouts_per_week": ["workouts_per_week"], "age_range": ["age_range"], "gender": ["gender"],
+             "training_types": ["training_types"], "has_injury": ["injury_report", "injury_details"]}
 
 
 @router.post("/me/about")
@@ -234,12 +237,43 @@ async def set_about_you(body: AboutYouIn, user_id: str = Depends(get_current_use
     if body.has_injury is not None:
         updates["injury_report"] = 1 if body.has_injury else 0
         updates["injury_details"] = (body.injury_details or "").strip() or None if body.has_injury else None  # no details are kept for "no"
+    # taking an answer back: the person un-answers it (a later "set" in the same call wins over a clear of the same key)
+    for key in body.clear or []:
+        if key not in CLEARABLE:
+            raise HTTPException(status_code=422, detail=f"Cannot clear {key}")
+        for column in CLEARABLE[key]:
+            updates.setdefault(column, None)
     found = await db.fetch_one("SELECT user_id FROM user_profiles WHERE user_id = :u", {"u": user_id})
     if not found:
         raise HTTPException(status_code=404, detail="User not found")
     for column, value in updates.items():  # the column names above are fixed in this file, never taken from the request
         await db.execute(f"UPDATE user_profiles SET {column} = :v WHERE user_id = :u", {"v": value, "u": user_id})
     return {"saved": sorted(updates)}
+
+
+@router.get("/me/about")
+async def get_about_you(user_id: str = Depends(get_current_user_id)):
+    """The person's own "A little about you" answers, so they can see and change them. Only ever the signed-in person's own;
+    gender and injuries are sensitive and are never shown on the admin pages."""
+    row = await db.fetch_one(
+        "SELECT experience_level, workouts_per_week, age_range, gender, training_types, injury_report, injury_details FROM user_profiles WHERE user_id = :u",
+        {"u": user_id},
+    )
+    if not row:
+        raise HTTPException(status_code=404, detail="User not found")
+    # The injuries column starts at 0, so "No" and "never asked" look the same in it. When it is 0 and nothing else was answered,
+    # we treat it as not answered (someone who only ever answered "No" to this one then sees it as not set, which does no harm).
+    others = any(row[k] for k in ("experience_level", "workouts_per_week", "age_range", "gender", "training_types", "injury_details"))
+    has_injury = None if row["injury_report"] is None or (row["injury_report"] == 0 and not others) else bool(row["injury_report"])
+    return {
+        "experience": row["experience_level"],
+        "workouts_per_week": row["workouts_per_week"],
+        "training_types": [t for t in (row["training_types"] or "").split(",") if t],
+        "age_range": row["age_range"],
+        "gender": row["gender"],
+        "has_injury": has_injury,
+        "injury_details": row["injury_details"],
+    }
 
 
 @router.post("/me/units")

@@ -8,18 +8,11 @@ import KineticMark from "../components/KineticMark"
 import { BRICOLAGE, DM_SANS, GRADIENT, GRAY, INK, PURPLE } from "../components/planUi"
 import { DEMO_USERS, useUser, useWeightUnit } from "../context/UserContext"
 import { saveAboutYou } from "../services/authService"
+import { QUESTIONS } from "../data/aboutYou"
 import { TOP_FADE_BACKGROUND } from "../utils/pageBackground"
 
 const STEPS = 4
 
-// One question each. `multi` ones can have several answers. Every answer is optional.
-const QUESTIONS = [
-  { key: "experience", label: "How long have you been training?", options: [["new", "Just starting"], ["1-2", "1–2 years"], ["3+", "3+ years"]] },
-  { key: "workouts_per_week", label: "How many times a week do you work out?", options: [["never", "Never"], ["1-2", "1–2"], ["3-4", "3–4"], ["5+", "5 or more"]] },
-  { key: "training_types", multi: true, label: "What do you mostly do to train? Select all that apply.", options: [["cardio", "Cardio"], ["strength", "Strength training"], ["yoga_pilates", "Yoga / Pilates"], ["group_classes", "Group classes"]] },
-  { key: "age_range", label: "Age range", options: [["18-29", "18–29"], ["30-39", "30–39"], ["40+", "40+"]] },
-  { key: "gender", label: "Gender", options: [["woman", "Woman"], ["man", "Man"], ["non_binary", "Non-binary"], ["prefer_not_to_say", "Prefer not to say"]] },
-]
 
 const chip = (on) => ({ padding: "9px 14px", borderRadius: 999, cursor: "pointer", fontFamily: DM_SANS, fontWeight: 600, fontSize: 14, border: `1.2px solid ${on ? PURPLE : "rgba(129,51,255,0.35)"}`, background: on ? PURPLE : "#fff", color: on ? "#fff" : PURPLE })
 const nextButton = { width: "100%", height: 54, borderRadius: 16, border: "none", background: GRADIENT, color: "#fff", fontFamily: BRICOLAGE, fontWeight: 700, fontSize: 17, cursor: "pointer" }

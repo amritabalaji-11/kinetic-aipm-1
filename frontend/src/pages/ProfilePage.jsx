@@ -3,7 +3,6 @@ import { useEffect, useState } from "react"
 import { useNavigate } from "react-router-dom"
 import { CoachIcon, CoachNoteSheet } from "../components/CoachNote"
 import { DEMO_USERS, useUser } from "../context/UserContext"
-import TeamShareSwitch from "../components/TeamShareSwitch"
 import MotivationLine from "../components/MotivationLine"
 import MotivationBanner from "../components/MotivationBanner"
 import { listWorkouts, pendingAsRows } from "../services/workoutService"
@@ -28,9 +27,8 @@ function MenuItem({ icon, label, onPress, danger }) {
 
 export default function ProfilePage() {
   const navigate    = useNavigate()
-  const { activeUser, clearUser, chooseSharing, saveMotivation } = useUser()
+  const { activeUser, clearUser, saveMotivation } = useUser()
   const isDemoAccount = !!(activeUser && DEMO_USERS[activeUser.id])
-  const [sharingError, setSharingError] = useState("")
   const [coachNoteOpen, setCoachNoteOpen] = useState(false)   // the full note from the AI coach
 
   const userName   = activeUser?.name        || "You"
@@ -104,28 +102,17 @@ export default function ProfilePage() {
             onPress={() => setCoachNoteOpen(true)}
             icon={<CoachIcon size={24} ring />}
           />
-          <MenuItem
-            label="Preferences"
-            icon={
+          {/* the onboarding answers: only for real accounts (a demo account has none) */}
+          {!isDemoAccount && (
+            <MenuItem
+              label="About you"
+              onPress={() => navigate("/about-you")}
+              icon={
               <svg width="20" height="20" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.8}>
                 <path strokeLinecap="round" strokeLinejoin="round" d="M3 5h2m0 0a2 2 0 104 0M5 5a2 2 0 114 0m0 0h12M3 12h10m0 0a2 2 0 104 0m-4 0a2 2 0 114 0m0 0h4M3 19h4m0 0a2 2 0 104 0m-4 0a2 2 0 114 0m0 0h10" />
               </svg>
             }
-          />
-          {activeUser && !DEMO_USERS[activeUser.id] && (
-            <div style={{ marginBottom: 8 }}>
-              <TeamShareSwitch
-                label="Let the Kinetic team watch my videos to improve the feedback"
-                checked={activeUser.shareVideos === true}
-                onChange={(v) => { setSharingError(""); chooseSharing(v).catch(() => setSharingError("We couldn't save that. Please try again.")) }}
-                note={activeUser.shareVideos === null
-                  ? "You haven't chosen yet. Turn it on to let our team watch your videos. Each upload still has its own switch."
-                  : activeUser.shareVideos
-                    ? "On for new uploads. Each upload has its own switch, and you can turn off any video you shared from its results screen."
-                    : "Off. Your videos stay private. You can turn it on for a single upload."}
-              />
-              {sharingError && <p role="alert" style={{ fontSize: 12, color: "#DC2626", margin: "6px 4px 0" }}>{sharingError}</p>}
-            </div>
+            />
           )}
           <MenuItem
             label="Subscription"

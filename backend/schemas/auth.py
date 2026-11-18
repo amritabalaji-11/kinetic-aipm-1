@@ -49,6 +49,7 @@ class AboutYouIn(BaseModel):
     gender: str | None = None                # woman | man | non_binary | prefer_not_to_say
     has_injury: bool | None = None           # past injuries or pain we should know about
     injury_details: str | None = Field(default=None, max_length=1000)  # only kept when has_injury is true
+    clear: list[str] | None = None           # answers to take back (un-answer): any of the keys above
 
 
 class WeightUnitIn(BaseModel):
