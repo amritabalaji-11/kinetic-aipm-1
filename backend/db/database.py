@@ -11,6 +11,9 @@ BASE_DIR = Path(__file__).resolve().parent.parent
 DATABASE_PATH = BASE_DIR / "kinetic.db"
 
 
+POOL_OPTIONS = "min_size=0&max_size=5"
+
+
 def _postgres_url() -> str | None:
     """DATABASE_URL when it points at Postgres (Neon, Cloud SQL, ...), otherwise None."""
     url = os.getenv("DATABASE_URL", "").strip()
@@ -20,7 +23,11 @@ def _postgres_url() -> str | None:
     # The driver we use wants "ssl=require"; Neon's copied string has libpq-style options (sslmode, channel_binding)
     # that it does not understand. Drop them and always ask for an encrypted connection.
     # statement_cache_size=0 keeps it working through Neon's connection pooler.
-    return urlunsplit(("postgresql", parts.netloc, parts.path, "ssl=require&statement_cache_size=0", ""))
+    # min_size=0 / max_size=5: hold no connections while idle (the driver's default is 10 kept open at all times),
+    # so Neon can go to sleep between users and its compute-hours are not spent on an idle app.
+    return urlunsplit(
+        ("postgresql", parts.netloc, parts.path, f"ssl=require&statement_cache_size=0&{POOL_OPTIONS}", "")
+    )
 
 
 POSTGRES_URL = _postgres_url()
